@@ -80,14 +80,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "SOM — Sistema Operacional da Marca" },
+      {
+        name: "description",
+        content: "SOM: aprovações de conteúdo e gestão de produção para marcas e clientes.",
+      },
+      { name: "author", content: "SOM" },
+      { property: "og:title", content: "SOM — Sistema Operacional da Marca" },
+      {
+        property: "og:description",
+        content: "Aprovações de conteúdo e gestão de produção para marcas e clientes.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
