@@ -22,6 +22,8 @@ import { Route as AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImpo
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/library'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/calendar'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.index'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.$contentId'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -100,6 +102,22 @@ const AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute =
+  AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdContentRoute,
+  } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute =
+  AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRouteImport.update(
+    {
+      id: '/$contentId',
+      path: '/$contentId',
+      getParentRoute: () =>
+        AuthenticatedClientsClientIdProjectsProjectIdContentRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,10 +128,12 @@ export interface FileRoutesByFullPath {
   '/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
   '/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
   '/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
-  '/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRoute
+  '/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren
   '/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   '/clients/$clientId/projects/$projectId/': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
+  '/clients/$clientId/projects/$projectId/content/$contentId': typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
+  '/clients/$clientId/projects/$projectId/content/': typeof AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -123,10 +143,11 @@ export interface FileRoutesByTo {
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdIndexRoute
   '/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
-  '/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRoute
   '/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   '/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
+  '/clients/$clientId/projects/$projectId/content/$contentId': typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
+  '/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -139,10 +160,12 @@ export interface FileRoutesById {
   '/_authenticated/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
   '/_authenticated/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
   '/_authenticated/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
-  '/_authenticated/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren
   '/_authenticated/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/_authenticated/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   '/_authenticated/clients/$clientId/projects/$projectId/': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/content/$contentId': typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/content/': typeof AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -159,6 +182,8 @@ export interface FileRouteTypes {
     | '/clients/$clientId/projects/$projectId/library'
     | '/clients/$clientId/projects/$projectId/settings'
     | '/clients/$clientId/projects/$projectId/'
+    | '/clients/$clientId/projects/$projectId/content/$contentId'
+    | '/clients/$clientId/projects/$projectId/content/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -168,10 +193,11 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clients/$clientId'
     | '/clients/$clientId/projects/$projectId/calendar'
-    | '/clients/$clientId/projects/$projectId/content'
     | '/clients/$clientId/projects/$projectId/library'
     | '/clients/$clientId/projects/$projectId/settings'
     | '/clients/$clientId/projects/$projectId'
+    | '/clients/$clientId/projects/$projectId/content/$contentId'
+    | '/clients/$clientId/projects/$projectId/content'
   id:
     | '__root__'
     | '/'
@@ -187,6 +213,8 @@ export interface FileRouteTypes {
     | '/_authenticated/clients/$clientId/projects/$projectId/library'
     | '/_authenticated/clients/$clientId/projects/$projectId/settings'
     | '/_authenticated/clients/$clientId/projects/$projectId/'
+    | '/_authenticated/clients/$clientId/projects/$projectId/content/$contentId'
+    | '/_authenticated/clients/$clientId/projects/$projectId/content/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -289,12 +317,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
+    '/_authenticated/clients/$clientId/projects/$projectId/content/': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/content/'
+      path: '/'
+      fullPath: '/clients/$clientId/projects/$projectId/content/'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentRoute
+    }
+    '/_authenticated/clients/$clientId/projects/$projectId/content/$contentId': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/content/$contentId'
+      path: '/$contentId'
+      fullPath: '/clients/$clientId/projects/$projectId/content/$contentId'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentRoute
+    }
   }
 }
 
+interface AuthenticatedClientsClientIdProjectsProjectIdContentRouteChildren {
+  AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
+  AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute
+}
+
+const AuthenticatedClientsClientIdProjectsProjectIdContentRouteChildren: AuthenticatedClientsClientIdProjectsProjectIdContentRouteChildren =
+  {
+    AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute:
+      AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute,
+    AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute:
+      AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute,
+  }
+
+const AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren =
+  AuthenticatedClientsClientIdProjectsProjectIdContentRoute._addFileChildren(
+    AuthenticatedClientsClientIdProjectsProjectIdContentRouteChildren,
+  )
+
 interface AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren {
   AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
-  AuthenticatedClientsClientIdProjectsProjectIdContentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentRoute
+  AuthenticatedClientsClientIdProjectsProjectIdContentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren
   AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   AuthenticatedClientsClientIdProjectsProjectIdIndexRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
@@ -305,7 +365,7 @@ const AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren: Authentic
     AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute:
       AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute,
     AuthenticatedClientsClientIdProjectsProjectIdContentRoute:
-      AuthenticatedClientsClientIdProjectsProjectIdContentRoute,
+      AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren,
     AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute:
       AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute,
     AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute:
