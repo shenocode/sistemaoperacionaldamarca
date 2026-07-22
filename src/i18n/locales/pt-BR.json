@@ -1,0 +1,55 @@
+{
+  "app": {
+    "name": "SOM",
+    "tagline": "Sistema Operacional da Marca"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "clients": "Clientes",
+    "signOut": "Sair"
+  },
+  "auth": {
+    "signIn": "Entrar",
+    "signUp": "Criar conta",
+    "signInWithGoogle": "Entrar com Google",
+    "email": "E-mail",
+    "password": "Senha",
+    "fullName": "Nome completo",
+    "forgotPassword": "Esqueceu a senha?",
+    "resetPassword": "Redefinir senha",
+    "newPassword": "Nova senha",
+    "sendResetLink": "Enviar link de redefinição",
+    "backToSignIn": "Voltar para entrar",
+    "noAccount": "Não tem uma conta?",
+    "hasAccount": "Já tem uma conta?"
+  },
+  "landing": {
+    "heroTitle": "Aprovações de conteúdo, sem WhatsApp.",
+    "heroSubtitle": "Gerencie produção e aprovações com seus clientes em um só lugar.",
+    "cta": "Entrar",
+    "goToApp": "Ir para o app"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Bem-vindo(a)"
+  },
+  "clients": {
+    "title": "Clientes",
+    "empty": "Nenhum cliente cadastrado.",
+    "new": "Novo cliente",
+    "projects": "Projetos"
+  },
+  "project": {
+    "tabs": {
+      "library": "Biblioteca",
+      "content": "Conteúdo",
+      "calendar": "Calendário",
+      "settings": "Configurações"
+    },
+    "calendarPlaceholder": "Em breve."
+  },
+  "common": {
+    "loading": "Carregando...",
+    "language": "Idioma"
+  }
+}
