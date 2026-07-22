@@ -132,6 +132,13 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* Preview: gold primary scoped to the landing page */
+.theme-gold {
+  --primary: oklch(0.72 0.14 85);
+  --primary-foreground: oklch(0.22 0.04 75);
+  --ring: oklch(0.72 0.14 85);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
