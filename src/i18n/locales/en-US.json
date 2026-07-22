@@ -31,23 +31,42 @@
     "noPending": "No pending approvals.",
     "noActivity": "No recent activity.",
     "viewAll": "View all",
-    "projects": "projects"
+    "projects": "Projects"
   },
   "clients": {
     "title": "Clients",
     "empty": "No clients yet.",
     "new": "New client",
+    "name": "Client name",
+    "notes": "Notes",
+    "created": "Client created.",
     "projects": "Projects",
+    "noProjects": "No projects for this client.",
+    "newProject": "New project",
+    "projectCreated": "Project created.",
+    "projectName": "Project name",
+    "projectDescription": "Description",
     "search": "Search clients...",
-    "openProject": "Open project"
+    "openProject": "Open project",
+    "active": "Active",
+    "archived": "Archived"
   },
   "project": {
     "back": "Back",
     "tabs": { "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
     "calendarPlaceholder": "Coming soon.",
+    "settings": {
+      "readOnly": "You don't have permission to edit this project.",
+      "status": "Project status"
+    },
     "library": {
-      "upload": "Upload file",
+      "upload": "Add file",
       "empty": "No files in the library.",
+      "added": "File added.",
+      "name": "Name",
+      "category": "Category",
+      "url": "File URL",
+      "open": "Open",
       "categories": {
         "brand": "Brand guide",
         "pdfs": "PDFs",
@@ -59,6 +78,8 @@
     "content": {
       "new": "New content",
       "empty": "No content created yet.",
+      "created": "Content created.",
+      "title": "Title",
       "columns": {
         "thumbnail": "Preview",
         "title": "Title",
@@ -78,17 +99,36 @@
     },
     "detail": {
       "preview": "Preview",
+      "noPreview": "No media",
       "caption": "Caption",
       "cta": "CTA",
       "hashtags": "Hashtags",
+      "mediaUrl": "Media URL",
       "comments": "Comments",
       "versions": "Version history",
       "approve": "Approve",
       "requestChanges": "Request changes",
+      "submitReview": "Submit for review",
+      "publish": "Publish",
       "leaveComment": "Leave a comment...",
       "send": "Send",
       "noComments": "No comments yet.",
-      "version": "Version"
+      "version": "Version",
+      "current": "current",
+      "saveVersion": "Save new version",
+      "versionNote": "Version note",
+      "versionNotePlaceholder": "What changed in this version?",
+      "versionCreated": "New version saved.",
+      "restore": "Restore",
+      "restored": "Version restored.",
+      "changesNote": "What needs to change?",
+      "changesNotePlaceholder": "Describe the required changes...",
+      "approvedToast": "Content approved.",
+      "changesToast": "Changes requested.",
+      "submittedToast": "Submitted for review.",
+      "publishedToast": "Content published.",
+      "notFound": "Content not found.",
+      "anonymous": "User"
     }
   },
   "common": {
@@ -96,6 +136,7 @@
     "language": "Language",
     "search": "Search",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "saved": "Saved."
   }
 }

@@ -9,25 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
 import { Route as AuthenticatedClientsClientIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/index'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdRouteRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/route'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/index'
-import { Route as AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/settings'
-import { Route as AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/library'
-import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/calendar'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/library'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/settings'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.index'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.$contentId'
 
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -35,13 +39,9 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -74,17 +74,10 @@ const AuthenticatedClientsClientIdProjectsProjectIdIndexRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
-const AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute =
-  AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () =>
-      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
-  } as any)
-const AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute =
-  AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport.update({
-    id: '/library',
-    path: '/library',
+const AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute =
+  AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport.update({
+    id: '/calendar',
+    path: '/calendar',
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
@@ -95,10 +88,17 @@ const AuthenticatedClientsClientIdProjectsProjectIdContentRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
-const AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute =
-  AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport.update({
-    id: '/calendar',
-    path: '/calendar',
+const AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute =
+  AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport.update({
+    id: '/library',
+    path: '/library',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute =
+  AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
@@ -226,18 +226,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -247,11 +240,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard': {
@@ -289,18 +289,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
-    '/_authenticated/clients/$clientId/projects/$projectId/settings': {
-      id: '/_authenticated/clients/$clientId/projects/$projectId/settings'
-      path: '/settings'
-      fullPath: '/clients/$clientId/projects/$projectId/settings'
-      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport
-      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
-    }
-    '/_authenticated/clients/$clientId/projects/$projectId/library': {
-      id: '/_authenticated/clients/$clientId/projects/$projectId/library'
-      path: '/library'
-      fullPath: '/clients/$clientId/projects/$projectId/library'
-      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport
+    '/_authenticated/clients/$clientId/projects/$projectId/calendar': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/calendar'
+      path: '/calendar'
+      fullPath: '/clients/$clientId/projects/$projectId/calendar'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
     '/_authenticated/clients/$clientId/projects/$projectId/content': {
@@ -310,11 +303,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
-    '/_authenticated/clients/$clientId/projects/$projectId/calendar': {
-      id: '/_authenticated/clients/$clientId/projects/$projectId/calendar'
-      path: '/calendar'
-      fullPath: '/clients/$clientId/projects/$projectId/calendar'
-      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport
+    '/_authenticated/clients/$clientId/projects/$projectId/library': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/library'
+      path: '/library'
+      fullPath: '/clients/$clientId/projects/$projectId/library'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
+    '/_authenticated/clients/$clientId/projects/$projectId/settings': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/settings'
+      path: '/settings'
+      fullPath: '/clients/$clientId/projects/$projectId/settings'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
     '/_authenticated/clients/$clientId/projects/$projectId/content/': {
@@ -407,3 +407,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

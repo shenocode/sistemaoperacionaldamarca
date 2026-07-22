@@ -1,31 +1,95 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Upload, FileText, Image as ImageIcon, Video, BookOpen, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  canManageClient,
+  createLibraryAsset,
+  listLibraryAssets,
+  type LibraryCategory,
+} from "@/lib/api";
 
-export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/library")({
+const categories = [
+  { key: "brand" as const, icon: Sparkles },
+  { key: "pdfs" as const, icon: FileText },
+  { key: "images" as const, icon: ImageIcon },
+  { key: "videos" as const, icon: Video },
+  { key: "references" as const, icon: BookOpen },
+];
+
+export const Route = createFileRoute(
+  "/_authenticated/clients/$clientId/projects/$projectId/library",
+)({
   component: LibraryPage,
 });
 
 function LibraryPage() {
+  const { clientId, projectId } = Route.useParams();
   const { t } = useTranslation();
-  const categories = [
-    { key: "brand", icon: Sparkles },
-    { key: "pdfs", icon: FileText },
-    { key: "images", icon: ImageIcon },
-    { key: "videos", icon: Video },
-    { key: "references", icon: BookOpen },
-  ] as const;
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
+  const [category, setCategory] = useState<LibraryCategory>("references");
+
+  const assetsQuery = useQuery({
+    queryKey: ["library", projectId],
+    queryFn: () => listLibraryAssets(projectId),
+  });
+
+  const manageQuery = useQuery({
+    queryKey: ["can-manage", clientId],
+    queryFn: () => canManageClient(clientId),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createLibraryAsset,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["library", projectId] });
+      setOpen(false);
+      setName("");
+      setFileUrl("");
+      setCategory("references");
+      toast.success(t("project.library.added"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const assets = assetsQuery.data ?? [];
+  const counts = Object.fromEntries(
+    categories.map((c) => [c.key, assets.filter((a) => a.category === c.key).length]),
+  ) as Record<LibraryCategory, number>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
-        <Button>
-          <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-          {t("project.library.upload")}
-        </Button>
+        {manageQuery.data ? (
+          <Button onClick={() => setOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t("project.library.upload")}
+          </Button>
+        ) : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {categories.map((c) => {
@@ -37,13 +101,103 @@ function LibraryPage() {
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <p className="text-sm font-medium">{t(`project.library.categories.${c.key}`)}</p>
-                <p className="text-xs text-muted-foreground">0</p>
+                <p className="text-xs text-muted-foreground">{counts[c.key] ?? 0}</p>
               </CardContent>
             </Card>
           );
         })}
       </div>
-      <EmptyState icon={Upload} title={t("project.library.empty")} />
+
+      {assetsQuery.isLoading ? (
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      ) : assets.length === 0 ? (
+        <EmptyState icon={Upload} title={t("project.library.empty")} />
+      ) : (
+        <ul className="divide-y rounded-xl border">
+          {assets.map((asset) => (
+            <li key={asset.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+              <div>
+                <p className="font-medium">{asset.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t(`project.library.categories.${asset.category}`)}
+                </p>
+              </div>
+              {asset.file_url ? (
+                <a
+                  href={asset.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t("project.library.open")}
+                </a>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("project.library.upload")}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim()) return;
+              createMutation.mutate({ projectId, name, category, fileUrl });
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="asset-name">{t("project.library.name")}</Label>
+              <Input
+                id="asset-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("project.library.category")}</Label>
+              <Select
+                value={category}
+                onValueChange={(v) => setCategory(v as LibraryCategory)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.key} value={c.key}>
+                      {t(`project.library.categories.${c.key}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="asset-url">{t("project.library.url")}</Label>
+              <Input
+                id="asset-url"
+                type="url"
+                value={fileUrl}
+                onChange={(e) => setFileUrl(e.target.value)}
+                placeholder="https://"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
+                {t("common.save")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

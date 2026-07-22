@@ -31,23 +31,42 @@
     "noPending": "Sin aprobaciones pendientes.",
     "noActivity": "Sin actividad reciente.",
     "viewAll": "Ver todos",
-    "projects": "proyectos"
+    "projects": "Proyectos"
   },
   "clients": {
     "title": "Clientes",
     "empty": "Aún no hay clientes.",
     "new": "Nuevo cliente",
+    "name": "Nombre del cliente",
+    "notes": "Notas",
+    "created": "Cliente creado.",
     "projects": "Proyectos",
+    "noProjects": "No hay proyectos para este cliente.",
+    "newProject": "Nuevo proyecto",
+    "projectCreated": "Proyecto creado.",
+    "projectName": "Nombre del proyecto",
+    "projectDescription": "Descripción",
     "search": "Buscar clientes...",
-    "openProject": "Abrir proyecto"
+    "openProject": "Abrir proyecto",
+    "active": "Activo",
+    "archived": "Archivado"
   },
   "project": {
     "back": "Volver",
     "tabs": { "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
     "calendarPlaceholder": "Próximamente.",
+    "settings": {
+      "readOnly": "No tienes permiso para editar este proyecto.",
+      "status": "Estado del proyecto"
+    },
     "library": {
-      "upload": "Subir archivo",
+      "upload": "Añadir archivo",
       "empty": "No hay archivos en la biblioteca.",
+      "added": "Archivo añadido.",
+      "name": "Nombre",
+      "category": "Categoría",
+      "url": "URL del archivo",
+      "open": "Abrir",
       "categories": {
         "brand": "Guía de marca",
         "pdfs": "PDFs",
@@ -59,6 +78,8 @@
     "content": {
       "new": "Nuevo contenido",
       "empty": "Aún no hay contenido.",
+      "created": "Contenido creado.",
+      "title": "Título",
       "columns": {
         "thumbnail": "Vista previa",
         "title": "Título",
@@ -78,17 +99,36 @@
     },
     "detail": {
       "preview": "Vista previa",
+      "noPreview": "Sin medios",
       "caption": "Descripción",
       "cta": "CTA",
       "hashtags": "Hashtags",
+      "mediaUrl": "URL del medio",
       "comments": "Comentarios",
       "versions": "Historial de versiones",
       "approve": "Aprobar",
       "requestChanges": "Solicitar cambios",
+      "submitReview": "Enviar a revisión",
+      "publish": "Publicar",
       "leaveComment": "Deja un comentario...",
       "send": "Enviar",
       "noComments": "Aún no hay comentarios.",
-      "version": "Versión"
+      "version": "Versión",
+      "current": "actual",
+      "saveVersion": "Guardar nueva versión",
+      "versionNote": "Nota de versión",
+      "versionNotePlaceholder": "¿Qué cambió en esta versión?",
+      "versionCreated": "Nueva versión guardada.",
+      "restore": "Restaurar",
+      "restored": "Versión restaurada.",
+      "changesNote": "¿Qué necesita cambiar?",
+      "changesNotePlaceholder": "Describe los cambios necesarios...",
+      "approvedToast": "Contenido aprobado.",
+      "changesToast": "Cambios solicitados.",
+      "submittedToast": "Enviado a revisión.",
+      "publishedToast": "Contenido publicado.",
+      "notFound": "Contenido no encontrado.",
+      "anonymous": "Usuario"
     }
   },
   "common": {
@@ -96,6 +136,7 @@
     "language": "Idioma",
     "search": "Buscar",
     "cancel": "Cancelar",
-    "save": "Guardar"
+    "save": "Guardar",
+    "saved": "Guardado."
   }
 }
