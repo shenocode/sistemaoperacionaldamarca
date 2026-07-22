@@ -1,10 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) throw redirect({ to: "/dashboard" });
+  },
   head: () => ({
     meta: [
       { title: "SOM — Sistema Operacional da Marca" },
@@ -24,7 +28,6 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const { t } = useTranslation();
-  const { session, loading } = useAuth();
 
   return (
     <div className="theme-mint flex min-h-screen flex-col bg-background">
@@ -35,13 +38,9 @@ function Landing() {
         </div>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
-          {!loading && (
-            <Button asChild size="sm">
-              <Link to={session ? "/dashboard" : "/auth"}>
-                {session ? t("landing.goToApp") : t("landing.cta")}
-              </Link>
-            </Button>
-          )}
+          <Button asChild size="sm">
+            <Link to="/auth">{t("landing.cta")}</Link>
+          </Button>
         </div>
       </header>
       <main className="flex flex-1 items-center justify-center px-6">
@@ -50,9 +49,7 @@ function Landing() {
           <p className="mt-4 text-lg text-muted-foreground">{t("landing.heroSubtitle")}</p>
           <div className="mt-8">
             <Button asChild size="lg">
-              <Link to={session ? "/dashboard" : "/auth"}>
-                {session ? t("landing.goToApp") : t("landing.cta")}
-              </Link>
+              <Link to="/auth">{t("landing.cta")}</Link>
             </Button>
           </div>
         </div>

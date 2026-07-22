@@ -62,11 +62,17 @@ export async function getClient(clientId: string) {
 
 export async function createClient(input: { name: string; notes?: string }): Promise<Client> {
   const userId = await requireUserId();
-  const { data, error } = await supabase
-    .from("clients")
-    .insert({ name: input.name.trim(), notes: input.notes?.trim() || null, created_by: userId })
-    .select("*")
-    .single();
+  // Avoid insert().select(): RETURNING hits SELECT RLS before membership exists.
+  const id = crypto.randomUUID();
+  const { error: insertError } = await supabase.from("clients").insert({
+    id,
+    name: input.name.trim(),
+    notes: input.notes?.trim() || null,
+    created_by: userId,
+  });
+  if (insertError) throw new Error(insertError.message);
+
+  const { data, error } = await supabase.from("clients").select("*").eq("id", id).single();
   const row = ensureData(data, error);
   await logActivity({
     type: "client_created",
