@@ -83,16 +83,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "SOM — Sistema Operacional da Marca" },
       {
         name: "description",
-        content: "SOM: aprovações de conteúdo e gestão de produção para marcas e clientes.",
+        content: "Aprovações de conteúdo e gestão de produção para marcas e clientes, em um só lugar.",
       },
       { name: "author", content: "SOM" },
       { property: "og:title", content: "SOM — Sistema Operacional da Marca" },
       {
         property: "og:description",
-        content: "Aprovações de conteúdo e gestão de produção para marcas e clientes.",
+        content: "Aprovações de conteúdo e gestão de produção para marcas e clientes, em um só lugar.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "SOM — Sistema Operacional da Marca" },
+      { name: "twitter:description", content: "Aprovações de conteúdo e gestão de produção para marcas e clientes, em um só lugar." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8da24a21-0818-4d7e-aaf0-534c2df24f0b/id-preview-bd8f028e--68a07186-5898-4da7-8c8c-a058ecbc358b.lovable.app-1784759628857.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8da24a21-0818-4d7e-aaf0-534c2df24f0b/id-preview-bd8f028e--68a07186-5898-4da7-8c8c-a058ecbc358b.lovable.app-1784759628857.png" },
     ],
     links: [
       {

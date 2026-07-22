@@ -15,7 +15,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "SOM — Sistema Operacional da Marca" },
       {
         property: "og:description",
-        content: "Aprovações de conteúdo e gestão de produção para marcas e clientes.",
+        content: "Aprovações de conteúdo e gestão de produção para marcas e clientes, em um só lugar.",
       },
     ],
   }),
