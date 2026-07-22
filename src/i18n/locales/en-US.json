@@ -22,11 +22,80 @@
     "cta": "Sign in",
     "goToApp": "Go to app"
   },
-  "dashboard": { "title": "Dashboard", "welcome": "Welcome" },
-  "clients": { "title": "Clients", "empty": "No clients yet.", "new": "New client", "projects": "Projects" },
-  "project": {
-    "tabs": { "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
-    "calendarPlaceholder": "Coming soon."
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "clientsSection": "Your clients",
+    "pendingApprovals": "Pending approvals",
+    "recentActivity": "Recent activity",
+    "noPending": "No pending approvals.",
+    "noActivity": "No recent activity.",
+    "viewAll": "View all",
+    "projects": "projects"
   },
-  "common": { "loading": "Loading...", "language": "Language" }
+  "clients": {
+    "title": "Clients",
+    "empty": "No clients yet.",
+    "new": "New client",
+    "projects": "Projects",
+    "search": "Search clients...",
+    "openProject": "Open project"
+  },
+  "project": {
+    "back": "Back",
+    "tabs": { "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
+    "calendarPlaceholder": "Coming soon.",
+    "library": {
+      "upload": "Upload file",
+      "empty": "No files in the library.",
+      "categories": {
+        "brand": "Brand guide",
+        "pdfs": "PDFs",
+        "images": "Images",
+        "videos": "Videos",
+        "references": "References"
+      }
+    },
+    "content": {
+      "new": "New content",
+      "empty": "No content created yet.",
+      "columns": {
+        "thumbnail": "Preview",
+        "title": "Title",
+        "status": "Status",
+        "version": "Version",
+        "updated": "Updated",
+        "actions": "Actions"
+      },
+      "open": "Open",
+      "status": {
+        "draft": "Draft",
+        "review": "In review",
+        "approved": "Approved",
+        "changes": "Changes requested",
+        "published": "Published"
+      }
+    },
+    "detail": {
+      "preview": "Preview",
+      "caption": "Caption",
+      "cta": "CTA",
+      "hashtags": "Hashtags",
+      "comments": "Comments",
+      "versions": "Version history",
+      "approve": "Approve",
+      "requestChanges": "Request changes",
+      "leaveComment": "Leave a comment...",
+      "send": "Send",
+      "noComments": "No comments yet.",
+      "version": "Version"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "language": "Language",
+    "search": "Search",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
 }

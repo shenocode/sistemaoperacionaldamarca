@@ -22,11 +22,80 @@
     "cta": "Entrar",
     "goToApp": "Ir a la app"
   },
-  "dashboard": { "title": "Panel", "welcome": "Bienvenido/a" },
-  "clients": { "title": "Clientes", "empty": "Aún no hay clientes.", "new": "Nuevo cliente", "projects": "Proyectos" },
-  "project": {
-    "tabs": { "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
-    "calendarPlaceholder": "Próximamente."
+  "dashboard": {
+    "title": "Panel",
+    "welcome": "Bienvenido/a",
+    "clientsSection": "Tus clientes",
+    "pendingApprovals": "Aprobaciones pendientes",
+    "recentActivity": "Actividad reciente",
+    "noPending": "Sin aprobaciones pendientes.",
+    "noActivity": "Sin actividad reciente.",
+    "viewAll": "Ver todos",
+    "projects": "proyectos"
   },
-  "common": { "loading": "Cargando...", "language": "Idioma" }
+  "clients": {
+    "title": "Clientes",
+    "empty": "Aún no hay clientes.",
+    "new": "Nuevo cliente",
+    "projects": "Proyectos",
+    "search": "Buscar clientes...",
+    "openProject": "Abrir proyecto"
+  },
+  "project": {
+    "back": "Volver",
+    "tabs": { "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
+    "calendarPlaceholder": "Próximamente.",
+    "library": {
+      "upload": "Subir archivo",
+      "empty": "No hay archivos en la biblioteca.",
+      "categories": {
+        "brand": "Guía de marca",
+        "pdfs": "PDFs",
+        "images": "Imágenes",
+        "videos": "Videos",
+        "references": "Referencias"
+      }
+    },
+    "content": {
+      "new": "Nuevo contenido",
+      "empty": "Aún no hay contenido.",
+      "columns": {
+        "thumbnail": "Vista previa",
+        "title": "Título",
+        "status": "Estado",
+        "version": "Versión",
+        "updated": "Actualizado",
+        "actions": "Acciones"
+      },
+      "open": "Abrir",
+      "status": {
+        "draft": "Borrador",
+        "review": "En revisión",
+        "approved": "Aprobado",
+        "changes": "Cambios solicitados",
+        "published": "Publicado"
+      }
+    },
+    "detail": {
+      "preview": "Vista previa",
+      "caption": "Descripción",
+      "cta": "CTA",
+      "hashtags": "Hashtags",
+      "comments": "Comentarios",
+      "versions": "Historial de versiones",
+      "approve": "Aprobar",
+      "requestChanges": "Solicitar cambios",
+      "leaveComment": "Deja un comentario...",
+      "send": "Enviar",
+      "noComments": "Aún no hay comentarios.",
+      "version": "Versión"
+    }
+  },
+  "common": {
+    "loading": "Cargando...",
+    "language": "Idioma",
+    "search": "Buscar",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  }
 }
