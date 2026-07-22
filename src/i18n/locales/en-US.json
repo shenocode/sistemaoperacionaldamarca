@@ -1,0 +1,32 @@
+{
+  "app": { "name": "SOM", "tagline": "Brand Operating System" },
+  "nav": { "dashboard": "Dashboard", "clients": "Clients", "signOut": "Sign out" },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "signInWithGoogle": "Sign in with Google",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "forgotPassword": "Forgot password?",
+    "resetPassword": "Reset password",
+    "newPassword": "New password",
+    "sendResetLink": "Send reset link",
+    "backToSignIn": "Back to sign in",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "landing": {
+    "heroTitle": "Content approvals, without WhatsApp.",
+    "heroSubtitle": "Manage production and client approvals in one place.",
+    "cta": "Sign in",
+    "goToApp": "Go to app"
+  },
+  "dashboard": { "title": "Dashboard", "welcome": "Welcome" },
+  "clients": { "title": "Clients", "empty": "No clients yet.", "new": "New client", "projects": "Projects" },
+  "project": {
+    "tabs": { "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
+    "calendarPlaceholder": "Coming soon."
+  },
+  "common": { "loading": "Loading...", "language": "Language" }
+}

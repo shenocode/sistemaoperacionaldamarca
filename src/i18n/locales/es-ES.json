@@ -1,0 +1,32 @@
+{
+  "app": { "name": "SOM", "tagline": "Sistema Operativo de Marca" },
+  "nav": { "dashboard": "Panel", "clients": "Clientes", "signOut": "Salir" },
+  "auth": {
+    "signIn": "Entrar",
+    "signUp": "Crear cuenta",
+    "signInWithGoogle": "Entrar con Google",
+    "email": "Correo",
+    "password": "Contraseña",
+    "fullName": "Nombre completo",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "resetPassword": "Restablecer contraseña",
+    "newPassword": "Nueva contraseña",
+    "sendResetLink": "Enviar enlace",
+    "backToSignIn": "Volver a entrar",
+    "noAccount": "¿No tienes cuenta?",
+    "hasAccount": "¿Ya tienes cuenta?"
+  },
+  "landing": {
+    "heroTitle": "Aprobaciones de contenido, sin WhatsApp.",
+    "heroSubtitle": "Gestiona producción y aprobaciones con tus clientes en un solo lugar.",
+    "cta": "Entrar",
+    "goToApp": "Ir a la app"
+  },
+  "dashboard": { "title": "Panel", "welcome": "Bienvenido/a" },
+  "clients": { "title": "Clientes", "empty": "Aún no hay clientes.", "new": "Nuevo cliente", "projects": "Proyectos" },
+  "project": {
+    "tabs": { "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
+    "calendarPlaceholder": "Próximamente."
+  },
+  "common": { "loading": "Cargando...", "language": "Idioma" }
+}
