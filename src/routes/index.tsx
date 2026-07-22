@@ -27,7 +27,7 @@ function Landing() {
   const { session, loading } = useAuth();
 
   return (
-    <div className="theme-gold flex min-h-screen flex-col bg-background">
+    <div className="theme-mint flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
