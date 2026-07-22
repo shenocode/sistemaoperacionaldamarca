@@ -1,13 +1,6 @@
 {
-  "app": {
-    "name": "SOM",
-    "tagline": "Sistema Operacional da Marca"
-  },
-  "nav": {
-    "dashboard": "Dashboard",
-    "clients": "Clientes",
-    "signOut": "Sair"
-  },
+  "app": { "name": "SOM", "tagline": "Sistema Operacional da Marca" },
+  "nav": { "dashboard": "Dashboard", "clients": "Clientes", "signOut": "Sair" },
   "auth": {
     "signIn": "Entrar",
     "signUp": "Criar conta",
@@ -31,25 +24,83 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Bem-vindo(a)"
+    "welcome": "Bem-vindo(a)",
+    "clientsSection": "Seus clientes",
+    "pendingApprovals": "Aprovações pendentes",
+    "recentActivity": "Atividade recente",
+    "noPending": "Nenhuma aprovação pendente.",
+    "noActivity": "Sem atividade recente.",
+    "viewAll": "Ver todos",
+    "projects": "projetos"
   },
   "clients": {
     "title": "Clientes",
     "empty": "Nenhum cliente cadastrado.",
     "new": "Novo cliente",
-    "projects": "Projetos"
+    "projects": "Projetos",
+    "search": "Buscar clientes...",
+    "openProject": "Abrir projeto"
   },
   "project": {
+    "back": "Voltar",
     "tabs": {
       "library": "Biblioteca",
       "content": "Conteúdo",
       "calendar": "Calendário",
       "settings": "Configurações"
     },
-    "calendarPlaceholder": "Em breve."
+    "calendarPlaceholder": "Em breve.",
+    "library": {
+      "upload": "Enviar arquivo",
+      "empty": "Nenhum arquivo na biblioteca.",
+      "categories": {
+        "brand": "Guia de marca",
+        "pdfs": "PDFs",
+        "images": "Imagens",
+        "videos": "Vídeos",
+        "references": "Referências"
+      }
+    },
+    "content": {
+      "new": "Novo conteúdo",
+      "empty": "Nenhum conteúdo criado.",
+      "columns": {
+        "thumbnail": "Prévia",
+        "title": "Título",
+        "status": "Status",
+        "version": "Versão",
+        "updated": "Atualizado",
+        "actions": "Ações"
+      },
+      "open": "Abrir",
+      "status": {
+        "draft": "Rascunho",
+        "review": "Em revisão",
+        "approved": "Aprovado",
+        "changes": "Revisões solicitadas",
+        "published": "Publicado"
+      }
+    },
+    "detail": {
+      "preview": "Prévia",
+      "caption": "Legenda",
+      "cta": "CTA",
+      "hashtags": "Hashtags",
+      "comments": "Comentários",
+      "versions": "Histórico de versões",
+      "approve": "Aprovar",
+      "requestChanges": "Solicitar mudanças",
+      "leaveComment": "Deixe um comentário...",
+      "send": "Enviar",
+      "noComments": "Sem comentários ainda.",
+      "version": "Versão"
+    }
   },
   "common": {
     "loading": "Carregando...",
-    "language": "Idioma"
+    "language": "Idioma",
+    "search": "Buscar",
+    "cancel": "Cancelar",
+    "save": "Salvar"
   }
 }
