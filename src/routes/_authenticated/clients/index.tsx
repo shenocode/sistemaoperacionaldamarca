@@ -122,7 +122,11 @@ function ClientsPage() {
   }
 
   function handlePublish(client: ClientWithProjects, project: ClientProjectSummary) {
-    const link = buildProjectReviewUrl(client.id, project.id);
+    if (!client.access_token) {
+      toast.error(t("clients.accessTokenMissing"));
+      return;
+    }
+    const link = buildProjectReviewUrl(client.id, project.id, client.access_token);
     const message = t("clients.whatsappMessage", {
       client: client.name,
       project: project.name,

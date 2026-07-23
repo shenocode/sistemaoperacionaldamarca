@@ -62,6 +62,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { validateContentSearch } from "./content";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 type SourceMode = "file" | "url";
@@ -91,6 +92,7 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/content/$contentId",
 )({
+  validateSearch: validateContentSearch,
   head: () => ({ meta: [{ title: "Conteúdo — SOM" }, { name: "robots", content: "noindex" }] }),
   component: ContentDetailPage,
 });
@@ -443,7 +445,7 @@ function ContentDetailPage() {
         <Link
           to="/clients/$clientId/projects/$projectId/content"
           params={{ clientId, projectId }}
-          search={{ filter: undefined }}
+          search={{}}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />

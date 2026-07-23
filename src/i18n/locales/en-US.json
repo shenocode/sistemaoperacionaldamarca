@@ -21,7 +21,10 @@
     "sendResetLink": "Send reset link",
     "backToSignIn": "Back to sign in",
     "noAccount": "Don't have an account?",
-    "hasAccount": "Already have an account?"
+    "hasAccount": "Already have an account?",
+    "checkEmail": "Check your inbox to confirm your email.",
+    "resetSent": "Reset link sent.",
+    "reviewInviteHint": "Create your account or sign in to review content pending approval."
   },
   "landing": {
     "heroTitle": "Brand content management.",
@@ -66,9 +69,10 @@
     "updated": "Client updated.",
     "lastUpdates": "Latest updates",
     "publish": "Publish",
-    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nOpen your dashboard to review: {{link}}",
+    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nUse the link below (sign in or create your account) to see what is pending approval:\n{{link}}",
     "whatsappMissing": "Add the client's WhatsApp in settings before publishing.",
     "whatsappOpened": "Opening WhatsApp to notify the client.",
+    "accessTokenMissing": "This client does not have an access link yet. Apply the database update and try again.",
     "projects": "Projects",
     "noProjects": "No projects for this client.",
     "newProject": "New project",

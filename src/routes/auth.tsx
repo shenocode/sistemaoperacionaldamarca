@@ -8,10 +8,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { toast } from "sonner";
-import { resolvePostLoginPath } from "@/lib/api";
+import {
+  claimClientAccess,
+  clearAuthNext,
+  extractAccessTokenFromPath,
+  isSafeAppPath,
+  readAuthNext,
+  rememberAuthNext,
+  resolvePostLoginPath,
+} from "@/lib/api";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { next?: string } => {
+    if (typeof search.next === "string" && isSafeAppPath(search.next)) {
+      return { next: search.next };
+    }
+    return {};
+  },
   head: () => ({
     meta: [
       { title: "Entrar — SOM" },
@@ -25,13 +39,40 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+  const { next: nextFromSearch } = Route.useSearch();
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">(
+    nextFromSearch ? "signup" : "signin",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const nextPath = nextFromSearch ?? readAuthNext() ?? undefined;
+
+  useEffect(() => {
+    if (nextFromSearch) rememberAuthNext(nextFromSearch);
+  }, [nextFromSearch]);
+
   const goAfterLogin = async () => {
+    const destination = nextPath && isSafeAppPath(nextPath) ? nextPath : null;
+    const access = destination ? extractAccessTokenFromPath(destination) : null;
+
+    if (access) {
+      try {
+        await claimClientAccess(access);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    clearAuthNext();
+
+    if (destination) {
+      router.history.push(destination);
+      return;
+    }
+
     const dest = await resolvePostLoginPath();
     if (dest.to === "/clients/$clientId/projects/$projectId/content") {
       router.navigate({
@@ -61,22 +102,27 @@ function AuthPage() {
         if (error) throw error;
         await goAfterLogin();
       } else if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const redirectTo = destinationRedirect(nextPath);
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/home`,
+            emailRedirectTo: redirectTo,
             data: { full_name: fullName },
           },
         });
         if (error) throw error;
-        toast.success("Check your inbox to confirm your email.");
+        if (data.session) {
+          await goAfterLogin();
+        } else {
+          toast.success(t("auth.checkEmail"));
+        }
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
-        toast.success("Reset link sent.");
+        toast.success(t("auth.resetSent"));
         setMode("signin");
       }
     } catch (err) {
@@ -87,8 +133,9 @@ function AuthPage() {
   };
 
   const handleGoogle = async () => {
+    rememberAuthNext(nextPath);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/home`,
+      redirect_uri: `${window.location.origin}/auth${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`,
     });
     if (result.error) {
       toast.error(result.error instanceof Error ? result.error.message : "Google sign-in failed");
@@ -107,6 +154,9 @@ function AuthPage() {
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight">{t("app.name")}</h1>
           <p className="text-sm text-muted-foreground">{t("app.tagline")}</p>
+          {nextPath ? (
+            <p className="mt-2 text-sm text-muted-foreground">{t("auth.reviewInviteHint")}</p>
+          ) : null}
         </div>
 
         <div className="rounded-lg border bg-card p-6 shadow-sm">
@@ -198,4 +248,11 @@ function AuthPage() {
       </div>
     </div>
   );
+}
+
+function destinationRedirect(nextPath: string | undefined) {
+  if (nextPath && isSafeAppPath(nextPath)) {
+    return `${window.location.origin}/auth?next=${encodeURIComponent(nextPath)}`;
+  }
+  return `${window.location.origin}/home`;
 }

@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.navigate({ to: "/auth", replace: true });
+    router.navigate({ to: "/auth", search: {}, replace: true });
   };
 
   const showClientProjectNav = isClient && params.clientId && params.projectId;
@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 to="/clients/$clientId/projects/$projectId/content"
                 params={{ clientId: params.clientId!, projectId: params.projectId! }}
-                search={{ filter: undefined }}
+                search={{}}
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
                 activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
               >

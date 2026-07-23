@@ -133,6 +133,7 @@ function DashboardPage() {
                           projectId: item.projects.id,
                           contentId: item.id,
                         }}
+                        search={{}}
                         className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/40"
                       >
                         <div>

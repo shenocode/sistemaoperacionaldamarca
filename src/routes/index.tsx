@@ -46,7 +46,7 @@ function Landing() {
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
           <Button asChild size="sm">
-            <Link to="/auth">{t("landing.cta")}</Link>
+            <Link to="/auth" search={{}}>{t("landing.cta")}</Link>
           </Button>
         </div>
       </header>
@@ -56,7 +56,7 @@ function Landing() {
           <p className="mt-4 text-lg text-muted-foreground">{t("landing.heroSubtitle")}</p>
           <div className="mt-8">
             <Button asChild size="lg">
-              <Link to="/auth">{t("landing.cta")}</Link>
+              <Link to="/auth" search={{}}>{t("landing.cta")}</Link>
             </Button>
           </div>
         </div>

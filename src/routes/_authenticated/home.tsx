@@ -6,21 +6,39 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  claimClientAccess,
+  clearAuthNext,
+  extractAccessTokenFromPath,
   getClientHomeTarget,
   isAdmin,
   listAccessibleProjects,
+  readAuthNext,
 } from "@/lib/api";
 
 export const Route = createFileRoute("/_authenticated/home")({
   ssr: false,
   beforeLoad: async () => {
+    const pending = readAuthNext();
+    if (pending) {
+      const access = extractAccessTokenFromPath(pending);
+      if (access) {
+        try {
+          await claimClientAccess(access);
+        } catch {
+          // Still send the user to the intended path; content route may retry.
+        }
+      }
+      clearAuthNext();
+      throw redirect({ href: pending as "/" });
+    }
+
     if (await isAdmin()) throw redirect({ to: "/dashboard" });
     const target = await getClientHomeTarget();
     if (target.type === "project") {
       throw redirect({
         to: "/clients/$clientId/projects/$projectId/content",
         params: { clientId: target.clientId, projectId: target.projectId },
-        search: { filter: undefined },
+        search: {},
       });
     }
   },
@@ -61,7 +79,7 @@ function ClientHomePage() {
               <Link
                 to="/clients/$clientId/projects/$projectId/content"
                 params={{ clientId: project.clientId, projectId: project.projectId }}
-                search={{ filter: undefined }}
+                search={{}}
                 className="block"
               >
                 <Card className="transition-colors hover:bg-muted/40">

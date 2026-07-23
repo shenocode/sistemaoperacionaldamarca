@@ -22,13 +22,12 @@ import {
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { canManageClient, createContent, getClient, listContent } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
+import { validateContentSearch } from "./content";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/content/")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    filter: search.filter === "review" ? ("review" as const) : undefined,
-  }),
+  validateSearch: validateContentSearch,
   component: ContentListPage,
 });
 
@@ -67,6 +66,7 @@ function ContentListPage() {
       navigate({
         to: "/clients/$clientId/projects/$projectId/content/$contentId",
         params: { clientId, projectId, contentId: row.id },
+        search: {},
       });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -147,6 +147,7 @@ function ContentListPage() {
                         <Link
                           to="/clients/$clientId/projects/$projectId/content/$contentId"
                           params={{ clientId, projectId, contentId: r.id }}
+                          search={{}}
                         >
                           {t("project.content.open")}
                         </Link>

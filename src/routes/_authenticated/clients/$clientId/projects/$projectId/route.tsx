@@ -73,7 +73,7 @@ function ProjectLayout() {
             to={tab.to}
             params={{ clientId, projectId }}
             {...(tab.to === "/clients/$clientId/projects/$projectId/content"
-              ? { search: { filter: undefined as "review" | undefined } }
+              ? { search: {} }
               : {})}
             role="tab"
             className={cn(

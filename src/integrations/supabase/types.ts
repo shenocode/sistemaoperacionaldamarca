@@ -101,6 +101,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          access_token: string
           created_at: string
           created_by: string | null
           email: string | null
@@ -114,6 +115,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          access_token?: string
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -127,6 +129,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          access_token?: string
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -469,6 +472,10 @@ export type Database = {
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
       library_storage_project_id: { Args: { object_name: string }; Returns: string }
+      claim_client_access: {
+        Args: { _access_token: string }
+        Returns: string
+      }
       save_client_content_version: {
         Args: {
           _content_id: string

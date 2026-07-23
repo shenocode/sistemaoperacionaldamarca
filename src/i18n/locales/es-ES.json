@@ -21,7 +21,10 @@
     "sendResetLink": "Enviar enlace",
     "backToSignIn": "Volver a entrar",
     "noAccount": "¿No tienes cuenta?",
-    "hasAccount": "¿Ya tienes cuenta?"
+    "hasAccount": "¿Ya tienes cuenta?",
+    "checkEmail": "Revisa tu correo para confirmar la cuenta.",
+    "resetSent": "Enlace de restablecimiento enviado.",
+    "reviewInviteHint": "Crea tu cuenta o entra para revisar los contenidos pendientes de aprobación."
   },
   "landing": {
     "heroTitle": "Gestión de contenidos de marca.",
@@ -66,9 +69,10 @@
     "updated": "Cliente actualizado.",
     "lastUpdates": "Últimas actualizaciones",
     "publish": "Publicar",
-    "whatsappMessage": "¡Hola! Hay actualizaciones disponibles en el proyecto \"{{project}}\" ({{client}}) para tu revisión.\n\nAccede al dashboard para revisar: {{link}}",
+    "whatsappMessage": "¡Hola! Hay actualizaciones disponibles en el proyecto \"{{project}}\" ({{client}}) para tu revisión.\n\nAccede con el enlace (entra o crea tu cuenta) para ver lo pendiente de aprobación:\n{{link}}",
     "whatsappMissing": "Agrega el WhatsApp del cliente en la configuración antes de publicar.",
     "whatsappOpened": "Abriendo WhatsApp para avisar al cliente.",
+    "accessTokenMissing": "Este cliente aún no tiene enlace de acceso. Actualiza la base de datos e inténtalo de nuevo.",
     "projects": "Proyectos",
     "noProjects": "No hay proyectos para este cliente.",
     "newProject": "Nuevo proyecto",

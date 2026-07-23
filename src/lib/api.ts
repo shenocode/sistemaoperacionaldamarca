@@ -138,10 +138,62 @@ export function buildWhatsAppNotifyUrl(whatsapp: string | null | undefined, mess
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
-/** Deep link to the project content area where the client reviews/approves items. */
-export function buildProjectReviewUrl(clientId: string, projectId: string) {
+const AUTH_NEXT_STORAGE_KEY = "som_auth_next";
+
+/** Only allow in-app relative paths (blocks open redirects). */
+export function isSafeAppPath(path: string | null | undefined): path is string {
+  if (!path) return false;
+  if (!path.startsWith("/") || path.startsWith("//")) return false;
+  if (path.includes("://")) return false;
+  return true;
+}
+
+export function rememberAuthNext(path: string | null | undefined) {
+  if (typeof window === "undefined") return;
+  if (!isSafeAppPath(path)) {
+    sessionStorage.removeItem(AUTH_NEXT_STORAGE_KEY);
+    return;
+  }
+  sessionStorage.setItem(AUTH_NEXT_STORAGE_KEY, path);
+}
+
+export function readAuthNext(): string | null {
+  if (typeof window === "undefined") return null;
+  const value = sessionStorage.getItem(AUTH_NEXT_STORAGE_KEY);
+  return isSafeAppPath(value) ? value : null;
+}
+
+export function clearAuthNext() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(AUTH_NEXT_STORAGE_KEY);
+}
+
+export function extractAccessTokenFromPath(path: string): string | null {
+  try {
+    const url = new URL(path, "https://som.local");
+    const access = url.searchParams.get("access");
+    return access?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Deep link to pending approvals; `access` lets the client claim membership after auth. */
+export function buildProjectReviewUrl(clientId: string, projectId: string, accessToken: string) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/clients/${clientId}/projects/${projectId}/content`;
+  const params = new URLSearchParams({
+    filter: "review",
+    access: accessToken,
+  });
+  return `${origin}/clients/${clientId}/projects/${projectId}/content?${params.toString()}`;
+}
+
+/** Join the client workspace using the invite token from the review link. */
+export async function claimClientAccess(accessToken: string): Promise<string> {
+  const { data, error } = await supabase.rpc("claim_client_access", {
+    _access_token: accessToken,
+  });
+  return ensureData(data, error);
 }
 
 export async function listClients(): Promise<ClientWithProjects[]> {
@@ -869,7 +921,7 @@ export async function resolvePostLoginPath(): Promise<
   | {
       to: "/clients/$clientId/projects/$projectId/content";
       params: { clientId: string; projectId: string };
-      search: { filter: "review" | undefined };
+      search: { filter?: "review"; access?: string };
     }
 > {
   if (await isAdmin()) return { to: "/dashboard" };
@@ -878,7 +930,7 @@ export async function resolvePostLoginPath(): Promise<
     return {
       to: "/clients/$clientId/projects/$projectId/content",
       params: { clientId: target.clientId, projectId: target.projectId },
-      search: { filter: undefined },
+      search: {},
     };
   }
   return { to: "/home" };

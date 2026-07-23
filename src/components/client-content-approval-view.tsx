@@ -168,7 +168,7 @@ export function ClientContentApprovalView({
           <Link
             to="/clients/$clientId/projects/$projectId/content"
             params={{ clientId, projectId }}
-            search={{ filter: undefined }}
+            search={{}}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
