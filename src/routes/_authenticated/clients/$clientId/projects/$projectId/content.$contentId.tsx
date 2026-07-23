@@ -12,6 +12,7 @@ import {
   SendHorizonal,
   Save,
   History,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,16 +21,31 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { StatusBadge, type ContentStatus } from "@/components/status-badge";
+import { ContentMediaPreview, guessMediaKind, type PreviewMediaItem } from "@/components/content-media-preview";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  CONTENT_FORMATS,
+  CONTENT_MEDIA_ACCEPT,
   addComment,
   canManageClient,
+  getClient,
   getContent,
   listComments,
   listVersions,
+  resolveContentMediaUrls,
   restoreVersion,
   saveContentAsNewVersion,
   setContentStatus,
   updateContentFields,
+  uploadContentMediaFiles,
+  type ContentFormat,
   type ContentVersion,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
@@ -42,6 +58,7 @@ import {
 } from "@/components/ui/dialog";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
+type SourceMode = "file" | "url";
 
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/content/$contentId",
@@ -60,7 +77,11 @@ function ContentDetailPage() {
   const [caption, setCaption] = useState("");
   const [cta, setCta] = useState("");
   const [hashtags, setHashtags] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [source, setSource] = useState<SourceMode>("file");
+  const [urlDraft, setUrlDraft] = useState("");
   const [comment, setComment] = useState("");
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
@@ -86,9 +107,25 @@ function ContentDetailPage() {
     queryFn: () => canManageClient(clientId),
   });
 
+  const clientQuery = useQuery({
+    queryKey: ["clients", clientId],
+    queryFn: () => getClient(clientId),
+  });
+
   const content = contentQuery.data;
+  const client = clientQuery.data;
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
+  const isCarousel = formatType === "carousel";
+  const [blobUrls, setBlobUrls] = useState<string[]>([]);
+  const previewItems: PreviewMediaItem[] = [
+    ...mediaUrls.map((url) => ({ url })),
+    ...pendingFiles.map((file, index) => ({
+      url: blobUrls[index] ?? "",
+      kind: guessMediaKind(file),
+      name: file.name,
+    })),
+  ].filter((item) => item.url);
 
   useEffect(() => {
     if (!content) return;
@@ -96,8 +133,19 @@ function ContentDetailPage() {
     setCaption(content.caption);
     setCta(content.cta);
     setHashtags(content.hashtags);
-    setMediaUrl(content.media_url ?? "");
+    setFormatType(content.format ?? "static_feed");
+    setMediaUrls(resolveContentMediaUrls(content));
+    setPendingFiles([]);
+    setUrlDraft("");
   }, [content]);
+
+  useEffect(() => {
+    const next = pendingFiles.map((file) => URL.createObjectURL(file));
+    setBlobUrls(next);
+    return () => {
+      next.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [pendingFiles]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["content"] });
@@ -106,17 +154,30 @@ function ContentDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   };
 
+  const resolveMediaForSave = async () => {
+    const uploaded = pendingFiles.length
+      ? await uploadContentMediaFiles(projectId, pendingFiles)
+      : [];
+    const urls = [...mediaUrls, ...uploaded].filter(Boolean);
+    if (!isCarousel) return urls.slice(0, 1);
+    return urls;
+  };
+
   const saveMutation = useMutation({
-    mutationFn: () =>
-      updateContentFields({
+    mutationFn: async () => {
+      const urls = await resolveMediaForSave();
+      return updateContentFields({
         contentId,
         title,
         caption,
         cta,
         hashtags,
-        mediaUrl,
-      }),
+        mediaUrls: urls,
+        format: formatType,
+      });
+    },
     onSuccess: () => {
+      setPendingFiles([]);
       invalidateAll();
       toast.success(t("common.saved"));
     },
@@ -124,8 +185,9 @@ function ContentDetailPage() {
   });
 
   const versionMutation = useMutation({
-    mutationFn: () =>
-      saveContentAsNewVersion({
+    mutationFn: async () => {
+      const urls = await resolveMediaForSave();
+      return saveContentAsNewVersion({
         contentId,
         clientId,
         projectId,
@@ -133,11 +195,14 @@ function ContentDetailPage() {
         caption,
         cta,
         hashtags,
-        mediaUrl,
+        mediaUrls: urls,
+        format: formatType,
         changeNote: versionNote,
-      }),
+      });
+    },
     onSuccess: () => {
       setVersionNote("");
+      setPendingFiles([]);
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
     },
@@ -204,6 +269,31 @@ function ContentDetailPage() {
     setChangesNote("");
   };
 
+  const addUrl = () => {
+    const next = urlDraft.trim();
+    if (!next) return;
+    if (isCarousel) {
+      setMediaUrls((prev) => [...prev, next]);
+    } else {
+      setMediaUrls([next]);
+      setPendingFiles([]);
+    }
+    setUrlDraft("");
+  };
+
+  const removeMediaAt = (index: number) => {
+    const blobCount = pendingFiles.length;
+    const urlCount = mediaUrls.length;
+    if (index < urlCount) {
+      setMediaUrls((prev) => prev.filter((_, i) => i !== index));
+      return;
+    }
+    const fileIndex = index - urlCount;
+    if (fileIndex >= 0 && fileIndex < blobCount) {
+      setPendingFiles((prev) => prev.filter((_, i) => i !== fileIndex));
+    }
+  };
+
   if (contentQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
@@ -215,6 +305,7 @@ function ContentDetailPage() {
   const canApprove = status === "review";
   const canSubmit = canManage && (status === "draft" || status === "changes");
   const canPublish = canManage && status === "approved";
+  const saving = saveMutation.isPending || versionMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -272,17 +363,16 @@ function ContentDetailPage() {
               <CardTitle className="text-base">{t("project.detail.preview")}</CardTitle>
             </CardHeader>
             <CardContent>
-              {mediaUrl ? (
-                <img
-                  src={mediaUrl}
-                  alt={title}
-                  className="aspect-square w-full rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">
-                  {t("project.detail.noPreview")}
-                </div>
-              )}
+              <ContentMediaPreview
+                items={previewItems}
+                format={formatType}
+                title={title}
+                caption={caption}
+                hashtags={hashtags}
+                cta={cta}
+                username={client?.name ?? title}
+                avatarUrl={client?.logo_url}
+              />
             </CardContent>
           </Card>
 
@@ -296,6 +386,32 @@ function ContentDetailPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={!canManage}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("project.detail.format")}</Label>
+                <Select
+                  value={formatType}
+                  onValueChange={(v) => {
+                    const next = v as ContentFormat;
+                    setFormatType(next);
+                    if (next !== "carousel" && mediaUrls.length > 1) {
+                      setMediaUrls((prev) => prev.slice(0, 1));
+                      setPendingFiles([]);
+                    }
+                  }}
+                  disabled={!canManage}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONTENT_FORMATS.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {t(`project.detail.formats.${key}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="caption">{t("project.detail.caption")}</Label>
@@ -329,15 +445,83 @@ function ContentDetailPage() {
               </div>
               {canManage ? (
                 <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="media">{t("project.detail.mediaUrl")}</Label>
-                    <Input
-                      id="media"
-                      type="url"
-                      value={mediaUrl}
-                      onChange={(e) => setMediaUrl(e.target.value)}
-                      placeholder="https://"
-                    />
+                  <div className="space-y-3">
+                    <Label>{t("project.detail.media")}</Label>
+                    <Tabs
+                      value={source}
+                      onValueChange={(v) => setSource(v as SourceMode)}
+                      className="w-full"
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="file">{t("project.detail.sourceFile")}</TabsTrigger>
+                        <TabsTrigger value="url">{t("project.detail.sourceUrl")}</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="file" className="space-y-1.5 pt-3">
+                        <Input
+                          id="media-file"
+                          type="file"
+                          accept={CONTENT_MEDIA_ACCEPT}
+                          multiple={isCarousel}
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files ?? []);
+                            if (!files.length) return;
+                            if (isCarousel) {
+                              setPendingFiles((prev) => [...prev, ...files]);
+                            } else {
+                              setPendingFiles(files.slice(0, 1));
+                              setMediaUrls([]);
+                            }
+                            e.target.value = "";
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("project.detail.mediaHint")}
+                        </p>
+                      </TabsContent>
+                      <TabsContent value="url" className="space-y-1.5 pt-3">
+                        <div className="flex gap-2">
+                          <Input
+                            id="media-url"
+                            type="url"
+                            value={urlDraft}
+                            onChange={(e) => setUrlDraft(e.target.value)}
+                            placeholder="https://"
+                          />
+                          <Button type="button" variant="outline" onClick={addUrl}>
+                            {t("project.detail.addSlide")}
+                          </Button>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    {previewItems.length > 0 ? (
+                      <ul className="space-y-2 rounded-lg border p-3">
+                        {previewItems.map((item, index) => (
+                          <li
+                            key={`${item.url}-${index}`}
+                            className="flex items-center justify-between gap-2 text-xs"
+                          >
+                            <span className="truncate text-muted-foreground">
+                              {isCarousel
+                                ? `${t("project.detail.slide")} ${index + 1}`
+                                : t("project.detail.media")}
+                              {": "}
+                              {item.name ?? item.url}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0"
+                              onClick={() => removeMediaAt(index)}
+                              aria-label={t("project.detail.removeMedia")}
+                            >
+                              <X className="h-3.5 w-3.5" aria-hidden="true" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="version-note">{t("project.detail.versionNote")}</Label>
@@ -352,15 +536,15 @@ function ContentDetailPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={saveMutation.isPending}
+                      disabled={saving}
                       onClick={() => saveMutation.mutate()}
                     >
                       <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                      {t("common.save")}
+                      {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
                     </Button>
                     <Button
                       type="button"
-                      disabled={versionMutation.isPending}
+                      disabled={saving}
                       onClick={() => versionMutation.mutate()}
                     >
                       <History className="mr-2 h-4 w-4" aria-hidden="true" />

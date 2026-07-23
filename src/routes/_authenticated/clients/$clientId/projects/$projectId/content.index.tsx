@@ -19,7 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { canManageClient, createContent, listContent } from "@/lib/api";
+import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
+import { canManageClient, createContent, getClient, listContent } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -44,6 +45,11 @@ function ContentListPage() {
   const manageQuery = useQuery({
     queryKey: ["can-manage", clientId],
     queryFn: () => canManageClient(clientId),
+  });
+
+  const clientQuery = useQuery({
+    queryKey: ["clients", clientId],
+    queryFn: () => getClient(clientId),
   });
 
   const createMutation = useMutation({
@@ -79,57 +85,76 @@ function ContentListPage() {
       {contentQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       ) : rows.length === 0 ? (
-        <EmptyState icon={FileText} title={t("project.content.empty")} />
+        <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="w-full flex-1">
+            <EmptyState icon={FileText} title={t("project.content.empty")} />
+          </div>
+          <InstagramFeedMockup
+            items={[]}
+            username={clientQuery.data?.name}
+            avatarUrl={clientQuery.data?.logo_url}
+            className="mx-auto shrink-0 lg:sticky lg:top-6"
+          />
+        </div>
       ) : (
-        <Card className="overflow-hidden rounded-xl">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">{t("project.content.columns.thumbnail")}</th>
-                <th className="px-4 py-3">{t("project.content.columns.title")}</th>
-                <th className="px-4 py-3">{t("project.content.columns.status")}</th>
-                <th className="px-4 py-3">{t("project.content.columns.version")}</th>
-                <th className="px-4 py-3">{t("project.content.columns.updated")}</th>
-                <th className="px-4 py-3 text-right">{t("project.content.columns.actions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3">
-                    {r.media_url ? (
-                      <img
-                        src={r.media_url}
-                        alt=""
-                        className="h-10 w-10 rounded-md object-cover"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-md bg-muted" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-medium">{r.title}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={r.status as ContentStatus} />
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true, locale })}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button asChild variant="ghost" size="sm">
-                      <Link
-                        to="/clients/$clientId/projects/$projectId/content/$contentId"
-                        params={{ clientId, projectId, contentId: r.id }}
-                      >
-                        {t("project.content.open")}
-                      </Link>
-                    </Button>
-                  </td>
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+          <Card className="min-w-0 flex-1 overflow-hidden rounded-xl">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">{t("project.content.columns.thumbnail")}</th>
+                  <th className="px-4 py-3">{t("project.content.columns.title")}</th>
+                  <th className="px-4 py-3">{t("project.content.columns.status")}</th>
+                  <th className="px-4 py-3">{t("project.content.columns.version")}</th>
+                  <th className="px-4 py-3">{t("project.content.columns.updated")}</th>
+                  <th className="px-4 py-3 text-right">{t("project.content.columns.actions")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((r) => (
+                  <tr key={r.id} className="hover:bg-muted/30">
+                    <td className="px-4 py-3">
+                      {r.media_url ? (
+                        <img
+                          src={r.media_url}
+                          alt=""
+                          className="h-10 w-10 rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-md bg-muted" />
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-medium">{r.title}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={r.status as ContentStatus} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true, locale })}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link
+                          to="/clients/$clientId/projects/$projectId/content/$contentId"
+                          params={{ clientId, projectId, contentId: r.id }}
+                        >
+                          {t("project.content.open")}
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+
+          <InstagramFeedMockup
+            items={rows}
+            username={clientQuery.data?.name}
+            avatarUrl={clientQuery.data?.logo_url}
+            className="mx-auto shrink-0 lg:sticky lg:top-6"
+          />
+        </div>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>

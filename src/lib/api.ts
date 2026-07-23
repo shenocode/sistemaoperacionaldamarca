@@ -12,6 +12,64 @@ export type ActivityEvent = Tables<"activity_events">;
 export type Profile = Tables<"profiles">;
 export type ActivityType = Database["public"]["Enums"]["activity_type"];
 export type LibraryCategory = Database["public"]["Enums"]["library_category"];
+export type ContentFormat = Database["public"]["Enums"]["content_format"];
+
+export const CONTENT_FORMATS: ContentFormat[] = [
+  "static_feed",
+  "reels",
+  "stories",
+  "carousel",
+];
+
+export const CONTENT_MEDIA_BUCKET = "content-media";
+
+export const CONTENT_MEDIA_ACCEPT =
+  ".pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.heic,.heif,.mp4,.webm,.mov,.avi,.txt,.md,.csv,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,image/*,video/*,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+export function resolveContentMediaUrls(item: {
+  media_url?: string | null;
+  media_urls?: string[] | null;
+}): string[] {
+  if (item.media_urls && item.media_urls.length > 0) {
+    return item.media_urls.filter(Boolean);
+  }
+  if (item.media_url?.trim()) return [item.media_url.trim()];
+  return [];
+}
+
+function sanitizeFileName(name: string) {
+  return name.replace(/[^\w.\-()+ ]+/g, "_").replace(/\s+/g, "-").slice(0, 120);
+}
+
+export async function uploadContentMedia(projectId: string, file: File) {
+  const safeName = sanitizeFileName(file.name || "arquivo");
+  const storagePath = `${projectId}/${crypto.randomUUID()}-${safeName}`;
+  const { error } = await supabase.storage.from(CONTENT_MEDIA_BUCKET).upload(storagePath, file, {
+    cacheControl: "3600",
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from(CONTENT_MEDIA_BUCKET).getPublicUrl(storagePath);
+  return data.publicUrl;
+}
+
+export async function uploadContentMediaFiles(projectId: string, files: File[]) {
+  const urls: string[] = [];
+  for (const file of files) {
+    urls.push(await uploadContentMedia(projectId, file));
+  }
+  return urls;
+}
+
+export function isVideoUrl(url: string) {
+  return /\.(mp4|webm|mov|avi)(\?|$)/i.test(url) || url.includes("video/");
+}
+
+export function isImageUrl(url: string) {
+  return /\.(jpe?g|png|gif|webp|svg|heic|heif)(\?|$)/i.test(url) || /\/image\//i.test(url);
+}
 
 async function requireUserId() {
   const { data, error } = await supabase.auth.getUser();
@@ -230,6 +288,8 @@ export async function saveContentAsNewVersion(input: {
   cta: string;
   hashtags: string;
   mediaUrl?: string | null;
+  mediaUrls?: string[];
+  format?: ContentFormat;
   changeNote?: string;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
@@ -242,6 +302,12 @@ export async function saveContentAsNewVersion(input: {
       ? "draft"
       : current.status;
 
+  const mediaUrls =
+    input.mediaUrls?.filter((url) => url.trim()) ??
+    (input.mediaUrl?.trim() ? [input.mediaUrl.trim()] : []);
+  const mediaUrl = mediaUrls[0] ?? null;
+  const format = input.format ?? current.format ?? "static_feed";
+
   const { data, error } = await supabase
     .from("content_items")
     .update({
@@ -249,7 +315,9 @@ export async function saveContentAsNewVersion(input: {
       caption: input.caption,
       cta: input.cta,
       hashtags: input.hashtags,
-      media_url: input.mediaUrl?.trim() || null,
+      media_url: mediaUrl,
+      media_urls: mediaUrls,
+      format,
       current_version: nextVersion,
       status: nextStatus,
     })
@@ -264,7 +332,9 @@ export async function saveContentAsNewVersion(input: {
     caption: input.caption,
     cta: input.cta,
     hashtags: input.hashtags,
-    media_url: input.mediaUrl?.trim() || null,
+    media_url: mediaUrl,
+    media_urls: mediaUrls,
+    format,
     change_note: input.changeNote?.trim() || `Versão ${nextVersion}`,
     created_by: userId,
   });
@@ -288,7 +358,14 @@ export async function updateContentFields(input: {
   cta: string;
   hashtags: string;
   mediaUrl?: string | null;
+  mediaUrls?: string[];
+  format?: ContentFormat;
 }): Promise<ContentItem> {
+  const mediaUrls =
+    input.mediaUrls?.filter((url) => url.trim()) ??
+    (input.mediaUrl?.trim() ? [input.mediaUrl.trim()] : []);
+  const mediaUrl = mediaUrls[0] ?? null;
+
   const { data, error } = await supabase
     .from("content_items")
     .update({
@@ -296,7 +373,9 @@ export async function updateContentFields(input: {
       caption: input.caption,
       cta: input.cta,
       hashtags: input.hashtags,
-      media_url: input.mediaUrl?.trim() || null,
+      media_url: mediaUrl,
+      media_urls: mediaUrls,
+      ...(input.format ? { format: input.format } : {}),
     })
     .eq("id", input.contentId)
     .select("*")
@@ -392,6 +471,8 @@ export async function restoreVersion(input: {
     cta: input.version.cta,
     hashtags: input.version.hashtags,
     mediaUrl: input.version.media_url,
+    mediaUrls: resolveContentMediaUrls(input.version),
+    format: input.version.format,
     changeNote: `Restaurado da v${input.version.version_number}`,
   });
 }
@@ -442,6 +523,41 @@ export async function addComment(input: {
 
 // —— Library ——
 
+export const LIBRARY_BUCKET = "library-assets";
+
+export const LIBRARY_ACCEPT =
+  ".pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.heic,.heif,.mp4,.webm,.mov,.avi,.txt,.md,.csv,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,image/*,video/*,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const IMAGE_MIME = /^image\//;
+const VIDEO_MIME = /^video\//;
+const PDF_MIME = /^application\/pdf$/;
+const SPREADSHEET_MIME =
+  /^(text\/csv|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/vnd\.oasis\.opendocument\.spreadsheet)$/;
+const DOCUMENT_MIME =
+  /^(text\/plain|text\/markdown|application\/rtf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/vnd\.oasis\.opendocument\.text)$/;
+
+export function guessLibraryCategory(file: File): LibraryCategory {
+  const mime = file.type || "";
+  const name = file.name.toLowerCase();
+
+  if (IMAGE_MIME.test(mime) || /\.(jpe?g|png|gif|webp|svg|heic|heif)$/.test(name)) {
+    return "images";
+  }
+  if (VIDEO_MIME.test(mime) || /\.(mp4|webm|mov|avi)$/.test(name)) {
+    return "videos";
+  }
+  if (PDF_MIME.test(mime) || name.endsWith(".pdf")) {
+    return "pdfs";
+  }
+  if (SPREADSHEET_MIME.test(mime) || /\.(csv|xls|xlsx|ods)$/.test(name)) {
+    return "spreadsheets";
+  }
+  if (DOCUMENT_MIME.test(mime) || /\.(txt|md|rtf|doc|docx|odt)$/.test(name)) {
+    return "documents";
+  }
+  return "references";
+}
+
 export async function listLibraryAssets(projectId: string) {
   const { data, error } = await supabase
     .from("library_assets")
@@ -452,26 +568,70 @@ export async function listLibraryAssets(projectId: string) {
   return data ?? [];
 }
 
+async function uploadLibraryFile(projectId: string, file: File) {
+  const safeName = sanitizeFileName(file.name || "arquivo");
+  const storagePath = `${projectId}/${crypto.randomUUID()}-${safeName}`;
+  const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
+    cacheControl: "3600",
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from(LIBRARY_BUCKET).getPublicUrl(storagePath);
+  return {
+    storagePath,
+    fileUrl: data.publicUrl,
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type || null,
+  };
+}
+
 export async function createLibraryAsset(input: {
   projectId: string;
   name: string;
   category: LibraryCategory;
   fileUrl?: string;
+  file?: File | null;
   notes?: string;
 }): Promise<LibraryAsset> {
   const userId = await requireUserId();
+  let uploaded:
+    | {
+        storagePath: string;
+        fileUrl: string;
+        fileName: string;
+        fileSize: number;
+        mimeType: string | null;
+      }
+    | undefined;
+
+  if (input.file) {
+    uploaded = await uploadLibraryFile(input.projectId, input.file);
+  }
+
   const { data, error } = await supabase
     .from("library_assets")
     .insert({
       project_id: input.projectId,
       name: input.name.trim(),
       category: input.category,
-      file_url: input.fileUrl?.trim() || null,
+      file_url: uploaded?.fileUrl ?? (input.fileUrl?.trim() || null),
+      storage_path: uploaded?.storagePath ?? null,
+      file_name: uploaded?.fileName ?? null,
+      file_size: uploaded?.fileSize ?? null,
+      mime_type: uploaded?.mimeType ?? null,
       notes: input.notes?.trim() || null,
       created_by: userId,
     } satisfies TablesInsert<"library_assets">)
     .select("*")
     .single();
+
+  if (error && uploaded) {
+    await supabase.storage.from(LIBRARY_BUCKET).remove([uploaded.storagePath]);
+  }
+
   return ensureData(data, error);
 }
 

@@ -178,9 +178,11 @@ export type Database = {
           created_by: string | null
           cta: string
           current_version: number
+          format: Database["public"]["Enums"]["content_format"]
           hashtags: string
           id: string
           media_url: string | null
+          media_urls: string[]
           project_id: string
           scheduled_at: string | null
           status: Database["public"]["Enums"]["content_status"]
@@ -193,9 +195,11 @@ export type Database = {
           created_by?: string | null
           cta?: string
           current_version?: number
+          format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
           media_url?: string | null
+          media_urls?: string[]
           project_id: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["content_status"]
@@ -208,9 +212,11 @@ export type Database = {
           created_by?: string | null
           cta?: string
           current_version?: number
+          format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
           media_url?: string | null
+          media_urls?: string[]
           project_id?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["content_status"]
@@ -235,9 +241,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           cta: string
+          format: Database["public"]["Enums"]["content_format"]
           hashtags: string
           id: string
           media_url: string | null
+          media_urls: string[]
           version_number: number
         }
         Insert: {
@@ -247,9 +255,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cta?: string
+          format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
           media_url?: string | null
+          media_urls?: string[]
           version_number: number
         }
         Update: {
@@ -259,9 +269,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           cta?: string
+          format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
           media_url?: string | null
+          media_urls?: string[]
           version_number?: number
         }
         Relationships: [
@@ -279,31 +291,43 @@ export type Database = {
           category: Database["public"]["Enums"]["library_category"]
           created_at: string
           created_by: string | null
+          file_name: string | null
+          file_size: number | null
           file_url: string | null
           id: string
+          mime_type: string | null
           name: string
           notes: string | null
           project_id: string
+          storage_path: string | null
         }
         Insert: {
           category?: Database["public"]["Enums"]["library_category"]
           created_at?: string
           created_by?: string | null
+          file_name?: string | null
+          file_size?: number | null
           file_url?: string | null
           id?: string
+          mime_type?: string | null
           name: string
           notes?: string | null
           project_id: string
+          storage_path?: string | null
         }
         Update: {
           category?: Database["public"]["Enums"]["library_category"]
           created_at?: string
           created_by?: string | null
+          file_name?: string | null
+          file_size?: number | null
           file_url?: string | null
           id?: string
+          mime_type?: string | null
           name?: string
           notes?: string | null
           project_id?: string
+          storage_path?: string | null
         }
         Relationships: [
           {
@@ -439,7 +463,15 @@ export type Database = {
       app_role: "admin" | "client"
       client_member_role: "owner" | "member"
       content_status: "draft" | "review" | "approved" | "changes" | "published"
-      library_category: "brand" | "pdfs" | "images" | "videos" | "references"
+      content_format: "static_feed" | "reels" | "stories" | "carousel"
+      library_category:
+        | "brand"
+        | "pdfs"
+        | "images"
+        | "videos"
+        | "references"
+        | "documents"
+        | "spreadsheets"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -582,7 +614,16 @@ export const Constants = {
       app_role: ["admin", "client"],
       client_member_role: ["owner", "member"],
       content_status: ["draft", "review", "approved", "changes", "published"],
-      library_category: ["brand", "pdfs", "images", "videos", "references"],
+      content_format: ["static_feed", "reels", "stories", "carousel"],
+      library_category: [
+        "brand",
+        "pdfs",
+        "images",
+        "videos",
+        "references",
+        "documents",
+        "spreadsheets",
+      ],
     },
   },
 } as const
