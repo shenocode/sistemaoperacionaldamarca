@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,89 @@ export const Route = createFileRoute(
   component: ProjectSettingsPage,
 });
 
+function PresetListEditor({
+  label,
+  hint,
+  placeholder,
+  addLabel,
+  removeLabel,
+  emptyLabel,
+  items,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  placeholder: string;
+  addLabel: string;
+  removeLabel: string;
+  emptyLabel: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const addItem = () => {
+    const value = draft.trim();
+    if (!value) return;
+    if (items.some((item) => item.toLowerCase() === value.toLowerCase())) {
+      setDraft("");
+      return;
+    }
+    onChange([...items, value]);
+    setDraft("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label>{label}</Label>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={placeholder}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addItem();
+            }
+          }}
+        />
+        <Button type="button" variant="outline" onClick={addItem} disabled={!draft.trim()}>
+          <Plus className="h-4 w-4" />
+          <span className="sr-only">{addLabel}</span>
+        </Button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map((item) => (
+            <li
+              key={item}
+              className="flex items-start gap-2 rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{item}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                onClick={() => onChange(items.filter((entry) => entry !== item))}
+                aria-label={removeLabel}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ProjectSettingsPage() {
   const { clientId, projectId } = Route.useParams();
   const { t } = useTranslation();
@@ -29,6 +113,8 @@ function ProjectSettingsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
+  const [ctaPresets, setCtaPresets] = useState<string[]>([]);
+  const [hashtagPresets, setHashtagPresets] = useState<string[]>([]);
 
   const projectQuery = useQuery({
     queryKey: ["projects", "detail", projectId],
@@ -45,10 +131,19 @@ function ProjectSettingsPage() {
     setName(projectQuery.data.name);
     setDescription(projectQuery.data.description ?? "");
     setStatus(projectQuery.data.status);
+    setCtaPresets(projectQuery.data.cta_presets ?? []);
+    setHashtagPresets(projectQuery.data.hashtag_presets ?? []);
   }, [projectQuery.data]);
 
   const saveMutation = useMutation({
-    mutationFn: () => updateProject(projectId, { name, description, status }),
+    mutationFn: () =>
+      updateProject(projectId, {
+        name,
+        description,
+        status,
+        ctaPresets,
+        hashtagPresets,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast.success(t("common.saved"));
@@ -70,7 +165,7 @@ function ProjectSettingsPage() {
 
   return (
     <form
-      className="max-w-lg space-y-4"
+      className="max-w-lg space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
         saveMutation.mutate();
@@ -106,6 +201,34 @@ function ProjectSettingsPage() {
           </SelectContent>
         </Select>
       </div>
+
+      <div className="space-y-4 border-t pt-4">
+        <div>
+          <h2 className="text-sm font-medium">{t("project.settings.presetsTitle")}</h2>
+          <p className="text-xs text-muted-foreground">{t("project.settings.presetsHint")}</p>
+        </div>
+        <PresetListEditor
+          label={t("project.settings.ctaPresets")}
+          hint={t("project.settings.ctaPresetsHint")}
+          placeholder={t("project.settings.ctaPlaceholder")}
+          addLabel={t("project.settings.addPreset")}
+          removeLabel={t("project.settings.removePreset")}
+          emptyLabel={t("project.settings.noCtaPresets")}
+          items={ctaPresets}
+          onChange={setCtaPresets}
+        />
+        <PresetListEditor
+          label={t("project.settings.hashtagPresets")}
+          hint={t("project.settings.hashtagPresetsHint")}
+          placeholder={t("project.settings.hashtagPlaceholder")}
+          addLabel={t("project.settings.addPreset")}
+          removeLabel={t("project.settings.removePreset")}
+          emptyLabel={t("project.settings.noHashtagPresets")}
+          items={hashtagPresets}
+          onChange={setHashtagPresets}
+        />
+      </div>
+
       <Button type="submit" disabled={saveMutation.isPending || !name.trim()}>
         {t("common.save")}
       </Button>

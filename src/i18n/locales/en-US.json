@@ -69,7 +69,19 @@
     "calendarPlaceholder": "Coming soon.",
     "settings": {
       "readOnly": "You don't have permission to edit this project.",
-      "status": "Project status"
+      "status": "Project status",
+      "presetsTitle": "CTA and hashtag presets",
+      "presetsHint": "Save options to quickly select them in this project's content.",
+      "ctaPresets": "CTA options",
+      "ctaPresetsHint": "E.g. Learn more, Link in bio, Shop now.",
+      "ctaPlaceholder": "New CTA",
+      "hashtagPresets": "Hashtag options",
+      "hashtagPresetsHint": "E.g. #brand #campaign2026",
+      "hashtagPlaceholder": "New hashtags",
+      "addPreset": "Add",
+      "removePreset": "Remove",
+      "noCtaPresets": "No CTAs saved yet.",
+      "noHashtagPresets": "No hashtags saved yet."
     },
     "library": {
       "upload": "Add files",
@@ -132,6 +144,10 @@
       "caption": "Caption",
       "cta": "CTA",
       "hashtags": "Hashtags",
+      "selectCtaPreset": "Select saved CTA",
+      "selectHashtagPreset": "Select saved hashtags",
+      "noCtaPresets": "Save CTAs in project Settings.",
+      "noHashtagPresets": "Save hashtags in project Settings.",
       "mediaUrl": "Media URL",
       "media": "Media",
       "mediaHint": "PDF, images, videos, documents and spreadsheets (up to 100 MB).",

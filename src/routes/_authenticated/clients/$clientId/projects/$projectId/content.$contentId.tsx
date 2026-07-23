@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import { ContentMediaPreview, guessMediaKind, type PreviewMediaItem } from "@/components/content-media-preview";
+import { PresetField } from "@/components/preset-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -38,6 +39,7 @@ import {
   canManageClient,
   getClient,
   getContent,
+  getProject,
   listComments,
   listVersions,
   resolveContentMediaUrls,
@@ -138,8 +140,15 @@ function ContentDetailPage() {
     queryFn: () => getClient(clientId),
   });
 
+  const projectQuery = useQuery({
+    queryKey: ["projects", "detail", projectId],
+    queryFn: () => getProject(projectId),
+  });
+
   const content = contentQuery.data;
   const client = clientQuery.data;
+  const ctaPresets = projectQuery.data?.cta_presets ?? [];
+  const hashtagPresets = projectQuery.data?.hashtag_presets ?? [];
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isCarousel = formatType === "carousel";
@@ -519,24 +528,26 @@ function ContentDetailPage() {
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="cta">{t("project.detail.cta")}</Label>
-                  <Input
-                    id="cta"
-                    value={cta}
-                    onChange={(e) => setCta(e.target.value)}
-                    disabled={!canManage}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="hashtags">{t("project.detail.hashtags")}</Label>
-                  <Input
-                    id="hashtags"
-                    value={hashtags}
-                    onChange={(e) => setHashtags(e.target.value)}
-                    disabled={!canManage}
-                  />
-                </div>
+                <PresetField
+                  id="cta"
+                  label={t("project.detail.cta")}
+                  value={cta}
+                  onChange={setCta}
+                  presets={ctaPresets}
+                  disabled={!canManage}
+                  selectLabel={t("project.detail.selectCtaPreset")}
+                  emptyPresetsLabel={t("project.detail.noCtaPresets")}
+                />
+                <PresetField
+                  id="hashtags"
+                  label={t("project.detail.hashtags")}
+                  value={hashtags}
+                  onChange={setHashtags}
+                  presets={hashtagPresets}
+                  disabled={!canManage}
+                  selectLabel={t("project.detail.selectHashtagPreset")}
+                  emptyPresetsLabel={t("project.detail.noHashtagPresets")}
+                />
               </div>
               {canManage ? (
                 <>

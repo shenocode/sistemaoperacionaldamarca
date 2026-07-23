@@ -296,14 +296,32 @@ export async function createProject(input: {
 
 export async function updateProject(
   projectId: string,
-  input: { name: string; description?: string; status?: string },
+  input: {
+    name: string;
+    description?: string;
+    status?: string;
+    ctaPresets?: string[];
+    hashtagPresets?: string[];
+  },
 ): Promise<Project> {
+  const normalizePresets = (items?: string[]) =>
+    items
+      ?.map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item, index, arr) => arr.indexOf(item) === index);
+
   const { data, error } = await supabase
     .from("projects")
     .update({
       name: input.name.trim(),
       description: input.description?.trim() || null,
       ...(input.status ? { status: input.status } : {}),
+      ...(input.ctaPresets !== undefined
+        ? { cta_presets: normalizePresets(input.ctaPresets) ?? [] }
+        : {}),
+      ...(input.hashtagPresets !== undefined
+        ? { hashtag_presets: normalizePresets(input.hashtagPresets) ?? [] }
+        : {}),
     })
     .eq("id", projectId)
     .select("*")

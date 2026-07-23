@@ -383,7 +383,9 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          cta_presets: string[]
           description: string | null
+          hashtag_presets: string[]
           id: string
           name: string
           status: string
@@ -393,7 +395,9 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          cta_presets?: string[]
           description?: string | null
+          hashtag_presets?: string[]
           id?: string
           name: string
           status?: string
@@ -403,7 +407,9 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          cta_presets?: string[]
           description?: string | null
+          hashtag_presets?: string[]
           id?: string
           name?: string
           status?: string

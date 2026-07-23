@@ -69,7 +69,19 @@
     "calendarPlaceholder": "Próximamente.",
     "settings": {
       "readOnly": "No tienes permiso para editar este proyecto.",
-      "status": "Estado del proyecto"
+      "status": "Estado del proyecto",
+      "presetsTitle": "Presets de CTA y hashtags",
+      "presetsHint": "Guarda opciones para seleccionarlas rápido en los contenidos de este proyecto.",
+      "ctaPresets": "Opciones de CTA",
+      "ctaPresetsHint": "Ej.: Saber más, Link en bio, Comprar ahora.",
+      "ctaPlaceholder": "Nuevo CTA",
+      "hashtagPresets": "Opciones de hashtags",
+      "hashtagPresetsHint": "Ej.: #marca #campaña2026",
+      "hashtagPlaceholder": "Nuevos hashtags",
+      "addPreset": "Añadir",
+      "removePreset": "Quitar",
+      "noCtaPresets": "Ningún CTA guardado.",
+      "noHashtagPresets": "Ningún hashtag guardado."
     },
     "library": {
       "upload": "Añadir archivos",
@@ -132,6 +144,10 @@
       "caption": "Descripción",
       "cta": "CTA",
       "hashtags": "Hashtags",
+      "selectCtaPreset": "Seleccionar CTA guardado",
+      "selectHashtagPreset": "Seleccionar hashtags guardados",
+      "noCtaPresets": "Guarda CTAs en Configuración del proyecto.",
+      "noHashtagPresets": "Guarda hashtags en Configuración del proyecto.",
       "mediaUrl": "URL del medio",
       "media": "Medio",
       "mediaHint": "PDF, imágenes, videos, documentos y hojas de cálculo (hasta 100 MB).",

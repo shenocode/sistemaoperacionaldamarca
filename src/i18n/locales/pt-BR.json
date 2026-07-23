@@ -74,7 +74,19 @@
     "calendarPlaceholder": "Em breve.",
     "settings": {
       "readOnly": "Você não tem permissão para editar este projeto.",
-      "status": "Status do projeto"
+      "status": "Status do projeto",
+      "presetsTitle": "Presets de CTA e hashtags",
+      "presetsHint": "Cadastre opções para selecionar rapidamente nos conteúdos deste projeto.",
+      "ctaPresets": "Opções de CTA",
+      "ctaPresetsHint": "Ex.: Saiba mais, Link na bio, Compre agora.",
+      "ctaPlaceholder": "Novo CTA",
+      "hashtagPresets": "Opções de hashtags",
+      "hashtagPresetsHint": "Ex.: #marca #campanha2026",
+      "hashtagPlaceholder": "Novas hashtags",
+      "addPreset": "Adicionar",
+      "removePreset": "Remover",
+      "noCtaPresets": "Nenhum CTA cadastrado.",
+      "noHashtagPresets": "Nenhuma hashtag cadastrada."
     },
     "library": {
       "upload": "Adicionar arquivos",
@@ -137,6 +149,10 @@
       "caption": "Legenda",
       "cta": "CTA",
       "hashtags": "Hashtags",
+      "selectCtaPreset": "Selecionar CTA cadastrado",
+      "selectHashtagPreset": "Selecionar hashtags cadastradas",
+      "noCtaPresets": "Cadastre CTAs em Configurações do projeto.",
+      "noHashtagPresets": "Cadastre hashtags em Configurações do projeto.",
       "mediaUrl": "URL da mídia",
       "media": "Mídia",
       "mediaHint": "PDF, imagens, vídeos, documentos e planilhas (até 100 MB).",
