@@ -41,6 +41,12 @@ type ContentMediaPreviewProps = {
   cta?: string;
   username?: string;
   avatarUrl?: string | null;
+  editable?: boolean;
+  size?: "default" | "lg";
+  onCaptionChange?: (value: string) => void;
+  onHashtagsChange?: (value: string) => void;
+  onCtaChange?: (value: string) => void;
+  className?: string;
 };
 
 function resolveKind(item: PreviewMediaItem): "image" | "video" | "file" {
@@ -117,15 +123,46 @@ export function toInstagramHandle(value: string) {
   return toHandle(value);
 }
 
-export function PhoneChrome({ children }: { children: ReactNode }) {
+export function PhoneChrome({
+  children,
+  size = "default",
+  className,
+}: {
+  children: ReactNode;
+  size?: "default" | "lg";
+  className?: string;
+}) {
   return (
-    <div className="mx-auto w-full max-w-[320px]">
-      <div className="relative rounded-[2.4rem] border border-neutral-800 bg-neutral-950 p-[10px] shadow-[0_25px_60px_-20px_rgba(0,0,0,0.45)]">
-        <div className="pointer-events-none absolute left-1/2 top-[18px] z-20 h-[26px] w-[96px] -translate-x-1/2 rounded-full bg-black" />
+    <div
+      className={cn(
+        "mx-auto w-full",
+        size === "lg" ? "max-w-[420px]" : "max-w-[320px]",
+        className,
+      )}
+    >
+      <div
+        className={cn(
+          "relative border border-neutral-800 bg-neutral-950 shadow-[0_25px_60px_-20px_rgba(0,0,0,0.45)]",
+          size === "lg" ? "rounded-[2.8rem] p-[12px]" : "rounded-[2.4rem] p-[10px]",
+        )}
+      >
+        <div
+          className={cn(
+            "pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-black",
+            size === "lg"
+              ? "top-[20px] h-[28px] w-[110px]"
+              : "top-[18px] h-[26px] w-[96px]",
+          )}
+        />
         <div className="pointer-events-none absolute right-[-2px] top-[120px] h-14 w-[3px] rounded-l-sm bg-neutral-700" />
         <div className="pointer-events-none absolute left-[-2px] top-[100px] h-8 w-[3px] rounded-r-sm bg-neutral-700" />
         <div className="pointer-events-none absolute left-[-2px] top-[140px] h-12 w-[3px] rounded-r-sm bg-neutral-700" />
-        <div className="overflow-hidden rounded-[1.9rem] bg-white">
+        <div
+          className={cn(
+            "overflow-hidden bg-white",
+            size === "lg" ? "rounded-[2.2rem]" : "rounded-[1.9rem]",
+          )}
+        >
           <div className="flex items-end justify-between bg-white px-5 pb-1 pt-3 text-[10px] font-semibold text-neutral-900">
             <span>9:41</span>
             <div className="flex items-center gap-1">
@@ -195,14 +232,61 @@ function CaptionBlock({
   caption,
   hashtags,
   cta,
+  editable,
+  onCaptionChange,
+  onHashtagsChange,
+  onCtaChange,
 }: {
   username: string;
   caption?: string;
   hashtags?: string;
   cta?: string;
+  editable?: boolean;
+  onCaptionChange?: (value: string) => void;
+  onHashtagsChange?: (value: string) => void;
+  onCtaChange?: (value: string) => void;
 }) {
   const { t } = useTranslation();
   const hasBody = Boolean(caption?.trim() || hashtags?.trim() || cta?.trim());
+
+  if (editable) {
+    return (
+      <div className="space-y-2 px-3 pb-3">
+        <p className="text-[12px] font-semibold text-neutral-900">
+          {t("project.detail.previewLikes", { count: 128 })}
+        </p>
+        <div className="space-y-1.5">
+          <p className="text-[12px] font-semibold text-neutral-900">{username}</p>
+          <textarea
+            value={caption ?? ""}
+            onChange={(e) => onCaptionChange?.(e.target.value)}
+            rows={3}
+            placeholder={t("project.detail.caption")}
+            aria-label={t("project.detail.caption")}
+            className="w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] leading-snug text-neutral-900 outline-none ring-sky-400 focus:ring-2"
+          />
+          <textarea
+            value={hashtags ?? ""}
+            onChange={(e) => onHashtagsChange?.(e.target.value)}
+            rows={2}
+            placeholder={t("project.detail.hashtags")}
+            aria-label={t("project.detail.hashtags")}
+            className="w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] leading-snug text-sky-700 outline-none ring-sky-400 focus:ring-2"
+          />
+          <input
+            value={cta ?? ""}
+            onChange={(e) => onCtaChange?.(e.target.value)}
+            placeholder={t("project.detail.cta")}
+            aria-label={t("project.detail.cta")}
+            className="w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] font-medium text-neutral-700 outline-none ring-sky-400 focus:ring-2"
+          />
+        </div>
+        <p className="text-[10px] uppercase tracking-wide text-neutral-400">
+          {t("project.detail.previewTime")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5 px-3 pb-3">
@@ -239,6 +323,12 @@ export function ContentMediaPreview({
   cta,
   username,
   avatarUrl,
+  editable,
+  size = "default",
+  onCaptionChange,
+  onHashtagsChange,
+  onCtaChange,
+  className,
 }: ContentMediaPreviewProps) {
   const { t } = useTranslation();
   const [api, setApi] = useState<CarouselApi>();
@@ -325,7 +415,7 @@ export function ContentMediaPreview({
 
   if (isStories) {
     return (
-      <PhoneChrome>
+      <PhoneChrome size={size} className={className}>
         <div className="relative aspect-[9/16] bg-black">
           {items.length === 0 ? (
             <div className="flex h-full items-center justify-center text-xs text-white/50">
@@ -348,12 +438,32 @@ export function ContentMediaPreview({
               <span className="text-[10px] text-white/70">2h</span>
             </div>
           </div>
-          {(caption || cta) && (
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-5 pt-10">
-              {caption ? <p className="text-[12px] text-white">{caption}</p> : null}
-              {cta ? <p className="mt-1 text-[11px] font-medium text-white/90">{cta}</p> : null}
-            </div>
-          )}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-5 pt-10">
+            {editable ? (
+              <div className="space-y-1.5">
+                <textarea
+                  value={caption ?? ""}
+                  onChange={(e) => onCaptionChange?.(e.target.value)}
+                  rows={2}
+                  placeholder={t("project.detail.caption")}
+                  aria-label={t("project.detail.caption")}
+                  className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                />
+                <input
+                  value={cta ?? ""}
+                  onChange={(e) => onCtaChange?.(e.target.value)}
+                  placeholder={t("project.detail.cta")}
+                  aria-label={t("project.detail.cta")}
+                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                />
+              </div>
+            ) : (
+              <>
+                {caption ? <p className="text-[12px] text-white">{caption}</p> : null}
+                {cta ? <p className="mt-1 text-[11px] font-medium text-white/90">{cta}</p> : null}
+              </>
+            )}
+          </div>
         </div>
       </PhoneChrome>
     );
@@ -361,7 +471,7 @@ export function ContentMediaPreview({
 
   if (isReels) {
     return (
-      <PhoneChrome>
+      <PhoneChrome size={size} className={className}>
         <div className="relative aspect-[9/16] bg-black">
           {items.length === 0 ? (
             <div className="flex h-full items-center justify-center text-xs text-white/50">
@@ -395,9 +505,39 @@ export function ContentMediaPreview({
               </div>
               <span className="text-[12px] font-semibold">{handle}</span>
             </div>
-            {caption ? <p className="line-clamp-3 text-[12px]">{caption}</p> : null}
-            {hashtags ? <p className="line-clamp-2 text-[11px] text-white/80">{hashtags}</p> : null}
-            {cta ? <p className="text-[11px] font-medium text-white/90">{cta}</p> : null}
+            {editable ? (
+              <div className="space-y-1.5">
+                <textarea
+                  value={caption ?? ""}
+                  onChange={(e) => onCaptionChange?.(e.target.value)}
+                  rows={2}
+                  placeholder={t("project.detail.caption")}
+                  aria-label={t("project.detail.caption")}
+                  className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                />
+                <textarea
+                  value={hashtags ?? ""}
+                  onChange={(e) => onHashtagsChange?.(e.target.value)}
+                  rows={2}
+                  placeholder={t("project.detail.hashtags")}
+                  aria-label={t("project.detail.hashtags")}
+                  className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] text-white/90 outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                />
+                <input
+                  value={cta ?? ""}
+                  onChange={(e) => onCtaChange?.(e.target.value)}
+                  placeholder={t("project.detail.cta")}
+                  aria-label={t("project.detail.cta")}
+                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                />
+              </div>
+            ) : (
+              <>
+                {caption ? <p className="line-clamp-3 text-[12px]">{caption}</p> : null}
+                {hashtags ? <p className="line-clamp-2 text-[11px] text-white/80">{hashtags}</p> : null}
+                {cta ? <p className="text-[11px] font-medium text-white/90">{cta}</p> : null}
+              </>
+            )}
           </div>
           <div className="absolute bottom-6 right-3 flex flex-col items-center gap-4 text-white">
             <Heart className="h-6 w-6" aria-hidden="true" />
@@ -411,7 +551,7 @@ export function ContentMediaPreview({
   }
 
   return (
-    <PhoneChrome>
+    <PhoneChrome size={size} className={className}>
       <div className="border-b border-neutral-100 px-3 py-2">
         <p className="text-center text-[13px] font-semibold text-neutral-900">
           {t("project.detail.previewFeed")}
@@ -433,6 +573,10 @@ export function ContentMediaPreview({
         caption={caption}
         hashtags={hashtags}
         cta={cta}
+        editable={editable}
+        onCaptionChange={onCaptionChange}
+        onHashtagsChange={onHashtagsChange}
+        onCtaChange={onCtaChange}
       />
     </PhoneChrome>
   );

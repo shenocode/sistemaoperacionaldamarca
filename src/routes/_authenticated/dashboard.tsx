@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
@@ -13,15 +13,26 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import {
   countProjects,
+  isAdmin,
   listClients,
   listPendingApprovals,
   listRecentActivity,
+  resolvePostLoginPath,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  beforeLoad: async () => {
+    if (!(await isAdmin())) {
+      const dest = await resolvePostLoginPath();
+      if (dest.to === "/clients/$clientId/projects/$projectId/content") {
+        throw redirect({ to: dest.to, params: dest.params, search: dest.search });
+      }
+      throw redirect({ to: dest.to });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — SOM" },

@@ -3,11 +3,18 @@ import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { resolvePostLoginPath } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
-    if (data.session) throw redirect({ to: "/dashboard" });
+    if (data.session) {
+      const dest = await resolvePostLoginPath();
+      if (dest.to === "/clients/$clientId/projects/$projectId/content") {
+        throw redirect({ to: dest.to, params: dest.params, search: dest.search });
+      }
+      throw redirect({ to: dest.to });
+    }
   },
   head: () => ({
     meta: [

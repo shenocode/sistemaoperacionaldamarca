@@ -1,6 +1,13 @@
 {
   "app": { "name": "SOM", "tagline": "Brand Operating System" },
-  "nav": { "dashboard": "Dashboard", "clients": "Clients", "signOut": "Sign out" },
+  "nav": {
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "signOut": "Sign out",
+    "content": "Content",
+    "approvals": "Approvals",
+    "myProjects": "My projects"
+  },
   "auth": {
     "signIn": "Sign in",
     "signUp": "Create account",
@@ -32,6 +39,16 @@
     "noActivity": "No recent activity.",
     "viewAll": "View all",
     "projects": "Projects"
+  },
+  "clientHome": {
+    "title": "My projects",
+    "subtitle": "Access content available for review.",
+    "empty": "No projects available.",
+    "emptyHint": "When the team shares a project with you, it will show up here."
+  },
+  "clientApproval": {
+    "showComments": "Comments ({{count}})",
+    "hideComments": "Hide comments"
   },
   "clients": {
     "title": "Clients",
@@ -111,6 +128,7 @@
     "content": {
       "new": "New content",
       "empty": "No content created yet.",
+      "emptyReview": "No pending approvals.",
       "created": "Content created.",
       "title": "Title",
       "columns": {

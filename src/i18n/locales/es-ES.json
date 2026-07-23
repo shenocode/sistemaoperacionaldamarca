@@ -1,6 +1,13 @@
 {
   "app": { "name": "SOM", "tagline": "Sistema Operativo de Marca" },
-  "nav": { "dashboard": "Panel", "clients": "Clientes", "signOut": "Salir" },
+  "nav": {
+    "dashboard": "Panel",
+    "clients": "Clientes",
+    "signOut": "Salir",
+    "content": "Contenidos",
+    "approvals": "Aprobaciones",
+    "myProjects": "Mis proyectos"
+  },
   "auth": {
     "signIn": "Entrar",
     "signUp": "Crear cuenta",
@@ -32,6 +39,16 @@
     "noActivity": "Sin actividad reciente.",
     "viewAll": "Ver todos",
     "projects": "Proyectos"
+  },
+  "clientHome": {
+    "title": "Mis proyectos",
+    "subtitle": "Accede a los contenidos disponibles para revisión.",
+    "empty": "Ningún proyecto disponible.",
+    "emptyHint": "Cuando el equipo comparta un proyecto contigo, aparecerá aquí."
+  },
+  "clientApproval": {
+    "showComments": "Comentarios ({{count}})",
+    "hideComments": "Ocultar comentarios"
   },
   "clients": {
     "title": "Clientes",
@@ -111,6 +128,7 @@
     "content": {
       "new": "Nuevo contenido",
       "empty": "Aún no hay contenido.",
+      "emptyReview": "Sin aprobaciones pendientes.",
       "created": "Contenido creado.",
       "title": "Título",
       "columns": {

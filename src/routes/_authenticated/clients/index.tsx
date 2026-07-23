@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format, formatDistanceToNow } from "date-fns";
@@ -24,7 +24,9 @@ import {
   buildProjectReviewUrl,
   buildWhatsAppNotifyUrl,
   createClient,
+  isAdmin,
   listClients,
+  resolvePostLoginPath,
   updateClient,
   type ClientContactInput,
   type ClientProjectSummary,
@@ -44,6 +46,15 @@ const emptyContactForm: ClientContactInput = {
 };
 
 export const Route = createFileRoute("/_authenticated/clients/")({
+  beforeLoad: async () => {
+    if (!(await isAdmin())) {
+      const dest = await resolvePostLoginPath();
+      if (dest.to === "/clients/$clientId/projects/$projectId/content") {
+        throw redirect({ to: dest.to, params: dest.params, search: dest.search });
+      }
+      throw redirect({ to: dest.to });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Clientes — SOM" },

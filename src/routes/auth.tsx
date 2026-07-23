@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { toast } from "sonner";
+import { resolvePostLoginPath } from "@/lib/api";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -30,11 +31,26 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const goAfterLogin = async () => {
+    const dest = await resolvePostLoginPath();
+    if (dest.to === "/clients/$clientId/projects/$projectId/content") {
+      router.navigate({
+        to: dest.to,
+        params: dest.params,
+        search: dest.search,
+        replace: true,
+      });
+    } else {
+      router.navigate({ to: dest.to, replace: true });
+    }
+  };
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.navigate({ to: "/dashboard", replace: true });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session) await goAfterLogin();
     });
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,13 +59,13 @@ function AuthPage() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.navigate({ to: "/dashboard", replace: true });
+        await goAfterLogin();
       } else if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `${window.location.origin}/home`,
             data: { full_name: fullName },
           },
         });
@@ -72,14 +88,14 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/dashboard`,
+      redirect_uri: `${window.location.origin}/home`,
     });
     if (result.error) {
       toast.error(result.error instanceof Error ? result.error.message : "Google sign-in failed");
       return;
     }
     if (result.redirected) return;
-    router.navigate({ to: "/dashboard", replace: true });
+    await goAfterLogin();
   };
 
   return (

@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
 import { Route as AuthenticatedClientsClientIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/index'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdRouteRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/route'
@@ -47,6 +48,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedClientsIndexRoute =
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/home': typeof AuthenticatedHomeRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
   '/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/home': typeof AuthenticatedHomeRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdIndexRoute
   '/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
   '/_authenticated/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/dashboard'
+    | '/home'
     | '/clients/'
     | '/clients/$clientId/'
     | '/clients/$clientId/projects/$projectId'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/dashboard'
+    | '/home'
     | '/clients'
     | '/clients/$clientId'
     | '/clients/$clientId/projects/$projectId/calendar'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/_authenticated/dashboard'
+    | '/_authenticated/home'
     | '/_authenticated/clients/'
     | '/_authenticated/clients/$clientId/'
     | '/_authenticated/clients/$clientId/projects/$projectId'
@@ -259,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/home': {
+      id: '/_authenticated/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/clients/': {
@@ -381,6 +400,7 @@ const AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedClientsClientIdIndexRoute: typeof AuthenticatedClientsClientIdIndexRoute
   AuthenticatedClientsClientIdProjectsProjectIdRouteRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
@@ -388,6 +408,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedClientsClientIdIndexRoute:
     AuthenticatedClientsClientIdIndexRoute,

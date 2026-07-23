@@ -26,11 +26,15 @@ import type { LanguageCode } from "@/i18n";
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/content/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    filter: search.filter === "review" ? ("review" as const) : undefined,
+  }),
   component: ContentListPage,
 });
 
 function ContentListPage() {
   const { clientId, projectId } = Route.useParams();
+  const { filter } = Route.useSearch();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -68,7 +72,8 @@ function ContentListPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const rows = contentQuery.data ?? [];
+  const allRows = contentQuery.data ?? [];
+  const rows = filter === "review" ? allRows.filter((r) => r.status === "review") : allRows;
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
 
   return (
@@ -87,7 +92,12 @@ function ContentListPage() {
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div className="w-full flex-1">
-            <EmptyState icon={FileText} title={t("project.content.empty")} />
+            <EmptyState
+              icon={FileText}
+              title={
+                filter === "review" ? t("project.content.emptyReview") : t("project.content.empty")
+              }
+            />
           </div>
           <InstagramFeedMockup
             items={[]}

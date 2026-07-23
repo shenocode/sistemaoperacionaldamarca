@@ -469,6 +469,16 @@ export type Database = {
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
       library_storage_project_id: { Args: { object_name: string }; Returns: string }
+      save_client_content_version: {
+        Args: {
+          _content_id: string
+          _caption: string
+          _cta: string
+          _hashtags: string
+          _change_note?: string | null
+        }
+        Returns: Database["public"]["Tables"]["content_items"]["Row"]
+      }
     }
     Enums: {
       activity_type:

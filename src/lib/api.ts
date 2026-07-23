@@ -814,3 +814,94 @@ export async function canManageClient(clientId: string) {
   if (error) throw new Error(error.message);
   return Boolean(data);
 }
+
+export async function isAdmin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_admin");
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+export type ClientHomeProject = {
+  clientId: string;
+  clientName: string;
+  projectId: string;
+  projectName: string;
+};
+
+export type ClientHomeTarget =
+  | { type: "project"; clientId: string; projectId: string }
+  | { type: "picker"; projects: ClientHomeProject[] }
+  | { type: "empty" };
+
+export async function listAccessibleProjects(): Promise<ClientHomeProject[]> {
+  const clients = await listClients();
+  const projects: ClientHomeProject[] = [];
+  for (const client of clients) {
+    for (const project of client.projects) {
+      projects.push({
+        clientId: client.id,
+        clientName: client.name,
+        projectId: project.id,
+        projectName: project.name,
+      });
+    }
+  }
+  return projects;
+}
+
+export async function getClientHomeTarget(): Promise<ClientHomeTarget> {
+  const projects = await listAccessibleProjects();
+  if (projects.length === 0) return { type: "empty" };
+  if (projects.length === 1) {
+    return {
+      type: "project",
+      clientId: projects[0].clientId,
+      projectId: projects[0].projectId,
+    };
+  }
+  return { type: "picker", projects };
+}
+
+/** Path after login: admins go to dashboard; clients to their project or picker. */
+export async function resolvePostLoginPath(): Promise<
+  | { to: "/dashboard" }
+  | { to: "/home" }
+  | {
+      to: "/clients/$clientId/projects/$projectId/content";
+      params: { clientId: string; projectId: string };
+      search: { filter: "review" | undefined };
+    }
+> {
+  if (await isAdmin()) return { to: "/dashboard" };
+  const target = await getClientHomeTarget();
+  if (target.type === "project") {
+    return {
+      to: "/clients/$clientId/projects/$projectId/content",
+      params: { clientId: target.clientId, projectId: target.projectId },
+      search: { filter: undefined },
+    };
+  }
+  return { to: "/home" };
+}
+
+/** Client-only: bump version updating caption/cta/hashtags, keep media/format/status. */
+export async function saveClientContentVersion(input: {
+  contentId: string;
+  clientId: string;
+  projectId: string;
+  caption: string;
+  cta: string;
+  hashtags: string;
+  changeNote?: string;
+}): Promise<ContentItem> {
+  const { data, error } = await supabase.rpc("save_client_content_version", {
+    _content_id: input.contentId,
+    _caption: input.caption,
+    _cta: input.cta,
+    _hashtags: input.hashtags,
+    _change_note: input.changeNote?.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Resposta vazia do servidor");
+  return data as ContentItem;
+}

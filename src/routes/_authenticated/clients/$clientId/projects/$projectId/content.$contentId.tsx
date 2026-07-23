@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import { ContentMediaPreview, guessMediaKind, type PreviewMediaItem } from "@/components/content-media-preview";
+import { ClientContentApprovalView } from "@/components/client-content-approval-view";
 import { PresetField } from "@/components/preset-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -52,6 +53,7 @@ import {
   type ContentVersion,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
+import { useAppRole } from "@/hooks/use-app-role";
 import {
   Dialog,
   DialogContent,
@@ -98,6 +100,7 @@ function ContentDetailPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const { isAdmin, loading: roleLoading } = useAppRole();
 
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
@@ -399,12 +402,34 @@ function ContentDetailPage() {
     setDropIndex(null);
   };
 
-  if (contentQuery.isLoading) {
+  if (contentQuery.isLoading || roleLoading) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 
   if (!content) {
     return <p className="text-sm text-muted-foreground">{t("project.detail.notFound")}</p>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <ClientContentApprovalView
+        clientId={clientId}
+        projectId={projectId}
+        contentId={contentId}
+        title={title || content.title}
+        status={status}
+        format={formatType}
+        caption={caption}
+        hashtags={hashtags}
+        cta={cta}
+        previewItems={previewItems}
+        username={client?.name ?? title}
+        avatarUrl={client?.logo_url}
+        onCaptionChange={setCaption}
+        onHashtagsChange={setHashtags}
+        onCtaChange={setCta}
+      />
+    );
   }
 
   const canApprove = status === "review";
@@ -418,6 +443,7 @@ function ContentDetailPage() {
         <Link
           to="/clients/$clientId/projects/$projectId/content"
           params={{ clientId, projectId }}
+          search={{ filter: undefined }}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
