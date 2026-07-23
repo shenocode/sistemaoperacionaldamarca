@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ContentStatusSelect } from "@/components/content-status-select";
+import { contentFormatStyles } from "@/components/content-format-styles";
 import type { ContentStatus } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -340,7 +341,10 @@ function ContentListPage() {
                           }}
                         >
                           <SelectTrigger
-                            className="h-8 w-[9.5rem]"
+                            className={cn(
+                              "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1",
+                              contentFormatStyles[(r.format ?? "static_feed") as ContentFormat],
+                            )}
                             aria-label={t("project.content.columns.format")}
                           >
                             <SelectValue />
@@ -348,7 +352,16 @@ function ContentListPage() {
                           <SelectContent>
                             {CONTENT_FORMATS.map((formatKey) => (
                               <SelectItem key={formatKey} value={formatKey}>
-                                {t(`project.detail.formats.${formatKey}`)}
+                                <span className="inline-flex items-center gap-2">
+                                  <span
+                                    className={cn(
+                                      "h-2.5 w-2.5 shrink-0 rounded-full border",
+                                      contentFormatStyles[formatKey],
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                  {t(`project.detail.formats.${formatKey}`)}
+                                </span>
                               </SelectItem>
                             ))}
                           </SelectContent>

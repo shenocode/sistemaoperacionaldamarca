@@ -36,6 +36,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ContentStatusSelect } from "@/components/content-status-select";
+import {
+  contentFormatRowStyles,
+  contentFormatStyles,
+} from "@/components/content-format-styles";
 import type { ContentStatus } from "@/components/status-badge";
 import {
   CONTENT_FORMATS,
@@ -315,9 +319,24 @@ function ProjectCalendarPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium">{t("project.calendar.title")}</h2>
-          <p className="text-xs text-muted-foreground">{t("project.calendar.hint")}</p>
+        <div className="space-y-2">
+          <div>
+            <h2 className="text-sm font-medium">{t("project.calendar.title")}</h2>
+            <p className="text-xs text-muted-foreground">{t("project.calendar.hint")}</p>
+          </div>
+          <ul className="flex flex-wrap gap-1.5" aria-label={t("project.calendar.columns.format")}>
+            {CONTENT_FORMATS.map((formatKey) => (
+              <li
+                key={formatKey}
+                className={cn(
+                  "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium",
+                  contentFormatStyles[formatKey],
+                )}
+              >
+                {t(`project.detail.formats.${formatKey}`)}
+              </li>
+            ))}
+          </ul>
         </div>
         {canEdit ? (
           <Button
@@ -366,6 +385,7 @@ function ProjectCalendarPage() {
                     scheduled && !Number.isNaN(scheduled.getTime())
                       ? format(scheduled, "EEEE", { locale })
                       : "—";
+                  const rowFormat = (row.format ?? "static_feed") as ContentFormat;
                   const isBusy =
                     updateMutation.isPending ||
                     duplicateMutation.isPending ||
@@ -378,7 +398,8 @@ function ProjectCalendarPage() {
                       onDragOver={canReorder ? onDragOver(index) : undefined}
                       onDrop={canReorder ? onDrop(index) : undefined}
                       className={cn(
-                        "hover:bg-muted/30",
+                        contentFormatRowStyles[rowFormat],
+                        "hover:brightness-[0.98]",
                         dragIndex === index && "opacity-50",
                         dropIndex === index &&
                           dragIndex !== null &&
@@ -464,7 +485,7 @@ function ProjectCalendarPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <Select
-                          value={row.format ?? "static_feed"}
+                          value={rowFormat}
                           disabled={!canEdit || isBusy}
                           onValueChange={(value) => {
                             updateMutation.mutate({
@@ -473,13 +494,27 @@ function ProjectCalendarPage() {
                             });
                           }}
                         >
-                          <SelectTrigger className="h-8 w-[9.5rem]">
+                          <SelectTrigger
+                            className={cn(
+                              "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1",
+                              contentFormatStyles[rowFormat],
+                            )}
+                          >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {CONTENT_FORMATS.map((formatKey) => (
                               <SelectItem key={formatKey} value={formatKey}>
-                                {t(`project.detail.formats.${formatKey}`)}
+                                <span className="inline-flex items-center gap-2">
+                                  <span
+                                    className={cn(
+                                      "h-2.5 w-2.5 shrink-0 rounded-full border",
+                                      contentFormatStyles[formatKey],
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                  {t(`project.detail.formats.${formatKey}`)}
+                                </span>
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -499,6 +534,16 @@ function ProjectCalendarPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1.5">
+                          <Button asChild variant="outline" size="sm">
+                            <Link
+                              to="/clients/$clientId/projects/$projectId/content/$contentId"
+                              params={{ clientId, projectId, contentId: row.id }}
+                              search={{}}
+                            >
+                              <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                              {t("project.calendar.access")}
+                            </Link>
+                          </Button>
                           {canEdit ? (
                             <>
                               <Button
@@ -526,16 +571,6 @@ function ProjectCalendarPage() {
                               </Button>
                             </>
                           ) : null}
-                          <Button asChild variant="outline" size="sm">
-                            <Link
-                              to="/clients/$clientId/projects/$projectId/content/$contentId"
-                              params={{ clientId, projectId, contentId: row.id }}
-                              search={{}}
-                            >
-                              <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                              {t("project.calendar.access")}
-                            </Link>
-                          </Button>
                         </div>
                       </td>
                     </tr>

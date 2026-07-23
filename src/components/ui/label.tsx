@@ -13,7 +13,7 @@ const labelVariants = cva(
       variant: {
         default: "",
         highlight:
-          "inline-flex w-fit rounded-md bg-muted px-2.5 py-1.5 font-semibold tracking-tight text-foreground",
+          "inline-flex w-fit rounded-md bg-primary/10 px-2.5 py-1.5 font-semibold tracking-tight text-primary",
       },
     },
     defaultVariants: {
