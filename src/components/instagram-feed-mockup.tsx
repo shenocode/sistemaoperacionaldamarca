@@ -68,7 +68,7 @@ function FeedPost({
         <MoreHorizontal className="h-4 w-4 text-neutral-900" aria-hidden="true" />
       </div>
 
-      <div className="relative aspect-square bg-neutral-100">
+      <div className="relative aspect-[4/5] bg-neutral-100">
         {cover ? (
           <img src={cover} alt={item.title} className="h-full w-full object-cover" />
         ) : (

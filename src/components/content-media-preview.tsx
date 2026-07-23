@@ -566,7 +566,7 @@ export function ContentMediaPreview({
             : t("project.detail.formats.static_feed")
         }
       />
-      {mediaFrame(t("project.detail.noPreview"), "aspect-square")}
+      {mediaFrame(t("project.detail.noPreview"), "aspect-[4/5]")}
       <ActionBar />
       <CaptionBlock
         username={handle}
