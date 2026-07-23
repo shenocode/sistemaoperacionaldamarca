@@ -115,6 +115,7 @@ function ProjectSettingsPage() {
   const [status, setStatus] = useState("active");
   const [ctaPresets, setCtaPresets] = useState<string[]>([]);
   const [hashtagPresets, setHashtagPresets] = useState<string[]>([]);
+  const [themePresets, setThemePresets] = useState<string[]>([]);
 
   const projectQuery = useQuery({
     queryKey: ["projects", "detail", projectId],
@@ -133,6 +134,7 @@ function ProjectSettingsPage() {
     setStatus(projectQuery.data.status);
     setCtaPresets(projectQuery.data.cta_presets ?? []);
     setHashtagPresets(projectQuery.data.hashtag_presets ?? []);
+    setThemePresets(projectQuery.data.theme_presets ?? []);
   }, [projectQuery.data]);
 
   const saveMutation = useMutation({
@@ -143,6 +145,7 @@ function ProjectSettingsPage() {
         status,
         ctaPresets,
         hashtagPresets,
+        themePresets,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -226,6 +229,16 @@ function ProjectSettingsPage() {
           emptyLabel={t("project.settings.noHashtagPresets")}
           items={hashtagPresets}
           onChange={setHashtagPresets}
+        />
+        <PresetListEditor
+          label={t("project.settings.themePresets")}
+          hint={t("project.settings.themePresetsHint")}
+          placeholder={t("project.settings.themePlaceholder")}
+          addLabel={t("project.settings.addPreset")}
+          removeLabel={t("project.settings.removePreset")}
+          emptyLabel={t("project.settings.noThemePresets")}
+          items={themePresets}
+          onChange={setThemePresets}
         />
       </div>
 

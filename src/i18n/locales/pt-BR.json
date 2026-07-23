@@ -101,21 +101,47 @@
       "settings": "Configurações"
     },
     "calendarPlaceholder": "Em breve.",
+    "calendar": {
+      "title": "Calendário de publicações",
+      "hint": "Defina data, horário, tema e formato. O status muda automaticamente conforme a aprovação do conteúdo.",
+      "empty": "Nenhum conteúdo para agendar. Crie conteúdos na aba Conteúdo.",
+      "access": "Acessar",
+      "selectTheme": "Selecionar tema",
+      "noTheme": "Sem tema",
+      "newTheme": "Cadastrar novo tema…",
+      "newThemeTitle": "Cadastrar tema",
+      "newThemeHint": "O tema entra na biblioteca do projeto e pode ser reutilizado nas próximas publicações.",
+      "themePlaceholder": "Ex.: Presença, Awareness",
+      "themeAdded": "Tema cadastrado.",
+      "columns": {
+        "day": "Dia",
+        "datetime": "Data e horário",
+        "status": "Status",
+        "theme": "Tema",
+        "format": "Formato",
+        "title": "Título",
+        "access": "Acesso"
+      }
+    },
     "settings": {
       "readOnly": "Você não tem permissão para editar este projeto.",
       "status": "Status do projeto",
-      "presetsTitle": "Presets de CTA e hashtags",
-      "presetsHint": "Cadastre opções para selecionar rapidamente nos conteúdos deste projeto.",
+      "presetsTitle": "Presets de CTA, hashtags e temas",
+      "presetsHint": "Cadastre opções para selecionar rapidamente nos conteúdos e no calendário deste projeto.",
       "ctaPresets": "Opções de CTA",
       "ctaPresetsHint": "Ex.: Saiba mais, Link na bio, Compre agora.",
       "ctaPlaceholder": "Novo CTA",
       "hashtagPresets": "Opções de hashtags",
       "hashtagPresetsHint": "Ex.: #marca #campanha2026",
       "hashtagPlaceholder": "Novas hashtags",
+      "themePresets": "Biblioteca de temas",
+      "themePresetsHint": "Ex.: Presença, Verdadeiro Self, Awareness.",
+      "themePlaceholder": "Novo tema",
       "addPreset": "Adicionar",
       "removePreset": "Remover",
       "noCtaPresets": "Nenhum CTA cadastrado.",
-      "noHashtagPresets": "Nenhuma hashtag cadastrada."
+      "noHashtagPresets": "Nenhuma hashtag cadastrada.",
+      "noThemePresets": "Nenhum tema cadastrado."
     },
     "library": {
       "upload": "Adicionar arquivos",

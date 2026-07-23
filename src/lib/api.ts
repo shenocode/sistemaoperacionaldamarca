@@ -366,13 +366,14 @@ export async function updateProject(
     status?: string;
     ctaPresets?: string[];
     hashtagPresets?: string[];
+    themePresets?: string[];
   },
 ): Promise<Project> {
   const normalizePresets = (items?: string[]) =>
     items
       ?.map((item) => item.trim())
       .filter(Boolean)
-      .filter((item, index, arr) => arr.indexOf(item) === index);
+      .filter((item, index, arr) => arr.findIndex((x) => x.toLowerCase() === item.toLowerCase()) === index);
 
   const { data, error } = await supabase
     .from("projects")
@@ -385,6 +386,9 @@ export async function updateProject(
         : {}),
       ...(input.hashtagPresets !== undefined
         ? { hashtag_presets: normalizePresets(input.hashtagPresets) ?? [] }
+        : {}),
+      ...(input.themePresets !== undefined
+        ? { theme_presets: normalizePresets(input.themePresets) ?? [] }
         : {}),
     })
     .eq("id", projectId)
@@ -560,6 +564,53 @@ export async function updateContentFields(input: {
     .select("*")
     .single();
   return ensureData(data, error);
+}
+
+export async function updateContentCalendar(input: {
+  contentId: string;
+  scheduledAt?: string | null;
+  theme?: string | null;
+  format?: ContentFormat;
+}): Promise<ContentItem> {
+  const patch: {
+    scheduled_at?: string | null;
+    theme?: string | null;
+    format?: ContentFormat;
+  } = {};
+  if (input.scheduledAt !== undefined) {
+    patch.scheduled_at = input.scheduledAt;
+  }
+  if (input.theme !== undefined) {
+    patch.theme = input.theme?.trim() || null;
+  }
+  if (input.format !== undefined) {
+    patch.format = input.format;
+  }
+
+  const { data, error } = await supabase
+    .from("content_items")
+    .update(patch)
+    .eq("id", input.contentId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function addProjectThemePreset(projectId: string, theme: string): Promise<Project> {
+  const project = await getProject(projectId);
+  if (!project) throw new Error("Projeto não encontrado");
+  const next = theme.trim();
+  if (!next) throw new Error("Tema inválido");
+  const existing = project.theme_presets ?? [];
+  if (existing.some((item) => item.toLowerCase() === next.toLowerCase())) {
+    return project;
+  }
+  return updateProject(projectId, {
+    name: project.name,
+    description: project.description ?? undefined,
+    status: project.status,
+    themePresets: [...existing, next],
+  });
 }
 
 export async function setContentStatus(input: {

@@ -201,6 +201,7 @@ export type Database = {
           project_id: string
           scheduled_at: string | null
           status: Database["public"]["Enums"]["content_status"]
+          theme: string | null
           title: string
           updated_at: string
         }
@@ -218,6 +219,7 @@ export type Database = {
           project_id: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["content_status"]
+          theme?: string | null
           title: string
           updated_at?: string
         }
@@ -235,6 +237,7 @@ export type Database = {
           project_id?: string
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["content_status"]
+          theme?: string | null
           title?: string
           updated_at?: string
         }
@@ -392,6 +395,7 @@ export type Database = {
           id: string
           name: string
           status: string
+          theme_presets: string[]
           updated_at: string
         }
         Insert: {
@@ -404,6 +408,7 @@ export type Database = {
           id?: string
           name: string
           status?: string
+          theme_presets?: string[]
           updated_at?: string
         }
         Update: {
@@ -416,6 +421,7 @@ export type Database = {
           id?: string
           name?: string
           status?: string
+          theme_presets?: string[]
           updated_at?: string
         }
         Relationships: [
