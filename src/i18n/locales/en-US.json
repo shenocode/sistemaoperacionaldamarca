@@ -6,7 +6,8 @@
     "signOut": "Sign out",
     "content": "Content",
     "approvals": "Approvals",
-    "myProjects": "My projects"
+    "myProjects": "My projects",
+    "settings": "Settings"
   },
   "auth": {
     "signIn": "Sign in",
@@ -52,6 +53,13 @@
   "clientApproval": {
     "showComments": "Comments ({{count}})",
     "hideComments": "Hide comments"
+  },
+  "clientSettings": {
+    "title": "Settings",
+    "subtitle": "Review and update your brand contact details.",
+    "selectClient": "Brand",
+    "empty": "No brand available to edit.",
+    "updated": "Details updated."
   },
   "clients": {
     "title": "Clients",

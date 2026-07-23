@@ -6,7 +6,8 @@
     "signOut": "Salir",
     "content": "Contenidos",
     "approvals": "Aprobaciones",
-    "myProjects": "Mis proyectos"
+    "myProjects": "Mis proyectos",
+    "settings": "Configuración"
   },
   "auth": {
     "signIn": "Entrar",
@@ -52,6 +53,13 @@
   "clientApproval": {
     "showComments": "Comentarios ({{count}})",
     "hideComments": "Ocultar comentarios"
+  },
+  "clientSettings": {
+    "title": "Configuración",
+    "subtitle": "Revisa y actualiza los datos de contacto de tu marca.",
+    "selectClient": "Marca",
+    "empty": "No hay ninguna marca disponible para editar.",
+    "updated": "Datos actualizados."
   },
   "clients": {
     "title": "Clientes",

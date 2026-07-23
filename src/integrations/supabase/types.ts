@@ -486,6 +486,18 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["content_items"]["Row"]
       }
+      update_client_contact: {
+        Args: {
+          _client_id: string
+          _name: string
+          _notes?: string | null
+          _email?: string | null
+          _phone?: string | null
+          _whatsapp?: string | null
+          _instagram?: string | null
+        }
+        Returns: Database["public"]["Tables"]["clients"]["Row"]
+      }
     }
     Enums: {
       activity_type:

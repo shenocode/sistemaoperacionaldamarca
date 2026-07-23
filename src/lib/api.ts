@@ -299,20 +299,19 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 }
 
 export async function updateClient(clientId: string, input: ClientContactInput): Promise<Client> {
-  const { data, error } = await supabase
-    .from("clients")
-    .update({
-      name: input.name.trim(),
-      notes: normalizeOptionalText(input.notes),
-      email: normalizeOptionalText(input.email),
-      phone: normalizeOptionalText(input.phone),
-      whatsapp: normalizeOptionalText(input.whatsapp),
-      instagram: normalizeOptionalText(input.instagram),
-    })
-    .eq("id", clientId)
-    .select("*")
-    .single();
-  return ensureData(data, error);
+  // RPC allows client members to review/update contact fields (not only owners/admins).
+  const { data, error } = await supabase.rpc("update_client_contact", {
+    _client_id: clientId,
+    _name: input.name.trim(),
+    _notes: normalizeOptionalText(input.notes),
+    _email: normalizeOptionalText(input.email),
+    _phone: normalizeOptionalText(input.phone),
+    _whatsapp: normalizeOptionalText(input.whatsapp),
+    _instagram: normalizeOptionalText(input.instagram),
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Resposta vazia do servidor");
+  return data as Client;
 }
 
 // —— Projects ——

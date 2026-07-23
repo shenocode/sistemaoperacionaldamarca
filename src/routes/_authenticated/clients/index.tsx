@@ -6,10 +6,9 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import { Plus, Search, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
+import { ClientContactFields } from "@/components/client-contact-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
@@ -265,6 +264,7 @@ function ClientsPage() {
               onChange={setCreateForm}
               nameRequired
               autoFocusName
+              idPrefix="create-client"
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -296,7 +296,12 @@ function ClientsPage() {
               updateMutation.mutate({ clientId: settingsClient.id, input: settingsForm });
             }}
           >
-            <ClientContactFields form={settingsForm} onChange={setSettingsForm} nameRequired />
+            <ClientContactFields
+              form={settingsForm}
+              onChange={setSettingsForm}
+              nameRequired
+              idPrefix="settings-client"
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setSettingsClient(null)}>
                 {t("common.cancel")}
@@ -311,88 +316,6 @@ function ClientsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function ClientContactFields({
-  form,
-  onChange,
-  nameRequired = false,
-  autoFocusName = false,
-}: {
-  form: ClientContactInput;
-  onChange: (next: ClientContactInput) => void;
-  nameRequired?: boolean;
-  autoFocusName?: boolean;
-}) {
-  const { t } = useTranslation();
-
-  function setField<K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) {
-    onChange({ ...form, [key]: value });
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="client-name">{t("clients.name")}</Label>
-        <Input
-          id="client-name"
-          value={form.name}
-          onChange={(e) => setField("name", e.target.value)}
-          required={nameRequired}
-          autoFocus={autoFocusName}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="client-email">{t("clients.email")}</Label>
-        <Input
-          id="client-email"
-          type="email"
-          value={form.email ?? ""}
-          onChange={(e) => setField("email", e.target.value)}
-          placeholder="cliente@email.com"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="client-phone">{t("clients.phone")}</Label>
-        <Input
-          id="client-phone"
-          type="tel"
-          value={form.phone ?? ""}
-          onChange={(e) => setField("phone", e.target.value)}
-          placeholder="+55 11 99999-9999"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="client-whatsapp">{t("clients.whatsapp")}</Label>
-        <Input
-          id="client-whatsapp"
-          type="tel"
-          value={form.whatsapp ?? ""}
-          onChange={(e) => setField("whatsapp", e.target.value)}
-          placeholder="5511999999999"
-        />
-        <p className="text-xs text-muted-foreground">{t("clients.whatsappHint")}</p>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="client-instagram">{t("clients.instagram")}</Label>
-        <Input
-          id="client-instagram"
-          value={form.instagram ?? ""}
-          onChange={(e) => setField("instagram", e.target.value)}
-          placeholder="@cliente ou https://instagram.com/cliente"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="client-notes">{t("clients.notes")}</Label>
-        <Textarea
-          id="client-notes"
-          value={form.notes ?? ""}
-          onChange={(e) => setField("notes", e.target.value)}
-          rows={3}
-        />
-      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Link, useParams, useRouter } from "@tanstack/react-router";
-import { CheckCircle2, FileText, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { CheckCircle2, FileText, LayoutDashboard, LogOut, Settings, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -47,35 +47,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Users className="h-4 w-4" /> {t("nav.clients")}
               </Link>
             </>
-          ) : showClientProjectNav ? (
+          ) : (
             <>
+              {showClientProjectNav ? (
+                <>
+                  <Link
+                    to="/clients/$clientId/projects/$projectId/content"
+                    params={{ clientId: params.clientId!, projectId: params.projectId! }}
+                    search={{}}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
+                    activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
+                  >
+                    <FileText className="h-4 w-4" /> {t("nav.content")}
+                  </Link>
+                  <Link
+                    to="/clients/$clientId/projects/$projectId/content"
+                    params={{ clientId: params.clientId!, projectId: params.projectId! }}
+                    search={{ filter: "review" }}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
+                    activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> {t("nav.approvals")}
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  to="/home"
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
+                  activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
+                >
+                  <FileText className="h-4 w-4" /> {t("nav.myProjects")}
+                </Link>
+              )}
               <Link
-                to="/clients/$clientId/projects/$projectId/content"
-                params={{ clientId: params.clientId!, projectId: params.projectId! }}
-                search={{}}
+                to="/settings"
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
                 activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
               >
-                <FileText className="h-4 w-4" /> {t("nav.content")}
-              </Link>
-              <Link
-                to="/clients/$clientId/projects/$projectId/content"
-                params={{ clientId: params.clientId!, projectId: params.projectId! }}
-                search={{ filter: "review" }}
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
-                activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
-              >
-                <CheckCircle2 className="h-4 w-4" /> {t("nav.approvals")}
+                <Settings className="h-4 w-4" /> {t("nav.settings")}
               </Link>
             </>
-          ) : (
-            <Link
-              to="/home"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent"
-              activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
-            >
-              <FileText className="h-4 w-4" /> {t("nav.myProjects")}
-            </Link>
           )}
         </nav>
         <div className="space-y-2 border-t p-3">
