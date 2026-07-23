@@ -6,12 +6,9 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import {
   ChevronLeft,
-  Check,
   GripVertical,
-  MessageSquareWarning,
   Plus,
   Send,
-  SendHorizonal,
   Save,
   History,
   Trash2,
@@ -23,7 +20,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { StatusBadge, type ContentStatus } from "@/components/status-badge";
+import {
+  StatusBadge,
+  contentStatusStyles,
+  type ContentStatus,
+} from "@/components/status-badge";
+import { CONTENT_STATUSES } from "@/components/content-status-select";
 import {
   ContentMediaPreview,
   guessMediaKind,
@@ -76,12 +78,13 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { validateContentSearch } from "./content";
+
+const CLIENT_REVIEW_STATUSES: ContentStatus[] = ["approved", "changes"];
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 const NONE_THEME_VALUE = "__none__";
@@ -136,8 +139,6 @@ function ContentDetailPage() {
   const [source, setSource] = useState<SourceMode>("file");
   const [urlDraft, setUrlDraft] = useState("");
   const [comment, setComment] = useState("");
-  const [changesOpen, setChangesOpen] = useState(false);
-  const [changesNote, setChangesNote] = useState("");
   const [versionNote, setVersionNote] = useState("");
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const [newTheme, setNewTheme] = useState("");
@@ -357,6 +358,7 @@ function ContentDetailPage() {
       else if (next === "changes") toast.success(t("project.detail.changesToast"));
       else if (next === "review") toast.success(t("project.detail.submittedToast"));
       else if (next === "published") toast.success(t("project.detail.publishedToast"));
+      else toast.success(t("project.content.statusUpdated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -396,21 +398,6 @@ function ContentDetailPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const requestChanges = async () => {
-    if (changesNote.trim()) {
-      await addComment({
-        contentId,
-        clientId,
-        projectId,
-        body: changesNote.trim(),
-        contentTitle: content?.title ?? title,
-      });
-    }
-    statusMutation.mutate("changes");
-    setChangesOpen(false);
-    setChangesNote("");
-  };
 
   const addUrl = () => {
     const next = urlDraft.trim();
@@ -490,10 +477,12 @@ function ContentDetailPage() {
   }
 
   // Same form for admin and client. Clients edit copy fields; media/format/theme stay admin-only.
-  const canApprove = status === "review";
-  const canSubmit =
-    isAdmin && (status === "draft" || status === "changes" || status === "waiting_material");
-  const canPublish = isAdmin && status === "approved";
+  const canClientSetStatus = !isAdmin && status === "review";
+  const statusButtons = isAdmin
+    ? CONTENT_STATUSES
+    : canClientSetStatus
+      ? CLIENT_REVIEW_STATUSES
+      : [];
   const saving = saveMutation.isPending || versionMutation.isPending;
 
   return (
@@ -508,42 +497,7 @@ function ContentDetailPage() {
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           {t("project.tabs.content")}
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={status} asButton />
-          {canSubmit ? (
-            <Button
-              variant="secondary"
-              disabled={statusMutation.isPending}
-              onClick={() => statusMutation.mutate("review")}
-            >
-              <SendHorizonal className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t("project.detail.submitReview")}
-            </Button>
-          ) : null}
-          {canApprove ? (
-            <>
-              <Button variant="outline" onClick={() => setChangesOpen(true)}>
-                <MessageSquareWarning className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t("project.detail.requestChanges")}
-              </Button>
-              <Button
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate("approved")}
-              >
-                <Check className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t("project.detail.approve")}
-              </Button>
-            </>
-          ) : null}
-          {canPublish ? (
-            <Button
-              disabled={statusMutation.isPending}
-              onClick={() => statusMutation.mutate("published")}
-            >
-              {t("project.detail.publish")}
-            </Button>
-          ) : null}
-        </div>
+        <StatusBadge status={status} asButton />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -907,6 +861,37 @@ function ContentDetailPage() {
                     : t("project.detail.saveVersion")}
                 </Button>
               </div>
+              {statusButtons.length > 0 ? (
+                <div className="space-y-2 border-t pt-4">
+                  <Label variant="highlight">{t("project.content.columns.status")}</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {statusButtons.map((value) => {
+                      const isCurrent = value === status;
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          size="sm"
+                          disabled={statusMutation.isPending || isCurrent}
+                          aria-pressed={isCurrent}
+                          className={cn(
+                            "border shadow-sm",
+                            isCurrent
+                              ? contentStatusStyles[value]
+                              : "border-border bg-background text-foreground hover:bg-muted",
+                          )}
+                          onClick={() => {
+                            if (isCurrent) return;
+                            statusMutation.mutate(value);
+                          }}
+                        >
+                          {t(`project.content.status.${value}`)}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -953,36 +938,6 @@ function ContentDetailPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Dialog open={changesOpen} onOpenChange={setChangesOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("project.detail.requestChanges")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="changes-note">{t("project.detail.changesNote")}</Label>
-            <Textarea
-              id="changes-note"
-              rows={4}
-              value={changesNote}
-              onChange={(e) => setChangesNote(e.target.value)}
-              placeholder={t("project.detail.changesNotePlaceholder")}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setChangesOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              type="button"
-              disabled={statusMutation.isPending}
-              onClick={() => void requestChanges()}
-            >
-              {t("project.detail.requestChanges")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={themeDialogOpen}
