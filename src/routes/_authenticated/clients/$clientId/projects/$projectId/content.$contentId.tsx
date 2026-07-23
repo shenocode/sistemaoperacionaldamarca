@@ -24,8 +24,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { StatusBadge, type ContentStatus } from "@/components/status-badge";
-import { ContentMediaPreview, guessMediaKind, type PreviewMediaItem } from "@/components/content-media-preview";
-import { ClientContentApprovalView } from "@/components/client-content-approval-view";
+import {
+  ContentMediaPreview,
+  guessMediaKind,
+  type PreviewMediaItem,
+} from "@/components/content-media-preview";
 import { PresetField } from "@/components/preset-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -59,6 +62,7 @@ import {
   listVersions,
   resolveContentMediaUrls,
   restoreVersion,
+  saveClientContentVersion,
   saveContentAsNewVersion,
   setContentStatus,
   updateContentFields,
@@ -85,8 +89,7 @@ const NEW_THEME_VALUE = "__new_theme__";
 type SourceMode = "file" | "url";
 
 type MediaEntry =
-  | { id: string; kind: "url"; url: string }
-  | { id: string; kind: "file"; file: File };
+  { id: string; kind: "url"; url: string } | { id: string; kind: "file"; file: File };
 
 function createMediaId() {
   return crypto.randomUUID();
@@ -288,6 +291,18 @@ function ContentDetailPage() {
 
   const versionMutation = useMutation({
     mutationFn: async () => {
+      // Clients save copy-only via RPC; admins save full content as a new version.
+      if (!isAdmin) {
+        return saveClientContentVersion({
+          contentId,
+          clientId,
+          projectId,
+          caption,
+          cta,
+          hashtags,
+          changeNote: versionNote,
+        });
+      }
       const urls = await resolveMediaForSave();
       return saveContentAsNewVersion({
         contentId,
@@ -474,32 +489,11 @@ function ContentDetailPage() {
     return <p className="text-sm text-muted-foreground">{t("project.detail.notFound")}</p>;
   }
 
-  if (!isAdmin) {
-    return (
-      <ClientContentApprovalView
-        clientId={clientId}
-        projectId={projectId}
-        contentId={contentId}
-        title={title || content.title}
-        status={status}
-        format={formatType}
-        caption={caption}
-        locucao={locucao}
-        hashtags={hashtags}
-        cta={cta}
-        previewItems={previewItems}
-        username={client?.name ?? title}
-        avatarUrl={client?.logo_url}
-        onCaptionChange={setCaption}
-        onHashtagsChange={setHashtags}
-        onCtaChange={setCta}
-      />
-    );
-  }
-
+  // Same form for admin and client. Clients edit copy fields; media/format/theme stay admin-only.
   const canApprove = status === "review";
-  const canSubmit = canManage && (status === "draft" || status === "changes" || status === "waiting_material");
-  const canPublish = canManage && status === "approved";
+  const canSubmit =
+    isAdmin && (status === "draft" || status === "changes" || status === "waiting_material");
+  const canPublish = isAdmin && status === "approved";
   const saving = saveMutation.isPending || versionMutation.isPending;
 
   return (
@@ -582,7 +576,7 @@ function ContentDetailPage() {
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  disabled={!canManage}
+                  disabled={!isAdmin}
                 />
               </div>
               <div className="space-y-1.5">
@@ -596,7 +590,7 @@ function ContentDetailPage() {
                       setMediaItems((prev) => prev.slice(0, 1));
                     }
                   }}
-                  disabled={!canManage}
+                  disabled={!isAdmin}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -614,7 +608,7 @@ function ContentDetailPage() {
                 <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
                 <Select
                   value={theme.trim() || NONE_THEME_VALUE}
-                  disabled={!canManage}
+                  disabled={!isAdmin}
                   onValueChange={(value) => {
                     if (value === NEW_THEME_VALUE) {
                       setNewTheme("");
@@ -636,7 +630,7 @@ function ContentDetailPage() {
                         {option}
                       </SelectItem>
                     ))}
-                    {canManage ? (
+                    {isAdmin ? (
                       <SelectItem value={NEW_THEME_VALUE}>
                         {t("project.calendar.newTheme")}
                       </SelectItem>
@@ -653,7 +647,6 @@ function ContentDetailPage() {
                   rows={4}
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  disabled={!canManage}
                 />
               </div>
               {needsLocucao ? (
@@ -661,15 +654,13 @@ function ContentDetailPage() {
                   <Label htmlFor="locucao" variant="highlight">
                     {t("project.detail.locucao")}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t("project.detail.locucaoHint")}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("project.detail.locucaoHint")}</p>
                   <Textarea
                     id="locucao"
                     rows={5}
                     value={locucao}
                     onChange={(e) => setLocucao(e.target.value)}
-                    disabled={!canManage}
+                    disabled={!isAdmin}
                     placeholder={t("project.detail.locucaoPlaceholder")}
                   />
                 </div>
@@ -681,7 +672,6 @@ function ContentDetailPage() {
                   value={cta}
                   onChange={setCta}
                   presets={ctaPresets}
-                  disabled={!canManage}
                   selectLabel={t("project.detail.selectCtaPreset")}
                   emptyPresetsLabel={t("project.detail.noCtaPresets")}
                   labelVariant="highlight"
@@ -692,14 +682,13 @@ function ContentDetailPage() {
                   value={hashtags}
                   onChange={setHashtags}
                   presets={hashtagPresets}
-                  disabled={!canManage}
                   selectLabel={t("project.detail.selectHashtagPreset")}
                   emptyPresetsLabel={t("project.detail.noHashtagPresets")}
                   multiple
                   labelVariant="highlight"
                 />
               </div>
-              {canManage ? (
+              {isAdmin ? (
                 <>
                   <div className="space-y-3">
                     <Label variant="highlight">{t("project.detail.media")}</Label>
@@ -754,8 +743,7 @@ function ContentDetailPage() {
                     {mediaItems.length > 0 ? (
                       <ul className="space-y-2 rounded-lg border p-3">
                         {mediaItems.map((item, index) => {
-                          const label =
-                            item.kind === "file" ? item.file.name : item.url;
+                          const label = item.kind === "file" ? item.file.name : item.url;
                           const canReorder = mediaItems.length > 1;
                           return (
                             <li
@@ -887,21 +875,21 @@ function ContentDetailPage() {
             </CardContent>
           </Card>
 
-          {canManage ? (
-            <Card className="rounded-xl">
-              <CardContent className="space-y-4 p-6">
-                <div className="space-y-1.5">
-                  <Label htmlFor="version-note" variant="highlight">
-                    {t("project.detail.versionNote")}
-                  </Label>
-                  <Input
-                    id="version-note"
-                    value={versionNote}
-                    onChange={(e) => setVersionNote(e.target.value)}
-                    placeholder={t("project.detail.versionNotePlaceholder")}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
+          <Card className="rounded-xl">
+            <CardContent className="space-y-4 p-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="version-note" variant="highlight">
+                  {t("project.detail.versionNote")}
+                </Label>
+                <Input
+                  id="version-note"
+                  value={versionNote}
+                  onChange={(e) => setVersionNote(e.target.value)}
+                  placeholder={t("project.detail.versionNotePlaceholder")}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isAdmin ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -911,18 +899,16 @@ function ContentDetailPage() {
                     <Save className="mr-2 h-4 w-4" aria-hidden="true" />
                     {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
                   </Button>
-                  <Button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => versionMutation.mutate()}
-                  >
-                    <History className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {t("project.detail.saveVersion")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
+                ) : null}
+                <Button type="button" disabled={saving} onClick={() => versionMutation.mutate()}>
+                  <History className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {saving && versionMutation.isPending
+                    ? t("common.loading")
+                    : t("project.detail.saveVersion")}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card className="h-fit rounded-xl">
@@ -932,10 +918,7 @@ function ContentDetailPage() {
           <CardContent>
             <ol className="space-y-3">
               {(versionsQuery.data ?? []).map((v) => (
-                <li
-                  key={v.id}
-                  className="space-y-2 rounded-md border p-3 text-sm"
-                >
+                <li key={v.id} className="space-y-2 rounded-md border p-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium">
                       {t("project.detail.version")} {v.version_number}
@@ -952,7 +935,7 @@ function ContentDetailPage() {
                   {v.change_note ? (
                     <p className="text-xs text-muted-foreground">{v.change_note}</p>
                   ) : null}
-                  {canManage && v.version_number !== content.current_version ? (
+                  {isAdmin && v.version_number !== content.current_version ? (
                     <Button
                       type="button"
                       variant="ghost"
