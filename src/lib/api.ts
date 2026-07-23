@@ -407,15 +407,32 @@ export async function countProjects() {
 
 // —— Content ——
 
+function isMissingSortOrderColumn(message: string) {
+  return /sort_order/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
 export async function listContent(projectId: string) {
-  const { data, error } = await supabase
+  const ordered = await supabase
     .from("content_items")
     .select("*")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  if (!ordered.error) return ordered.data ?? [];
+
+  // Migration `content_sort_order` may not be applied yet on the remote DB.
+  // Fall back so the calendar/list don't look "empty" when the query fails.
+  if (isMissingSortOrderColumn(ordered.error.message)) {
+    const fallback = await supabase
+      .from("content_items")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+    if (fallback.error) throw new Error(fallback.error.message);
+    return fallback.data ?? [];
+  }
+
+  throw new Error(ordered.error.message);
 }
 
 async function nextContentSortOrder(projectId: string): Promise<number> {
@@ -426,8 +443,9 @@ async function nextContentSortOrder(projectId: string): Promise<number> {
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data?.sort_order ?? -1) + 1;
+  if (!error) return (data?.sort_order ?? -1) + 1;
+  if (isMissingSortOrderColumn(error.message)) return 0;
+  throw new Error(error.message);
 }
 
 export async function reorderContentItems(
@@ -463,21 +481,26 @@ export async function createContent(input: {
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const sortOrder = await nextContentSortOrder(input.projectId);
-  const { data, error } = await supabase
+  const baseInsert = {
+    project_id: input.projectId,
+    title: input.title.trim(),
+    caption: input.caption?.trim() || "",
+    cta: input.cta?.trim() || "",
+    hashtags: input.hashtags?.trim() || "",
+    media_url: input.mediaUrl?.trim() || null,
+    created_by: userId,
+    status: "draft" as const,
+  };
+  let { data, error } = await supabase
     .from("content_items")
-    .insert({
-      project_id: input.projectId,
-      title: input.title.trim(),
-      caption: input.caption?.trim() || "",
-      cta: input.cta?.trim() || "",
-      hashtags: input.hashtags?.trim() || "",
-      media_url: input.mediaUrl?.trim() || null,
-      created_by: userId,
-      status: "draft",
-      sort_order: sortOrder,
-    })
+    .insert({ ...baseInsert, sort_order: sortOrder })
     .select("*")
     .single();
+  if (error && isMissingSortOrderColumn(error.message)) {
+    const retry = await supabase.from("content_items").insert(baseInsert).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
   const row = ensureData(data, error);
   await logActivity({
     type: "content_created",
@@ -524,26 +547,31 @@ export async function duplicateContent(input: {
   const sortOrder = await nextContentSortOrder(input.projectId);
 
   // Intencionalmente NÃO copia current_version nem content_versions do source.
-  const { data, error } = await supabase
+  const baseInsert = {
+    project_id: input.projectId,
+    title: source.title,
+    caption: source.caption,
+    cta: source.cta,
+    hashtags: source.hashtags,
+    media_url: mediaUrls[0] ?? null,
+    media_urls: mediaUrls,
+    format: source.format,
+    theme: source.theme,
+    scheduled_at: scheduledAt,
+    created_by: userId,
+    status: "draft" as const,
+    current_version: 1,
+  };
+  let { data, error } = await supabase
     .from("content_items")
-    .insert({
-      project_id: input.projectId,
-      title: source.title,
-      caption: source.caption,
-      cta: source.cta,
-      hashtags: source.hashtags,
-      media_url: mediaUrls[0] ?? null,
-      media_urls: mediaUrls,
-      format: source.format,
-      theme: source.theme,
-      scheduled_at: scheduledAt,
-      created_by: userId,
-      status: "draft",
-      current_version: 1,
-      sort_order: sortOrder,
-    })
+    .insert({ ...baseInsert, sort_order: sortOrder })
     .select("*")
     .single();
+  if (error && isMissingSortOrderColumn(error.message)) {
+    const retry = await supabase.from("content_items").insert(baseInsert).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
   let row = ensureData(data, error);
 
   // Garante histórico zerado mesmo se algum default/trigger alterar current_version.

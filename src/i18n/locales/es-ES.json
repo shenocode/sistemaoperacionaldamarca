@@ -276,6 +276,7 @@
     "search": "Buscar",
     "cancel": "Cancelar",
     "save": "Guardar",
-    "saved": "Guardado."
+    "saved": "Guardado.",
+    "error": "Algo salió mal. Inténtalo de nuevo."
   }
 }

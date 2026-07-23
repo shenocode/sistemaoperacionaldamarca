@@ -281,6 +281,7 @@
     "search": "Buscar",
     "cancel": "Cancelar",
     "save": "Salvar",
-    "saved": "Salvo."
+    "saved": "Salvo.",
+    "error": "Algo deu errado. Tente de novo."
   }
 }

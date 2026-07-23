@@ -85,7 +85,9 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
 }
 
 function sortByManualOrder(a: ContentItem, b: ContentItem) {
-  if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+  const aOrder = a.sort_order ?? 0;
+  const bOrder = b.sort_order ?? 0;
+  if (aOrder !== bOrder) return aOrder - bOrder;
   return a.title.localeCompare(b.title);
 }
 
@@ -331,6 +333,12 @@ function ProjectCalendarPage() {
 
       {contentQuery.isLoading || projectQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      ) : contentQuery.isError ? (
+        <p className="text-sm text-destructive">
+          {contentQuery.error instanceof Error
+            ? contentQuery.error.message
+            : t("common.error")}
+        </p>
       ) : rows.length === 0 ? (
         <EmptyState icon={CalendarDays} title={t("project.calendar.empty")} />
       ) : (

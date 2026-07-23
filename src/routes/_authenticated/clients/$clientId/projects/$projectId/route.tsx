@@ -76,11 +76,11 @@ function ProjectLayout() {
               ? { search: {} }
               : {})}
             role="tab"
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-              "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-            activeProps={{ className: "border-primary text-foreground" }}
+            className="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+            inactiveProps={{
+              className: "border-transparent text-muted-foreground hover:text-foreground",
+            }}
+            activeProps={{ className: "border-primary text-primary" }}
           >
             {tab.label}
           </Link>

@@ -276,6 +276,7 @@
     "search": "Search",
     "cancel": "Cancel",
     "save": "Save",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "error": "Something went wrong. Please try again."
   }
 }

@@ -131,6 +131,12 @@ function ContentListPage() {
 
       {contentQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      ) : contentQuery.isError ? (
+        <p className="text-sm text-destructive">
+          {contentQuery.error instanceof Error
+            ? contentQuery.error.message
+            : t("common.error")}
+        </p>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div className="w-full flex-1">
