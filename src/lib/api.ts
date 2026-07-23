@@ -103,13 +103,88 @@ function ensureData<T>(data: T | null, error: { message: string } | null): T {
 
 // —— Clients ——
 
-export async function listClients() {
+export type ClientProjectSummary = {
+  id: string;
+  name: string;
+  updated_at: string;
+  last_update_at: string;
+};
+
+export type ClientWithProjects = Client & {
+  projects: ClientProjectSummary[];
+  last_update_at: string | null;
+};
+
+function maxIsoDate(dates: Array<string | null | undefined>): string | null {
+  let max: string | null = null;
+  for (const value of dates) {
+    if (!value) continue;
+    if (!max || new Date(value).getTime() > new Date(max).getTime()) max = value;
+  }
+  return max;
+}
+
+export function buildWhatsAppNotifyUrl(whatsapp: string | null | undefined, message: string) {
+  if (!whatsapp?.trim()) return null;
+  const digits = whatsapp.replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
+export async function listClients(): Promise<ClientWithProjects[]> {
   const { data, error } = await supabase
     .from("clients")
-    .select("*")
+    .select(
+      `
+      *,
+      projects (
+        id,
+        name,
+        updated_at,
+        content_items ( updated_at ),
+        library_assets ( created_at )
+      )
+    `,
+    )
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
-  return data ?? [];
+
+  return (data ?? []).map((client) => {
+    const projects: ClientProjectSummary[] = (client.projects ?? []).map(
+      (project: {
+        id: string;
+        name: string;
+        updated_at: string;
+        content_items?: Array<{ updated_at: string }> | null;
+        library_assets?: Array<{ created_at: string }> | null;
+      }) => {
+        const last_update_at =
+          maxIsoDate([
+            project.updated_at,
+            ...(project.content_items ?? []).map((item) => item.updated_at),
+            ...(project.library_assets ?? []).map((asset) => asset.created_at),
+          ]) ?? project.updated_at;
+        return {
+          id: project.id,
+          name: project.name,
+          updated_at: project.updated_at,
+          last_update_at,
+        };
+      },
+    );
+
+    const last_update_at = maxIsoDate([
+      client.updated_at,
+      ...projects.map((project) => project.last_update_at),
+    ]);
+
+    const { projects: _projects, ...rest } = client;
+    return {
+      ...(rest as Client),
+      projects,
+      last_update_at,
+    };
+  });
 }
 
 export async function getClient(clientId: string) {
@@ -118,14 +193,32 @@ export async function getClient(clientId: string) {
   return data;
 }
 
-export async function createClient(input: { name: string; notes?: string }): Promise<Client> {
+export type ClientContactInput = {
+  name: string;
+  notes?: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  instagram?: string;
+};
+
+function normalizeOptionalText(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+export async function createClient(input: ClientContactInput): Promise<Client> {
   const userId = await requireUserId();
   // Avoid insert().select(): RETURNING hits SELECT RLS before membership exists.
   const id = crypto.randomUUID();
   const { error: insertError } = await supabase.from("clients").insert({
     id,
     name: input.name.trim(),
-    notes: input.notes?.trim() || null,
+    notes: normalizeOptionalText(input.notes),
+    email: normalizeOptionalText(input.email),
+    phone: normalizeOptionalText(input.phone),
+    whatsapp: normalizeOptionalText(input.whatsapp),
+    instagram: normalizeOptionalText(input.instagram),
     created_by: userId,
   });
   if (insertError) throw new Error(insertError.message);
@@ -140,13 +233,17 @@ export async function createClient(input: { name: string; notes?: string }): Pro
   return row;
 }
 
-export async function updateClient(
-  clientId: string,
-  input: { name: string; notes?: string },
-): Promise<Client> {
+export async function updateClient(clientId: string, input: ClientContactInput): Promise<Client> {
   const { data, error } = await supabase
     .from("clients")
-    .update({ name: input.name.trim(), notes: input.notes?.trim() || null })
+    .update({
+      name: input.name.trim(),
+      notes: normalizeOptionalText(input.notes),
+      email: normalizeOptionalText(input.email),
+      phone: normalizeOptionalText(input.phone),
+      whatsapp: normalizeOptionalText(input.whatsapp),
+      instagram: normalizeOptionalText(input.instagram),
+    })
     .eq("id", clientId)
     .select("*")
     .single();
@@ -633,6 +730,40 @@ export async function createLibraryAsset(input: {
   }
 
   return ensureData(data, error);
+}
+
+export async function createLibraryAssets(
+  inputs: Array<{
+    projectId: string;
+    name: string;
+    category: LibraryCategory;
+    fileUrl?: string;
+    file?: File | null;
+    notes?: string;
+  }>,
+): Promise<LibraryAsset[]> {
+  const created: LibraryAsset[] = [];
+  const errors: string[] = [];
+
+  for (const input of inputs) {
+    try {
+      created.push(await createLibraryAsset(input));
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  if (created.length === 0 && errors.length > 0) {
+    throw new Error(errors[0]);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      `${created.length} enviado(s), ${errors.length} falhou(aram): ${errors[0]}`,
+    );
+  }
+
+  return created;
 }
 
 // —— Dashboard ——

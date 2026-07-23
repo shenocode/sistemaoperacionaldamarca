@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { ptBR, enUS, es } from "date-fns/locale";
 import {
   ChevronLeft,
   Check,
+  GripVertical,
   MessageSquareWarning,
   Send,
   SendHorizonal,
@@ -56,9 +57,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 type SourceMode = "file" | "url";
+
+type MediaEntry =
+  | { id: string; kind: "url"; url: string }
+  | { id: string; kind: "file"; file: File };
+
+function createMediaId() {
+  return crypto.randomUUID();
+}
+
+function mediaEntriesFromUrls(urls: string[]): MediaEntry[] {
+  return urls.filter(Boolean).map((url) => ({ id: createMediaId(), kind: "url" as const, url }));
+}
+
+function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/content/$contentId",
@@ -78,14 +102,16 @@ function ContentDetailPage() {
   const [cta, setCta] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaEntry[]>([]);
   const [source, setSource] = useState<SourceMode>("file");
   const [urlDraft, setUrlDraft] = useState("");
   const [comment, setComment] = useState("");
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
   const [versionNote, setVersionNote] = useState("");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
   const contentQuery = useQuery({
     queryKey: ["content", "detail", contentId],
@@ -117,15 +143,18 @@ function ContentDetailPage() {
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isCarousel = formatType === "carousel";
-  const [blobUrls, setBlobUrls] = useState<string[]>([]);
-  const previewItems: PreviewMediaItem[] = [
-    ...mediaUrls.map((url) => ({ url })),
-    ...pendingFiles.map((file, index) => ({
-      url: blobUrls[index] ?? "",
-      kind: guessMediaKind(file),
-      name: file.name,
-    })),
-  ].filter((item) => item.url);
+  const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
+  const previewItems: PreviewMediaItem[] = mediaItems
+    .map((item) => {
+      if (item.kind === "url") return { url: item.url };
+      const url = blobUrls[item.id] ?? "";
+      return {
+        url,
+        kind: guessMediaKind(item.file),
+        name: item.file.name,
+      };
+    })
+    .filter((item) => item.url);
 
   useEffect(() => {
     if (!content) return;
@@ -134,18 +163,34 @@ function ContentDetailPage() {
     setCta(content.cta);
     setHashtags(content.hashtags);
     setFormatType(content.format ?? "static_feed");
-    setMediaUrls(resolveContentMediaUrls(content));
-    setPendingFiles([]);
+    setMediaItems(mediaEntriesFromUrls(resolveContentMediaUrls(content)));
     setUrlDraft("");
+    setDragIndex(null);
+    setDropIndex(null);
   }, [content]);
 
+  const pendingFileKey = mediaItems
+    .filter((item): item is Extract<MediaEntry, { kind: "file" }> => item.kind === "file")
+    .map((item) => item.id)
+    .slice()
+    .sort()
+    .join("|");
+
   useEffect(() => {
-    const next = pendingFiles.map((file) => URL.createObjectURL(file));
+    const fileItems = mediaItems.filter(
+      (item): item is Extract<MediaEntry, { kind: "file" }> => item.kind === "file",
+    );
+    const next: Record<string, string> = {};
+    for (const item of fileItems) {
+      next[item.id] = URL.createObjectURL(item.file);
+    }
     setBlobUrls(next);
     return () => {
-      next.forEach((url) => URL.revokeObjectURL(url));
+      Object.values(next).forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [pendingFiles]);
+    // Recreate object URLs only when the set of pending files changes, not on reorder.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingFileKey tracks file identity
+  }, [pendingFileKey]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["content"] });
@@ -155,10 +200,19 @@ function ContentDetailPage() {
   };
 
   const resolveMediaForSave = async () => {
+    const pendingFiles = mediaItems
+      .filter((item): item is Extract<MediaEntry, { kind: "file" }> => item.kind === "file")
+      .map((item) => item.file);
     const uploaded = pendingFiles.length
       ? await uploadContentMediaFiles(projectId, pendingFiles)
       : [];
-    const urls = [...mediaUrls, ...uploaded].filter(Boolean);
+    let fileIndex = 0;
+    const urls = mediaItems
+      .map((item) => {
+        if (item.kind === "url") return item.url;
+        return uploaded[fileIndex++] ?? "";
+      })
+      .filter(Boolean);
     if (!isCarousel) return urls.slice(0, 1);
     return urls;
   };
@@ -177,7 +231,6 @@ function ContentDetailPage() {
       });
     },
     onSuccess: () => {
-      setPendingFiles([]);
       invalidateAll();
       toast.success(t("common.saved"));
     },
@@ -202,7 +255,6 @@ function ContentDetailPage() {
     },
     onSuccess: () => {
       setVersionNote("");
-      setPendingFiles([]);
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
     },
@@ -272,26 +324,70 @@ function ContentDetailPage() {
   const addUrl = () => {
     const next = urlDraft.trim();
     if (!next) return;
-    if (isCarousel) {
-      setMediaUrls((prev) => [...prev, next]);
+    const entry: MediaEntry = { id: createMediaId(), kind: "url", url: next };
+
+    if (formatType === "carousel") {
+      setMediaItems((prev) => [...prev, entry]);
+    } else if (mediaItems.length === 0) {
+      setMediaItems([entry]);
     } else {
-      setMediaUrls([next]);
-      setPendingFiles([]);
+      setFormatType("carousel");
+      setMediaItems((prev) => [...prev, entry]);
     }
     setUrlDraft("");
   };
 
-  const removeMediaAt = (index: number) => {
-    const blobCount = pendingFiles.length;
-    const urlCount = mediaUrls.length;
-    if (index < urlCount) {
-      setMediaUrls((prev) => prev.filter((_, i) => i !== index));
+  const addFiles = (files: File[]) => {
+    if (!files.length) return;
+    const entries: MediaEntry[] = files.map((file) => ({
+      id: createMediaId(),
+      kind: "file" as const,
+      file,
+    }));
+
+    if (formatType === "carousel") {
+      setMediaItems((prev) => [...prev, ...entries]);
       return;
     }
-    const fileIndex = index - urlCount;
-    if (fileIndex >= 0 && fileIndex < blobCount) {
-      setPendingFiles((prev) => prev.filter((_, i) => i !== fileIndex));
+
+    if (entries.length === 1) {
+      setMediaItems(entries);
+      return;
     }
+
+    setFormatType("carousel");
+    setMediaItems((prev) => [...prev, ...entries]);
+  };
+
+  const removeMediaAt = (index: number) => {
+    setMediaItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const onDragStart = (index: number) => (event: DragEvent<HTMLLIElement>) => {
+    setDragIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const onDragOver = (index: number) => (event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dropIndex !== index) setDropIndex(index);
+  };
+
+  const onDrop = (index: number) => (event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault();
+    const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
+    if (Number.isFinite(from)) {
+      setMediaItems((prev) => moveItem(prev, from, index));
+    }
+    setDragIndex(null);
+    setDropIndex(null);
+  };
+
+  const onDragEnd = () => {
+    setDragIndex(null);
+    setDropIndex(null);
   };
 
   if (contentQuery.isLoading) {
@@ -394,9 +490,8 @@ function ContentDetailPage() {
                   onValueChange={(v) => {
                     const next = v as ContentFormat;
                     setFormatType(next);
-                    if (next !== "carousel" && mediaUrls.length > 1) {
-                      setMediaUrls((prev) => prev.slice(0, 1));
-                      setPendingFiles([]);
+                    if (next !== "carousel" && mediaItems.length > 1) {
+                      setMediaItems((prev) => prev.slice(0, 1));
                     }
                   }}
                   disabled={!canManage}
@@ -447,33 +542,34 @@ function ContentDetailPage() {
                 <>
                   <div className="space-y-3">
                     <Label>{t("project.detail.media")}</Label>
+                    <input
+                      ref={mediaFileInputRef}
+                      id="media-file"
+                      type="file"
+                      className="sr-only"
+                      accept={CONTENT_MEDIA_ACCEPT}
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        addFiles(files);
+                        e.target.value = "";
+                      }}
+                    />
                     <Tabs
                       value={source}
                       onValueChange={(v) => setSource(v as SourceMode)}
                       className="w-full"
                     >
                       <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="file">{t("project.detail.sourceFile")}</TabsTrigger>
+                        <TabsTrigger
+                          value="file"
+                          onClick={() => mediaFileInputRef.current?.click()}
+                        >
+                          {t("project.detail.sourceFile")}
+                        </TabsTrigger>
                         <TabsTrigger value="url">{t("project.detail.sourceUrl")}</TabsTrigger>
                       </TabsList>
                       <TabsContent value="file" className="space-y-1.5 pt-3">
-                        <Input
-                          id="media-file"
-                          type="file"
-                          accept={CONTENT_MEDIA_ACCEPT}
-                          multiple={isCarousel}
-                          onChange={(e) => {
-                            const files = Array.from(e.target.files ?? []);
-                            if (!files.length) return;
-                            if (isCarousel) {
-                              setPendingFiles((prev) => [...prev, ...files]);
-                            } else {
-                              setPendingFiles(files.slice(0, 1));
-                              setMediaUrls([]);
-                            }
-                            e.target.value = "";
-                          }}
-                        />
                         <p className="text-xs text-muted-foreground">
                           {t("project.detail.mediaHint")}
                         </p>
@@ -494,33 +590,64 @@ function ContentDetailPage() {
                       </TabsContent>
                     </Tabs>
 
-                    {previewItems.length > 0 ? (
+                    {mediaItems.length > 0 ? (
                       <ul className="space-y-2 rounded-lg border p-3">
-                        {previewItems.map((item, index) => (
-                          <li
-                            key={`${item.url}-${index}`}
-                            className="flex items-center justify-between gap-2 text-xs"
-                          >
-                            <span className="truncate text-muted-foreground">
-                              {isCarousel
-                                ? `${t("project.detail.slide")} ${index + 1}`
-                                : t("project.detail.media")}
-                              {": "}
-                              {item.name ?? item.url}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 shrink-0"
-                              onClick={() => removeMediaAt(index)}
-                              aria-label={t("project.detail.removeMedia")}
+                        {mediaItems.map((item, index) => {
+                          const label =
+                            item.kind === "file" ? item.file.name : item.url;
+                          const canReorder = mediaItems.length > 1;
+                          return (
+                            <li
+                              key={item.id}
+                              draggable={canReorder}
+                              onDragStart={canReorder ? onDragStart(index) : undefined}
+                              onDragOver={canReorder ? onDragOver(index) : undefined}
+                              onDrop={canReorder ? onDrop(index) : undefined}
+                              onDragEnd={canReorder ? onDragEnd : undefined}
+                              className={cn(
+                                "flex items-center gap-2 rounded-md px-1 py-1 text-xs transition-colors",
+                                canReorder && "cursor-grab active:cursor-grabbing",
+                                dragIndex === index && "opacity-50",
+                                dropIndex === index &&
+                                  dragIndex !== null &&
+                                  dragIndex !== index &&
+                                  "bg-muted",
+                              )}
                             >
-                              <X className="h-3.5 w-3.5" aria-hidden="true" />
-                            </Button>
-                          </li>
-                        ))}
+                              {canReorder ? (
+                                <span
+                                  className="inline-flex shrink-0 text-muted-foreground"
+                                  aria-hidden="true"
+                                >
+                                  <GripVertical className="h-3.5 w-3.5" />
+                                </span>
+                              ) : null}
+                              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                                {isCarousel || mediaItems.length > 1
+                                  ? `${t("project.detail.slide")} ${index + 1}`
+                                  : t("project.detail.media")}
+                                {": "}
+                                {label}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0"
+                                onClick={() => removeMediaAt(index)}
+                                aria-label={t("project.detail.removeMedia")}
+                              >
+                                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                              </Button>
+                            </li>
+                          );
+                        })}
                       </ul>
+                    ) : null}
+                    {mediaItems.length > 1 ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("project.detail.reorderHint")}
+                      </p>
                     ) : null}
                   </div>
                   <div className="space-y-1.5">

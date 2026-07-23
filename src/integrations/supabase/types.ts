@@ -103,29 +103,41 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          email: string | null
           id: string
+          instagram: string | null
           logo_url: string | null
           name: string
           notes: string | null
+          phone: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          email?: string | null
           id?: string
+          instagram?: string | null
           logo_url?: string | null
           name: string
           notes?: string | null
+          phone?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          email?: string | null
           id?: string
+          instagram?: string | null
           logo_url?: string | null
           name?: string
           notes?: string | null
+          phone?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
