@@ -175,7 +175,7 @@ export function ClientContentApprovalView({
             {t("project.tabs.content")}
           </Link>
           <div className="flex items-center gap-2">
-            <StatusBadge status={status} />
+            <StatusBadge status={status} asButton />
             <span className="text-sm font-medium text-foreground">{title}</span>
           </div>
         </div>

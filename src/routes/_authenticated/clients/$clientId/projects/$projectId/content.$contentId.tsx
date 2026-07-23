@@ -13,6 +13,7 @@ import {
   SendHorizonal,
   Save,
   History,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -34,10 +35,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   CONTENT_FORMATS,
   CONTENT_MEDIA_ACCEPT,
   addComment,
   canManageClient,
+  deleteComment,
   getClient,
   getContent,
   getProject,
@@ -54,6 +66,7 @@ import {
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
 import { useAppRole } from "@/hooks/use-app-role";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
   DialogContent,
@@ -103,6 +116,7 @@ function ContentDetailPage() {
   const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
   const { isAdmin, loading: roleLoading } = useAppRole();
+  const { user } = useAuth();
 
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
@@ -116,6 +130,7 @@ function ContentDetailPage() {
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
   const [versionNote, setVersionNote] = useState("");
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
@@ -310,6 +325,16 @@ function ContentDetailPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: string) => deleteComment(commentId),
+    onSuccess: () => {
+      setDeleteCommentId(null);
+      invalidateAll();
+      toast.success(t("project.detail.commentDeleted"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const restoreMutation = useMutation({
     mutationFn: (version: ContentVersion) =>
       restoreVersion({ contentId, clientId, projectId, version }),
@@ -452,7 +477,7 @@ function ContentDetailPage() {
           {t("project.tabs.content")}
         </Link>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={status} />
+          <StatusBadge status={status} asButton />
           {canSubmit ? (
             <Button
               variant="secondary"
@@ -575,6 +600,7 @@ function ContentDetailPage() {
                   disabled={!canManage}
                   selectLabel={t("project.detail.selectHashtagPreset")}
                   emptyPresetsLabel={t("project.detail.noHashtagPresets")}
+                  multiple
                 />
               </div>
               {canManage ? (
@@ -731,22 +757,40 @@ function ContentDetailPage() {
                 <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
               ) : (
                 <ul className="space-y-3">
-                  {(commentsQuery.data ?? []).map((c) => (
-                    <li key={c.id} className="rounded-md border p-3 text-sm">
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="font-medium">
-                          {c.profiles?.full_name || t("project.detail.anonymous")}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(c.created_at), {
-                            addSuffix: true,
-                            locale,
-                          })}
-                        </span>
-                      </div>
-                      <p className="whitespace-pre-wrap text-muted-foreground">{c.body}</p>
-                    </li>
-                  ))}
+                  {(commentsQuery.data ?? []).map((c) => {
+                    const canDeleteComment = canManage || c.user_id === user?.id;
+                    return (
+                      <li key={c.id} className="rounded-md border p-3 text-sm">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="font-medium">
+                            {c.profiles?.full_name || t("project.detail.anonymous")}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(c.created_at), {
+                                addSuffix: true,
+                                locale,
+                              })}
+                            </span>
+                            {canDeleteComment ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                aria-label={t("project.detail.deleteComment")}
+                                disabled={deleteCommentMutation.isPending}
+                                onClick={() => setDeleteCommentId(c.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p className="whitespace-pre-wrap text-muted-foreground">{c.body}</p>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
               <form
@@ -851,6 +895,38 @@ function ContentDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(deleteCommentId)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleteCommentMutation.isPending) setDeleteCommentId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.detail.deleteCommentConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.detail.deleteCommentConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteCommentMutation.isPending}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteCommentMutation.isPending || !deleteCommentId}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deleteCommentId) return;
+                deleteCommentMutation.mutate(deleteCommentId);
+              }}
+            >
+              {t("project.detail.deleteComment")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

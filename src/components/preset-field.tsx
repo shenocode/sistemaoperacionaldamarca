@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -19,7 +20,38 @@ type PresetFieldProps = {
   disabled?: boolean;
   selectLabel: string;
   emptyPresetsLabel: string;
+  /** When true, presets can be toggled on/off and combined in the value. */
+  multiple?: boolean;
 };
+
+function normalizeSpaces(text: string) {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+function isPresetSelected(value: string, preset: string) {
+  const normalizedPreset = normalizeSpaces(preset);
+  if (!normalizedPreset) return false;
+  return ` ${normalizeSpaces(value)} `.includes(` ${normalizedPreset} `);
+}
+
+function togglePreset(value: string, preset: string, checked: boolean) {
+  const normalizedValue = normalizeSpaces(value);
+  const normalizedPreset = normalizeSpaces(preset);
+  if (!normalizedPreset) return normalizedValue;
+
+  if (checked) {
+    if (isPresetSelected(normalizedValue, normalizedPreset)) return normalizedValue;
+    return [normalizedValue, normalizedPreset].filter(Boolean).join(" ");
+  }
+
+  const padded = ` ${normalizedValue} `;
+  const target = ` ${normalizedPreset} `;
+  const idx = padded.indexOf(target);
+  if (idx === -1) return normalizedValue;
+  return normalizeSpaces(
+    `${padded.slice(0, idx)} ${padded.slice(idx + target.length)}`,
+  );
+}
 
 export function PresetField({
   id,
@@ -30,6 +62,7 @@ export function PresetField({
   disabled,
   selectLabel,
   emptyPresetsLabel,
+  multiple = false,
 }: PresetFieldProps) {
   const hasPresets = presets.length > 0;
 
@@ -59,15 +92,29 @@ export function PresetField({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-w-sm">
-              {presets.map((preset) => (
-                <DropdownMenuItem
-                  key={preset}
-                  className="whitespace-normal break-words"
-                  onSelect={() => onChange(preset)}
-                >
-                  {preset}
-                </DropdownMenuItem>
-              ))}
+              {multiple
+                ? presets.map((preset) => (
+                    <DropdownMenuCheckboxItem
+                      key={preset}
+                      className="whitespace-normal break-words"
+                      checked={isPresetSelected(value, preset)}
+                      onCheckedChange={(checked) =>
+                        onChange(togglePreset(value, preset, checked === true))
+                      }
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      {preset}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                : presets.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset}
+                      className="whitespace-normal break-words"
+                      onSelect={() => onChange(preset)}
+                    >
+                      {preset}
+                    </DropdownMenuItem>
+                  ))}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}

@@ -462,7 +462,13 @@ export async function createContent(input: {
   return row;
 }
 
-/** Copia um conteúdo do calendário para o próximo período (+7 dias se houver data). */
+/**
+ * Duplica um conteúdo como novo item em rascunho.
+ * Copia só o estado atual dos campos (título, copy, mídia, etc.).
+ * O histórico de versões é sempre zerado: o clone nasce em v1 e nenhuma
+ * linha de `content_versions` do original é copiada (o trigger
+ * `on_content_created` cria apenas a versão inicial do novo id).
+ */
 export async function duplicateContent(input: {
   contentId: string;
   clientId: string;
@@ -489,6 +495,7 @@ export async function duplicateContent(input: {
 
   const mediaUrls = resolveContentMediaUrls(source);
 
+  // Intencionalmente NÃO copia current_version nem content_versions do source.
   const { data, error } = await supabase
     .from("content_items")
     .insert({
@@ -508,7 +515,19 @@ export async function duplicateContent(input: {
     })
     .select("*")
     .single();
-  const row = ensureData(data, error);
+  let row = ensureData(data, error);
+
+  // Garante histórico zerado mesmo se algum default/trigger alterar current_version.
+  if (row.current_version !== 1) {
+    const { data: fixed, error: fixError } = await supabase
+      .from("content_items")
+      .update({ current_version: 1 })
+      .eq("id", row.id)
+      .select("*")
+      .single();
+    row = ensureData(fixed, fixError);
+  }
+
   await logActivity({
     type: "content_created",
     summary: `Conteúdo duplicado: ${row.title}`,
@@ -819,6 +838,11 @@ export async function addComment(input: {
     contentId: input.contentId,
   });
   return row;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  const { error } = await supabase.from("content_comments").delete().eq("id", commentId);
+  if (error) throw new Error(error.message);
 }
 
 // —— Library ——

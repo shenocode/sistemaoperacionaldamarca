@@ -29,8 +29,11 @@ import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import {
   CONTENT_FORMATS,
   addProjectThemePreset,
+  buildProjectReviewUrl,
+  buildWhatsAppNotifyUrl,
   canManageClient,
   duplicateContent,
+  getClient,
   listContent,
   getProject,
   updateContentCalendar,
@@ -90,6 +93,11 @@ function ProjectCalendarPage() {
     queryFn: () => getProject(projectId),
   });
 
+  const clientQuery = useQuery({
+    queryKey: ["clients", clientId],
+    queryFn: () => getClient(clientId),
+  });
+
   const manageQuery = useQuery({
     queryKey: ["can-manage", clientId],
     queryFn: () => canManageClient(clientId),
@@ -97,6 +105,32 @@ function ProjectCalendarPage() {
 
   const canEdit = Boolean(manageQuery.data);
   const themePresets = projectQuery.data?.theme_presets ?? [];
+
+  function handleSendUpdates() {
+    const client = clientQuery.data;
+    const project = projectQuery.data;
+    if (!client || !project) return;
+
+    if (!client.access_token) {
+      toast.error(t("clients.accessTokenMissing"));
+      return;
+    }
+
+    const link = buildProjectReviewUrl(client.id, project.id, client.access_token);
+    const message = t("clients.whatsappMessage", {
+      client: client.name,
+      project: project.name,
+      link,
+    });
+    const url = buildWhatsAppNotifyUrl(client.whatsapp, message);
+    if (!url) {
+      toast.error(t("clients.whatsappMissing"));
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+    toast.success(t("clients.whatsappOpened"));
+  }
 
   const rows = useMemo(
     () => [...(contentQuery.data ?? [])].sort(sortBySchedule),
@@ -145,9 +179,22 @@ function ProjectCalendarPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-medium">{t("project.calendar.title")}</h2>
-        <p className="text-xs text-muted-foreground">{t("project.calendar.hint")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-medium">{t("project.calendar.title")}</h2>
+          <p className="text-xs text-muted-foreground">{t("project.calendar.hint")}</p>
+        </div>
+        {canEdit ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={clientQuery.isLoading || projectQuery.isLoading}
+            onClick={handleSendUpdates}
+          >
+            {t("project.calendar.sendUpdates")}
+          </Button>
+        ) : null}
       </div>
 
       {contentQuery.isLoading || projectQuery.isLoading ? (
@@ -198,7 +245,15 @@ function ProjectCalendarPage() {
                         />
                       </td>
                       <td className="px-3 py-2.5">
-                        <StatusBadge status={row.status as ContentStatus} />
+                        <Link
+                          to="/clients/$clientId/projects/$projectId/content/$contentId"
+                          params={{ clientId, projectId, contentId: row.id }}
+                          search={{}}
+                          title={t("project.calendar.openStatus")}
+                          className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <StatusBadge status={row.status as ContentStatus} asButton />
+                        </Link>
                       </td>
                       <td className="px-3 py-2.5">
                         <Select

@@ -178,7 +178,14 @@ function ContentListPage() {
                     </td>
                     <td className="px-4 py-3 font-medium">{r.title}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={r.status as ContentStatus} />
+                      <Link
+                        to="/clients/$clientId/projects/$projectId/content/$contentId"
+                        params={{ clientId, projectId, contentId: r.id }}
+                        search={{}}
+                        className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <StatusBadge status={r.status as ContentStatus} asButton />
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
                     <td className="px-4 py-3 text-muted-foreground">

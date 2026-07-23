@@ -3,21 +3,34 @@ import { cn } from "@/lib/utils";
 
 export type ContentStatus = "draft" | "review" | "approved" | "changes" | "published";
 
-const styles: Record<ContentStatus, string> = {
-  draft: "bg-muted text-muted-foreground",
-  review: "bg-amber-100 text-amber-800",
-  approved: "bg-emerald-100 text-emerald-800",
-  changes: "bg-rose-100 text-rose-800",
-  published: "bg-primary/10 text-primary",
+/** Visual styles for content workflow status (production → review → approved). */
+export const contentStatusStyles: Record<ContentStatus, string> = {
+  draft: "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100/90",
+  review: "border-amber-200 bg-amber-100 text-amber-900 hover:bg-amber-100/90",
+  approved: "border-emerald-200 bg-emerald-100 text-emerald-900 hover:bg-emerald-100/90",
+  changes: "border-rose-200 bg-rose-100 text-rose-900 hover:bg-rose-100/90",
+  published: "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15",
 };
 
-export function StatusBadge({ status, className }: { status: ContentStatus; className?: string }) {
+export function StatusBadge({
+  status,
+  className,
+  asButton = false,
+}: {
+  status: ContentStatus;
+  className?: string;
+  /** Renders as a compact button chip (for tables / cards). */
+  asButton?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-        styles[status],
+        "inline-flex items-center justify-center border font-medium",
+        asButton
+          ? "h-8 rounded-md px-3 text-xs shadow-sm"
+          : "rounded-full px-2.5 py-0.5 text-xs",
+        contentStatusStyles[status],
         className,
       )}
     >

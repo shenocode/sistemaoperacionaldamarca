@@ -20,15 +20,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  buildProjectReviewUrl,
-  buildWhatsAppNotifyUrl,
   createClient,
   isAdmin,
   listClients,
   resolvePostLoginPath,
   updateClient,
   type ClientContactInput,
-  type ClientProjectSummary,
   type ClientWithProjects,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
@@ -120,27 +117,6 @@ function ClientsPage() {
     });
   }
 
-  function handlePublish(client: ClientWithProjects, project: ClientProjectSummary) {
-    if (!client.access_token) {
-      toast.error(t("clients.accessTokenMissing"));
-      return;
-    }
-    const link = buildProjectReviewUrl(client.id, project.id, client.access_token);
-    const message = t("clients.whatsappMessage", {
-      client: client.name,
-      project: project.name,
-      link,
-    });
-    const url = buildWhatsAppNotifyUrl(client.whatsapp, message);
-    if (!url) {
-      toast.error(t("clients.whatsappMissing"));
-      openSettings(client);
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
-    toast.success(t("clients.whatsappOpened"));
-  }
-
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-8">
       <PageHeader
@@ -225,14 +201,13 @@ function ClientsPage() {
                             className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
                           >
                             <span className="truncate text-sm">{project.name}</span>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              className="shrink-0"
-                              onClick={() => handlePublish(client, project)}
-                            >
-                              {t("clients.publish")}
+                            <Button asChild size="sm" variant="secondary" className="shrink-0">
+                              <Link
+                                to="/clients/$clientId/projects/$projectId/library"
+                                params={{ clientId: client.id, projectId: project.id }}
+                              >
+                                {t("clients.access")}
+                              </Link>
                             </Button>
                           </li>
                         ))}
