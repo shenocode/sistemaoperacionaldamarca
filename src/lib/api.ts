@@ -179,14 +179,13 @@ export function extractAccessTokenFromPath(path: string): string | null {
   }
 }
 
-/** Deep link to pending approvals; `access` lets the client claim membership after auth. */
+/** Deep link to the project calendar; `access` lets the client claim membership after auth. */
 export function buildProjectReviewUrl(clientId: string, projectId: string, accessToken: string) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams({
-    filter: "review",
     access: accessToken,
   });
-  return `${origin}/clients/${clientId}/projects/${projectId}/content?${params.toString()}`;
+  return `${origin}/clients/${clientId}/projects/${projectId}/calendar?${params.toString()}`;
 }
 
 /** Join the client workspace using the invite token from the review link. */

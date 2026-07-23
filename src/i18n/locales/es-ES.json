@@ -77,7 +77,7 @@
     "updated": "Cliente actualizado.",
     "lastUpdates": "Últimas actualizaciones",
     "access": "Acceder",
-    "whatsappMessage": "¡Hola! Hay actualizaciones disponibles en el proyecto \"{{project}}\" ({{client}}) para tu revisión.\n\nAccede con el enlace (entra o crea tu cuenta) para ver lo pendiente de aprobación:\n{{link}}",
+    "whatsappMessage": "¡Hola! Hay actualizaciones disponibles en el proyecto \"{{project}}\" ({{client}}) para tu revisión.\n\nAccede con el enlace (entra o crea tu cuenta) para ver el calendario y los contenidos:\n{{link}}",
     "whatsappMissing": "Agrega el WhatsApp del cliente en la configuración antes de enviar actualizaciones.",
     "whatsappOpened": "Abriendo WhatsApp para avisar al cliente.",
     "accessTokenMissing": "Este cliente aún no tiene enlace de acceso. Actualiza la base de datos e inténtalo de nuevo.",

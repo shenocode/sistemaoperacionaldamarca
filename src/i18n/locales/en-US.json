@@ -77,7 +77,7 @@
     "updated": "Client updated.",
     "lastUpdates": "Latest updates",
     "access": "Open",
-    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nUse the link below (sign in or create your account) to see what is pending approval:\n{{link}}",
+    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nUse the link below (sign in or create your account) to see the calendar and contents:\n{{link}}",
     "whatsappMissing": "Add the client's WhatsApp in settings before sending updates.",
     "whatsappOpened": "Opening WhatsApp to notify the client.",
     "accessTokenMissing": "This client does not have an access link yet. Apply the database update and try again.",

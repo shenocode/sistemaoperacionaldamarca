@@ -40,6 +40,7 @@ import {
   contentFormatRowStyles,
   contentFormatStyles,
 } from "@/components/content-format-styles";
+import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import type { ContentStatus } from "@/components/status-badge";
 import {
   CONTENT_FORMATS,
@@ -47,6 +48,7 @@ import {
   buildProjectReviewUrl,
   buildWhatsAppNotifyUrl,
   canManageClient,
+  claimClientAccess,
   deleteContent,
   duplicateContent,
   getClient,
@@ -141,7 +143,28 @@ function CalendarTitleCell({
   );
 }
 
+export type CalendarSearch = {
+  access?: string;
+};
+
+export function validateCalendarSearch(search: Record<string, unknown>): CalendarSearch {
+  const result: CalendarSearch = {};
+  if (typeof search.access === "string" && search.access.length > 0) {
+    result.access = search.access;
+  }
+  return result;
+}
+
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/calendar")({
+  validateSearch: validateCalendarSearch,
+  beforeLoad: async ({ search }) => {
+    if (!search.access) return;
+    try {
+      await claimClientAccess(search.access);
+    } catch {
+      // Already a member, admin, or stale token — page/RLS decide access.
+    }
+  },
   component: ProjectCalendarPage,
 });
 
@@ -250,6 +273,11 @@ function ProjectCalendarPage() {
     if (dropIndex !== index) setDropIndex(index);
   };
 
+  const applyReorder = (next: ContentItem[]) => {
+    setLocalRows(next);
+    reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
+  };
+
   const onDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
     event.preventDefault();
     if (!canReorder) return;
@@ -260,11 +288,10 @@ function ProjectCalendarPage() {
       return;
     }
     const next = moveItem(rows, from, index);
-    setLocalRows(next);
     setDragIndex(null);
     setDropIndex(null);
     if (next !== rows) {
-      reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
+      applyReorder(next);
     }
   };
 
@@ -581,6 +608,18 @@ function ProjectCalendarPage() {
           </div>
         </Card>
       )}
+
+      {!contentQuery.isLoading && !projectQuery.isLoading && !contentQuery.isError ? (
+        <div className="flex justify-center pt-4">
+          <InstagramFeedMockup
+            items={rows}
+            username={clientQuery.data?.name}
+            avatarUrl={clientQuery.data?.logo_url}
+            canReorder={canReorder}
+            onReorder={applyReorder}
+          />
+        </div>
+      ) : null}
 
       <Dialog
         open={Boolean(themeDialogContentId)}

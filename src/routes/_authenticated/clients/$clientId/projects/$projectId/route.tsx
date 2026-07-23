@@ -26,18 +26,14 @@ function ProjectLayout() {
     queryFn: () => getClient(clientId),
   });
 
-  const adminTabs = [
+  // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
+  // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
+  const tabs = [
     { to: "/clients/$clientId/projects/$projectId/calendar", label: t("project.tabs.calendar") },
     { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
     { to: "/clients/$clientId/projects/$projectId/library", label: t("project.tabs.library") },
     { to: "/clients/$clientId/projects/$projectId/settings", label: t("project.tabs.settings") },
   ] as const;
-
-  const clientTabs = [
-    { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
-  ] as const;
-
-  const tabs = isAdmin ? adminTabs : clientTabs;
 
   return (
     <div className={cn("mx-auto p-8", isClient ? "max-w-6xl" : "max-w-7xl")}>
