@@ -59,7 +59,14 @@
     "subtitle": "Revise e atualize os dados cadastrados da sua marca.",
     "selectClient": "Marca",
     "empty": "Nenhuma marca disponível para editar.",
-    "updated": "Dados atualizados."
+    "updated": "Dados atualizados.",
+    "passwordSection": "Senha de acesso",
+    "passwordHint": "Altere a senha usada para entrar na plataforma.",
+    "newPassword": "Nova senha",
+    "confirmPassword": "Confirmar nova senha",
+    "passwordMismatch": "As senhas não coincidem.",
+    "passwordUpdated": "Senha atualizada.",
+    "savePassword": "Salvar senha"
   },
   "clients": {
     "title": "Clientes",
@@ -90,7 +97,15 @@
     "search": "Buscar clientes...",
     "openProject": "Abrir projeto",
     "active": "Ativo",
-    "archived": "Arquivado"
+    "archived": "Arquivado",
+    "platformAccess": "Acesso à plataforma",
+    "platformAccessHint": "Defina o e-mail e a senha iniciais para o cliente entrar. Depois, ela pode trocar a senha nas próprias configurações.",
+    "loginEmail": "E-mail de login",
+    "loginPassword": "Senha de acesso",
+    "loginPasswordHint": "Preencha para criar ou atualizar o acesso. Deixe em branco para só salvar os dados de contato.",
+    "accessCreated": "Acesso criado. Envie o e-mail e a senha para o cliente.",
+    "accessUpdated": "Acesso atualizado. Envie as novas credenciais para o cliente.",
+    "accessPasswordRequired": "Informe o e-mail de login junto com a senha para criar o acesso."
   },
   "project": {
     "back": "Voltar",

@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { ClientContactFields } from "@/components/client-contact-fields";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ import {
   listClients,
   resolvePostLoginPath,
   updateClient,
+  updateOwnPassword,
   type ClientContactInput,
 } from "@/lib/api";
 
@@ -56,6 +59,8 @@ function ClientSettingsPage() {
   const queryClient = useQueryClient();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [form, setForm] = useState<ClientContactInput>(emptyForm);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const clientsQuery = useQuery({
     queryKey: ["clients"],
@@ -97,6 +102,16 @@ function ClientSettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success(t("clientSettings.updated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: () => updateOwnPassword(newPassword),
+    onSuccess: () => {
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success(t("clientSettings.passwordUpdated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -143,6 +158,56 @@ function ClientSettingsPage() {
           </Button>
         </form>
       )}
+
+      <Separator />
+
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (newPassword !== confirmPassword) {
+            toast.error(t("clientSettings.passwordMismatch"));
+            return;
+          }
+          passwordMutation.mutate();
+        }}
+      >
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{t("clientSettings.passwordSection")}</p>
+          <p className="text-xs text-muted-foreground">{t("clientSettings.passwordHint")}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="settings-new-password">{t("clientSettings.newPassword")}</Label>
+          <Input
+            id="settings-new-password"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            minLength={6}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="settings-confirm-password">{t("clientSettings.confirmPassword")}</Label>
+          <Input
+            id="settings-confirm-password"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={6}
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="secondary"
+          disabled={passwordMutation.isPending || !newPassword.trim()}
+        >
+          {t("clientSettings.savePassword")}
+        </Button>
+      </form>
     </div>
   );
 }

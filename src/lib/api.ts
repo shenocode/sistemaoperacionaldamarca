@@ -314,6 +314,40 @@ export async function updateClient(clientId: string, input: ClientContactInput):
   return data as Client;
 }
 
+export async function getClientPlatformLogin(clientId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("get_client_platform_login", {
+    _client_id: clientId,
+  });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
+}
+
+export async function provisionClientAccess(input: {
+  clientId: string;
+  email: string;
+  password: string;
+  fullName?: string;
+}) {
+  const { provisionClientAccessFn } = await import("./provision-client-access.functions");
+  return provisionClientAccessFn({
+    data: {
+      clientId: input.clientId,
+      email: input.email,
+      password: input.password,
+      fullName: input.fullName,
+    },
+  });
+}
+
+export async function updateOwnPassword(password: string) {
+  const trimmed = password.trim();
+  if (trimmed.length < 6) {
+    throw new Error("A senha deve ter pelo menos 6 caracteres.");
+  }
+  const { error } = await supabase.auth.updateUser({ password: trimmed });
+  if (error) throw new Error(error.message);
+}
+
 // —— Projects ——
 
 export async function listProjects(clientId: string) {

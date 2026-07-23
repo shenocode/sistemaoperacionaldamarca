@@ -5,6 +5,11 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import { CheckCircle2, FolderKanban, Users, Clock } from "lucide-react";
 import { Route as AuthLayout } from "./route";
+import { ClientCard } from "@/components/client-card";
+import {
+  ClientSettingsDialog,
+  useClientSettingsDialog,
+} from "@/components/client-settings-dialog";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
@@ -47,6 +52,7 @@ function DashboardPage() {
   const { t, i18n } = useTranslation();
   const { user } = AuthLayout.useRouteContext();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const settingsDialog = useClientSettingsDialog();
 
   const clientsQuery = useQuery({ queryKey: ["clients"], queryFn: listClients });
   const projectsCountQuery = useQuery({
@@ -99,20 +105,19 @@ function DashboardPage() {
         {clients.length === 0 ? (
           <EmptyState icon={Users} title={t("clients.empty")} />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {clients.slice(0, 6).map((client) => (
-              <Link
+              <ClientCard
                 key={client.id}
-                to="/clients/$clientId"
-                params={{ clientId: client.id }}
-                className="rounded-xl border p-4 transition-colors hover:bg-muted/40"
-              >
-                <p className="font-medium">{client.name}</p>
-              </Link>
+                client={client}
+                onOpenSettings={(c) => void settingsDialog.openSettings(c)}
+              />
             ))}
           </div>
         )}
       </section>
+
+      <ClientSettingsDialog {...settingsDialog} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-xl">

@@ -59,7 +59,14 @@
     "subtitle": "Review and update your brand contact details.",
     "selectClient": "Brand",
     "empty": "No brand available to edit.",
-    "updated": "Details updated."
+    "updated": "Details updated.",
+    "passwordSection": "Access password",
+    "passwordHint": "Change the password used to sign in to the platform.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordUpdated": "Password updated.",
+    "savePassword": "Save password"
   },
   "clients": {
     "title": "Clients",
@@ -90,7 +97,15 @@
     "search": "Search clients...",
     "openProject": "Open project",
     "active": "Active",
-    "archived": "Archived"
+    "archived": "Archived",
+    "platformAccess": "Platform access",
+    "platformAccessHint": "Set the initial email and password for the client to sign in. They can change the password later in their own settings.",
+    "loginEmail": "Login email",
+    "loginPassword": "Access password",
+    "loginPasswordHint": "Fill in to create or update access. Leave blank to only save contact details.",
+    "accessCreated": "Access created. Share the email and password with the client.",
+    "accessUpdated": "Access updated. Share the new credentials with the client.",
+    "accessPasswordRequired": "Enter the login email together with the password to create access."
   },
   "project": {
     "back": "Back",

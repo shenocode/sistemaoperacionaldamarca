@@ -483,6 +483,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      admin_get_user_id_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
+      get_client_platform_login: {
+        Args: { _client_id: string }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
