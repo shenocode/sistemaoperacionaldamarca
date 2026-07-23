@@ -462,6 +462,63 @@ export async function createContent(input: {
   return row;
 }
 
+/** Copia um conteúdo do calendário para o próximo período (+7 dias se houver data). */
+export async function duplicateContent(input: {
+  contentId: string;
+  clientId: string;
+  projectId: string;
+  /** Dias a avançar na data agendada (padrão: 7). */
+  advanceDays?: number;
+}): Promise<ContentItem> {
+  const userId = await requireUserId();
+  const source = await getContent(input.contentId);
+  if (!source) throw new Error("Conteúdo não encontrado");
+  if (source.project_id !== input.projectId) {
+    throw new Error("Conteúdo não pertence a este projeto");
+  }
+
+  const advanceDays = input.advanceDays ?? 7;
+  let scheduledAt: string | null = null;
+  if (source.scheduled_at) {
+    const next = new Date(source.scheduled_at);
+    if (!Number.isNaN(next.getTime())) {
+      next.setDate(next.getDate() + advanceDays);
+      scheduledAt = next.toISOString();
+    }
+  }
+
+  const mediaUrls = resolveContentMediaUrls(source);
+
+  const { data, error } = await supabase
+    .from("content_items")
+    .insert({
+      project_id: input.projectId,
+      title: source.title,
+      caption: source.caption,
+      cta: source.cta,
+      hashtags: source.hashtags,
+      media_url: mediaUrls[0] ?? null,
+      media_urls: mediaUrls,
+      format: source.format,
+      theme: source.theme,
+      scheduled_at: scheduledAt,
+      created_by: userId,
+      status: "draft",
+      current_version: 1,
+    })
+    .select("*")
+    .single();
+  const row = ensureData(data, error);
+  await logActivity({
+    type: "content_created",
+    summary: `Conteúdo duplicado: ${row.title}`,
+    clientId: input.clientId,
+    projectId: input.projectId,
+    contentId: row.id,
+  });
+  return row;
+}
+
 export async function saveContentAsNewVersion(input: {
   contentId: string;
   clientId: string;

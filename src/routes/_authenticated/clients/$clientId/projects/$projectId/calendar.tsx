@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { CalendarDays, ExternalLink, Plus } from "lucide-react";
+import { CalendarDays, Copy, ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import {
   CONTENT_FORMATS,
   addProjectThemePreset,
   canManageClient,
+  duplicateContent,
   listContent,
   getProject,
   updateContentCalendar,
@@ -125,6 +126,16 @@ function ProjectCalendarPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: (contentId: string) =>
+      duplicateContent({ contentId, clientId, projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      toast.success(t("project.calendar.duplicated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const themeOptions = useMemo(() => {
     const fromRows = rows.map((r) => r.theme?.trim()).filter(Boolean) as string[];
     return Array.from(new Set([...themePresets, ...fromRows])).sort((a, b) =>
@@ -166,6 +177,7 @@ function ProjectCalendarPage() {
                     scheduled && !Number.isNaN(scheduled.getTime())
                       ? format(scheduled, "EEEE", { locale })
                       : "—";
+                  const isBusy = updateMutation.isPending || duplicateMutation.isPending;
 
                   return (
                     <tr key={row.id} className="hover:bg-muted/30">
@@ -176,7 +188,7 @@ function ProjectCalendarPage() {
                           type="datetime-local"
                           className="h-8 w-[11.5rem]"
                           value={toDatetimeLocalValue(row.scheduled_at)}
-                          disabled={!canEdit || updateMutation.isPending}
+                          disabled={!canEdit || isBusy}
                           onChange={(e) => {
                             updateMutation.mutate({
                               contentId: row.id,
@@ -191,7 +203,7 @@ function ProjectCalendarPage() {
                       <td className="px-3 py-2.5">
                         <Select
                           value={row.theme?.trim() || NONE_VALUE}
-                          disabled={!canEdit || updateMutation.isPending}
+                          disabled={!canEdit || isBusy}
                           onValueChange={(value) => {
                             if (value === NEW_THEME_VALUE) {
                               setThemeDialogContentId(row.id);
@@ -225,7 +237,7 @@ function ProjectCalendarPage() {
                       <td className="px-3 py-2.5">
                         <Select
                           value={row.format ?? "static_feed"}
-                          disabled={!canEdit || updateMutation.isPending}
+                          disabled={!canEdit || isBusy}
                           onValueChange={(value) => {
                             updateMutation.mutate({
                               contentId: row.id,
@@ -246,17 +258,32 @@ function ProjectCalendarPage() {
                         </Select>
                       </td>
                       <td className="px-3 py-2.5 font-medium">{row.title}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link
-                            to="/clients/$clientId/projects/$projectId/content/$contentId"
-                            params={{ clientId, projectId, contentId: row.id }}
-                            search={{}}
-                          >
-                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                            {t("project.calendar.access")}
-                          </Link>
-                        </Button>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {canEdit ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={isBusy}
+                              title={t("project.calendar.duplicateHint")}
+                              onClick={() => duplicateMutation.mutate(row.id)}
+                            >
+                              <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                              {t("project.calendar.duplicate")}
+                            </Button>
+                          ) : null}
+                          <Button asChild variant="outline" size="sm">
+                            <Link
+                              to="/clients/$clientId/projects/$projectId/content/$contentId"
+                              params={{ clientId, projectId, contentId: row.id }}
+                              search={{}}
+                            >
+                              <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                              {t("project.calendar.access")}
+                            </Link>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
