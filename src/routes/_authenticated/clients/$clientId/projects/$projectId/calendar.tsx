@@ -613,6 +613,8 @@ function ProjectCalendarPage() {
         <div className="flex justify-center pt-4">
           <InstagramFeedMockup
             items={rows}
+            clientId={clientId}
+            projectId={projectId}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
             canReorder={canReorder}

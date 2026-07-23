@@ -251,6 +251,8 @@ function ContentListPage() {
           </div>
           <InstagramFeedMockup
             items={[]}
+            clientId={clientId}
+            projectId={projectId}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
             className="mx-auto shrink-0 lg:sticky lg:top-6"
@@ -428,6 +430,8 @@ function ContentListPage() {
 
           <InstagramFeedMockup
             items={rows}
+            clientId={clientId}
+            projectId={projectId}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
             canReorder={canReorder}

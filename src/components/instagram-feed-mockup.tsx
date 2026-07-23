@@ -1,4 +1,5 @@
-import { useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   Clapperboard,
   Contact,
@@ -15,6 +16,10 @@ import {
   toInstagramHandle,
 } from "@/components/content-media-preview";
 import {
+  StatusBadge,
+  type ContentStatus,
+} from "@/components/status-badge";
+import {
   isVideoUrl,
   resolveContentMediaUrls,
   type ContentFormat,
@@ -24,6 +29,8 @@ import { cn } from "@/lib/utils";
 
 type InstagramFeedMockupProps = {
   items: ContentItem[];
+  clientId: string;
+  projectId: string;
   username?: string | null;
   avatarUrl?: string | null;
   className?: string;
@@ -74,6 +81,8 @@ function CoverMedia({ url, title }: { url: string; title: string }) {
 
 function GridTile({
   item,
+  clientId,
+  projectId,
   canReorder,
   isDragging,
   isDropTarget,
@@ -83,28 +92,57 @@ function GridTile({
   onDragEnd,
 }: {
   item: ContentItem;
+  clientId: string;
+  projectId: string;
   canReorder: boolean;
   isDragging: boolean;
   isDropTarget: boolean;
-  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  onDragStart: (event: DragEvent<HTMLAnchorElement>) => void;
+  onDragOver: (event: DragEvent<HTMLAnchorElement>) => void;
+  onDrop: (event: DragEvent<HTMLAnchorElement>) => void;
   onDragEnd: () => void;
 }) {
   const { t } = useTranslation();
   const cover = coverUrl(item);
   const badge = formatBadge(item.format, cover);
+  const status = item.status as ContentStatus;
+  const statusLabel = t(`project.content.status.${status}`);
+  const suppressClickRef = useRef(false);
 
   return (
-    <div
+    <Link
+      to="/clients/$clientId/projects/$projectId/content/$contentId"
+      params={{ clientId, projectId, contentId: item.id }}
       draggable={canReorder}
-      onDragStart={canReorder ? onDragStart : undefined}
+      onDragStart={
+        canReorder
+          ? (event) => {
+              suppressClickRef.current = true;
+              onDragStart(event);
+            }
+          : undefined
+      }
       onDragOver={canReorder ? onDragOver : undefined}
       onDrop={canReorder ? onDrop : undefined}
-      onDragEnd={canReorder ? onDragEnd : undefined}
+      onDragEnd={
+        canReorder
+          ? () => {
+              onDragEnd();
+              window.setTimeout(() => {
+                suppressClickRef.current = false;
+              }, 50);
+            }
+          : undefined
+      }
+      onClick={(event) => {
+        if (suppressClickRef.current) {
+          event.preventDefault();
+        }
+      }}
+      aria-label={`${item.title} — ${statusLabel}`}
       className={cn(
-        "relative aspect-[4/5] bg-neutral-100",
-        canReorder && "cursor-grab active:cursor-grabbing",
+        "group relative aspect-[4/5] bg-neutral-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/50",
+        canReorder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         isDragging && "opacity-50",
         isDropTarget && "ring-2 ring-inset ring-neutral-900/40",
       )}
@@ -118,22 +156,34 @@ function GridTile({
       )}
       {badge === "carousel" ? (
         <SquareStack
-          className="absolute right-1 top-1 h-3.5 w-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]"
+          className="absolute right-1 top-1 z-[1] h-3.5 w-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]"
           aria-hidden="true"
         />
       ) : null}
       {badge === "reels" || badge === "video" ? (
         <Clapperboard
-          className="absolute right-1 top-1 h-3.5 w-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]"
+          className="absolute right-1 top-1 z-[1] h-3.5 w-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]"
           aria-hidden="true"
         />
       ) : null}
-    </div>
+      <span
+        className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center bg-black/50 p-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        aria-hidden="true"
+      >
+        <StatusBadge
+          status={status}
+          asButton
+          className="h-auto max-w-full whitespace-normal px-1.5 py-1 text-center text-[8px] leading-tight shadow-md hover:bg-inherit"
+        />
+      </span>
+    </Link>
   );
 }
 
 export function InstagramFeedMockup({
   items,
+  clientId,
+  projectId,
   username,
   avatarUrl,
   className,
@@ -148,20 +198,20 @@ export function InstagramFeedMockup({
   // Feed estilo Instagram: inverso da lista (último da lista = topo-esquerda).
   const feedItems = [...items].toReversed();
 
-  const onDragStart = (index: number) => (event: DragEvent<HTMLDivElement>) => {
+  const onDragStart = (index: number) => (event: DragEvent<HTMLAnchorElement>) => {
     setDragIndex(index);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(index));
   };
 
-  const onDragOver = (index: number) => (event: DragEvent<HTMLDivElement>) => {
+  const onDragOver = (index: number) => (event: DragEvent<HTMLAnchorElement>) => {
     if (!canReorder) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     if (dropIndex !== index) setDropIndex(index);
   };
 
-  const onDrop = (index: number) => (event: DragEvent<HTMLDivElement>) => {
+  const onDrop = (index: number) => (event: DragEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (!canReorder) return;
     const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
@@ -235,6 +285,8 @@ export function InstagramFeedMockup({
                   <GridTile
                     key={item.id}
                     item={item}
+                    clientId={clientId}
+                    projectId={projectId}
                     canReorder={canReorder}
                     isDragging={dragIndex === index}
                     isDropTarget={
