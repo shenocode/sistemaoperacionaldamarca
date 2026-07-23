@@ -49,7 +49,14 @@ export async function uploadContentMedia(projectId: string, file: File) {
     contentType: file.type || undefined,
     upsert: false,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/row-level security|violates row-level/i.test(error.message)) {
+      throw new Error(
+        "Não foi possível enviar a mídia por falta de permissão no armazenamento. Peça para aplicar a correção de RLS de mídia no banco e tente novamente.",
+      );
+    }
+    throw new Error(error.message);
+  }
 
   const { data } = supabase.storage.from(CONTENT_MEDIA_BUCKET).getPublicUrl(storagePath);
   return data.publicUrl;

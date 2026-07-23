@@ -455,6 +455,9 @@ export type Database = {
       can_access_content: { Args: { _content_id: string }; Returns: boolean }
       can_access_project: { Args: { _project_id: string }; Returns: boolean }
       can_manage_client: { Args: { _client_id: string }; Returns: boolean }
+      can_manage_content: { Args: { _content_id: string }; Returns: boolean }
+      can_manage_project: { Args: { _project_id: string }; Returns: boolean }
+      content_storage_project_id: { Args: { object_name: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -465,6 +468,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
+      library_storage_project_id: { Args: { object_name: string }; Returns: string }
     }
     Enums: {
       activity_type:

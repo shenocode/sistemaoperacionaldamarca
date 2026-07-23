@@ -1,7 +1,52 @@
--- Fix RLS failures when saving a new content version with media upload.
+-- Fix RLS failures when saving content with media upload (Salvar / Salvar nova versão).
 -- Policies that join public.projects/content_items under the caller's RLS can
 -- deny inserts even when can_manage_client() is true via RPC. Use security
 -- definer helpers so permission checks are consistent.
+
+-- Ensure media buckets exist (upload fails with RLS-like errors if misconfigured)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'content-media',
+  'content-media',
+  true,
+  104857600,
+  array[
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+    'image/heic', 'image/heif', 'video/mp4', 'video/webm', 'video/quicktime',
+    'video/x-msvideo', 'application/pdf', 'text/plain', 'text/csv', 'text/markdown',
+    'application/rtf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.oasis.opendocument.text', 'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.oasis.opendocument.spreadsheet'
+  ]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'library-assets',
+  'library-assets',
+  true,
+  104857600,
+  array[
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+    'image/heic', 'image/heif', 'video/mp4', 'video/webm', 'video/quicktime',
+    'video/x-msvideo', 'application/pdf', 'text/plain', 'text/csv', 'text/markdown',
+    'application/rtf', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.oasis.opendocument.text', 'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.oasis.opendocument.spreadsheet'
+  ]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 create or replace function public.can_manage_project(_project_id uuid)
 returns boolean
