@@ -138,6 +138,12 @@ export function buildWhatsAppNotifyUrl(whatsapp: string | null | undefined, mess
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
+/** Deep link to the project content area where the client reviews/approves items. */
+export function buildProjectReviewUrl(clientId: string, projectId: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/clients/${clientId}/projects/${projectId}/content`;
+}
+
 export async function listClients(): Promise<ClientWithProjects[]> {
   const { data, error } = await supabase
     .from("clients")

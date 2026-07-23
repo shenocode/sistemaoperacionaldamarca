@@ -21,11 +21,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  buildProjectReviewUrl,
   buildWhatsAppNotifyUrl,
   createClient,
   listClients,
   updateClient,
   type ClientContactInput,
+  type ClientProjectSummary,
   type ClientWithProjects,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
@@ -108,10 +110,12 @@ function ClientsPage() {
     });
   }
 
-  function handlePublish(client: ClientWithProjects, projectName: string) {
+  function handlePublish(client: ClientWithProjects, project: ClientProjectSummary) {
+    const link = buildProjectReviewUrl(client.id, project.id);
     const message = t("clients.whatsappMessage", {
       client: client.name,
-      project: projectName,
+      project: project.name,
+      link,
     });
     const url = buildWhatsAppNotifyUrl(client.whatsapp, message);
     if (!url) {
@@ -212,7 +216,7 @@ function ClientsPage() {
                               size="sm"
                               variant="secondary"
                               className="shrink-0"
-                              onClick={() => handlePublish(client, project.name)}
+                              onClick={() => handlePublish(client, project)}
                             >
                               {t("clients.publish")}
                             </Button>

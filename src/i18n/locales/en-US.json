@@ -49,7 +49,7 @@
     "updated": "Client updated.",
     "lastUpdates": "Latest updates",
     "publish": "Publish",
-    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.",
+    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nOpen your dashboard to review: {{link}}",
     "whatsappMissing": "Add the client's WhatsApp in settings before publishing.",
     "whatsappOpened": "Opening WhatsApp to notify the client.",
     "projects": "Projects",

@@ -49,7 +49,7 @@
     "updated": "Cliente atualizado.",
     "lastUpdates": "Últimas atualizações",
     "publish": "Publicar",
-    "whatsappMessage": "Olá! Há atualizações disponíveis no projeto \"{{project}}\" ({{client}}) para sua revisão.",
+    "whatsappMessage": "Olá! Há atualizações disponíveis no projeto \"{{project}}\" ({{client}}) para sua revisão.\n\nAcesse o dashboard para revisar: {{link}}",
     "whatsappMissing": "Cadastre o WhatsApp do cliente nas configurações para publicar.",
     "whatsappOpened": "Abrindo WhatsApp para avisar o cliente.",
     "projects": "Projetos",
