@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,7 @@ import {
   Check,
   GripVertical,
   MessageSquareWarning,
+  Plus,
   Send,
   SendHorizonal,
   Save,
@@ -48,6 +49,7 @@ import {
   CONTENT_FORMATS,
   CONTENT_MEDIA_ACCEPT,
   addComment,
+  addProjectThemePreset,
   canManageClient,
   deleteComment,
   getClient,
@@ -78,6 +80,8 @@ import { cn } from "@/lib/utils";
 import { validateContentSearch } from "./content";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
+const NONE_THEME_VALUE = "__none__";
+const NEW_THEME_VALUE = "__new_theme__";
 type SourceMode = "file" | "url";
 
 type MediaEntry =
@@ -123,6 +127,7 @@ function ContentDetailPage() {
   const [locucao, setLocucao] = useState("");
   const [cta, setCta] = useState("");
   const [hashtags, setHashtags] = useState("");
+  const [theme, setTheme] = useState("");
   const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
   const [mediaItems, setMediaItems] = useState<MediaEntry[]>([]);
   const [source, setSource] = useState<SourceMode>("file");
@@ -131,6 +136,8 @@ function ContentDetailPage() {
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
   const [versionNote, setVersionNote] = useState("");
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [newTheme, setNewTheme] = useState("");
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -170,10 +177,17 @@ function ContentDetailPage() {
   const client = clientQuery.data;
   const ctaPresets = projectQuery.data?.cta_presets ?? [];
   const hashtagPresets = projectQuery.data?.hashtag_presets ?? [];
+  const themePresets = projectQuery.data?.theme_presets ?? [];
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isCarousel = formatType === "carousel";
   const needsLocucao = formatType === "reels" || formatType === "recorded_video";
+  const themeOptions = useMemo(() => {
+    const current = theme.trim();
+    return Array.from(new Set([...themePresets, ...(current ? [current] : [])])).sort((a, b) =>
+      a.localeCompare(b, i18n.language),
+    );
+  }, [themePresets, theme, i18n.language]);
   const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
   const previewItems: PreviewMediaItem[] = mediaItems
     .map((item) => {
@@ -194,6 +208,7 @@ function ContentDetailPage() {
     setLocucao(content.locucao ?? "");
     setCta(content.cta);
     setHashtags(content.hashtags);
+    setTheme(content.theme ?? "");
     setFormatType(content.format ?? "static_feed");
     setMediaItems(mediaEntriesFromUrls(resolveContentMediaUrls(content)));
     setUrlDraft("");
@@ -261,6 +276,7 @@ function ContentDetailPage() {
         locucao,
         mediaUrls: urls,
         format: formatType,
+        theme: theme.trim() || null,
       });
     },
     onSuccess: () => {
@@ -284,6 +300,7 @@ function ContentDetailPage() {
         locucao,
         mediaUrls: urls,
         format: formatType,
+        theme: theme.trim() || null,
         changeNote: versionNote,
       });
     },
@@ -291,6 +308,21 @@ function ContentDetailPage() {
       setVersionNote("");
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const addThemeMutation = useMutation({
+    mutationFn: async (nextTheme: string) => {
+      await addProjectThemePreset(projectId, nextTheme);
+      return nextTheme;
+    },
+    onSuccess: (nextTheme) => {
+      setTheme(nextTheme);
+      setThemeDialogOpen(false);
+      setNewTheme("");
+      queryClient.invalidateQueries({ queryKey: ["projects", "detail", projectId] });
+      toast.success(t("project.calendar.themeAdded"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -543,7 +575,9 @@ function ContentDetailPage() {
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
               <div className="space-y-1.5">
-                <Label htmlFor="title">{t("project.content.title")}</Label>
+                <Label htmlFor="title" variant="highlight">
+                  {t("project.content.title")}
+                </Label>
                 <Input
                   id="title"
                   value={title}
@@ -552,7 +586,7 @@ function ContentDetailPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>{t("project.detail.format")}</Label>
+                <Label variant="highlight">{t("project.detail.format")}</Label>
                 <Select
                   value={formatType}
                   onValueChange={(v) => {
@@ -577,7 +611,43 @@ function ContentDetailPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="caption">{t("project.detail.caption")}</Label>
+                <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
+                <Select
+                  value={theme.trim() || NONE_THEME_VALUE}
+                  disabled={!canManage}
+                  onValueChange={(value) => {
+                    if (value === NEW_THEME_VALUE) {
+                      setNewTheme("");
+                      setThemeDialogOpen(true);
+                      return;
+                    }
+                    setTheme(value === NONE_THEME_VALUE ? "" : value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("project.calendar.selectTheme")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE_THEME_VALUE}>
+                      {t("project.calendar.noTheme")}
+                    </SelectItem>
+                    {themeOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                    {canManage ? (
+                      <SelectItem value={NEW_THEME_VALUE}>
+                        {t("project.calendar.newTheme")}
+                      </SelectItem>
+                    ) : null}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="caption" variant="highlight">
+                  {t("project.detail.caption")}
+                </Label>
                 <Textarea
                   id="caption"
                   rows={4}
@@ -588,7 +658,9 @@ function ContentDetailPage() {
               </div>
               {needsLocucao ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="locucao">{t("project.detail.locucao")}</Label>
+                  <Label htmlFor="locucao" variant="highlight">
+                    {t("project.detail.locucao")}
+                  </Label>
                   <p className="text-xs text-muted-foreground">
                     {t("project.detail.locucaoHint")}
                   </p>
@@ -612,6 +684,7 @@ function ContentDetailPage() {
                   disabled={!canManage}
                   selectLabel={t("project.detail.selectCtaPreset")}
                   emptyPresetsLabel={t("project.detail.noCtaPresets")}
+                  labelVariant="highlight"
                 />
                 <PresetField
                   id="hashtags"
@@ -623,12 +696,13 @@ function ContentDetailPage() {
                   selectLabel={t("project.detail.selectHashtagPreset")}
                   emptyPresetsLabel={t("project.detail.noHashtagPresets")}
                   multiple
+                  labelVariant="highlight"
                 />
               </div>
               {canManage ? (
                 <>
                   <div className="space-y-3">
-                    <Label>{t("project.detail.media")}</Label>
+                    <Label variant="highlight">{t("project.detail.media")}</Label>
                     <input
                       ref={mediaFileInputRef}
                       id="media-file"
@@ -817,7 +891,9 @@ function ContentDetailPage() {
             <Card className="rounded-xl">
               <CardContent className="space-y-4 p-6">
                 <div className="space-y-1.5">
-                  <Label htmlFor="version-note">{t("project.detail.versionNote")}</Label>
+                  <Label htmlFor="version-note" variant="highlight">
+                    {t("project.detail.versionNote")}
+                  </Label>
                   <Input
                     id="version-note"
                     value={versionNote}
@@ -922,6 +998,60 @@ function ContentDetailPage() {
               {t("project.detail.requestChanges")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={themeDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !addThemeMutation.isPending) {
+            setThemeDialogOpen(false);
+            setNewTheme("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("project.calendar.newThemeTitle")}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newTheme.trim()) return;
+              addThemeMutation.mutate(newTheme.trim());
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="content-new-theme">{t("project.calendar.columns.theme")}</Label>
+              <Input
+                id="content-new-theme"
+                value={newTheme}
+                onChange={(e) => setNewTheme(e.target.value)}
+                placeholder={t("project.calendar.themePlaceholder")}
+                autoFocus
+                required
+              />
+              <p className="text-xs text-muted-foreground">{t("project.calendar.newThemeHint")}</p>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={addThemeMutation.isPending}
+                onClick={() => {
+                  setThemeDialogOpen(false);
+                  setNewTheme("");
+                }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={addThemeMutation.isPending || !newTheme.trim()}>
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t("common.save")}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

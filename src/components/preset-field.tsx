@@ -22,6 +22,7 @@ type PresetFieldProps = {
   emptyPresetsLabel: string;
   /** When true, presets can be toggled on/off and combined in the value. */
   multiple?: boolean;
+  labelVariant?: "default" | "highlight";
 };
 
 function normalizeSpaces(text: string) {
@@ -63,12 +64,15 @@ export function PresetField({
   selectLabel,
   emptyPresetsLabel,
   multiple = false,
+  labelVariant = "default",
 }: PresetFieldProps) {
   const hasPresets = presets.length > 0;
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} variant={labelVariant}>
+        {label}
+      </Label>
       <div className="flex">
         <Input
           id={id}

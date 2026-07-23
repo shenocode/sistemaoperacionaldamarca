@@ -622,6 +622,7 @@ export async function saveContentAsNewVersion(input: {
   mediaUrl?: string | null;
   mediaUrls?: string[];
   format?: ContentFormat;
+  theme?: string | null;
   changeNote?: string;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
@@ -640,6 +641,8 @@ export async function saveContentAsNewVersion(input: {
   const mediaUrl = mediaUrls[0] ?? null;
   const format = input.format ?? current.format ?? "static_feed";
   const locucao = input.locucao ?? current.locucao ?? "";
+  const theme =
+    input.theme !== undefined ? input.theme?.trim() || null : current.theme;
 
   const { data, error } = await supabase
     .from("content_items")
@@ -652,6 +655,7 @@ export async function saveContentAsNewVersion(input: {
       media_url: mediaUrl,
       media_urls: mediaUrls,
       format,
+      theme,
       current_version: nextVersion,
       status: nextStatus,
     })
@@ -696,6 +700,7 @@ export async function updateContentFields(input: {
   mediaUrl?: string | null;
   mediaUrls?: string[];
   format?: ContentFormat;
+  theme?: string | null;
 }): Promise<ContentItem> {
   const mediaUrls =
     input.mediaUrls?.filter((url) => url.trim()) ??
@@ -713,6 +718,7 @@ export async function updateContentFields(input: {
       media_url: mediaUrl,
       media_urls: mediaUrls,
       ...(input.format ? { format: input.format } : {}),
+      ...(input.theme !== undefined ? { theme: input.theme?.trim() || null } : {}),
     })
     .eq("id", input.contentId)
     .select("*")
