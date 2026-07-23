@@ -184,6 +184,7 @@
       "columns": {
         "thumbnail": "Preview",
         "title": "Title",
+        "format": "Format",
         "status": "Status",
         "version": "Version",
         "updated": "Updated",
@@ -224,6 +225,9 @@
       "mediaViewer": "Expanded media view",
 
       "caption": "Caption",
+      "locucao": "Voiceover script",
+      "locucaoHint": "Text the client should record and send as audio by email.",
+      "locucaoPlaceholder": "Write the voiceover script here…",
       "cta": "CTA",
       "hashtags": "Hashtags",
       "selectCtaPreset": "Select saved CTA",

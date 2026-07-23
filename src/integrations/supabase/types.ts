@@ -196,6 +196,7 @@ export type Database = {
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
           id: string
+          locucao: string
           media_url: string | null
           media_urls: string[]
           project_id: string
@@ -215,6 +216,7 @@ export type Database = {
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
+          locucao?: string
           media_url?: string | null
           media_urls?: string[]
           project_id: string
@@ -234,6 +236,7 @@ export type Database = {
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
+          locucao?: string
           media_url?: string | null
           media_urls?: string[]
           project_id?: string
@@ -265,6 +268,7 @@ export type Database = {
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
           id: string
+          locucao: string
           media_url: string | null
           media_urls: string[]
           version_number: number
@@ -279,6 +283,7 @@ export type Database = {
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
+          locucao?: string
           media_url?: string | null
           media_urls?: string[]
           version_number: number
@@ -293,6 +298,7 @@ export type Database = {
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
           id?: string
+          locucao?: string
           media_url?: string | null
           media_urls?: string[]
           version_number?: number

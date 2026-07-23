@@ -30,8 +30,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import {
+  CONTENT_FORMATS,
   canManageClient,
   createContent,
   deleteContent,
@@ -39,6 +47,8 @@ import {
   getClient,
   listContent,
   reorderContentItems,
+  updateContentCalendar,
+  type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -147,6 +157,15 @@ function ContentListPage() {
     },
   });
 
+  const formatMutation = useMutation({
+    mutationFn: updateContentCalendar,
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["content", "detail", variables.contentId] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const serverRows = useMemo(
     () => [...(contentQuery.data ?? [])].sort(sortByManualOrder),
     [contentQuery.data],
@@ -157,7 +176,10 @@ function ContentListPage() {
   const canManage = Boolean(manageQuery.data);
   const canReorder = canManage && filter !== "review" && rows.length > 1;
   const isBusy =
-    duplicateMutation.isPending || deleteMutation.isPending || reorderMutation.isPending;
+    duplicateMutation.isPending ||
+    deleteMutation.isPending ||
+    reorderMutation.isPending ||
+    formatMutation.isPending;
 
   useEffect(() => {
     setLocalRows(null);
@@ -237,7 +259,7 @@ function ContentListPage() {
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
           <Card className="min-w-0 flex-1 overflow-hidden rounded-xl">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[880px] text-sm">
+              <table className="w-full min-w-[1020px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <tr>
                     {canReorder ? (
@@ -245,6 +267,7 @@ function ContentListPage() {
                     ) : null}
                     <th className="px-4 py-3">{t("project.content.columns.thumbnail")}</th>
                     <th className="px-4 py-3">{t("project.content.columns.title")}</th>
+                    <th className="px-4 py-3">{t("project.content.columns.format")}</th>
                     <th className="px-4 py-3">{t("project.content.columns.status")}</th>
                     <th className="px-4 py-3">{t("project.content.columns.version")}</th>
                     <th className="whitespace-nowrap px-4 py-3">
@@ -304,6 +327,32 @@ function ContentListPage() {
                         >
                           {r.title}
                         </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Select
+                          value={r.format ?? "static_feed"}
+                          disabled={!canManage || isBusy}
+                          onValueChange={(value) => {
+                            formatMutation.mutate({
+                              contentId: r.id,
+                              format: value as ContentFormat,
+                            });
+                          }}
+                        >
+                          <SelectTrigger
+                            className="h-8 w-[9.5rem]"
+                            aria-label={t("project.content.columns.format")}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONTENT_FORMATS.map((formatKey) => (
+                              <SelectItem key={formatKey} value={formatKey}>
+                                {t(`project.detail.formats.${formatKey}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="px-4 py-3">
                         <ContentStatusSelect

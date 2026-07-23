@@ -189,6 +189,7 @@
       "columns": {
         "thumbnail": "Prévia",
         "title": "Título",
+        "format": "Formato",
         "status": "Status",
         "version": "Versão",
         "updated": "Atualizado",
@@ -229,6 +230,9 @@
       "mediaViewer": "Visualização ampliada",
 
       "caption": "Legenda",
+      "locucao": "Locução",
+      "locucaoHint": "Texto que a cliente deve gravar e enviar o áudio por e-mail.",
+      "locucaoPlaceholder": "Escreva aqui o roteiro da locução…",
       "cta": "CTA",
       "hashtags": "Hashtags",
       "selectCtaPreset": "Selecionar CTA cadastrado",

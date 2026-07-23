@@ -554,6 +554,7 @@ export async function duplicateContent(input: {
     caption: source.caption,
     cta: source.cta,
     hashtags: source.hashtags,
+    locucao: source.locucao ?? "",
     media_url: mediaUrls[0] ?? null,
     media_urls: mediaUrls,
     format: source.format,
@@ -617,6 +618,7 @@ export async function saveContentAsNewVersion(input: {
   caption: string;
   cta: string;
   hashtags: string;
+  locucao?: string;
   mediaUrl?: string | null;
   mediaUrls?: string[];
   format?: ContentFormat;
@@ -637,6 +639,7 @@ export async function saveContentAsNewVersion(input: {
     (input.mediaUrl?.trim() ? [input.mediaUrl.trim()] : []);
   const mediaUrl = mediaUrls[0] ?? null;
   const format = input.format ?? current.format ?? "static_feed";
+  const locucao = input.locucao ?? current.locucao ?? "";
 
   const { data, error } = await supabase
     .from("content_items")
@@ -645,6 +648,7 @@ export async function saveContentAsNewVersion(input: {
       caption: input.caption,
       cta: input.cta,
       hashtags: input.hashtags,
+      locucao,
       media_url: mediaUrl,
       media_urls: mediaUrls,
       format,
@@ -662,6 +666,7 @@ export async function saveContentAsNewVersion(input: {
     caption: input.caption,
     cta: input.cta,
     hashtags: input.hashtags,
+    locucao,
     media_url: mediaUrl,
     media_urls: mediaUrls,
     format,
@@ -687,6 +692,7 @@ export async function updateContentFields(input: {
   caption: string;
   cta: string;
   hashtags: string;
+  locucao?: string;
   mediaUrl?: string | null;
   mediaUrls?: string[];
   format?: ContentFormat;
@@ -703,6 +709,7 @@ export async function updateContentFields(input: {
       caption: input.caption,
       cta: input.cta,
       hashtags: input.hashtags,
+      ...(input.locucao !== undefined ? { locucao: input.locucao } : {}),
       media_url: mediaUrl,
       media_urls: mediaUrls,
       ...(input.format ? { format: input.format } : {}),
@@ -854,6 +861,7 @@ export async function restoreVersion(input: {
     caption: input.version.caption,
     cta: input.version.cta,
     hashtags: input.version.hashtags,
+    locucao: input.version.locucao ?? "",
     mediaUrl: input.version.media_url,
     mediaUrls: resolveContentMediaUrls(input.version),
     format: input.version.format,

@@ -120,6 +120,7 @@ function ContentDetailPage() {
 
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
+  const [locucao, setLocucao] = useState("");
   const [cta, setCta] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
@@ -172,6 +173,7 @@ function ContentDetailPage() {
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isCarousel = formatType === "carousel";
+  const needsLocucao = formatType === "reels" || formatType === "recorded_video";
   const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
   const previewItems: PreviewMediaItem[] = mediaItems
     .map((item) => {
@@ -189,6 +191,7 @@ function ContentDetailPage() {
     if (!content) return;
     setTitle(content.title);
     setCaption(content.caption);
+    setLocucao(content.locucao ?? "");
     setCta(content.cta);
     setHashtags(content.hashtags);
     setFormatType(content.format ?? "static_feed");
@@ -255,6 +258,7 @@ function ContentDetailPage() {
         caption,
         cta,
         hashtags,
+        locucao,
         mediaUrls: urls,
         format: formatType,
       });
@@ -277,6 +281,7 @@ function ContentDetailPage() {
         caption,
         cta,
         hashtags,
+        locucao,
         mediaUrls: urls,
         format: formatType,
         changeNote: versionNote,
@@ -447,6 +452,7 @@ function ContentDetailPage() {
         status={status}
         format={formatType}
         caption={caption}
+        locucao={locucao}
         hashtags={hashtags}
         cta={cta}
         previewItems={previewItems}
@@ -580,6 +586,22 @@ function ContentDetailPage() {
                   disabled={!canManage}
                 />
               </div>
+              {needsLocucao ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="locucao">{t("project.detail.locucao")}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("project.detail.locucaoHint")}
+                  </p>
+                  <Textarea
+                    id="locucao"
+                    rows={5}
+                    value={locucao}
+                    onChange={(e) => setLocucao(e.target.value)}
+                    disabled={!canManage}
+                    placeholder={t("project.detail.locucaoPlaceholder")}
+                  />
+                </div>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <PresetField
                   id="cta"

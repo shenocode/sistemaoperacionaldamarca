@@ -46,6 +46,7 @@ type ClientContentApprovalViewProps = {
   status: ContentStatus;
   format: ContentFormat;
   caption: string;
+  locucao?: string;
   hashtags: string;
   cta: string;
   previewItems: PreviewMediaItem[];
@@ -64,6 +65,7 @@ export function ClientContentApprovalView({
   status,
   format,
   caption,
+  locucao = "",
   hashtags,
   cta,
   previewItems,
@@ -80,6 +82,8 @@ export function ClientContentApprovalView({
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const showLocucao =
+    (format === "reels" || format === "recorded_video") && locucao.trim().length > 0;
 
   const commentsQuery = useQuery({
     queryKey: ["comments", contentId],
@@ -197,6 +201,20 @@ export function ClientContentApprovalView({
             onCtaChange={onCtaChange}
           />
         </div>
+
+        {showLocucao ? (
+          <div className="mx-auto mt-4 w-full max-w-[420px] space-y-1.5 rounded-xl border bg-background/80 p-4">
+            <p className="text-sm font-medium text-foreground">
+              {t("project.detail.locucao")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("project.detail.locucaoHint")}
+            </p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {locucao}
+            </p>
+          </div>
+        ) : null}
 
         <div className="mx-auto mt-6 flex w-full max-w-[420px] flex-col gap-3">
           <Button
