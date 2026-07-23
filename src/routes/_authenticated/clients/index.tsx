@@ -203,7 +203,7 @@ function ClientsPage() {
                             <span className="truncate text-sm">{project.name}</span>
                             <Button asChild size="sm" variant="secondary" className="shrink-0">
                               <Link
-                                to="/clients/$clientId/projects/$projectId/library"
+                                to="/clients/$clientId/projects/$projectId/calendar"
                                 params={{ clientId: client.id, projectId: project.id }}
                               >
                                 {t("clients.access")}

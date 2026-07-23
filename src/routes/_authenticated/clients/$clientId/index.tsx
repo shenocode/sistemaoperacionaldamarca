@@ -98,7 +98,7 @@ function ClientDetailPage() {
           {projects.map((project) => (
             <Link
               key={project.id}
-              to="/clients/$clientId/projects/$projectId/library"
+              to="/clients/$clientId/projects/$projectId/calendar"
               params={{ clientId, projectId: project.id }}
               className="block"
             >
