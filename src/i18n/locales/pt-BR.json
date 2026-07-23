@@ -186,6 +186,12 @@
         "actions": "Ações"
       },
       "open": "Abrir",
+      "duplicate": "Duplicar",
+      "duplicated": "Conteúdo duplicado.",
+      "delete": "Deletar",
+      "deleteConfirmTitle": "Deletar conteúdo?",
+      "deleteConfirmDescription": "Esta ação não pode ser desfeita. O conteúdo \"{{title}}\" será removido permanentemente.",
+      "deleted": "Conteúdo deletado.",
       "feedPreview": "Prévia do feed",
       "feedEmpty": "Os posts aparecem aqui conforme você adicionar conteúdos.",
       "status": {

@@ -181,6 +181,12 @@
         "actions": "Acciones"
       },
       "open": "Abrir",
+      "duplicate": "Duplicar",
+      "duplicated": "Contenido duplicado.",
+      "delete": "Eliminar",
+      "deleteConfirmTitle": "¿Eliminar contenido?",
+      "deleteConfirmDescription": "Esta acción no se puede deshacer. \"{{title}}\" se eliminará permanentemente.",
+      "deleted": "Contenido eliminado.",
       "feedPreview": "Vista previa del feed",
       "feedEmpty": "Las publicaciones aparecen aquí a medida que agregas contenido.",
       "status": {

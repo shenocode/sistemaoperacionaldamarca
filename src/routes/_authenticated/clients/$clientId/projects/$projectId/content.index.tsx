@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { Plus, FileText } from "lucide-react";
+import { Copy, FileText, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,8 +19,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
-import { canManageClient, createContent, getClient, listContent } from "@/lib/api";
+import {
+  canManageClient,
+  createContent,
+  deleteContent,
+  duplicateContent,
+  getClient,
+  listContent,
+} from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
 import { validateContentSearch } from "./content";
 
@@ -39,6 +56,7 @@ function ContentListPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const contentQuery = useQuery({
     queryKey: ["content", projectId],
@@ -72,14 +90,38 @@ function ContentListPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: (contentId: string) =>
+      duplicateContent({ contentId, clientId, projectId, advanceDays: 0 }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(t("project.content.duplicated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (contentId: string) => deleteContent({ contentId, projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setDeleteTarget(null);
+      toast.success(t("project.content.deleted"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const allRows = contentQuery.data ?? [];
   const rows = filter === "review" ? allRows.filter((r) => r.status === "review") : allRows;
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const canManage = Boolean(manageQuery.data);
+  const isBusy = duplicateMutation.isPending || deleteMutation.isPending;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        {manageQuery.data ? (
+        {canManage ? (
           <Button onClick={() => setOpen(true)}>
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             {t("project.content.new")}
@@ -143,15 +185,42 @@ function ContentListPage() {
                       {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true, locale })}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link
-                          to="/clients/$clientId/projects/$projectId/content/$contentId"
-                          params={{ clientId, projectId, contentId: r.id }}
-                          search={{}}
-                        >
-                          {t("project.content.open")}
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {canManage ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isBusy}
+                              onClick={() => duplicateMutation.mutate(r.id)}
+                            >
+                              <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                              {t("project.content.duplicate")}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isBusy}
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteTarget({ id: r.id, title: r.title })}
+                            >
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                              {t("project.content.delete")}
+                            </Button>
+                          </>
+                        ) : null}
+                        <Button asChild variant="ghost" size="sm">
+                          <Link
+                            to="/clients/$clientId/projects/$projectId/content/$contentId"
+                            params={{ clientId, projectId, contentId: r.id }}
+                            search={{}}
+                          >
+                            {t("project.content.open")}
+                          </Link>
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -202,6 +271,40 @@ function ContentListPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleteMutation.isPending) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.content.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.content.deleteConfirmDescription", {
+                title: deleteTarget?.title ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending || !deleteTarget}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deleteTarget) return;
+                deleteMutation.mutate(deleteTarget.id);
+              }}
+            >
+              {t("project.content.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

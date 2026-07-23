@@ -181,6 +181,12 @@
         "actions": "Actions"
       },
       "open": "Open",
+      "duplicate": "Duplicate",
+      "duplicated": "Content duplicated.",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete content?",
+      "deleteConfirmDescription": "This action cannot be undone. \"{{title}}\" will be permanently removed.",
+      "deleted": "Content deleted.",
       "feedPreview": "Feed preview",
       "feedEmpty": "Posts appear here as you add content.",
       "status": {

@@ -519,6 +519,19 @@ export async function duplicateContent(input: {
   return row;
 }
 
+export async function deleteContent(input: {
+  contentId: string;
+  projectId: string;
+}): Promise<void> {
+  const current = await getContent(input.contentId);
+  if (!current) throw new Error("Conteúdo não encontrado");
+  if (current.project_id !== input.projectId) {
+    throw new Error("Conteúdo não pertence a este projeto");
+  }
+  const { error } = await supabase.from("content_items").delete().eq("id", input.contentId);
+  if (error) throw new Error(error.message);
+}
+
 export async function saveContentAsNewVersion(input: {
   contentId: string;
   clientId: string;
