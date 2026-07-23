@@ -715,34 +715,6 @@ function ContentDetailPage() {
                       </p>
                     ) : null}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="version-note">{t("project.detail.versionNote")}</Label>
-                    <Input
-                      id="version-note"
-                      value={versionNote}
-                      onChange={(e) => setVersionNote(e.target.value)}
-                      placeholder={t("project.detail.versionNotePlaceholder")}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={saving}
-                      onClick={() => saveMutation.mutate()}
-                    >
-                      <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                      {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
-                    </Button>
-                    <Button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => versionMutation.mutate()}
-                    >
-                      <History className="mr-2 h-4 w-4" aria-hidden="true" />
-                      {t("project.detail.saveVersion")}
-                    </Button>
-                  </div>
                 </>
               ) : null}
             </CardContent>
@@ -818,6 +790,41 @@ function ContentDetailPage() {
               </form>
             </CardContent>
           </Card>
+
+          {canManage ? (
+            <Card className="rounded-xl">
+              <CardContent className="space-y-4 p-6">
+                <div className="space-y-1.5">
+                  <Label htmlFor="version-note">{t("project.detail.versionNote")}</Label>
+                  <Input
+                    id="version-note"
+                    value={versionNote}
+                    onChange={(e) => setVersionNote(e.target.value)}
+                    placeholder={t("project.detail.versionNotePlaceholder")}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => saveMutation.mutate()}
+                  >
+                    <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => versionMutation.mutate()}
+                  >
+                    <History className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t("project.detail.saveVersion")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
         <Card className="h-fit rounded-xl">

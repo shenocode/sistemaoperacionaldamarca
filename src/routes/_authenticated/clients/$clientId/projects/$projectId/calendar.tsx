@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { CalendarDays, Copy, ExternalLink, Plus } from "lucide-react";
+import { CalendarDays, Copy, ExternalLink, GripVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,14 +42,17 @@ import {
   buildProjectReviewUrl,
   buildWhatsAppNotifyUrl,
   canManageClient,
+  deleteContent,
   duplicateContent,
   getClient,
   listContent,
   getProject,
+  reorderContentItems,
   updateContentCalendar,
   type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -61,13 +74,64 @@ function fromDatetimeLocalValue(value: string): string | null {
   return d.toISOString();
 }
 
-function sortBySchedule(a: ContentItem, b: ContentItem) {
-  if (!a.scheduled_at && !b.scheduled_at) {
-    return a.title.localeCompare(b.title);
+function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items;
   }
-  if (!a.scheduled_at) return 1;
-  if (!b.scheduled_at) return -1;
-  return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+function sortByManualOrder(a: ContentItem, b: ContentItem) {
+  if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+  return a.title.localeCompare(b.title);
+}
+
+function CalendarTitleCell({
+  title,
+  disabled,
+  onSave,
+}: {
+  title: string;
+  disabled: boolean;
+  onSave: (title: string) => void;
+}) {
+  const [value, setValue] = useState(title);
+
+  useEffect(() => {
+    setValue(title);
+  }, [title]);
+
+  function commit() {
+    const next = value.trim();
+    if (!next || next === title) {
+      setValue(title);
+      return;
+    }
+    onSave(next);
+  }
+
+  return (
+    <Input
+      className="h-8 min-w-[12rem] font-medium"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+        if (e.key === "Escape") {
+          setValue(title);
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
 }
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/calendar")({
@@ -80,6 +144,10 @@ function ProjectCalendarPage() {
   const queryClient = useQueryClient();
   const [themeDialogContentId, setThemeDialogContentId] = useState<string | null>(null);
   const [newTheme, setNewTheme] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
 
@@ -105,6 +173,16 @@ function ProjectCalendarPage() {
 
   const canEdit = Boolean(manageQuery.data);
   const themePresets = projectQuery.data?.theme_presets ?? [];
+  const serverRows = useMemo(
+    () => [...(contentQuery.data ?? [])].sort(sortByManualOrder),
+    [contentQuery.data],
+  );
+  const rows = localRows ?? serverRows;
+  const canReorder = canEdit && rows.length > 1;
+
+  useEffect(() => {
+    setLocalRows(null);
+  }, [contentQuery.dataUpdatedAt]);
 
   function handleSendUpdates() {
     const client = clientQuery.data;
@@ -132,18 +210,61 @@ function ProjectCalendarPage() {
     toast.success(t("clients.whatsappOpened"));
   }
 
-  const rows = useMemo(
-    () => [...(contentQuery.data ?? [])].sort(sortBySchedule),
-    [contentQuery.data],
-  );
-
   const updateMutation = useMutation({
     mutationFn: updateContentCalendar,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["content", "detail", variables.contentId] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const reorderMutation = useMutation({
+    mutationFn: reorderContentItems,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+    },
+    onError: (err: Error) => {
+      setLocalRows(null);
+      toast.error(err.message);
+    },
+  });
+
+  const onDragStart = (index: number) => (event: DragEvent<HTMLSpanElement>) => {
+    setDragIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const onDragOver = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    if (!canReorder) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dropIndex !== index) setDropIndex(index);
+  };
+
+  const onDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    event.preventDefault();
+    if (!canReorder) return;
+    const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
+    if (!Number.isFinite(from)) {
+      setDragIndex(null);
+      setDropIndex(null);
+      return;
+    }
+    const next = moveItem(rows, from, index);
+    setLocalRows(next);
+    setDragIndex(null);
+    setDropIndex(null);
+    if (next !== rows) {
+      reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
+    }
+  };
+
+  const onDragEnd = () => {
+    setDragIndex(null);
+    setDropIndex(null);
+  };
 
   const addThemeMutation = useMutation({
     mutationFn: async ({ contentId, theme }: { contentId: string; theme: string }) => {
@@ -166,6 +287,17 @@ function ProjectCalendarPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["content", projectId] });
       toast.success(t("project.calendar.duplicated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (contentId: string) => deleteContent({ contentId, projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setDeleteTarget(null);
+      toast.success(t("project.calendar.deleted"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -207,6 +339,7 @@ function ProjectCalendarPage() {
             <table className="w-full min-w-[920px] text-sm">
               <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  {canReorder ? <th className="w-8 px-2 py-3" aria-label={t("project.calendar.reorder")} /> : null}
                   <th className="px-3 py-3">#</th>
                   <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
                   <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
@@ -224,10 +357,42 @@ function ProjectCalendarPage() {
                     scheduled && !Number.isNaN(scheduled.getTime())
                       ? format(scheduled, "EEEE", { locale })
                       : "—";
-                  const isBusy = updateMutation.isPending || duplicateMutation.isPending;
+                  const isBusy =
+                    updateMutation.isPending ||
+                    duplicateMutation.isPending ||
+                    deleteMutation.isPending ||
+                    reorderMutation.isPending;
 
                   return (
-                    <tr key={row.id} className="hover:bg-muted/30">
+                    <tr
+                      key={row.id}
+                      onDragOver={canReorder ? onDragOver(index) : undefined}
+                      onDrop={canReorder ? onDrop(index) : undefined}
+                      className={cn(
+                        "hover:bg-muted/30",
+                        dragIndex === index && "opacity-50",
+                        dropIndex === index &&
+                          dragIndex !== null &&
+                          dragIndex !== index &&
+                          "bg-muted",
+                      )}
+                    >
+                      {canReorder ? (
+                        <td className="px-2 py-2.5">
+                          <span
+                            draggable
+                            onDragStart={onDragStart(index)}
+                            onDragEnd={onDragEnd}
+                            className="inline-flex cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+                            aria-label={t("project.calendar.dragHandle")}
+                            title={t("project.calendar.dragHandle")}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <GripVertical className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                        </td>
+                      ) : null}
                       <td className="px-3 py-2.5 text-muted-foreground">{index + 1}</td>
                       <td className="px-3 py-2.5 capitalize text-muted-foreground">{dayLabel}</td>
                       <td className="px-3 py-2.5">
@@ -312,21 +477,46 @@ function ProjectCalendarPage() {
                           </SelectContent>
                         </Select>
                       </td>
-                      <td className="px-3 py-2.5 font-medium">{row.title}</td>
+                      <td className="px-3 py-2.5">
+                        <CalendarTitleCell
+                          title={row.title}
+                          disabled={!canEdit || isBusy}
+                          onSave={(nextTitle) => {
+                            updateMutation.mutate({
+                              contentId: row.id,
+                              title: nextTitle,
+                            });
+                          }}
+                        />
+                      </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1.5">
                           {canEdit ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={isBusy}
-                              title={t("project.calendar.duplicateHint")}
-                              onClick={() => duplicateMutation.mutate(row.id)}
-                            >
-                              <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                              {t("project.calendar.duplicate")}
-                            </Button>
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                title={t("project.calendar.duplicateHint")}
+                                onClick={() => duplicateMutation.mutate(row.id)}
+                              >
+                                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                {t("project.calendar.duplicate")}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={isBusy}
+                                className="text-destructive hover:text-destructive"
+                                title={t("project.calendar.deleteHint")}
+                                onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
+                              >
+                                <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                {t("project.calendar.delete")}
+                              </Button>
+                            </>
                           ) : null}
                           <Button asChild variant="outline" size="sm">
                             <Link
@@ -404,6 +594,40 @@ function ProjectCalendarPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleteMutation.isPending) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.calendar.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.calendar.deleteConfirmDescription", {
+                title: deleteTarget?.title ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending || !deleteTarget}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deleteTarget) return;
+                deleteMutation.mutate(deleteTarget.id);
+              }}
+            >
+              {t("project.calendar.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

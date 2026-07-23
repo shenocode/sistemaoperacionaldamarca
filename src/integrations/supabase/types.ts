@@ -200,6 +200,7 @@ export type Database = {
           media_urls: string[]
           project_id: string
           scheduled_at: string | null
+          sort_order: number
           status: Database["public"]["Enums"]["content_status"]
           theme: string | null
           title: string
@@ -218,6 +219,7 @@ export type Database = {
           media_urls?: string[]
           project_id: string
           scheduled_at?: string | null
+          sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
           theme?: string | null
           title: string
@@ -236,6 +238,7 @@ export type Database = {
           media_urls?: string[]
           project_id?: string
           scheduled_at?: string | null
+          sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
           theme?: string | null
           title?: string

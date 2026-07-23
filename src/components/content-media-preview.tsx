@@ -265,6 +265,13 @@ function CaptionBlock({
             aria-label={t("project.detail.caption")}
             className="w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] leading-snug text-neutral-900 outline-none ring-sky-400 focus:ring-2"
           />
+          <input
+            value={cta ?? ""}
+            onChange={(e) => onCtaChange?.(e.target.value)}
+            placeholder={t("project.detail.cta")}
+            aria-label={t("project.detail.cta")}
+            className="w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] font-medium text-neutral-700 outline-none ring-sky-400 focus:ring-2"
+          />
           <textarea
             value={hashtags ?? ""}
             onChange={(e) => onHashtagsChange?.(e.target.value)}
@@ -272,13 +279,6 @@ function CaptionBlock({
             placeholder={t("project.detail.hashtags")}
             aria-label={t("project.detail.hashtags")}
             className="w-full resize-none rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] leading-snug text-sky-700 outline-none ring-sky-400 focus:ring-2"
-          />
-          <input
-            value={cta ?? ""}
-            onChange={(e) => onCtaChange?.(e.target.value)}
-            placeholder={t("project.detail.cta")}
-            aria-label={t("project.detail.cta")}
-            className="w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[12px] font-medium text-neutral-700 outline-none ring-sky-400 focus:ring-2"
           />
         </div>
         <p className="text-[10px] uppercase tracking-wide text-neutral-400">
@@ -297,11 +297,11 @@ function CaptionBlock({
         <p className="text-[12px] leading-snug text-neutral-900">
           <span className="font-semibold">{username}</span>{" "}
           {caption?.trim() ? <span>{caption.trim()}</span> : null}
-          {hashtags?.trim() ? (
-            <span className="mt-1 block text-sky-700">{hashtags.trim()}</span>
-          ) : null}
           {cta?.trim() ? (
             <span className="mt-1 block font-medium text-neutral-700">{cta.trim()}</span>
+          ) : null}
+          {hashtags?.trim() ? (
+            <span className="mt-1 block text-sky-700">{hashtags.trim()}</span>
           ) : null}
         </p>
       ) : (
@@ -515,6 +515,13 @@ export function ContentMediaPreview({
                   aria-label={t("project.detail.caption")}
                   className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
                 />
+                <input
+                  value={cta ?? ""}
+                  onChange={(e) => onCtaChange?.(e.target.value)}
+                  placeholder={t("project.detail.cta")}
+                  aria-label={t("project.detail.cta")}
+                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                />
                 <textarea
                   value={hashtags ?? ""}
                   onChange={(e) => onHashtagsChange?.(e.target.value)}
@@ -523,19 +530,12 @@ export function ContentMediaPreview({
                   aria-label={t("project.detail.hashtags")}
                   className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] text-white/90 outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
                 />
-                <input
-                  value={cta ?? ""}
-                  onChange={(e) => onCtaChange?.(e.target.value)}
-                  placeholder={t("project.detail.cta")}
-                  aria-label={t("project.detail.cta")}
-                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
-                />
               </div>
             ) : (
               <>
                 {caption ? <p className="line-clamp-3 text-[12px]">{caption}</p> : null}
-                {hashtags ? <p className="line-clamp-2 text-[11px] text-white/80">{hashtags}</p> : null}
                 {cta ? <p className="text-[11px] font-medium text-white/90">{cta}</p> : null}
+                {hashtags ? <p className="line-clamp-2 text-[11px] text-white/80">{hashtags}</p> : null}
               </>
             )}
           </div>

@@ -412,9 +412,34 @@ export async function listContent(projectId: string) {
     .from("content_items")
     .select("*")
     .eq("project_id", projectId)
-    .order("updated_at", { ascending: false });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+async function nextContentSortOrder(projectId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("content_items")
+    .select("sort_order")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.sort_order ?? -1) + 1;
+}
+
+export async function reorderContentItems(
+  items: Array<{ id: string; sort_order: number }>,
+): Promise<void> {
+  const results = await Promise.all(
+    items.map(({ id, sort_order }) =>
+      supabase.from("content_items").update({ sort_order }).eq("id", id),
+    ),
+  );
+  const firstError = results.find((result) => result.error)?.error;
+  if (firstError) throw new Error(firstError.message);
 }
 
 export async function getContent(contentId: string) {
@@ -437,6 +462,7 @@ export async function createContent(input: {
   mediaUrl?: string;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
+  const sortOrder = await nextContentSortOrder(input.projectId);
   const { data, error } = await supabase
     .from("content_items")
     .insert({
@@ -448,6 +474,7 @@ export async function createContent(input: {
       media_url: input.mediaUrl?.trim() || null,
       created_by: userId,
       status: "draft",
+      sort_order: sortOrder,
     })
     .select("*")
     .single();
@@ -494,6 +521,7 @@ export async function duplicateContent(input: {
   }
 
   const mediaUrls = resolveContentMediaUrls(source);
+  const sortOrder = await nextContentSortOrder(input.projectId);
 
   // Intencionalmente NÃO copia current_version nem content_versions do source.
   const { data, error } = await supabase
@@ -512,6 +540,7 @@ export async function duplicateContent(input: {
       created_by: userId,
       status: "draft",
       current_version: 1,
+      sort_order: sortOrder,
     })
     .select("*")
     .single();
@@ -660,11 +689,13 @@ export async function updateContentCalendar(input: {
   scheduledAt?: string | null;
   theme?: string | null;
   format?: ContentFormat;
+  title?: string;
 }): Promise<ContentItem> {
   const patch: {
     scheduled_at?: string | null;
     theme?: string | null;
     format?: ContentFormat;
+    title?: string;
   } = {};
   if (input.scheduledAt !== undefined) {
     patch.scheduled_at = input.scheduledAt;
@@ -674,6 +705,11 @@ export async function updateContentCalendar(input: {
   }
   if (input.format !== undefined) {
     patch.format = input.format;
+  }
+  if (input.title !== undefined) {
+    const nextTitle = input.title.trim();
+    if (!nextTitle) throw new Error("Título inválido");
+    patch.title = nextTitle;
   }
 
   const { data, error } = await supabase
