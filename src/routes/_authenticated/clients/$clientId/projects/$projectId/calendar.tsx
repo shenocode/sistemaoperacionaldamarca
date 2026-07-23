@@ -372,8 +372,8 @@ function ProjectCalendarPage() {
                   <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
                   <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
                   <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
                   <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
+                  <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
                   <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
                   <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
                 </tr>
@@ -451,40 +451,6 @@ function ProjectCalendarPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <Select
-                          value={row.theme?.trim() || NONE_VALUE}
-                          disabled={!canEdit || isBusy}
-                          onValueChange={(value) => {
-                            if (value === NEW_THEME_VALUE) {
-                              setThemeDialogContentId(row.id);
-                              setNewTheme("");
-                              return;
-                            }
-                            updateMutation.mutate({
-                              contentId: row.id,
-                              theme: value === NONE_VALUE ? null : value,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="h-8 w-[10.5rem]">
-                            <SelectValue placeholder={t("project.calendar.selectTheme")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={NONE_VALUE}>{t("project.calendar.noTheme")}</SelectItem>
-                            {themeOptions.map((theme) => (
-                              <SelectItem key={theme} value={theme}>
-                                {theme}
-                              </SelectItem>
-                            ))}
-                            {canEdit ? (
-                              <SelectItem value={NEW_THEME_VALUE}>
-                                {t("project.calendar.newTheme")}
-                              </SelectItem>
-                            ) : null}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Select
                           value={rowFormat}
                           disabled={!canEdit || isBusy}
                           onValueChange={(value) => {
@@ -517,6 +483,40 @@ function ProjectCalendarPage() {
                                 </span>
                               </SelectItem>
                             ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Select
+                          value={row.theme?.trim() || NONE_VALUE}
+                          disabled={!canEdit || isBusy}
+                          onValueChange={(value) => {
+                            if (value === NEW_THEME_VALUE) {
+                              setThemeDialogContentId(row.id);
+                              setNewTheme("");
+                              return;
+                            }
+                            updateMutation.mutate({
+                              contentId: row.id,
+                              theme: value === NONE_VALUE ? null : value,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-[10.5rem]">
+                            <SelectValue placeholder={t("project.calendar.selectTheme")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE_VALUE}>{t("project.calendar.noTheme")}</SelectItem>
+                            {themeOptions.map((theme) => (
+                              <SelectItem key={theme} value={theme}>
+                                {theme}
+                              </SelectItem>
+                            ))}
+                            {canEdit ? (
+                              <SelectItem value={NEW_THEME_VALUE}>
+                                {t("project.calendar.newTheme")}
+                              </SelectItem>
+                            ) : null}
                           </SelectContent>
                         </Select>
                       </td>

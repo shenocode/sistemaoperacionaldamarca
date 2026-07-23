@@ -27,9 +27,9 @@ function ProjectLayout() {
   });
 
   const adminTabs = [
-    { to: "/clients/$clientId/projects/$projectId/library", label: t("project.tabs.library") },
-    { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
     { to: "/clients/$clientId/projects/$projectId/calendar", label: t("project.tabs.calendar") },
+    { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
+    { to: "/clients/$clientId/projects/$projectId/library", label: t("project.tabs.library") },
     { to: "/clients/$clientId/projects/$projectId/settings", label: t("project.tabs.settings") },
   ] as const;
 

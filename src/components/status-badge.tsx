@@ -9,14 +9,24 @@ export type ContentStatus =
   | "changes"
   | "published";
 
-/** Visual styles for content workflow status (production → review → approved). */
+/**
+ * Visual styles for content workflow status.
+ * Color gradient (red → green): waiting_material → draft → review → changes → published.
+ * Darker fills use white text for contrast; mid yellow/lime keep dark text.
+ */
 export const contentStatusStyles: Record<ContentStatus, string> = {
-  draft: "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100/90",
-  waiting_material: "border-orange-200 bg-orange-100 text-orange-900 hover:bg-orange-100/90",
-  review: "border-amber-200 bg-amber-100 text-amber-900 hover:bg-amber-100/90",
-  approved: "border-emerald-200 bg-emerald-100 text-emerald-900 hover:bg-emerald-100/90",
-  changes: "border-rose-200 bg-rose-100 text-rose-900 hover:bg-rose-100/90",
-  published: "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15",
+  waiting_material:
+    "border-red-600 bg-red-600 text-white hover:bg-red-600/90",
+  draft:
+    "border-orange-500 bg-orange-500 text-white hover:bg-orange-500/90",
+  review:
+    "border-amber-400 bg-amber-400 text-amber-950 hover:bg-amber-400/90",
+  changes:
+    "border-lime-500 bg-lime-500 text-lime-950 hover:bg-lime-500/90",
+  approved:
+    "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500/90",
+  published:
+    "border-green-600 bg-green-600 text-white hover:bg-green-600/90",
 };
 
 export function StatusBadge({
