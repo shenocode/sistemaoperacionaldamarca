@@ -35,7 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { StatusBadge, type ContentStatus } from "@/components/status-badge";
+import { ContentStatusSelect } from "@/components/content-status-select";
+import type { ContentStatus } from "@/components/status-badge";
 import {
   CONTENT_FORMATS,
   addProjectThemePreset,
@@ -418,15 +419,14 @@ function ProjectCalendarPage() {
                         />
                       </td>
                       <td className="px-3 py-2.5">
-                        <Link
-                          to="/clients/$clientId/projects/$projectId/content/$contentId"
-                          params={{ clientId, projectId, contentId: row.id }}
-                          search={{}}
-                          title={t("project.calendar.openStatus")}
-                          className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <StatusBadge status={row.status as ContentStatus} asButton />
-                        </Link>
+                        <ContentStatusSelect
+                          status={row.status as ContentStatus}
+                          contentId={row.id}
+                          clientId={clientId}
+                          projectId={projectId}
+                          title={row.title}
+                          disabled={!canEdit || isBusy}
+                        />
                       </td>
                       <td className="px-3 py-2.5">
                         <Select

@@ -98,7 +98,7 @@
     "calendarPlaceholder": "Coming soon.",
     "calendar": {
       "title": "Publishing calendar",
-      "hint": "Set date, time, theme, and format. Drag the ⋮⋮ handle to reorder. Status updates automatically as content is approved.",
+      "hint": "Set date, time, status, theme, and format. Drag the ⋮⋮ handle to reorder.",
       "sendUpdates": "Send updates",
       "openStatus": "Open content and view status",
       "empty": "No content to schedule. Create content in the Content tab.",
@@ -196,8 +196,12 @@
       "deleteConfirmTitle": "Delete content?",
       "deleteConfirmDescription": "This action cannot be undone. \"{{title}}\" will be permanently removed.",
       "deleted": "Content deleted.",
+      "reorder": "Reorder",
+      "dragHandle": "Drag to reorder",
       "feedPreview": "Feed preview",
+      "feedGridTab": "Posts",
       "feedEmpty": "Posts appear here as you add content.",
+      "statusUpdated": "Status updated.",
       "status": {
         "draft": "In production",
         "review": "Pending review",
@@ -215,6 +219,9 @@
       "previewTime": "2 hours ago",
       "mute": "Mute",
       "unmute": "Unmute",
+      "expandMedia": "Expand media",
+      "mediaViewer": "Expanded media view",
+
       "caption": "Caption",
       "cta": "CTA",
       "hashtags": "Hashtags",

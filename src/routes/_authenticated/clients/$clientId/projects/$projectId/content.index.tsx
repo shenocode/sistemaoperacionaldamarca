@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { Copy, FileText, Plus, Trash2 } from "lucide-react";
+import { Copy, FileText, GripVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
-import { StatusBadge, type ContentStatus } from "@/components/status-badge";
+import { ContentStatusSelect } from "@/components/content-status-select";
+import type { ContentStatus } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -37,11 +38,31 @@ import {
   duplicateContent,
   getClient,
   listContent,
+  reorderContentItems,
+  type ContentItem,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
 import { validateContentSearch } from "./content";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
+
+function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+function sortByManualOrder(a: ContentItem, b: ContentItem) {
+  const aOrder = a.sort_order ?? 0;
+  const bOrder = b.sort_order ?? 0;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+}
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/content/")({
   validateSearch: validateContentSearch,
@@ -57,6 +78,9 @@ function ContentListPage() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const contentQuery = useQuery({
     queryKey: ["content", projectId],
@@ -112,11 +136,68 @@ function ContentListPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const allRows = contentQuery.data ?? [];
+  const reorderMutation = useMutation({
+    mutationFn: reorderContentItems,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+    },
+    onError: (err: Error) => {
+      setLocalRows(null);
+      toast.error(err.message);
+    },
+  });
+
+  const serverRows = useMemo(
+    () => [...(contentQuery.data ?? [])].sort(sortByManualOrder),
+    [contentQuery.data],
+  );
+  const allRows = localRows ?? serverRows;
   const rows = filter === "review" ? allRows.filter((r) => r.status === "review") : allRows;
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
   const canManage = Boolean(manageQuery.data);
-  const isBusy = duplicateMutation.isPending || deleteMutation.isPending;
+  const canReorder = canManage && filter !== "review" && rows.length > 1;
+  const isBusy =
+    duplicateMutation.isPending || deleteMutation.isPending || reorderMutation.isPending;
+
+  useEffect(() => {
+    setLocalRows(null);
+  }, [contentQuery.dataUpdatedAt]);
+
+  const onDragStart = (index: number) => (event: DragEvent<HTMLSpanElement>) => {
+    setDragIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const onDragOver = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    if (!canReorder) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dropIndex !== index) setDropIndex(index);
+  };
+
+  const onDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    event.preventDefault();
+    if (!canReorder) return;
+    const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
+    if (!Number.isFinite(from)) {
+      setDragIndex(null);
+      setDropIndex(null);
+      return;
+    }
+    const next = moveItem(rows, from, index);
+    setLocalRows(next);
+    setDragIndex(null);
+    setDropIndex(null);
+    if (next !== rows) {
+      reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
+    }
+  };
+
+  const onDragEnd = () => {
+    setDragIndex(null);
+    setDropIndex(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -160,6 +241,9 @@ function ContentListPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  {canReorder ? (
+                    <th className="w-8 px-2 py-3" aria-label={t("project.content.reorder")} />
+                  ) : null}
                   <th className="px-4 py-3">{t("project.content.columns.thumbnail")}</th>
                   <th className="px-4 py-3">{t("project.content.columns.title")}</th>
                   <th className="px-4 py-3">{t("project.content.columns.status")}</th>
@@ -169,8 +253,36 @@ function ContentListPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/30">
+                {rows.map((r, index) => (
+                  <tr
+                    key={r.id}
+                    onDragOver={canReorder ? onDragOver(index) : undefined}
+                    onDrop={canReorder ? onDrop(index) : undefined}
+                    className={cn(
+                      "hover:bg-muted/30",
+                      dragIndex === index && "opacity-50",
+                      dropIndex === index &&
+                        dragIndex !== null &&
+                        dragIndex !== index &&
+                        "bg-muted",
+                    )}
+                  >
+                    {canReorder ? (
+                      <td className="px-2 py-3">
+                        <span
+                          draggable
+                          onDragStart={onDragStart(index)}
+                          onDragEnd={onDragEnd}
+                          className="inline-flex cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+                          aria-label={t("project.content.dragHandle")}
+                          title={t("project.content.dragHandle")}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <GripVertical className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3">
                       {r.media_url ? (
                         <img
@@ -184,14 +296,14 @@ function ContentListPage() {
                     </td>
                     <td className="px-4 py-3 font-medium">{r.title}</td>
                     <td className="px-4 py-3">
-                      <Link
-                        to="/clients/$clientId/projects/$projectId/content/$contentId"
-                        params={{ clientId, projectId, contentId: r.id }}
-                        search={{}}
-                        className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <StatusBadge status={r.status as ContentStatus} asButton />
-                      </Link>
+                      <ContentStatusSelect
+                        status={r.status as ContentStatus}
+                        contentId={r.id}
+                        clientId={clientId}
+                        projectId={projectId}
+                        title={r.title}
+                        disabled={!canManage || isBusy}
+                      />
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
                     <td className="px-4 py-3 text-muted-foreground">

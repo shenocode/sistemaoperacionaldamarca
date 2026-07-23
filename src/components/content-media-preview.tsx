@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Bookmark,
+  Expand,
   ExternalLink,
   FileText,
   Heart,
   MessageCircle,
   MoreHorizontal,
+  Play,
   Send,
   Volume2,
   VolumeX,
@@ -19,6 +21,12 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   isImageUrl,
@@ -73,29 +81,19 @@ function MediaSlide({
   className,
   autoPlay,
   muted,
+  expandable,
+  onExpand,
 }: {
   item: PreviewMediaItem;
   title: string;
   className?: string;
   autoPlay?: boolean;
   muted?: boolean;
+  expandable?: boolean;
+  onExpand?: () => void;
 }) {
   const { t } = useTranslation();
   const kind = resolveKind(item);
-
-  if (kind === "video") {
-    return (
-      <video
-        src={item.url}
-        controls={!autoPlay}
-        autoPlay={autoPlay}
-        muted={muted ?? autoPlay}
-        loop={autoPlay}
-        playsInline
-        className={cn("h-full w-full object-cover", className)}
-      />
-    );
-  }
 
   if (kind === "file") {
     return (
@@ -114,8 +112,199 @@ function MediaSlide({
     );
   }
 
+  const media =
+    kind === "video" ? (
+      <video
+        src={item.url}
+        controls={!autoPlay && !expandable}
+        autoPlay={autoPlay}
+        muted={muted ?? autoPlay}
+        loop={autoPlay}
+        playsInline
+        className={cn("h-full w-full object-cover", !expandable && className)}
+      />
+    ) : (
+      <img
+        src={item.url}
+        alt={title}
+        className={cn("h-full w-full object-cover", !expandable && className)}
+      />
+    );
+
+  if (!expandable || !onExpand) {
+    return media;
+  }
+
   return (
-    <img src={item.url} alt={title} className={cn("h-full w-full object-cover", className)} />
+    <button
+      type="button"
+      onClick={onExpand}
+      aria-label={t("project.detail.expandMedia")}
+      className={cn(
+        "group relative h-full w-full cursor-zoom-in overflow-hidden",
+        className,
+      )}
+    >
+      {media}
+      <span className="pointer-events-none absolute right-2 top-2 z-[1] rounded-full bg-black/55 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+        <Expand className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+      {kind === "video" && !autoPlay ? (
+        <span className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center">
+          <span className="rounded-full bg-black/55 p-3 text-white">
+            <Play className="h-6 w-6 fill-white" aria-hidden="true" />
+          </span>
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function LightboxMedia({
+  item,
+  title,
+  autoPlay,
+}: {
+  item: PreviewMediaItem;
+  title: string;
+  autoPlay?: boolean;
+}) {
+  const { t } = useTranslation();
+  const kind = resolveKind(item);
+
+  if (kind === "video") {
+    return (
+      <video
+        key={item.url}
+        src={item.url}
+        controls
+        autoPlay={autoPlay}
+        playsInline
+        className="max-h-[min(85vh,900px)] max-w-full object-contain"
+      />
+    );
+  }
+
+  if (kind === "file") {
+    return (
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm text-white hover:bg-white/15"
+      >
+        <FileText className="h-5 w-5" aria-hidden="true" />
+        {t("project.detail.openFile")}
+        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+      </a>
+    );
+  }
+
+  return (
+    <img
+      src={item.url}
+      alt={title}
+      className="max-h-[min(85vh,900px)] max-w-full object-contain"
+    />
+  );
+}
+
+function MediaLightbox({
+  open,
+  onOpenChange,
+  items,
+  title,
+  initialIndex = 0,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  items: PreviewMediaItem[];
+  title: string;
+  initialIndex?: number;
+}) {
+  const { t } = useTranslation();
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(initialIndex);
+  const isCarousel = items.length > 1;
+
+  useEffect(() => {
+    if (!open) return;
+    setCurrent(Math.min(Math.max(initialIndex, 0), Math.max(items.length - 1, 0)));
+  }, [open, initialIndex, items.length]);
+
+  useEffect(() => {
+    if (!api || !open) return;
+    api.scrollTo(Math.min(Math.max(initialIndex, 0), Math.max(items.length - 1, 0)), true);
+    const sync = () => setCurrent(api.selectedScrollSnap());
+    sync();
+    api.on("select", sync);
+    return () => {
+      api.off("select", sync);
+    };
+  }, [api, open, initialIndex, items.length]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="flex h-[min(92vh,960px)] w-[min(96vw,1100px)] max-w-none flex-col gap-0 overflow-hidden border-0 bg-black p-0 text-white shadow-2xl sm:rounded-xl"
+        aria-describedby={undefined}
+      >
+        <DialogTitle className="sr-only">{t("project.detail.mediaViewer")}</DialogTitle>
+        <DialogDescription className="sr-only">{title}</DialogDescription>
+
+        <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black px-4 py-10 sm:px-12">
+          {isCarousel ? (
+            <Carousel setApi={setApi} opts={{ loop: false, startIndex: initialIndex }} className="h-full w-full">
+              <CarouselContent className="ml-0 h-full">
+                {items.map((item, index) => (
+                  <CarouselItem key={`${item.url}-lightbox-${index}`} className="basis-full pl-0">
+                    <div className="flex h-full min-h-[50vh] items-center justify-center">
+                      <LightboxMedia
+                        item={item}
+                        title={`${title} ${index + 1}`}
+                        autoPlay={open && index === current && resolveKind(item) === "video"}
+                      />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
+              <CarouselNext className="right-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
+            </Carousel>
+          ) : (
+            <LightboxMedia
+              item={items[0]}
+              title={title}
+              autoPlay={open && resolveKind(items[0]) === "video"}
+            />
+          )}
+
+          {isCarousel ? (
+            <>
+              <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5">
+                {items.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    aria-label={`${t("project.detail.slide")} ${index + 1}`}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all",
+                      index === current ? "w-4 bg-white" : "w-1.5 bg-white/50",
+                    )}
+                    onClick={() => api?.scrollTo(index)}
+                  />
+                ))}
+              </div>
+              <span className="absolute left-4 top-4 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+                {current + 1}/{items.length}
+              </span>
+            </>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -334,10 +523,19 @@ export function ContentMediaPreview({
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const handle = toHandle(username || title || "marca");
   const isStories = format === "stories";
   const isReels = format === "reels";
+
+  const openLightbox = (index = 0) => {
+    if (items.length === 0) return;
+    if (resolveKind(items[Math.min(index, items.length - 1)]) === "file") return;
+    setLightboxIndex(Math.min(Math.max(index, 0), items.length - 1));
+    setLightboxOpen(true);
+  };
 
   useEffect(() => {
     if (!api) return;
@@ -371,20 +569,25 @@ export function ContentMediaPreview({
               {items.map((item, index) => (
                 <CarouselItem key={`${item.url}-${index}`} className="basis-full pl-0">
                   <div className={cn("bg-black", aspectClass)}>
-                    <MediaSlide item={item} title={`${title} ${index + 1}`} />
+                    <MediaSlide
+                      item={item}
+                      title={`${title} ${index + 1}`}
+                      expandable={resolveKind(item) !== "file"}
+                      onExpand={() => openLightbox(index)}
+                    />
                   </div>
                 </CarouselItem>
               ))}
             </CarouselContent>
             {items.length > 1 ? (
               <>
-                <CarouselPrevious className="left-2 h-7 w-7 border-0 bg-black/40 text-white hover:bg-black/60 hover:text-white" />
-                <CarouselNext className="right-2 h-7 w-7 border-0 bg-black/40 text-white hover:bg-black/60 hover:text-white" />
+                <CarouselPrevious className="left-2 z-10 h-7 w-7 border-0 bg-black/40 text-white hover:bg-black/60 hover:text-white" />
+                <CarouselNext className="right-2 z-10 h-7 w-7 border-0 bg-black/40 text-white hover:bg-black/60 hover:text-white" />
               </>
             ) : null}
           </Carousel>
           {items.length > 1 ? (
-            <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1">
+            <div className="absolute bottom-2 left-0 right-0 z-10 flex items-center justify-center gap-1">
               {items.map((_, index) => (
                 <button
                   key={index}
@@ -399,7 +602,7 @@ export function ContentMediaPreview({
               ))}
             </div>
           ) : null}
-          <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+          <span className="absolute right-2 top-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
             {current + 1}/{items.length}
           </span>
         </div>
@@ -408,177 +611,216 @@ export function ContentMediaPreview({
 
     return (
       <div className={cn("relative bg-black", aspectClass)}>
-        <MediaSlide item={items[0]} title={title} />
+        <MediaSlide
+          item={items[0]}
+          title={title}
+          expandable={resolveKind(items[0]) !== "file"}
+          onExpand={() => openLightbox(0)}
+        />
       </div>
     );
   };
 
+  const lightbox = (
+    <MediaLightbox
+      open={lightboxOpen}
+      onOpenChange={setLightboxOpen}
+      items={items}
+      title={title}
+      initialIndex={lightboxIndex}
+    />
+  );
+
   if (isStories) {
     return (
-      <PhoneChrome size={size} className={className}>
-        <div className="relative aspect-[9/16] bg-black">
-          {items.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-white/50">
-              {t("project.detail.noPreview")}
-            </div>
-          ) : (
-            <MediaSlide item={items[0]} title={title} autoPlay muted={muted} />
-          )}
-          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/55 to-transparent px-3 pb-8 pt-2">
-            <div className="mb-3 h-0.5 overflow-hidden rounded-full bg-white/30">
-              <div className="h-full w-2/3 bg-white" />
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 overflow-hidden rounded-full bg-white/20">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
-              <span className="text-[12px] font-semibold text-white">{handle}</span>
-              <span className="text-[10px] text-white/70">2h</span>
-            </div>
-          </div>
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-5 pt-10">
-            {editable ? (
-              <div className="space-y-1.5">
-                <textarea
-                  value={caption ?? ""}
-                  onChange={(e) => onCaptionChange?.(e.target.value)}
-                  rows={2}
-                  placeholder={t("project.detail.caption")}
-                  aria-label={t("project.detail.caption")}
-                  className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
-                />
-                <input
-                  value={cta ?? ""}
-                  onChange={(e) => onCtaChange?.(e.target.value)}
-                  placeholder={t("project.detail.cta")}
-                  aria-label={t("project.detail.cta")}
-                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
-                />
+      <>
+        <PhoneChrome size={size} className={className}>
+          <div className="relative aspect-[9/16] bg-black">
+            {items.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs text-white/50">
+                {t("project.detail.noPreview")}
               </div>
             ) : (
-              <>
-                {caption ? <p className="text-[12px] text-white">{caption}</p> : null}
-                {cta ? <p className="mt-1 text-[11px] font-medium text-white/90">{cta}</p> : null}
-              </>
+              <MediaSlide
+                item={items[0]}
+                title={title}
+                autoPlay
+                muted={muted}
+                expandable={resolveKind(items[0]) !== "file"}
+                onExpand={() => openLightbox(0)}
+              />
             )}
+            <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/55 to-transparent px-3 pb-8 pt-2">
+              <div className="mb-3 h-0.5 overflow-hidden rounded-full bg-white/30">
+                <div className="h-full w-2/3 bg-white" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 overflow-hidden rounded-full bg-white/20">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <span className="text-[12px] font-semibold text-white">{handle}</span>
+                <span className="text-[10px] text-white/70">2h</span>
+              </div>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-5 pt-10">
+              {editable ? (
+                <div className="space-y-1.5">
+                  <textarea
+                    value={caption ?? ""}
+                    onChange={(e) => onCaptionChange?.(e.target.value)}
+                    rows={2}
+                    placeholder={t("project.detail.caption")}
+                    aria-label={t("project.detail.caption")}
+                    className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                  />
+                  <input
+                    value={cta ?? ""}
+                    onChange={(e) => onCtaChange?.(e.target.value)}
+                    placeholder={t("project.detail.cta")}
+                    aria-label={t("project.detail.cta")}
+                    className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                  />
+                </div>
+              ) : (
+                <>
+                  {caption ? <p className="text-[12px] text-white">{caption}</p> : null}
+                  {cta ? <p className="mt-1 text-[11px] font-medium text-white/90">{cta}</p> : null}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </PhoneChrome>
+        </PhoneChrome>
+        {lightbox}
+      </>
     );
   }
 
   if (isReels) {
     return (
-      <PhoneChrome size={size} className={className}>
-        <div className="relative aspect-[9/16] bg-black">
-          {items.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-white/50">
-              {t("project.detail.noPreview")}
-            </div>
-          ) : (
-            <MediaSlide item={items[0]} title={title} autoPlay muted={muted} className="absolute inset-0" />
-          )}
-          <button
-            type="button"
-            onClick={() => setMuted((value) => !value)}
-            className="absolute bottom-24 right-3 z-10 rounded-full bg-black/55 p-1.5 text-white"
-            aria-label={muted ? t("project.detail.unmute") : t("project.detail.mute")}
-          >
-            {muted ? (
-              <VolumeX className="h-3.5 w-3.5" aria-hidden="true" />
-            ) : (
-              <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-          </button>
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between px-3 pt-2">
-            <span className="text-[13px] font-semibold text-white">Reels</span>
-            <MoreHorizontal className="h-4 w-4 text-white" aria-hidden="true" />
-          </div>
-          <div className="absolute bottom-4 left-3 right-14 space-y-2 text-white">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 overflow-hidden rounded-full bg-white/20">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
-              <span className="text-[12px] font-semibold">{handle}</span>
-            </div>
-            {editable ? (
-              <div className="space-y-1.5">
-                <textarea
-                  value={caption ?? ""}
-                  onChange={(e) => onCaptionChange?.(e.target.value)}
-                  rows={2}
-                  placeholder={t("project.detail.caption")}
-                  aria-label={t("project.detail.caption")}
-                  className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
-                />
-                <input
-                  value={cta ?? ""}
-                  onChange={(e) => onCtaChange?.(e.target.value)}
-                  placeholder={t("project.detail.cta")}
-                  aria-label={t("project.detail.cta")}
-                  className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
-                />
-                <textarea
-                  value={hashtags ?? ""}
-                  onChange={(e) => onHashtagsChange?.(e.target.value)}
-                  rows={2}
-                  placeholder={t("project.detail.hashtags")}
-                  aria-label={t("project.detail.hashtags")}
-                  className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] text-white/90 outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
-                />
+      <>
+        <PhoneChrome size={size} className={className}>
+          <div className="relative aspect-[9/16] bg-black">
+            {items.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs text-white/50">
+                {t("project.detail.noPreview")}
               </div>
             ) : (
-              <>
-                {caption ? <p className="line-clamp-3 text-[12px]">{caption}</p> : null}
-                {cta ? <p className="text-[11px] font-medium text-white/90">{cta}</p> : null}
-                {hashtags ? <p className="line-clamp-2 text-[11px] text-white/80">{hashtags}</p> : null}
-              </>
+              <MediaSlide
+                item={items[0]}
+                title={title}
+                autoPlay
+                muted={muted}
+                className="absolute inset-0"
+                expandable={resolveKind(items[0]) !== "file"}
+                onExpand={() => openLightbox(0)}
+              />
             )}
+            <button
+              type="button"
+              onClick={() => setMuted((value) => !value)}
+              className="absolute bottom-24 right-3 z-10 rounded-full bg-black/55 p-1.5 text-white"
+              aria-label={muted ? t("project.detail.unmute") : t("project.detail.mute")}
+            >
+              {muted ? (
+                <VolumeX className="h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+            </button>
+            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between px-3 pt-2">
+              <span className="text-[13px] font-semibold text-white">Reels</span>
+              <MoreHorizontal className="h-4 w-4 text-white" aria-hidden="true" />
+            </div>
+            <div className="absolute bottom-4 left-3 right-14 space-y-2 text-white">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 overflow-hidden rounded-full bg-white/20">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <span className="text-[12px] font-semibold">{handle}</span>
+              </div>
+              {editable ? (
+                <div className="space-y-1.5">
+                  <textarea
+                    value={caption ?? ""}
+                    onChange={(e) => onCaptionChange?.(e.target.value)}
+                    rows={2}
+                    placeholder={t("project.detail.caption")}
+                    aria-label={t("project.detail.caption")}
+                    className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[12px] text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                  />
+                  <input
+                    value={cta ?? ""}
+                    onChange={(e) => onCtaChange?.(e.target.value)}
+                    placeholder={t("project.detail.cta")}
+                    aria-label={t("project.detail.cta")}
+                    className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] font-medium text-white outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                  />
+                  <textarea
+                    value={hashtags ?? ""}
+                    onChange={(e) => onHashtagsChange?.(e.target.value)}
+                    rows={2}
+                    placeholder={t("project.detail.hashtags")}
+                    aria-label={t("project.detail.hashtags")}
+                    className="w-full resize-none rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] text-white/90 outline-none ring-white/40 placeholder:text-white/50 focus:ring-2"
+                  />
+                </div>
+              ) : (
+                <>
+                  {caption ? <p className="line-clamp-3 text-[12px]">{caption}</p> : null}
+                  {cta ? <p className="text-[11px] font-medium text-white/90">{cta}</p> : null}
+                  {hashtags ? <p className="line-clamp-2 text-[11px] text-white/80">{hashtags}</p> : null}
+                </>
+              )}
+            </div>
+            <div className="pointer-events-none absolute bottom-6 right-3 flex flex-col items-center gap-4 text-white">
+              <Heart className="h-6 w-6" aria-hidden="true" />
+              <MessageCircle className="h-6 w-6 -scale-x-100" aria-hidden="true" />
+              <Send className="h-5 w-5" aria-hidden="true" />
+              <Bookmark className="h-6 w-6" aria-hidden="true" />
+            </div>
           </div>
-          <div className="absolute bottom-6 right-3 flex flex-col items-center gap-4 text-white">
-            <Heart className="h-6 w-6" aria-hidden="true" />
-            <MessageCircle className="h-6 w-6 -scale-x-100" aria-hidden="true" />
-            <Send className="h-5 w-5" aria-hidden="true" />
-            <Bookmark className="h-6 w-6" aria-hidden="true" />
-          </div>
-        </div>
-      </PhoneChrome>
+        </PhoneChrome>
+        {lightbox}
+      </>
     );
   }
 
   return (
-    <PhoneChrome size={size} className={className}>
-      <div className="border-b border-neutral-100 px-3 py-2">
-        <p className="text-center text-[13px] font-semibold text-neutral-900">
-          {t("project.detail.previewFeed")}
-        </p>
-      </div>
-      <ProfileHeader
-        username={handle}
-        avatarUrl={avatarUrl}
-        subtitle={
-          format === "carousel"
-            ? t("project.detail.formats.carousel")
-            : t("project.detail.formats.static_feed")
-        }
-      />
-      {mediaFrame(t("project.detail.noPreview"), "aspect-[4/5]")}
-      <ActionBar />
-      <CaptionBlock
-        username={handle}
-        caption={caption}
-        hashtags={hashtags}
-        cta={cta}
-        editable={editable}
-        onCaptionChange={onCaptionChange}
-        onHashtagsChange={onHashtagsChange}
-        onCtaChange={onCtaChange}
-      />
-    </PhoneChrome>
+    <>
+      <PhoneChrome size={size} className={className}>
+        <div className="border-b border-neutral-100 px-3 py-2">
+          <p className="text-center text-[13px] font-semibold text-neutral-900">
+            {t("project.detail.previewFeed")}
+          </p>
+        </div>
+        <ProfileHeader
+          username={handle}
+          avatarUrl={avatarUrl}
+          subtitle={
+            format === "carousel"
+              ? t("project.detail.formats.carousel")
+              : t("project.detail.formats.static_feed")
+          }
+        />
+        {mediaFrame(t("project.detail.noPreview"), "aspect-[4/5]")}
+        <ActionBar />
+        <CaptionBlock
+          username={handle}
+          caption={caption}
+          hashtags={hashtags}
+          cta={cta}
+          editable={editable}
+          onCaptionChange={onCaptionChange}
+          onHashtagsChange={onHashtagsChange}
+          onCtaChange={onCtaChange}
+        />
+      </PhoneChrome>
+      {lightbox}
+    </>
   );
 }
 

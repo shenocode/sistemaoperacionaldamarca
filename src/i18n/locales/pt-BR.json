@@ -103,7 +103,7 @@
     "calendarPlaceholder": "Em breve.",
     "calendar": {
       "title": "Calendário de publicações",
-      "hint": "Defina data, horário, tema e formato. Arraste pelo ícone ⋮⋮ para reorganizar a ordem. O status muda automaticamente conforme a aprovação do conteúdo.",
+      "hint": "Defina data, horário, status, tema e formato. Arraste pelo ícone ⋮⋮ para reorganizar a ordem.",
       "sendUpdates": "Enviar atualizações",
       "openStatus": "Abrir conteúdo e ver status",
       "empty": "Nenhum conteúdo para agendar. Crie conteúdos na aba Conteúdo.",
@@ -201,8 +201,12 @@
       "deleteConfirmTitle": "Deletar conteúdo?",
       "deleteConfirmDescription": "Esta ação não pode ser desfeita. O conteúdo \"{{title}}\" será removido permanentemente.",
       "deleted": "Conteúdo deletado.",
+      "reorder": "Reorganizar",
+      "dragHandle": "Arrastar para reorganizar",
       "feedPreview": "Prévia do feed",
+      "feedGridTab": "Publicações",
       "feedEmpty": "Os posts aparecem aqui conforme você adicionar conteúdos.",
+      "statusUpdated": "Status atualizado.",
       "status": {
         "draft": "Em produção",
         "review": "Pendente de revisão",
@@ -220,6 +224,9 @@
       "previewTime": "Há 2 horas",
       "mute": "Silenciar",
       "unmute": "Ativar som",
+      "expandMedia": "Ampliar mídia",
+      "mediaViewer": "Visualização ampliada",
+
       "caption": "Legenda",
       "cta": "CTA",
       "hashtags": "Hashtags",
