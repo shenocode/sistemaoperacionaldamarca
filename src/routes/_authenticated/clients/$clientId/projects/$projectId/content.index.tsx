@@ -163,6 +163,12 @@ function ContentListPage() {
     setLocalRows(null);
   }, [contentQuery.dataUpdatedAt]);
 
+  const applyReorder = (next: ContentItem[]) => {
+    if (next === rows) return;
+    setLocalRows(next);
+    reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
+  };
+
   const onDragStart = (index: number) => (event: DragEvent<HTMLSpanElement>) => {
     setDragIndex(index);
     event.dataTransfer.effectAllowed = "move";
@@ -180,18 +186,10 @@ function ContentListPage() {
     event.preventDefault();
     if (!canReorder) return;
     const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
-    if (!Number.isFinite(from)) {
-      setDragIndex(null);
-      setDropIndex(null);
-      return;
-    }
-    const next = moveItem(rows, from, index);
-    setLocalRows(next);
     setDragIndex(null);
     setDropIndex(null);
-    if (next !== rows) {
-      reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
-    }
+    if (!Number.isFinite(from)) return;
+    applyReorder(moveItem(rows, from, index));
   };
 
   const onDragEnd = () => {
@@ -238,125 +236,140 @@ function ContentListPage() {
       ) : (
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
           <Card className="min-w-0 flex-1 overflow-hidden rounded-xl">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  {canReorder ? (
-                    <th className="w-8 px-2 py-3" aria-label={t("project.content.reorder")} />
-                  ) : null}
-                  <th className="px-4 py-3">{t("project.content.columns.thumbnail")}</th>
-                  <th className="px-4 py-3">{t("project.content.columns.title")}</th>
-                  <th className="px-4 py-3">{t("project.content.columns.status")}</th>
-                  <th className="px-4 py-3">{t("project.content.columns.version")}</th>
-                  <th className="px-4 py-3">{t("project.content.columns.updated")}</th>
-                  <th className="px-4 py-3 text-right">{t("project.content.columns.actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {rows.map((r, index) => (
-                  <tr
-                    key={r.id}
-                    onDragOver={canReorder ? onDragOver(index) : undefined}
-                    onDrop={canReorder ? onDrop(index) : undefined}
-                    className={cn(
-                      "hover:bg-muted/30",
-                      dragIndex === index && "opacity-50",
-                      dropIndex === index &&
-                        dragIndex !== null &&
-                        dragIndex !== index &&
-                        "bg-muted",
-                    )}
-                  >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[880px] text-sm">
+                <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <tr>
                     {canReorder ? (
-                      <td className="px-2 py-3">
-                        <span
-                          draggable
-                          onDragStart={onDragStart(index)}
-                          onDragEnd={onDragEnd}
-                          className="inline-flex cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
-                          aria-label={t("project.content.dragHandle")}
-                          title={t("project.content.dragHandle")}
-                          role="button"
-                          tabIndex={0}
-                        >
-                          <GripVertical className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                      </td>
+                      <th className="w-8 px-2 py-3" aria-label={t("project.content.reorder")} />
                     ) : null}
-                    <td className="px-4 py-3">
-                      {r.media_url ? (
-                        <img
-                          src={r.media_url}
-                          alt=""
-                          className="h-10 w-10 rounded-md object-cover"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-md bg-muted" />
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-medium">{r.title}</td>
-                    <td className="px-4 py-3">
-                      <ContentStatusSelect
-                        status={r.status as ContentStatus}
-                        contentId={r.id}
-                        clientId={clientId}
-                        projectId={projectId}
-                        title={r.title}
-                        disabled={!canManage || isBusy}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true, locale })}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {canManage ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={isBusy}
-                              onClick={() => duplicateMutation.mutate(r.id)}
-                            >
-                              <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                              {t("project.content.duplicate")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={isBusy}
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setDeleteTarget({ id: r.id, title: r.title })}
-                            >
-                              <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                              {t("project.content.delete")}
-                            </Button>
-                          </>
-                        ) : null}
-                        <Button asChild variant="ghost" size="sm">
-                          <Link
-                            to="/clients/$clientId/projects/$projectId/content/$contentId"
-                            params={{ clientId, projectId, contentId: r.id }}
-                            search={{}}
-                          >
-                            {t("project.content.open")}
-                          </Link>
-                        </Button>
-                      </div>
-                    </td>
+                    <th className="px-4 py-3">{t("project.content.columns.thumbnail")}</th>
+                    <th className="px-4 py-3">{t("project.content.columns.title")}</th>
+                    <th className="px-4 py-3">{t("project.content.columns.status")}</th>
+                    <th className="px-4 py-3">{t("project.content.columns.version")}</th>
+                    <th className="whitespace-nowrap px-4 py-3">
+                      {t("project.content.columns.updated")}
+                    </th>
+                    <th className="px-4 py-3 text-right">{t("project.content.columns.actions")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((r, index) => (
+                    <tr
+                      key={r.id}
+                      onDragOver={canReorder ? onDragOver(index) : undefined}
+                      onDrop={canReorder ? onDrop(index) : undefined}
+                      className={cn(
+                        "hover:bg-muted/30",
+                        dragIndex === index && "opacity-50",
+                        dropIndex === index &&
+                          dragIndex !== null &&
+                          dragIndex !== index &&
+                          "bg-muted",
+                      )}
+                    >
+                      {canReorder ? (
+                        <td className="px-2 py-3">
+                          <span
+                            draggable
+                            onDragStart={onDragStart(index)}
+                            onDragEnd={onDragEnd}
+                            className="inline-flex cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+                            aria-label={t("project.content.dragHandle")}
+                            title={t("project.content.dragHandle")}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <GripVertical className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3">
+                        {r.media_url ? (
+                          <img
+                            src={r.media_url}
+                            alt=""
+                            className="h-10 w-10 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-md bg-muted" />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        <Link
+                          to="/clients/$clientId/projects/$projectId/content/$contentId"
+                          params={{ clientId, projectId, contentId: r.id }}
+                          search={{}}
+                          className="hover:underline"
+                        >
+                          {r.title}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <ContentStatusSelect
+                          status={r.status as ContentStatus}
+                          contentId={r.id}
+                          clientId={clientId}
+                          projectId={projectId}
+                          title={r.title}
+                          disabled={!canManage || isBusy}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                        {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true, locale })}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-nowrap items-center justify-end gap-1.5">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link
+                              to="/clients/$clientId/projects/$projectId/content/$contentId"
+                              params={{ clientId, projectId, contentId: r.id }}
+                              search={{}}
+                            >
+                              {t("project.content.open")}
+                            </Link>
+                          </Button>
+                          {canManage ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={isBusy}
+                                onClick={() => duplicateMutation.mutate(r.id)}
+                              >
+                                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                {t("project.content.duplicate")}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={isBusy}
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setDeleteTarget({ id: r.id, title: r.title })}
+                              >
+                                <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                {t("project.content.delete")}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
 
           <InstagramFeedMockup
             items={rows}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
+            canReorder={canReorder}
+            onReorder={applyReorder}
             className="mx-auto shrink-0 lg:sticky lg:top-6"
           />
         </div>

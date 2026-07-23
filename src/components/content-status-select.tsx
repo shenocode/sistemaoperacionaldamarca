@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 export const CONTENT_STATUSES: ContentStatus[] = [
   "draft",
+  "waiting_material",
   "review",
   "approved",
   "changes",

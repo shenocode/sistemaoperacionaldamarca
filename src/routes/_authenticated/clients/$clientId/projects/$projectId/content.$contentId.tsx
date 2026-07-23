@@ -460,7 +460,7 @@ function ContentDetailPage() {
   }
 
   const canApprove = status === "review";
-  const canSubmit = canManage && (status === "draft" || status === "changes");
+  const canSubmit = canManage && (status === "draft" || status === "changes" || status === "waiting_material");
   const canPublish = canManage && status === "approved";
   const saving = saveMutation.isPending || versionMutation.isPending;
 

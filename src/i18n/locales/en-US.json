@@ -204,6 +204,7 @@
       "statusUpdated": "Status updated.",
       "status": {
         "draft": "In production",
+        "waiting_material": "Waiting for material",
         "review": "Pending review",
         "approved": "Approved by client",
         "changes": "Changes in production",
@@ -239,7 +240,8 @@
         "static_feed": "Static feed",
         "reels": "Reels",
         "stories": "Stories",
-        "carousel": "Carousel"
+        "carousel": "Carousel",
+        "recorded_video": "Recorded video"
       },
       "slide": "Slide",
       "addSlide": "Add",

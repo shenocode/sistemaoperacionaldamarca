@@ -1,11 +1,18 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
-export type ContentStatus = "draft" | "review" | "approved" | "changes" | "published";
+export type ContentStatus =
+  | "draft"
+  | "waiting_material"
+  | "review"
+  | "approved"
+  | "changes"
+  | "published";
 
 /** Visual styles for content workflow status (production → review → approved). */
 export const contentStatusStyles: Record<ContentStatus, string> = {
   draft: "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-100/90",
+  waiting_material: "border-orange-200 bg-orange-100 text-orange-900 hover:bg-orange-100/90",
   review: "border-amber-200 bg-amber-100 text-amber-900 hover:bg-amber-100/90",
   approved: "border-emerald-200 bg-emerald-100 text-emerald-900 hover:bg-emerald-100/90",
   changes: "border-rose-200 bg-rose-100 text-rose-900 hover:bg-rose-100/90",

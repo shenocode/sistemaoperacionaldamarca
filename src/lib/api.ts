@@ -19,6 +19,7 @@ export const CONTENT_FORMATS: ContentFormat[] = [
   "reels",
   "stories",
   "carousel",
+  "recorded_video",
 ];
 
 export const CONTENT_MEDIA_BUCKET = "content-media";

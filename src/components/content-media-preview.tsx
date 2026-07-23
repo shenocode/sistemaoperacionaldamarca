@@ -803,7 +803,9 @@ export function ContentMediaPreview({
           subtitle={
             format === "carousel"
               ? t("project.detail.formats.carousel")
-              : t("project.detail.formats.static_feed")
+              : format === "recorded_video"
+                ? t("project.detail.formats.recorded_video")
+                : t("project.detail.formats.static_feed")
           }
         />
         {mediaFrame(t("project.detail.noPreview"), "aspect-[4/5]")}

@@ -522,8 +522,19 @@ export type Database = {
         | "comment_added"
       app_role: "admin" | "client"
       client_member_role: "owner" | "member"
-      content_status: "draft" | "review" | "approved" | "changes" | "published"
-      content_format: "static_feed" | "reels" | "stories" | "carousel"
+      content_status:
+        | "draft"
+        | "waiting_material"
+        | "review"
+        | "approved"
+        | "changes"
+        | "published"
+      content_format:
+        | "static_feed"
+        | "reels"
+        | "stories"
+        | "carousel"
+        | "recorded_video"
       library_category:
         | "brand"
         | "pdfs"
@@ -673,8 +684,21 @@ export const Constants = {
       ],
       app_role: ["admin", "client"],
       client_member_role: ["owner", "member"],
-      content_status: ["draft", "review", "approved", "changes", "published"],
-      content_format: ["static_feed", "reels", "stories", "carousel"],
+      content_status: [
+        "draft",
+        "waiting_material",
+        "review",
+        "approved",
+        "changes",
+        "published",
+      ],
+      content_format: [
+        "static_feed",
+        "reels",
+        "stories",
+        "carousel",
+        "recorded_video",
+      ],
       library_category: [
         "brand",
         "pdfs",

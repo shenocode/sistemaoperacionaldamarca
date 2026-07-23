@@ -1,3 +1,4 @@
+import { useState, type DragEvent } from "react";
 import {
   Clapperboard,
   Contact,
@@ -26,7 +27,19 @@ type InstagramFeedMockupProps = {
   username?: string | null;
   avatarUrl?: string | null;
   className?: string;
+  canReorder?: boolean;
+  onReorder?: (nextListOrder: ContentItem[]) => void;
 };
+
+function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
 
 function coverUrl(item: ContentItem) {
   return resolveContentMediaUrls(item)[0] ?? null;
@@ -35,6 +48,7 @@ function coverUrl(item: ContentItem) {
 function formatBadge(format: ContentFormat, cover: string | null) {
   if (format === "carousel") return "carousel" as const;
   if (format === "reels") return "reels" as const;
+  if (format === "recorded_video") return "video" as const;
   if (cover && isVideoUrl(cover)) return "video" as const;
   return null;
 }
@@ -58,13 +72,43 @@ function CoverMedia({ url, title }: { url: string; title: string }) {
   return <img src={url} alt={title} className="h-full w-full object-cover" />;
 }
 
-function GridTile({ item }: { item: ContentItem }) {
+function GridTile({
+  item,
+  canReorder,
+  isDragging,
+  isDropTarget,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: {
+  item: ContentItem;
+  canReorder: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
+  onDragStart: (event: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+}) {
   const { t } = useTranslation();
   const cover = coverUrl(item);
   const badge = formatBadge(item.format, cover);
 
   return (
-    <div className="relative aspect-square bg-neutral-100">
+    <div
+      draggable={canReorder}
+      onDragStart={canReorder ? onDragStart : undefined}
+      onDragOver={canReorder ? onDragOver : undefined}
+      onDrop={canReorder ? onDrop : undefined}
+      onDragEnd={canReorder ? onDragEnd : undefined}
+      className={cn(
+        "relative aspect-[4/5] bg-neutral-100",
+        canReorder && "cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-50",
+        isDropTarget && "ring-2 ring-inset ring-neutral-900/40",
+      )}
+    >
       {cover ? (
         <CoverMedia url={cover} title={item.title} />
       ) : (
@@ -93,12 +137,46 @@ export function InstagramFeedMockup({
   username,
   avatarUrl,
   className,
+  canReorder = false,
+  onReorder,
 }: InstagramFeedMockupProps) {
   const { t } = useTranslation();
   const handle = toInstagramHandle(username || "marca");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
-  // Mantém a ordem recebida (sort_order da lista) — não reordena por data.
-  const feedItems = items;
+  // Feed estilo Instagram: inverso da lista (último da lista = topo-esquerda).
+  const feedItems = [...items].toReversed();
+
+  const onDragStart = (index: number) => (event: DragEvent<HTMLDivElement>) => {
+    setDragIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const onDragOver = (index: number) => (event: DragEvent<HTMLDivElement>) => {
+    if (!canReorder) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dropIndex !== index) setDropIndex(index);
+  };
+
+  const onDrop = (index: number) => (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!canReorder) return;
+    const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
+    setDragIndex(null);
+    setDropIndex(null);
+    if (!Number.isFinite(from)) return;
+    const nextFeed = moveItem(feedItems, from, index);
+    if (nextFeed === feedItems) return;
+    onReorder?.(nextFeed.toReversed());
+  };
+
+  const onDragEnd = () => {
+    setDragIndex(null);
+    setDropIndex(null);
+  };
 
   return (
     <div className={cn("w-full max-w-[320px]", className)}>
@@ -153,8 +231,20 @@ export function InstagramFeedMockup({
           ) : (
             <div className="flex-1 overflow-y-auto overscroll-contain">
               <div className="grid grid-cols-3 gap-px bg-neutral-200">
-                {feedItems.map((item) => (
-                  <GridTile key={item.id} item={item} />
+                {feedItems.map((item, index) => (
+                  <GridTile
+                    key={item.id}
+                    item={item}
+                    canReorder={canReorder}
+                    isDragging={dragIndex === index}
+                    isDropTarget={
+                      dropIndex === index && dragIndex !== null && dragIndex !== index
+                    }
+                    onDragStart={onDragStart(index)}
+                    onDragOver={onDragOver(index)}
+                    onDrop={onDrop(index)}
+                    onDragEnd={onDragEnd}
+                  />
                 ))}
               </div>
             </div>
