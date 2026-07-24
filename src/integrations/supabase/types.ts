@@ -667,6 +667,10 @@ export type Database = {
         Args: { object_name: string }
         Returns: string
       }
+      get_client_platform_login: {
+        Args: { _client_id: string }
+        Returns: string
+      }
       get_share_preview: {
         Args: { _access_token: string; _client_id: string; _project_id: string }
         Returns: {
