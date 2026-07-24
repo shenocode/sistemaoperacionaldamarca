@@ -131,14 +131,21 @@ async function generateWithOpenAI(input: {
   form.append("n", "1");
   form.append("size", "1024x1024");
   form.append("input_fidelity", "high");
+  const normalizeMime = (mime: string) => {
+    const m = (mime || "").toLowerCase();
+    if (m.includes("png")) return "image/png";
+    if (m.includes("webp")) return "image/webp";
+    if (m.includes("jpeg") || m.includes("jpg")) return "image/jpeg";
+    return "image/png";
+  };
   form.append(
-    "image",
-    new Blob([input.templateImage.bytes], { type: input.templateImage.mime }),
+    "image[]",
+    new Blob([input.templateImage.bytes], { type: normalizeMime(input.templateImage.mime) }),
     input.templateImage.fileName || "template.png",
   );
   form.append(
-    "image",
-    new Blob([input.photoImage.bytes], { type: input.photoImage.mime }),
+    "image[]",
+    new Blob([input.photoImage.bytes], { type: normalizeMime(input.photoImage.mime) }),
     input.photoImage.fileName || "photo.png",
   );
 
