@@ -112,13 +112,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
     }
-    if (!openaiKey) {
-      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
+    if (!lovableApiKey) {
+      return jsonResponse({ error: "LOVABLE_API_KEY não configurada" }, 500);
     }
 
     const authHeader = req.headers.get("Authorization");
