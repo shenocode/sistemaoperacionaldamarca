@@ -103,6 +103,15 @@ export const provisionClientAccessFn = createServerFn({ method: "POST" })
       }
     }
 
+    const displayName = data.fullName?.trim() || email.split("@")[0] || null;
+    if (displayName) {
+      const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
+        id: userId,
+        full_name: displayName,
+      });
+      if (profileError) throw new Error(profileError.message);
+    }
+
     const { error: memberError } = await supabaseAdmin.from("client_members").insert({
       client_id: data.clientId,
       user_id: userId,

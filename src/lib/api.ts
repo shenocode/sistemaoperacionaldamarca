@@ -1370,13 +1370,8 @@ export type CommentWithAuthor = ContentComment & {
 };
 
 export async function listComments(contentId: string): Promise<CommentWithAuthor[]> {
-  const { data, error } = await supabase
-    .from("content_comments")
-    .select("*, profiles(full_name, avatar_url)")
-    .eq("content_id", contentId)
-    .order("created_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as CommentWithAuthor[];
+  const { listCommentsFn } = await import("./list-comments.functions");
+  return listCommentsFn({ data: { contentId } });
 }
 
 export async function addComment(input: {
@@ -1802,7 +1797,7 @@ export async function resolvePostLoginPath(): Promise<
   return { to: "/home" };
 }
 
-/** Client-only: bump version updating caption/cta/hashtags, keep media/format/status. */
+/** Client: bump version updating title/format/theme/copy; keep media/status. */
 export async function saveClientContentVersion(input: {
   contentId: string;
   clientId: string;
@@ -1810,6 +1805,10 @@ export async function saveClientContentVersion(input: {
   caption: string;
   cta: string;
   hashtags: string;
+  title?: string;
+  format?: ContentFormat;
+  /** `null` or `""` clears theme; omit to leave unchanged. */
+  theme?: string | null;
   changeNote?: string;
 }): Promise<ContentItem> {
   const { data, error } = await supabase.rpc("save_client_content_version", {
@@ -1817,7 +1816,10 @@ export async function saveClientContentVersion(input: {
     _caption: input.caption,
     _cta: input.cta,
     _hashtags: input.hashtags,
-    _change_note: input.changeNote?.trim() || null,
+    _change_note: input.changeNote?.trim() || undefined,
+    ...(input.title !== undefined ? { _title: input.title } : {}),
+    ...(input.format !== undefined ? { _format: input.format } : {}),
+    ...(input.theme !== undefined ? { _theme: input.theme?.trim() ?? "" } : {}),
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");

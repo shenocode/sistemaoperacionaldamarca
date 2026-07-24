@@ -32,7 +32,7 @@ export function ClientCard({
               <img
                 src={client.logo_url}
                 alt=""
-                className="mt-0.5 h-10 w-10 shrink-0 rounded-lg border object-cover bg-muted"
+                className="mt-0.5 h-10 w-10 shrink-0 rounded-full object-cover"
               />
             ) : null}
             <div className="min-w-0 space-y-1">

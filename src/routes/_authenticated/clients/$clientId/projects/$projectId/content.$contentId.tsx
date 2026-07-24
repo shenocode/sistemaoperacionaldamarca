@@ -297,15 +297,18 @@ function ContentDetailPage() {
 
   const versionMutation = useMutation({
     mutationFn: async () => {
-      // Clients save copy-only via RPC; admins save full content as a new version.
+      // Clients save title/format/theme/copy via RPC; admins save full content as a new version.
       if (!isAdmin) {
         return saveClientContentVersion({
           contentId,
           clientId,
           projectId,
+          title,
           caption,
           cta,
           hashtags,
+          format: formatType,
+          theme: theme.trim() || null,
           changeNote: versionNote,
         });
       }
@@ -482,7 +485,7 @@ function ContentDetailPage() {
     return <p className="text-sm text-muted-foreground">{t("project.detail.notFound")}</p>;
   }
 
-  // Same form for admin and client. Clients edit copy fields; media/format/theme stay admin-only.
+  // Same form for admin and client. Clients edit title/format/theme/copy; media stays admin-only.
   const canClientSetStatus = !isAdmin && status === "review";
   const statusButtons = isAdmin
     ? CONTENT_STATUSES
@@ -558,7 +561,6 @@ function ContentDetailPage() {
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  disabled={!isAdmin}
                 />
               </div>
               <div className="space-y-1.5">
@@ -572,7 +574,6 @@ function ContentDetailPage() {
                       setMediaItems((prev) => prev.slice(0, 1));
                     }
                   }}
-                  disabled={!isAdmin}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -590,7 +591,6 @@ function ContentDetailPage() {
                 <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
                 <Select
                   value={theme.trim() || NONE_THEME_VALUE}
-                  disabled={!isAdmin}
                   onValueChange={(value) => {
                     if (value === NEW_THEME_VALUE) {
                       setNewTheme("");
@@ -612,11 +612,9 @@ function ContentDetailPage() {
                         {option}
                       </SelectItem>
                     ))}
-                    {isAdmin ? (
-                      <SelectItem value={NEW_THEME_VALUE}>
-                        {t("project.calendar.newTheme")}
-                      </SelectItem>
-                    ) : null}
+                    <SelectItem value={NEW_THEME_VALUE}>
+                      {t("project.calendar.newTheme")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -817,7 +815,7 @@ function ContentDetailPage() {
                       <li key={c.id} className="rounded-md border p-3 text-sm">
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <span className="font-medium">
-                            {c.profiles?.full_name || t("project.detail.anonymous")}
+                            {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
                           </span>
                           <div className="flex items-center gap-1">
                             <span className="text-xs text-muted-foreground">

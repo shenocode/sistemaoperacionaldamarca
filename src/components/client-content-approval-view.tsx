@@ -103,6 +103,8 @@ export function ClientContentApprovalView({
         contentId,
         clientId,
         projectId,
+        title,
+        format,
         caption,
         cta,
         hashtags,
@@ -276,7 +278,7 @@ export function ClientContentApprovalView({
                     <li key={c.id} className="rounded-md border p-3 text-sm">
                       <div className="mb-1 flex items-center justify-between gap-2">
                         <span className="font-medium">
-                          {c.profiles?.full_name || t("project.detail.anonymous")}
+                          {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(c.created_at), {

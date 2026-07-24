@@ -64,9 +64,9 @@ export function ClientContactFields({
         <div className="space-y-2">
           <Label>{t("clients.logo")}</Label>
           <div className="flex items-center gap-3">
-            <Avatar className="h-14 w-14 rounded-xl border">
+            <Avatar className="h-14 w-14">
               {logoUrl ? <AvatarImage src={logoUrl} alt={t("clients.logo")} /> : null}
-              <AvatarFallback className="rounded-xl text-base font-medium">{initials}</AvatarFallback>
+              <AvatarFallback className="text-base font-medium">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex flex-wrap gap-2">
               <Button

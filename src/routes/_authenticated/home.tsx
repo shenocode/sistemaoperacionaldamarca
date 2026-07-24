@@ -86,7 +86,7 @@ function ClientHomePage() {
                       <img
                         src={project.clientLogoUrl}
                         alt=""
-                        className="h-10 w-10 shrink-0 rounded-lg border object-cover bg-muted"
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
                       />
                     ) : (
                       <FolderKanban className="h-5 w-5 shrink-0 text-muted-foreground" />
