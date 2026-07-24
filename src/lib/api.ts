@@ -1500,9 +1500,11 @@ export async function generateDesign(input: {
   templateUrl: string;
   photoUrl: string;
   overlayText: string;
+  secondaryText?: string;
   guidance?: string;
 }): Promise<DesignGenerationResult> {
   const overlayText = input.overlayText.trim();
+  const secondaryText = input.secondaryText?.trim() || "";
   const templateUrl = input.templateUrl.trim();
   const photoUrl = input.photoUrl.trim();
   if (!templateUrl) throw new Error("Informe o template de referência");
@@ -1518,6 +1520,7 @@ export async function generateDesign(input: {
       templateUrl,
       photoUrl,
       overlayText,
+      secondaryText: secondaryText || undefined,
       guidance: input.guidance?.trim() || undefined,
     },
   });
@@ -1825,9 +1828,12 @@ export async function createLibraryAsset(input: {
       category: input.category,
       file_url: uploaded?.fileUrl ?? (input.fileUrl?.trim() || null),
       storage_path: uploaded?.storagePath ?? null,
-      file_name: uploaded?.fileName ?? null,
+      file_name:
+        uploaded?.fileName ??
+        (input.category === "generated_arts" ? `${input.name.trim() || "arte"}.png` : null),
       file_size: uploaded?.fileSize ?? null,
-      mime_type: uploaded?.mimeType ?? null,
+      mime_type:
+        uploaded?.mimeType ?? (input.category === "generated_arts" ? "image/png" : null),
       notes: input.notes?.trim() || null,
       created_by: userId,
     } satisfies TablesInsert<"library_assets">)
@@ -1839,6 +1845,24 @@ export async function createLibraryAsset(input: {
   }
 
   return ensureData(data, error);
+}
+
+export async function saveGeneratedArtToLibrary(input: {
+  projectId: string;
+  imageUrl: string;
+  name: string;
+  notes?: string;
+}): Promise<LibraryAsset> {
+  const url = input.imageUrl.trim();
+  if (!url) throw new Error("URL da arte inválida");
+  const name = input.name.trim() || "Arte gerada";
+  return createLibraryAsset({
+    projectId: input.projectId,
+    name,
+    category: "generated_arts",
+    fileUrl: url,
+    notes: input.notes,
+  });
 }
 
 export async function createLibraryAssets(

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -13,10 +13,13 @@ import {
   ClipboardList,
   LayoutTemplate,
   Trash2,
+  Download,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +55,7 @@ import {
   type LibraryAsset,
   type LibraryCategory,
 } from "@/lib/api";
+import { downloadImageFromUrl, downloadImagesAsZip } from "@/lib/download-image";
 
 const categories = [
   { key: "pdfs" as const, icon: FileText },
@@ -94,6 +98,8 @@ function LibraryPage() {
   const [templateName, setTemplateName] = useState("");
   const [templateFormat, setTemplateFormat] = useState<DesignTemplateFormat>("static_feed");
   const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [selectedGeneratedIds, setSelectedGeneratedIds] = useState<string[]>([]);
+  const [downloading, setDownloading] = useState(false);
 
   const assetsQuery = useQuery({
     queryKey: ["library", projectId],
@@ -191,6 +197,10 @@ function LibraryPage() {
 
   const assets = assetsQuery.data ?? [];
   const templates = templatesQuery.data ?? [];
+  const generatedArts = useMemo(
+    () => assets.filter((asset) => asset.category === "generated_arts"),
+    [assets],
+  );
   const byCategory = Object.fromEntries(
     categories.map((c) => [
       c.key,
@@ -199,6 +209,60 @@ function LibraryPage() {
       ),
     ]),
   ) as Record<(typeof categories)[number]["key"], LibraryAsset[]>;
+
+  const selectedGenerated = generatedArts.filter((asset) =>
+    selectedGeneratedIds.includes(asset.id),
+  );
+
+  function toggleGeneratedSelection(id: string, checked: boolean) {
+    setSelectedGeneratedIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((item) => item !== id);
+    });
+  }
+
+  function toggleSelectAllGenerated(checked: boolean) {
+    setSelectedGeneratedIds(checked ? generatedArts.map((asset) => asset.id) : []);
+  }
+
+  async function downloadGenerated(
+    items: LibraryAsset[],
+    format: "png" | "jpg",
+    asZip: boolean,
+  ) {
+    const downloadable = items.filter((item) => item.file_url);
+    if (downloadable.length === 0) {
+      toast.error(t("project.library.generated.downloadEmpty"));
+      return;
+    }
+    setDownloading(true);
+    try {
+      if (asZip || downloadable.length > 1) {
+        await downloadImagesAsZip(
+          downloadable.map((item) => ({
+            url: item.file_url!,
+            name: item.name || item.file_name || "arte",
+          })),
+          format,
+          "artes-geradas",
+        );
+      } else {
+        const item = downloadable[0];
+        await downloadImageFromUrl(
+          item.file_url!,
+          item.name || item.file_name || "arte",
+          format,
+        );
+      }
+      toast.success(t("project.library.generated.downloadStarted"));
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : t("project.library.generated.downloadError"),
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   const canSubmit =
     source === "file"
@@ -224,6 +288,118 @@ function LibraryPage() {
           </>
         ) : null}
       </div>
+
+      <Card className="rounded-xl">
+        <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-sm font-medium">
+              {t("project.library.generated.title")}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {t("project.library.generated.count", { count: generatedArts.length })}
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          <p className="text-xs text-muted-foreground">{t("project.library.generated.hint")}</p>
+
+          {generatedArts.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t("project.library.generated.empty")}</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={
+                      selectedGeneratedIds.length > 0 &&
+                      selectedGeneratedIds.length === generatedArts.length
+                    }
+                    onCheckedChange={(checked) => toggleSelectAllGenerated(checked === true)}
+                  />
+                  {t("project.library.generated.selectAll")}
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={downloading || selectedGenerated.length === 0}
+                  onClick={() => void downloadGenerated(selectedGenerated, "png", true)}
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {t("project.library.generated.downloadSelectedPng")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={downloading || selectedGenerated.length === 0}
+                  onClick={() => void downloadGenerated(selectedGenerated, "jpg", true)}
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {t("project.library.generated.downloadSelectedJpg")}
+                </Button>
+              </div>
+
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {generatedArts.map((asset) => (
+                  <li key={asset.id} className="rounded-lg border p-2">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={selectedGeneratedIds.includes(asset.id)}
+                        onCheckedChange={(checked) =>
+                          toggleGeneratedSelection(asset.id, checked === true)
+                        }
+                        aria-label={asset.name}
+                      />
+                      {asset.file_url ? (
+                        <img
+                          src={asset.file_url}
+                          alt=""
+                          className="h-16 w-16 shrink-0 rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
+                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium" title={asset.name}>
+                          {asset.name}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            disabled={downloading || !asset.file_url}
+                            onClick={() => void downloadGenerated([asset], "png", false)}
+                          >
+                            PNG
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            disabled={downloading || !asset.file_url}
+                            onClick={() => void downloadGenerated([asset], "jpg", false)}
+                          >
+                            JPG
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="rounded-xl">
         <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">

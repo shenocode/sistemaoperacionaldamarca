@@ -4,7 +4,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { CalendarDays, Copy, ExternalLink, GripVertical, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
+  GripVertical,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -239,6 +248,7 @@ function ProjectCalendarPage() {
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
   const [dragState, setDragState] = useState<{ blockKey: string; index: number } | null>(null);
   const [dropState, setDropState] = useState<{ blockKey: string; index: number } | null>(null);
+  const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(() => new Set());
 
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
 
@@ -722,11 +732,26 @@ function ProjectCalendarPage() {
     );
   };
 
+  const toggleBlockCollapsed = (blockId: string) => {
+    setCollapsedBlockIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(blockId)) next.delete(blockId);
+      else next.add(blockId);
+      return next;
+    });
+  };
+
   const renderBlockCard = (block: CalendarBlock) => {
     const blockRows = itemsByBlock.map.get(block.id) ?? [];
+    const isCollapsed = collapsedBlockIds.has(block.id);
     return (
       <Card key={block.id} className="overflow-hidden rounded-xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
+            !isCollapsed && "border-b",
+          )}
+        >
           <BlockPeriodTitle
             title={block.title}
             disabled={!canEdit || isBusy}
@@ -734,41 +759,64 @@ function ProjectCalendarPage() {
             ariaLabel={t("project.calendar.blockTitleLabel")}
             onSave={(title) => updateBlockTitleMutation.mutate({ blockId: block.id, title })}
           />
-          {canEdit ? (
-            <div className="flex items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isBusy || blockRows.length === 0}
-                title={t("project.calendar.duplicateBlockHint")}
-                onClick={() => duplicateBlockMutation.mutate(block.id)}
-              >
-                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                {t("project.calendar.duplicateBlock")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isBusy}
-                className="text-destructive hover:text-destructive"
-                title={t("project.calendar.deleteBlockHint")}
-                aria-label={t("project.calendar.deleteBlock")}
-                onClick={() =>
-                  setDeleteBlockTarget({
-                    id: block.id,
-                    title: block.title,
-                    itemCount: blockRows.length,
-                  })
-                }
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
-            </div>
-          ) : null}
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              title={
+                isCollapsed
+                  ? t("project.calendar.expandBlockHint")
+                  : t("project.calendar.collapseBlockHint")
+              }
+              aria-expanded={!isCollapsed}
+              onClick={() => toggleBlockCollapsed(block.id)}
+            >
+              {isCollapsed ? (
+                <ChevronDown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <ChevronUp className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              {isCollapsed
+                ? t("project.calendar.expandBlock")
+                : t("project.calendar.collapseBlock")}
+            </Button>
+            {canEdit ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isBusy || blockRows.length === 0}
+                  title={t("project.calendar.duplicateBlockHint")}
+                  onClick={() => duplicateBlockMutation.mutate(block.id)}
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t("project.calendar.duplicateBlock")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isBusy}
+                  className="text-destructive hover:text-destructive"
+                  title={t("project.calendar.deleteBlockHint")}
+                  aria-label={t("project.calendar.deleteBlock")}
+                  onClick={() =>
+                    setDeleteBlockTarget({
+                      id: block.id,
+                      title: block.title,
+                      itemCount: blockRows.length,
+                    })
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
-        {blockRows.length === 0 ? (
+        {isCollapsed ? null : blockRows.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted-foreground">{t("project.calendar.empty")}</p>
         ) : (
           renderBlockTable(block.id, blockRows)

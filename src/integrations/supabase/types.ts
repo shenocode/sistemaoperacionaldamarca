@@ -776,6 +776,7 @@ export type Database = {
         | "references"
         | "documents"
         | "spreadsheets"
+        | "generated_arts"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -942,6 +943,7 @@ export const Constants = {
         "references",
         "documents",
         "spreadsheets",
+        "generated_arts",
       ],
     },
   },

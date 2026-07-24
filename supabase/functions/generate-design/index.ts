@@ -18,6 +18,7 @@ type GenerateRequest = {
   templateUrl: string;
   photoUrl: string;
   overlayText: string;
+  secondaryText?: string;
   guidance?: string;
 };
 
@@ -137,6 +138,7 @@ Deno.serve(async (req) => {
     const templateUrl = body.templateUrl?.trim() ?? "";
     const photoUrl = body.photoUrl?.trim() ?? "";
     const overlayText = body.overlayText?.trim() ?? "";
+    const secondaryText = body.secondaryText?.trim() ?? "";
     const guidance = body.guidance?.trim() ?? "";
 
     if (!body.contentId || !body.projectId || !body.clientId) {
@@ -197,7 +199,8 @@ Deno.serve(async (req) => {
       "Crie UMA arte quadrada de feed (1:1) em português do Brasil.",
       "A primeira imagem é o TEMPLATE de layout: preserve a composição, hierarquia, áreas de texto e estilo visual o máximo possível.",
       "A segunda imagem é a FOTO/ASSET que deve ser usada como elemento principal da arte (substitua a foto do template por esta, mantendo enquadramento coerente).",
-      "Use exatamente o texto overlay fornecido (não invente frases extras).",
+      "Use exatamente os textos fornecidos (não invente frases extras).",
+      "Quando houver texto secundário, use-o como texto explicativo/apoio (menor hierarquia visual).",
       "Respeite as cores e fontes do kit de marca quando informadas.",
       "Não adicione logos inventados; se houver logo na referência, mantenha o estilo, não invente marcas.",
       "Resultado final: peça pronta para publicar, limpa, legível, profissional.",
@@ -208,7 +211,8 @@ Deno.serve(async (req) => {
       `Cores da marca: ${formatBrandColors(client.brand_colors)}`,
       `Fontes da marca: ${formatBrandFonts(client.brand_fonts)}`,
       brandGuide ? `Trecho do guia de marca:\n${brandGuide}` : null,
-      `Texto overlay (exato):\n${overlayText}`,
+      `Texto em destaque / frase principal (exato):\n${overlayText}`,
+      secondaryText ? `Texto secundário / explicativo (exato):\n${secondaryText}` : null,
       guidance ? `Orientações adicionais:\n${guidance}` : null,
     ]
       .filter(Boolean)

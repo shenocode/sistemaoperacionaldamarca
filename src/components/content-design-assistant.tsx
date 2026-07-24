@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Loader2, Palette, Plus, Trash2 } from "lucide-react";
+import { Download, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -19,12 +18,15 @@ import {
   DESIGN_TEMPLATE_ACCEPT,
   generateDesign,
   listDesignTemplates,
+  saveGeneratedArtToLibrary,
   uploadContentMedia,
   type DesignTemplateFormat,
 } from "@/lib/api";
+import { downloadImageFromUrl } from "@/lib/download-image";
 
 const MAX_SLIDES = 8;
 const NONE_TEMPLATE = "__none__";
+const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 type TemplateSource = "library" | "upload";
 
@@ -32,16 +34,18 @@ type SlideDraft = {
   id: string;
   photoFile: File | null;
   overlayText: string;
+  secondaryText: string;
   templateId: string;
   templateFile: File | null;
   resultUrl: string | null;
 };
 
-function createSlide(overlayText = ""): SlideDraft {
+function createSlide(overlayText = "", secondaryText = ""): SlideDraft {
   return {
     id: crypto.randomUUID(),
     photoFile: null,
     overlayText,
+    secondaryText,
     templateId: NONE_TEMPLATE,
     templateFile: null,
     resultUrl: null,
@@ -87,6 +91,7 @@ export function ContentDesignAssistant({
   onApply: (urls: string[]) => void;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const isCarousel = format === "carousel";
 
   const templatesQuery = useQuery({
@@ -100,10 +105,15 @@ export function ContentDesignAssistant({
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [overlayText, setOverlayText] = useState("");
+  const [secondaryText, setSecondaryText] = useState("");
   const [guidance, setGuidance] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [slides, setSlides] = useState<SlideDraft[]>([createSlide()]);
   const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null);
+  const templateFileInputRef = useRef<HTMLInputElement>(null);
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
+  const slidePhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const slideTemplateInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const defaultOverlay = useMemo(() => {
     const fromTitle = title.trim();
@@ -151,6 +161,30 @@ export function ContentDesignAssistant({
     return uploadContentMedia(projectId, opts.file);
   }
 
+  const artBaseName = useMemo(() => {
+    const raw = title.trim() || "arte";
+    return raw.replace(/[^\w.\-()+ ]+/g, "_").slice(0, 80);
+  }, [title]);
+
+  async function persistGeneratedArt(imageUrl: string, label: string) {
+    try {
+      await saveGeneratedArtToLibrary({
+        projectId,
+        imageUrl,
+        name: label,
+        notes: `Gerada no conteúdo ${contentId}`,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["library", projectId] });
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("project.detail.designAssistant.librarySaveError"),
+      );
+    }
+  }
+
   const generateStaticMutation = useMutation({
     mutationFn: async () => {
       const templateUrl = await resolveTemplateUrl({
@@ -169,11 +203,13 @@ export function ContentDesignAssistant({
         templateUrl,
         photoUrl,
         overlayText,
+        secondaryText,
         guidance,
       });
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       setResultUrl(result.imageUrl);
+      await persistGeneratedArt(result.imageUrl, artBaseName);
       toast.success(t("project.detail.designAssistant.generated"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -203,6 +239,7 @@ export function ContentDesignAssistant({
       templateUrl,
       photoUrl,
       overlayText: slide.overlayText,
+      secondaryText: slide.secondaryText,
       guidance,
     });
     return result.imageUrl;
@@ -216,9 +253,14 @@ export function ContentDesignAssistant({
       const imageUrl = await generateOneSlide(slide);
       return { slideId, imageUrl };
     },
-    onSuccess: ({ slideId, imageUrl }) => {
+    onSuccess: async ({ slideId, imageUrl }) => {
       setSlides((prev) =>
         prev.map((slide) => (slide.id === slideId ? { ...slide, resultUrl: imageUrl } : slide)),
+      );
+      const index = slides.findIndex((item) => item.id === slideId);
+      await persistGeneratedArt(
+        imageUrl,
+        `${artBaseName}-slide-${Math.max(index, 0) + 1}`,
       );
       toast.success(t("project.detail.designAssistant.generated"));
     },
@@ -229,13 +271,14 @@ export function ContentDesignAssistant({
   const generateAllMutation = useMutation({
     mutationFn: async () => {
       const urls: string[] = [];
-      for (const slide of slides) {
+      for (const [index, slide] of slides.entries()) {
         setGeneratingSlideId(slide.id);
         const imageUrl = await generateOneSlide(slide);
         urls.push(imageUrl);
         setSlides((prev) =>
           prev.map((item) => (item.id === slide.id ? { ...item, resultUrl: imageUrl } : item)),
         );
+        await persistGeneratedArt(imageUrl, `${artBaseName}-slide-${index + 1}`);
       }
       return urls;
     },
@@ -264,6 +307,15 @@ export function ContentDesignAssistant({
     toast.success(t("project.detail.designAssistant.applied"));
   };
 
+  async function handleDownload(url: string, name: string, format: "png" | "jpg") {
+    try {
+      await downloadImageFromUrl(url, name, format);
+      toast.success(t("project.detail.designAssistant.downloadStarted"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("project.detail.designAssistant.downloadError"));
+    }
+  }
+
   return (
     <Card className="rounded-xl">
       <CardHeader className="pb-3">
@@ -279,6 +331,18 @@ export function ContentDesignAssistant({
           <p className="text-xs text-muted-foreground">
             {t("project.detail.designAssistant.templateHint")}
           </p>
+          <input
+            ref={templateFileInputRef}
+            type="file"
+            accept={DESIGN_TEMPLATE_ACCEPT}
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setTemplateFile(file);
+              if (file) setTemplateSource("upload");
+              e.target.value = "";
+            }}
+          />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -293,8 +357,12 @@ export function ContentDesignAssistant({
               type="button"
               size="sm"
               variant={templateSource === "upload" ? "default" : "outline"}
-              onClick={() => setTemplateSource("upload")}
+              onClick={() => {
+                setTemplateSource("upload");
+                templateFileInputRef.current?.click();
+              }}
             >
+              <Upload className="mr-1.5 size-3.5" aria-hidden="true" />
               {t("project.detail.designAssistant.templateUpload")}
             </Button>
           </div>
@@ -318,11 +386,11 @@ export function ContentDesignAssistant({
               </Select>
             )
           ) : (
-            <Input
-              type="file"
-              accept={DESIGN_TEMPLATE_ACCEPT}
-              onChange={(e) => setTemplateFile(e.target.files?.[0] ?? null)}
-            />
+            <p className="text-xs text-muted-foreground">
+              {templateFile
+                ? t("project.detail.designAssistant.fileSelected", { name: templateFile.name })
+                : t("project.detail.designAssistant.templateUploadHint")}
+            </p>
           )}
           {selectedTemplateId && templateSource === "library" ? (
             <img
@@ -330,6 +398,9 @@ export function ContentDesignAssistant({
               alt=""
               className="mt-2 h-24 w-24 rounded-md border object-cover"
             />
+          ) : null}
+          {templateFile && templateSource === "upload" ? (
+            <p className="text-xs font-medium text-foreground">{templateFile.name}</p>
           ) : null}
         </div>
 
@@ -349,29 +420,58 @@ export function ContentDesignAssistant({
         {!isCarousel ? (
           <>
             <div className="space-y-1.5">
-              <Label htmlFor="design-photo" variant="highlight">
-                {t("project.detail.designAssistant.photo")}
-              </Label>
-              <Input
-                id="design-photo"
+              <input
+                ref={photoFileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                accept={PHOTO_ACCEPT}
+                className="sr-only"
+                onChange={(e) => {
+                  setPhotoFile(e.target.files?.[0] ?? null);
+                  e.target.value = "";
+                }}
               />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => photoFileInputRef.current?.click()}
+              >
+                <ImagePlus className="mr-1.5 size-4" aria-hidden="true" />
+                {t("project.detail.designAssistant.photo")}
+              </Button>
               <p className="text-xs text-muted-foreground">
-                {t("project.detail.designAssistant.photoHint")}
+                {photoFile
+                  ? t("project.detail.designAssistant.fileSelected", { name: photoFile.name })
+                  : t("project.detail.designAssistant.photoHint")}
               </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="design-overlay" variant="highlight">
                 {t("project.detail.designAssistant.overlayText")}
               </Label>
+              <p className="text-xs text-muted-foreground">
+                {t("project.detail.designAssistant.overlayHint")}
+              </p>
               <Textarea
                 id="design-overlay"
-                rows={3}
+                rows={2}
                 value={overlayText}
                 onChange={(e) => setOverlayText(e.target.value)}
                 placeholder={t("project.detail.designAssistant.overlayPlaceholder")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="design-secondary" variant="highlight">
+                {t("project.detail.designAssistant.secondaryText")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t("project.detail.designAssistant.secondaryHint")}
+              </p>
+              <Textarea
+                id="design-secondary"
+                rows={2}
+                value={secondaryText}
+                onChange={(e) => setSecondaryText(e.target.value)}
+                placeholder={t("project.detail.designAssistant.secondaryPlaceholder")}
               />
             </div>
             <Button
@@ -405,10 +505,29 @@ export function ContentDesignAssistant({
                   <Button type="button" onClick={handleApplyStatic}>
                     {t("project.detail.designAssistant.apply")}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleDownload(resultUrl, artBaseName, "png")}
+                  >
+                    <Download className="size-4" />
+                    {t("project.detail.designAssistant.downloadPng")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleDownload(resultUrl, artBaseName, "jpg")}
+                  >
+                    <Download className="size-4" />
+                    {t("project.detail.designAssistant.downloadJpg")}
+                  </Button>
                   <Button type="button" variant="outline" onClick={() => setResultUrl(null)}>
                     {t("project.detail.designAssistant.discard")}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("project.detail.designAssistant.savedToLibrary")}
+                </p>
               </div>
             ) : null}
           </>
@@ -495,10 +614,13 @@ export function ContentDesignAssistant({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label>{t("project.detail.designAssistant.slidePhoto")}</Label>
-                      <Input
+                      <input
+                        ref={(node) => {
+                          slidePhotoInputRefs.current[slide.id] = node;
+                        }}
                         type="file"
-                        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                        accept={PHOTO_ACCEPT}
+                        className="sr-only"
                         onChange={(e) => {
                           const file = e.target.files?.[0] ?? null;
                           setSlides((prev) =>
@@ -506,12 +628,32 @@ export function ContentDesignAssistant({
                               item.id === slide.id ? { ...item, photoFile: file } : item,
                             ),
                           );
+                          e.target.value = "";
                         }}
                       />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => slidePhotoInputRefs.current[slide.id]?.click()}
+                      >
+                        <ImagePlus className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {t("project.detail.designAssistant.slidePhoto")}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        {slide.photoFile
+                          ? t("project.detail.designAssistant.fileSelected", {
+                              name: slide.photoFile.name,
+                            })
+                          : t("project.detail.designAssistant.photoHint")}
+                      </p>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label>{t("project.detail.designAssistant.slideText")}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t("project.detail.designAssistant.overlayHint")}
+                      </p>
                       <Textarea
                         rows={2}
                         value={slide.overlayText}
@@ -524,6 +666,26 @@ export function ContentDesignAssistant({
                           );
                         }}
                         placeholder={t("project.detail.designAssistant.overlayPlaceholder")}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>{t("project.detail.designAssistant.slideSecondaryText")}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t("project.detail.designAssistant.secondaryHint")}
+                      </p>
+                      <Textarea
+                        rows={2}
+                        value={slide.secondaryText}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setSlides((prev) =>
+                            prev.map((item) =>
+                              item.id === slide.id ? { ...item, secondaryText: value } : item,
+                            ),
+                          );
+                        }}
+                        placeholder={t("project.detail.designAssistant.secondaryPlaceholder")}
                       />
                     </div>
 
@@ -555,9 +717,13 @@ export function ContentDesignAssistant({
                           ))}
                         </SelectContent>
                       </Select>
-                      <Input
+                      <input
+                        ref={(node) => {
+                          slideTemplateInputRefs.current[slide.id] = node;
+                        }}
                         type="file"
                         accept={DESIGN_TEMPLATE_ACCEPT}
+                        className="sr-only"
                         onChange={(e) => {
                           const file = e.target.files?.[0] ?? null;
                           setSlides((prev) =>
@@ -567,16 +733,67 @@ export function ContentDesignAssistant({
                                 : item,
                             ),
                           );
+                          e.target.value = "";
                         }}
                       />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => slideTemplateInputRefs.current[slide.id]?.click()}
+                      >
+                        <Upload className="mr-1.5 size-3.5" aria-hidden="true" />
+                        {t("project.detail.designAssistant.templateUpload")}
+                      </Button>
+                      {slide.templateFile ? (
+                        <p className="text-xs text-muted-foreground">
+                          {t("project.detail.designAssistant.fileSelected", {
+                            name: slide.templateFile.name,
+                          })}
+                        </p>
+                      ) : null}
                     </div>
 
                     {slide.resultUrl ? (
-                      <img
-                        src={slide.resultUrl}
-                        alt=""
-                        className="h-40 w-40 rounded-md border object-cover"
-                      />
+                      <div className="space-y-2">
+                        <img
+                          src={slide.resultUrl}
+                          alt=""
+                          className="h-40 w-40 rounded-md border object-cover"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void handleDownload(
+                                slide.resultUrl!,
+                                `${artBaseName}-slide-${index + 1}`,
+                                "png",
+                              )
+                            }
+                          >
+                            <Download className="size-3.5" />
+                            PNG
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void handleDownload(
+                                slide.resultUrl!,
+                                `${artBaseName}-slide-${index + 1}`,
+                                "jpg",
+                              )
+                            }
+                          >
+                            <Download className="size-3.5" />
+                            JPG
+                          </Button>
+                        </div>
+                      </div>
                     ) : null}
                   </div>
                 );
@@ -584,19 +801,24 @@ export function ContentDesignAssistant({
             </div>
 
             {slides.some((slide) => slide.resultUrl) ? (
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={handleApplyCarousel}>
-                  {t("project.detail.designAssistant.apply")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setSlides((prev) => prev.map((slide) => ({ ...slide, resultUrl: null })))
-                  }
-                >
-                  {t("project.detail.designAssistant.discard")}
-                </Button>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" onClick={handleApplyCarousel}>
+                    {t("project.detail.designAssistant.apply")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setSlides((prev) => prev.map((slide) => ({ ...slide, resultUrl: null })))
+                    }
+                  >
+                    {t("project.detail.designAssistant.discard")}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("project.detail.designAssistant.savedToLibrary")}
+                </p>
               </div>
             ) : null}
           </>
