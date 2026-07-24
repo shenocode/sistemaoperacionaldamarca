@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { canManageClient, getProject, updateProject } from "@/lib/api";
+import { canAccessClient, canManageClient, getProject, updateProject } from "@/lib/api";
 
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/settings",
@@ -122,10 +122,17 @@ function ProjectSettingsPage() {
     queryFn: () => getProject(projectId),
   });
 
+  const accessQuery = useQuery({
+    queryKey: ["can-access", clientId],
+    queryFn: () => canAccessClient(clientId),
+  });
+
   const manageQuery = useQuery({
     queryKey: ["can-manage", clientId],
     queryFn: () => canManageClient(clientId),
   });
+
+  const canManage = Boolean(manageQuery.data);
 
   useEffect(() => {
     if (!projectQuery.data) return;
@@ -140,9 +147,9 @@ function ProjectSettingsPage() {
   const saveMutation = useMutation({
     mutationFn: () =>
       updateProject(projectId, {
-        name,
-        description,
-        status,
+        name: canManage ? name : (projectQuery.data?.name ?? name),
+        description: canManage ? description : (projectQuery.data?.description ?? ""),
+        ...(canManage ? { status } : {}),
         ctaPresets,
         hashtagPresets,
         themePresets,
@@ -154,11 +161,11 @@ function ProjectSettingsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  if (manageQuery.isLoading || projectQuery.isLoading) {
+  if (accessQuery.isLoading || manageQuery.isLoading || projectQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 
-  if (!manageQuery.data) {
+  if (!accessQuery.data) {
     return (
       <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
         {t("project.settings.readOnly")}
@@ -174,38 +181,42 @@ function ProjectSettingsPage() {
         saveMutation.mutate();
       }}
     >
-      <div className="space-y-1.5">
-        <Label htmlFor="settings-name">{t("clients.projectName")}</Label>
-        <Input
-          id="settings-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="settings-description">{t("clients.projectDescription")}</Label>
-        <Textarea
-          id="settings-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label>{t("project.settings.status")}</Label>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">{t("clients.active")}</SelectItem>
-            <SelectItem value="archived">{t("clients.archived")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {canManage ? (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-name">{t("clients.projectName")}</Label>
+            <Input
+              id="settings-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-description">{t("clients.projectDescription")}</Label>
+            <Textarea
+              id="settings-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("project.settings.status")}</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{t("clients.active")}</SelectItem>
+                <SelectItem value="archived">{t("clients.archived")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      ) : null}
 
-      <div className="space-y-4 border-t pt-4">
+      <div className={canManage ? "space-y-4 border-t pt-4" : "space-y-4"}>
         <div>
           <h2 className="text-sm font-medium">{t("project.settings.presetsTitle")}</h2>
           <p className="text-xs text-muted-foreground">{t("project.settings.presetsHint")}</p>
@@ -242,7 +253,10 @@ function ProjectSettingsPage() {
         />
       </div>
 
-      <Button type="submit" disabled={saveMutation.isPending || !name.trim()}>
+      <Button
+        type="submit"
+        disabled={saveMutation.isPending || (canManage && !name.trim())}
+      >
         {t("common.save")}
       </Button>
     </form>

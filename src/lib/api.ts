@@ -1117,6 +1117,12 @@ export async function listRecentActivity(limit = 10) {
   return data ?? [];
 }
 
+export async function canAccessClient(clientId: string) {
+  const { data, error } = await supabase.rpc("can_access_client", { _client_id: clientId });
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
 export async function canManageClient(clientId: string) {
   const { data, error } = await supabase.rpc("can_manage_client", { _client_id: clientId });
   if (error) throw new Error(error.message);

@@ -7,7 +7,7 @@
     "content": "Content",
     "approvals": "Approvals",
     "myProjects": "My projects",
-    "settings": "Settings"
+    "settings": "My Profile"
   },
   "auth": {
     "signIn": "Sign in",
@@ -55,7 +55,7 @@
     "hideComments": "Hide comments"
   },
   "clientSettings": {
-    "title": "Settings",
+    "title": "My Profile",
     "subtitle": "Review and update your brand contact details.",
     "selectClient": "Brand",
     "empty": "No brand available to edit.",

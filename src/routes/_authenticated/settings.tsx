@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
   },
   head: () => ({
     meta: [
-      { title: "Configurações — SOM" },
+      { title: "Meu Perfil — SOM" },
       { name: "description", content: "Revise e atualize seus dados de contato." },
       { name: "robots", content: "noindex" },
     ],

@@ -7,7 +7,7 @@
     "content": "Contenidos",
     "approvals": "Aprobaciones",
     "myProjects": "Mis proyectos",
-    "settings": "Configuración"
+    "settings": "Mi Perfil"
   },
   "auth": {
     "signIn": "Entrar",
@@ -55,7 +55,7 @@
     "hideComments": "Ocultar comentarios"
   },
   "clientSettings": {
-    "title": "Configuración",
+    "title": "Mi Perfil",
     "subtitle": "Revisa y actualiza los datos de contacto de tu marca.",
     "selectClient": "Marca",
     "empty": "No hay ninguna marca disponible para editar.",
