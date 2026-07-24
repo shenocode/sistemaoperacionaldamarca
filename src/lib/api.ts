@@ -1488,8 +1488,11 @@ export async function suggestContent(input: {
   };
 }
 
+export type DesignProvider = "openai" | "gemini";
+
 export type DesignGenerationResult = {
   imageUrl: string;
+  provider?: DesignProvider;
 };
 
 export async function generateDesign(input: {
@@ -1497,6 +1500,7 @@ export async function generateDesign(input: {
   projectId: string;
   clientId: string;
   format: DesignTemplateFormat;
+  provider?: DesignProvider;
   templateUrl: string;
   photoUrl: string;
   overlayText: string;
@@ -1507,6 +1511,7 @@ export async function generateDesign(input: {
   const secondaryText = input.secondaryText?.trim() || "";
   const templateUrl = input.templateUrl.trim();
   const photoUrl = input.photoUrl.trim();
+  const provider = input.provider === "gemini" ? "gemini" : "openai";
   if (!templateUrl) throw new Error("Informe o template de referência");
   if (!photoUrl) throw new Error("Informe a imagem da arte");
   if (!overlayText) throw new Error("Informe o texto da arte");
@@ -1517,6 +1522,7 @@ export async function generateDesign(input: {
       projectId: input.projectId,
       clientId: input.clientId,
       format: input.format,
+      provider,
       templateUrl,
       photoUrl,
       overlayText,
@@ -1525,7 +1531,7 @@ export async function generateDesign(input: {
     },
   });
 
-  const payload = data as { imageUrl?: string; error?: string } | null;
+  const payload = data as { imageUrl?: string; provider?: DesignProvider; error?: string } | null;
   if (error) {
     throw new Error(await readFunctionsInvokeError(error, data));
   }
@@ -1536,7 +1542,7 @@ export async function generateDesign(input: {
     throw new Error("Resposta inválida do assistente de design");
   }
 
-  return { imageUrl: payload.imageUrl };
+  return { imageUrl: payload.imageUrl, provider: payload.provider ?? provider };
 }
 
 // —— Comments ——

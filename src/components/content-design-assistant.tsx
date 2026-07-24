@@ -20,6 +20,7 @@ import {
   listDesignTemplates,
   saveGeneratedArtToLibrary,
   uploadContentMedia,
+  type DesignProvider,
   type DesignTemplateFormat,
 } from "@/lib/api";
 import { downloadImageFromUrl } from "@/lib/download-image";
@@ -110,6 +111,7 @@ export function ContentDesignAssistant({
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [slides, setSlides] = useState<SlideDraft[]>([createSlide()]);
   const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null);
+  const [provider, setProvider] = useState<DesignProvider>("openai");
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const slidePhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -200,6 +202,7 @@ export function ContentDesignAssistant({
         projectId,
         clientId,
         format,
+        provider,
         templateUrl,
         photoUrl,
         overlayText,
@@ -236,6 +239,7 @@ export function ContentDesignAssistant({
       projectId,
       clientId,
       format: "carousel",
+      provider,
       templateUrl,
       photoUrl,
       overlayText: slide.overlayText,
@@ -326,6 +330,29 @@ export function ContentDesignAssistant({
         <p className="text-sm text-muted-foreground">{t("project.detail.designAssistant.hint")}</p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <Label variant="highlight">{t("project.detail.designAssistant.provider")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t("project.detail.designAssistant.providerHint")}
+          </p>
+          <Select
+            value={provider}
+            onValueChange={(value) => setProvider(value as DesignProvider)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="openai">
+                {t("project.detail.designAssistant.providerOpenAI")}
+              </SelectItem>
+              <SelectItem value="gemini">
+                {t("project.detail.designAssistant.providerGemini")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-1.5">
           <Label variant="highlight">{t("project.detail.designAssistant.template")}</Label>
           <p className="text-xs text-muted-foreground">

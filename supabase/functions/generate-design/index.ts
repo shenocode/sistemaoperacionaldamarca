@@ -9,12 +9,14 @@ const CONTENT_MEDIA_BUCKET = "content-media";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
 type DesignFormat = "static_feed" | "carousel";
+type DesignProvider = "openai" | "gemini";
 
 type GenerateRequest = {
   contentId: string;
   projectId: string;
   clientId: string;
   format?: DesignFormat;
+  provider?: DesignProvider;
   templateUrl: string;
   photoUrl: string;
   overlayText: string;
@@ -24,6 +26,8 @@ type GenerateRequest = {
 
 type BrandColor = { name?: string; hex?: string };
 type BrandFonts = { primary?: string; secondary?: string; notes?: string };
+
+type RefImage = { bytes: Uint8Array; mime: string; fileName: string };
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -43,7 +47,32 @@ function extensionFromMime(mime: string) {
   return "png";
 }
 
-async function fetchImage(url: string): Promise<{ bytes: Uint8Array; mime: string; fileName: string }> {
+function bytesToBase64(bytes: Uint8Array): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const triple = (a << 16) | (b << 8) | c;
+    result += alphabet[(triple >> 18) & 63];
+    result += alphabet[(triple >> 12) & 63];
+    result += i + 1 < bytes.length ? alphabet[(triple >> 6) & 63] : "=";
+    result += i + 2 < bytes.length ? alphabet[triple & 63] : "=";
+  }
+  return result;
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function fetchImage(url: string): Promise<RefImage> {
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Falha ao baixar imagem de referência (${res.status})`);
@@ -86,6 +115,151 @@ function formatBrandFonts(raw: unknown): string {
   return parts.length ? parts.join("; ") : "(não informado)";
 }
 
+function normalizeProvider(value: unknown): DesignProvider {
+  return value === "gemini" ? "gemini" : "openai";
+}
+
+async function generateWithOpenAI(input: {
+  prompt: string;
+  templateImage: RefImage;
+  photoImage: RefImage;
+  apiKey: string;
+}): Promise<Uint8Array> {
+  const form = new FormData();
+  form.append("model", Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1");
+  form.append("prompt", input.prompt);
+  form.append("n", "1");
+  form.append("size", "1024x1024");
+  form.append("input_fidelity", "high");
+  form.append(
+    "image",
+    new Blob([input.templateImage.bytes], { type: input.templateImage.mime }),
+    input.templateImage.fileName || "template.png",
+  );
+  form.append(
+    "image",
+    new Blob([input.photoImage.bytes], { type: input.photoImage.mime }),
+    input.photoImage.fileName || "photo.png",
+  );
+
+  const openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+    },
+    body: form,
+  });
+
+  if (!openaiRes.ok) {
+    const errText = await openaiRes.text();
+    console.error("OpenAI image edit error:", openaiRes.status, errText);
+    if (openaiRes.status === 429) {
+      throw Object.assign(new Error("Limite de requisições da OpenAI atingido. Tente de novo ou use Gemini."), {
+        status: 429,
+      });
+    }
+    if (openaiRes.status === 402 || /billing|quota|insufficient|credit/i.test(errText)) {
+      throw Object.assign(new Error("Créditos da OpenAI esgotados. Troque para Gemini ou recarregue a conta."), {
+        status: 402,
+      });
+    }
+    throw Object.assign(new Error("Falha ao gerar arte com a OpenAI"), { status: 502 });
+  }
+
+  const openaiJson = (await openaiRes.json()) as {
+    data?: Array<{ b64_json?: string; url?: string }>;
+  };
+  const first = openaiJson.data?.[0];
+  if (first?.b64_json) return base64ToBytes(first.b64_json);
+  if (first?.url) {
+    const downloaded = await fetchImage(first.url);
+    return downloaded.bytes;
+  }
+  throw Object.assign(new Error("Resposta de imagem inválida da OpenAI"), { status: 502 });
+}
+
+async function generateWithGemini(input: {
+  prompt: string;
+  templateImage: RefImage;
+  photoImage: RefImage;
+  apiKey: string;
+}): Promise<Uint8Array> {
+  const model = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image";
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
+
+  const geminiRes = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: input.prompt },
+            {
+              inline_data: {
+                mime_type: input.templateImage.mime,
+                data: bytesToBase64(input.templateImage.bytes),
+              },
+            },
+            {
+              inline_data: {
+                mime_type: input.photoImage.mime,
+                data: bytesToBase64(input.photoImage.bytes),
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+        imageConfig: { aspectRatio: "1:1" },
+      },
+    }),
+  });
+
+  if (!geminiRes.ok) {
+    const errText = await geminiRes.text();
+    console.error("Gemini image error:", geminiRes.status, errText);
+    if (geminiRes.status === 429) {
+      throw Object.assign(new Error("Limite de requisições do Gemini atingido. Tente de novo ou use OpenAI."), {
+        status: 429,
+      });
+    }
+    if (geminiRes.status === 400 && /API key|API_KEY|invalid/i.test(errText)) {
+      throw Object.assign(new Error("Chave do Gemini inválida. Verifique GEMINI_API_KEY nas secrets."), {
+        status: 400,
+      });
+    }
+    if (/quota|billing|RESOURCE_EXHAUSTED/i.test(errText)) {
+      throw Object.assign(new Error("Cota/créditos do Gemini esgotados. Troque para OpenAI ou aguarde."), {
+        status: 402,
+      });
+    }
+    throw Object.assign(new Error("Falha ao gerar arte com o Gemini"), { status: 502 });
+  }
+
+  const geminiJson = (await geminiRes.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{
+          inlineData?: { data?: string; mimeType?: string };
+          inline_data?: { data?: string; mime_type?: string };
+        }>;
+      };
+    }>;
+  };
+
+  const parts = geminiJson.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    const data = part.inlineData?.data || part.inline_data?.data;
+    if (data) return base64ToBytes(data);
+  }
+
+  throw Object.assign(new Error("Resposta de imagem inválida do Gemini"), { status: 502 });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -100,12 +274,10 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
-    }
-    if (!openaiKey) {
-      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -135,6 +307,7 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as GenerateRequest;
+    const provider = normalizeProvider(body.provider);
     const templateUrl = body.templateUrl?.trim() ?? "";
     const photoUrl = body.photoUrl?.trim() ?? "";
     const overlayText = body.overlayText?.trim() ?? "";
@@ -147,6 +320,13 @@ Deno.serve(async (req) => {
     if (!templateUrl) return jsonResponse({ error: "Informe o template de referência" }, 400);
     if (!photoUrl) return jsonResponse({ error: "Informe a imagem da arte" }, 400);
     if (!overlayText) return jsonResponse({ error: "Informe o texto da arte" }, 400);
+
+    if (provider === "openai" && !openaiKey) {
+      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
+    }
+    if (provider === "gemini" && !geminiKey) {
+      return jsonResponse({ error: "GEMINI_API_KEY (ou GOOGLE_API_KEY) não configurada" }, 500);
+    }
 
     const [
       { data: content, error: contentError },
@@ -218,59 +398,31 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n");
 
-    const form = new FormData();
-    form.append("model", Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1");
-    form.append("prompt", prompt);
-    form.append("n", "1");
-    form.append("size", "1024x1024");
-    form.append("input_fidelity", "high");
-    form.append(
-      "image",
-      new Blob([templateImage.bytes], { type: templateImage.mime }),
-      templateImage.fileName || "template.png",
-    );
-    form.append(
-      "image",
-      new Blob([photoImage.bytes], { type: photoImage.mime }),
-      photoImage.fileName || "photo.png",
-    );
-
-    const openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-      },
-      body: form,
-    });
-
-    if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      console.error("OpenAI image edit error:", openaiRes.status, errText);
-      if (openaiRes.status === 429) {
-        return jsonResponse({ error: "Limite de requisições da IA atingido. Tente de novo em instantes." }, 429);
+    let imageBytes: Uint8Array;
+    try {
+      if (provider === "gemini") {
+        imageBytes = await generateWithGemini({
+          prompt,
+          templateImage,
+          photoImage,
+          apiKey: geminiKey!,
+        });
+      } else {
+        imageBytes = await generateWithOpenAI({
+          prompt,
+          templateImage,
+          photoImage,
+          apiKey: openaiKey!,
+        });
       }
-      return jsonResponse({ error: "Falha ao gerar arte com a IA" }, 502);
-    }
-
-    const openaiJson = (await openaiRes.json()) as {
-      data?: Array<{ b64_json?: string; url?: string }>;
-    };
-    const first = openaiJson.data?.[0];
-    let imageBytes: Uint8Array | null = null;
-
-    if (first?.b64_json) {
-      const binary = atob(first.b64_json);
-      imageBytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 1) {
-        imageBytes[i] = binary.charCodeAt(i);
-      }
-    } else if (first?.url) {
-      const downloaded = await fetchImage(first.url);
-      imageBytes = downloaded.bytes;
-    }
-
-    if (!imageBytes) {
-      return jsonResponse({ error: "Resposta de imagem inválida da IA" }, 502);
+    } catch (err) {
+      const status = typeof err === "object" && err && "status" in err
+        ? Number((err as { status?: number }).status) || 502
+        : 502;
+      return jsonResponse(
+        { error: err instanceof Error ? err.message : "Falha ao gerar arte com a IA" },
+        status,
+      );
     }
 
     const storagePath = `${body.projectId}/ai-${crypto.randomUUID()}.png`;
@@ -289,7 +441,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: publicUrlData } = admin.storage.from(CONTENT_MEDIA_BUCKET).getPublicUrl(storagePath);
-    return jsonResponse({ imageUrl: publicUrlData.publicUrl });
+    return jsonResponse({ imageUrl: publicUrlData.publicUrl, provider });
   } catch (error) {
     console.error(error);
     return jsonResponse(
