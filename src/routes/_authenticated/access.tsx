@@ -50,6 +50,8 @@ function AccessReleasePage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
 
   const gestoresQuery = useQuery({
     queryKey: ["gestores"],
@@ -65,6 +67,8 @@ function AccessReleasePage() {
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["gestores"] });
+      setFullName("");
+      setEmail("");
       setPassword("");
       toast.success(
         result.created ? t("accessRelease.created") : t("accessRelease.updated"),
@@ -73,7 +77,33 @@ function AccessReleasePage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const resetMutation = useMutation({
+    mutationFn: (input: { email: string; fullName?: string; password: string }) =>
+      provisionGestorAccess({
+        email: input.email,
+        password: input.password,
+        fullName: input.fullName,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gestores"] });
+      setResettingUserId(null);
+      setResetPassword("");
+      toast.success(t("accessRelease.passwordUpdated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const gestores = gestoresQuery.data ?? [];
+
+  function openReset(userId: string) {
+    setResettingUserId(userId);
+    setResetPassword("");
+  }
+
+  function cancelReset() {
+    setResettingUserId(null);
+    setResetPassword("");
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
@@ -153,42 +183,99 @@ function AccessReleasePage() {
           <EmptyState title={t("accessRelease.empty")} />
         ) : (
           <ul className="divide-y rounded-md border">
-            {gestores.map((gestor) => (
-              <li
-                key={gestor.userId}
-                className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {gestor.fullName || gestor.email}
-                  </p>
-                  {gestor.fullName ? (
-                    <p className="truncate text-xs text-muted-foreground">{gestor.email}</p>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={gestor.isMaster ? "default" : "secondary"}>
-                    {gestor.isMaster
-                      ? t("accessRelease.roleAdministrator")
-                      : t("accessRelease.roleGestor")}
-                  </Badge>
-                  {!gestor.isMaster ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEmail(gestor.email);
-                        setFullName(gestor.fullName ?? "");
-                        setPassword("");
+            {gestores.map((gestor) => {
+              const isResetting = resettingUserId === gestor.userId;
+
+              return (
+                <li key={gestor.userId} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {gestor.fullName || gestor.email}
+                      </p>
+                      {gestor.fullName ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {gestor.email}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={gestor.isMaster ? "default" : "secondary"}>
+                        {gestor.isMaster
+                          ? t("accessRelease.roleAdministrator")
+                          : t("accessRelease.roleGestor")}
+                      </Badge>
+                      {!gestor.isMaster ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isResetting}
+                          onClick={() => openReset(gestor.userId)}
+                        >
+                          {t("accessRelease.resetPassword")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {isResetting ? (
+                    <form
+                      className="mt-3 space-y-3 border-t pt-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (resetPassword.trim().length < 6) return;
+                        resetMutation.mutate({
+                          email: gestor.email,
+                          fullName: gestor.fullName ?? undefined,
+                          password: resetPassword.trim(),
+                        });
                       }}
                     >
-                      {t("accessRelease.resetPassword")}
-                    </Button>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`reset-password-${gestor.userId}`}>
+                          {t("accessRelease.newPassword")}
+                        </Label>
+                        <Input
+                          id={`reset-password-${gestor.userId}`}
+                          type="password"
+                          required
+                          minLength={6}
+                          autoFocus
+                          value={resetPassword}
+                          onChange={(e) => setResetPassword(e.target.value)}
+                          autoComplete="new-password"
+                          placeholder="••••••••"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("accessRelease.passwordHint")}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={resetMutation.isPending}
+                          onClick={cancelReset}
+                        >
+                          {t("common.cancel")}
+                        </Button>
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={
+                            resetMutation.isPending || resetPassword.trim().length < 6
+                          }
+                        >
+                          {t("accessRelease.confirmReset")}
+                        </Button>
+                      </div>
+                    </form>
                   ) : null}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

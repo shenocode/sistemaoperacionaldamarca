@@ -35,8 +35,8 @@
   },
   "accessRelease": {
     "title": "Liberación de accesos",
-    "description": "Crea o actualiza el inicio de sesión y la contraseña de los gestores de la plataforma.",
-    "formTitle": "Nuevo o actualizar gestor",
+    "description": "Crea nuevos gestores o restablece la contraseña de quienes ya tienen acceso.",
+    "formTitle": "Nuevo gestor",
     "fullName": "Nombre completo",
     "fullNamePlaceholder": "Nombre del gestor",
     "email": "Correo de acceso",
@@ -47,9 +47,12 @@
     "empty": "Aún no hay gestores liberados.",
     "created": "Acceso de gestor creado. Envía el correo y la contraseña.",
     "updated": "Acceso de gestor actualizado.",
+    "passwordUpdated": "Contraseña restablecida. Envía la nueva contraseña al gestor.",
     "roleAdministrator": "Administrador",
     "roleGestor": "Gestor",
-    "resetPassword": "Restablecer contraseña"
+    "resetPassword": "Restablecer contraseña",
+    "newPassword": "Nueva contraseña",
+    "confirmReset": "Restablecer"
   },
   "landing": {
     "heroTitle": "Del briefing a la aprobación, sin planillas eternas.",
@@ -230,12 +233,12 @@
     "active": "Activo",
     "archived": "Archivado",
     "platformAccess": "Acceso a la plataforma",
-    "platformAccessHint": "Define el correo y la contraseña iniciales para que el cliente entre. Después puede cambiar la contraseña en su propia configuración.",
+    "platformAccessHint": "Solo este correo tendrá acceso al cliente. Si cambias el correo, el anterior pierde el acceso.",
     "loginEmail": "Correo de acceso",
     "loginPassword": "Contraseña de acceso",
-    "loginPasswordHint": "Complétala para crear o actualizar el acceso. Déjala en blanco para guardar solo los datos de contacto.",
+    "loginPasswordHint": "Complétala para crear o sustituir el acceso. Déjala en blanco para guardar solo los datos de contacto.",
     "accessCreated": "Acceso creado. Envía el correo y la contraseña al cliente.",
-    "accessUpdated": "Acceso actualizado. Envía las nuevas credenciales al cliente.",
+    "accessUpdated": "Acceso actualizado. Solo este correo entra en este cliente. Envía las nuevas credenciales.",
     "accessPasswordRequired": "Indica el correo de acceso junto con la contraseña para crear el acceso.",
     "brandKit": {
       "title": "Kit de marca",

@@ -47,6 +47,55 @@ async function findUserIdByEmail(admin: AdminClient, email: string): Promise<str
   }
 }
 
+async function ensureAuthUser(
+  admin: AdminClient,
+  email: string,
+  password: string,
+  fullName?: string,
+): Promise<{ userId: string; created: boolean }> {
+  let userId = await findUserIdByEmail(admin, email);
+
+  if (userId) {
+    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+      password,
+      email_confirm: true,
+    });
+    if (updateError) throw new Error(updateError.message);
+    return { userId, created: false };
+  }
+
+  const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: fullName ? { full_name: fullName } : undefined,
+  });
+
+  if (createError) {
+    if (!isEmailAlreadyRegistered(createError.message)) {
+      throw new Error(createError.message);
+    }
+    userId = await findUserIdByEmail(admin, email);
+    if (!userId) {
+      throw new Error("Usuário já existe, mas não foi possível localizá-lo.");
+    }
+    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+      password,
+      email_confirm: true,
+    });
+    if (updateError) throw new Error(updateError.message);
+    return { userId, created: false };
+  }
+
+  if (!createdUser.user) throw new Error("Não foi possível criar o usuário.");
+  return { userId: createdUser.user.id, created: true };
+}
+
+/**
+ * Sets the single platform login for a client.
+ * Previous `member` rows are removed so only this email keeps client access
+ * (owners/admins are left untouched).
+ */
 export const provisionClientAccessFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(provisionInput)
@@ -66,45 +115,73 @@ export const provisionClientAccessFn = createServerFn({ method: "POST" })
     const email = data.email.trim().toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    let userId = await findUserIdByEmail(supabaseAdmin, email);
+    const { data: existingMembers, error: membersError } = await supabaseAdmin
+      .from("client_members")
+      .select("user_id")
+      .eq("client_id", data.clientId)
+      .eq("role", "member");
+    if (membersError) throw new Error(membersError.message);
+
+    const existingMemberIds = (existingMembers ?? []).map((row) => row.user_id);
+    const soleMemberId = existingMemberIds.length === 1 ? existingMemberIds[0] : null;
+
+    let userId: string;
     let created = false;
 
-    if (userId) {
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        password: data.password,
-        email_confirm: true,
-      });
-      if (updateError) throw new Error(updateError.message);
-    } else {
-      const { data: createdUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: data.password,
-        email_confirm: true,
-        user_metadata: data.fullName ? { full_name: data.fullName } : undefined,
-      });
+    // Prefer renaming the existing platform user when the new email is free,
+    // so we don't leave an orphaned login that still "feels" like the client.
+    if (soleMemberId) {
+      const { data: soleUser, error: soleUserError } =
+        await supabaseAdmin.auth.admin.getUserById(soleMemberId);
+      if (soleUserError) throw new Error(soleUserError.message);
 
-      if (createError) {
-        if (!isEmailAlreadyRegistered(createError.message)) {
-          throw new Error(createError.message);
+      const currentEmail = (soleUser.user?.email ?? "").toLowerCase();
+      if (currentEmail && currentEmail !== email) {
+        const emailTakenBy = await findUserIdByEmail(supabaseAdmin, email);
+        if (!emailTakenBy) {
+          const { error: renameError } = await supabaseAdmin.auth.admin.updateUserById(
+            soleMemberId,
+            {
+              email,
+              password: data.password,
+              email_confirm: true,
+            },
+          );
+          if (renameError) throw new Error(renameError.message);
+          userId = soleMemberId;
+        } else {
+          const ensured = await ensureAuthUser(
+            supabaseAdmin,
+            email,
+            data.password,
+            data.fullName,
+          );
+          userId = ensured.userId;
+          created = ensured.created;
         }
-        userId = await findUserIdByEmail(supabaseAdmin, email);
-        if (!userId) {
-          throw new Error("Usuário já existe, mas não foi possível localizá-lo.");
-        }
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-          password: data.password,
-          email_confirm: true,
-        });
-        if (updateError) throw new Error(updateError.message);
       } else {
-        if (!createdUser.user) throw new Error("Não foi possível criar o usuário.");
-        userId = createdUser.user.id;
-        created = true;
+        const ensured = await ensureAuthUser(
+          supabaseAdmin,
+          email,
+          data.password,
+          data.fullName,
+        );
+        userId = ensured.userId;
+        created = ensured.created;
       }
+    } else {
+      const ensured = await ensureAuthUser(
+        supabaseAdmin,
+        email,
+        data.password,
+        data.fullName,
+      );
+      userId = ensured.userId;
+      created = ensured.created;
     }
 
     const displayName = data.fullName?.trim() || email.split("@")[0] || null;
-    if (displayName) {
+    if (displayName && created) {
       const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
         id: userId,
         full_name: displayName,
@@ -120,6 +197,15 @@ export const provisionClientAccessFn = createServerFn({ method: "POST" })
     if (memberError && memberError.code !== "23505") {
       throw new Error(memberError.message);
     }
+
+    // Enforce a single client-facing login: drop every other member on this client.
+    const { error: revokeError } = await supabaseAdmin
+      .from("client_members")
+      .delete()
+      .eq("client_id", data.clientId)
+      .eq("role", "member")
+      .neq("user_id", userId);
+    if (revokeError) throw new Error(revokeError.message);
 
     return { userId, email, created };
   });

@@ -35,8 +35,8 @@
   },
   "accessRelease": {
     "title": "Liberação de acessos",
-    "description": "Crie ou atualize o login e a senha dos gestores da plataforma.",
-    "formTitle": "Novo ou atualizar gestor",
+    "description": "Crie novos gestores ou redefina a senha dos que já têm acesso.",
+    "formTitle": "Novo gestor",
     "fullName": "Nome completo",
     "fullNamePlaceholder": "Nome do gestor",
     "email": "E-mail de login",
@@ -47,9 +47,12 @@
     "empty": "Nenhum gestor liberado ainda.",
     "created": "Acesso de gestor criado. Envie o e-mail e a senha.",
     "updated": "Acesso de gestor atualizado.",
+    "passwordUpdated": "Senha redefinida. Envie a nova senha ao gestor.",
     "roleAdministrator": "Administrador",
     "roleGestor": "Gestor",
-    "resetPassword": "Redefinir senha"
+    "resetPassword": "Redefinir senha",
+    "newPassword": "Nova senha",
+    "confirmReset": "Redefinir"
   },
   "landing": {
     "heroTitle": "Do briefing à aprovação, sem planilha e sem WhatsApp eterno.",
@@ -230,12 +233,12 @@
     "active": "Ativo",
     "archived": "Arquivado",
     "platformAccess": "Acesso à plataforma",
-    "platformAccessHint": "Defina o e-mail e a senha iniciais para o cliente entrar. Depois, ela pode trocar a senha nas próprias configurações.",
+    "platformAccessHint": "Só este e-mail terá acesso ao cliente. Se trocar o e-mail, o anterior perde o acesso.",
     "loginEmail": "E-mail de login",
     "loginPassword": "Senha de acesso",
-    "loginPasswordHint": "Preencha para criar ou atualizar o acesso. Deixe em branco para só salvar os dados de contato.",
+    "loginPasswordHint": "Preencha para criar ou substituir o acesso. Deixe em branco para só salvar os dados de contato.",
     "accessCreated": "Acesso criado. Envie o e-mail e a senha para o cliente.",
-    "accessUpdated": "Acesso atualizado. Envie as novas credenciais para o cliente.",
+    "accessUpdated": "Acesso atualizado. Somente este e-mail entra neste cliente. Envie as novas credenciais.",
     "accessPasswordRequired": "Informe o e-mail de login junto com a senha para criar o acesso.",
     "brandKit": {
       "title": "Kit de marca",

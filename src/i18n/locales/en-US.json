@@ -35,8 +35,8 @@
   },
   "accessRelease": {
     "title": "Access release",
-    "description": "Create or update login and password for platform managers.",
-    "formTitle": "New or update manager",
+    "description": "Create new managers or reset passwords for those who already have access.",
+    "formTitle": "New manager",
     "fullName": "Full name",
     "fullNamePlaceholder": "Manager name",
     "email": "Login email",
@@ -47,9 +47,12 @@
     "empty": "No managers granted yet.",
     "created": "Manager access created. Share the email and password.",
     "updated": "Manager access updated.",
+    "passwordUpdated": "Password reset. Share the new password with the manager.",
     "roleAdministrator": "Administrator",
     "roleGestor": "Manager",
-    "resetPassword": "Reset password"
+    "resetPassword": "Reset password",
+    "newPassword": "New password",
+    "confirmReset": "Reset"
   },
   "landing": {
     "heroTitle": "From briefing to approval — no spreadsheet chaos.",
@@ -230,12 +233,12 @@
     "active": "Active",
     "archived": "Archived",
     "platformAccess": "Platform access",
-    "platformAccessHint": "Set the initial email and password for the client to sign in. They can change the password later in their own settings.",
+    "platformAccessHint": "Only this email will have access to the client. Changing the email revokes the previous one.",
     "loginEmail": "Login email",
     "loginPassword": "Access password",
-    "loginPasswordHint": "Fill in to create or update access. Leave blank to only save contact details.",
+    "loginPasswordHint": "Fill in to create or replace access. Leave blank to only save contact details.",
     "accessCreated": "Access created. Share the email and password with the client.",
-    "accessUpdated": "Access updated. Share the new credentials with the client.",
+    "accessUpdated": "Access updated. Only this email can sign in to this client. Share the new credentials.",
     "accessPasswordRequired": "Enter the login email together with the password to create access.",
     "brandKit": {
       "title": "Brand kit",
