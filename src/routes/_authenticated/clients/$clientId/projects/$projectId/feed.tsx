@@ -107,7 +107,7 @@ function ProjectFeedPage() {
   }
 
   return (
-    <div className="flex justify-center py-2">
+    <div className="flex min-w-0 justify-center overflow-x-clip py-2">
       <InstagramFeedMockup
         items={rows}
         clientId={clientId}

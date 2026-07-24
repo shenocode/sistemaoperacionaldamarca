@@ -168,8 +168,8 @@ export function ClientContentApprovalView({
   const busy = versionMutation.isPending || statusMutation.isPending;
 
   return (
-    <div className="-mx-8 -mt-6 min-h-[calc(100vh-8rem)] bg-gradient-to-b from-neutral-100 via-neutral-50 to-background">
-      <div className="mx-auto flex max-w-3xl flex-col px-4 pb-10 pt-4">
+    <div className="-mx-4 -mt-6 min-h-[calc(100vh-8rem)] bg-gradient-to-b from-neutral-100 via-neutral-50 to-background sm:-mx-6 md:-mx-8">
+      <div className="mx-auto flex max-w-3xl flex-col px-4 pb-10 pt-4 sm:px-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             to="/clients/$clientId/projects/$projectId/content"

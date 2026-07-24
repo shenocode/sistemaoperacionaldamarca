@@ -68,7 +68,7 @@ function ClientDetailPage() {
   const canManage = manageQuery.data ?? false;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <Link
         to="/clients"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"

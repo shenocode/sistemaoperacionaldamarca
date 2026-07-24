@@ -52,7 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const navClass =
     "flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent";
-  const navActiveClass = "bg-sidebar-accent text-sidebar-accent-foreground";
+  const navActiveClass =
+    "flex items-center gap-2 rounded-md bg-sidebar-accent px-3 py-2 text-sm text-sidebar-accent-foreground hover:bg-sidebar-accent";
 
   const navLinks = (
     <>
@@ -83,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               params={{ clientId: params.clientId!, projectId: params.projectId! }}
               search={{}}
               onClick={closeMobileNav}
-              className="flex items-center gap-2 rounded-md bg-sidebar-accent px-3 py-2 text-sm text-sidebar-accent-foreground hover:bg-sidebar-accent"
+              className={navActiveClass}
             >
               <FolderKanban className="h-4 w-4 shrink-0" />
               <span className="truncate">
