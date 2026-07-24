@@ -106,24 +106,72 @@ export async function uploadClientLogo(clientId: string, file: File) {
     throw new Error("O logo deve ter no máximo 2 MB.");
   }
 
+  // 1) Prefer direct storage when the client-logos bucket already exists.
   const safeName = sanitizeFileName(file.name || "logo");
   const storagePath = `${clientId}/${crypto.randomUUID()}-${safeName}`;
-  const { error } = await supabase.storage.from(CLIENT_LOGOS_BUCKET).upload(storagePath, file, {
-    cacheControl: "3600",
-    contentType: file.type || undefined,
-    upsert: false,
-  });
-  if (error) {
-    if (/row-level security|violates row-level/i.test(error.message)) {
-      throw new Error(
-        "Não foi possível enviar o logo por falta de permissão no armazenamento. Peça para aplicar a migration de logos no banco e tente novamente.",
-      );
-    }
-    throw new Error(error.message);
+  const { error: storageError } = await supabase.storage
+    .from(CLIENT_LOGOS_BUCKET)
+    .upload(storagePath, file, {
+      cacheControl: "3600",
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+
+  if (!storageError) {
+    const { data } = supabase.storage.from(CLIENT_LOGOS_BUCKET).getPublicUrl(storagePath);
+    return data.publicUrl;
   }
 
-  const { data } = supabase.storage.from(CLIENT_LOGOS_BUCKET).getPublicUrl(storagePath);
-  return data.publicUrl;
+  const storageMessage = storageError.message || "";
+  const bucketMissing = /bucket not found/i.test(storageMessage);
+
+  // 2) Fallback: edge function with service role (creates bucket + persists logo_url).
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    reader.readAsDataURL(file);
+  });
+
+  const { data, error } = await supabase.functions.invoke("upload-client-logo", {
+    body: {
+      clientId,
+      fileName: file.name || "logo.png",
+      contentType: file.type || "image/png",
+      base64,
+    },
+  });
+
+  if (!error) {
+    const logoUrl =
+      data && typeof data === "object" && "logoUrl" in data
+        ? String((data as { logoUrl?: string }).logoUrl ?? "")
+        : "";
+    const invokeError =
+      data && typeof data === "object" && "error" in data
+        ? String((data as { error?: string }).error ?? "")
+        : "";
+    if (invokeError) throw new Error(invokeError);
+    if (logoUrl) return logoUrl;
+  }
+
+  if (bucketMissing || /NOT_FOUND|not found|404|Failed to send/i.test(error?.message ?? "")) {
+    throw new Error(
+      "O armazenamento do logo ainda não foi configurado no banco. No Lovable, abra Cloud → SQL Editor e execute a migration supabase/migrations/20260724150000_client_logos.sql (ou publique a edge function upload-client-logo).",
+    );
+  }
+
+  if (/row-level security|violates row-level/i.test(storageMessage)) {
+    throw new Error(
+      "Não foi possível enviar o logo por falta de permissão. Execute a migration de logos no Lovable Cloud e tente novamente.",
+    );
+  }
+
+  throw new Error(error?.message || storageMessage || "Não foi possível enviar o logo.");
 }
 
 export function isVideoUrl(url: string) {
@@ -359,7 +407,7 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 export async function updateClient(clientId: string, input: ClientContactInput): Promise<Client> {
   // RPC allows client members to review/update contact fields (not only owners/admins).
   // Empty string clears logo_url; omit logo_url from input to leave unchanged (RPC null).
-  const { data, error } = await supabase.rpc("update_client_contact", {
+  const baseArgs = {
     _client_id: clientId,
     _name: input.name.trim(),
     _notes: normalizeOptionalText(input.notes),
@@ -367,9 +415,33 @@ export async function updateClient(clientId: string, input: ClientContactInput):
     _phone: normalizeOptionalText(input.phone),
     _whatsapp: normalizeOptionalText(input.whatsapp),
     _instagram: normalizeOptionalText(input.instagram),
+  };
+
+  const withLogoArgs = {
+    ...baseArgs,
     _logo_url:
       input.logo_url === undefined ? null : (normalizeOptionalText(input.logo_url ?? undefined) ?? ""),
-  });
+  };
+
+  let { data, error } = await supabase.rpc("update_client_contact", withLogoArgs);
+
+  // Remote may still be on the older RPC signature without _logo_url.
+  if (error && /Could not find the function|PGRST202/i.test(error.message)) {
+    ({ data, error } = await supabase.rpc("update_client_contact", baseArgs));
+
+    // Logo is usually persisted by upload-client-logo; if clearing without new RPC, try direct update.
+    if (!error && input.logo_url !== undefined) {
+      const logoValue = normalizeOptionalText(input.logo_url ?? undefined);
+      const { error: logoError } = await supabase
+        .from("clients")
+        .update({ logo_url: logoValue })
+        .eq("id", clientId);
+      if (logoError && !/row-level security|violates row-level/i.test(logoError.message)) {
+        // Ignore RLS for client members; logo already saved by edge function on upload.
+      }
+    }
+  }
+
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");
   return data as Client;

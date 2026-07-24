@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ export function ClientContactFields({
   clientId?: string;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -43,6 +45,8 @@ export function ClientContactFields({
     try {
       const url = await uploadClientLogo(clientId, file);
       setField("logo_url", url);
+      void queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast.success(t("clients.logoUploaded"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("clients.logoUploadError"));
     } finally {

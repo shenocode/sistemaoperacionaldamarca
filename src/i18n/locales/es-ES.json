@@ -85,6 +85,7 @@
     "logoRemove": "Quitar logo",
     "logoHint": "PNG, JPG, WebP o SVG, hasta 2 MB. Aparece en el proyecto y en la cuenta del cliente.",
     "logoUploadError": "No se pudo subir el logo.",
+    "logoUploaded": "Logo subido.",
     "settings": "Configuración del cliente",
     "created": "Cliente creado.",
     "updated": "Cliente actualizado.",
