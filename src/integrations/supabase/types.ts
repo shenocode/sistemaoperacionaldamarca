@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -110,6 +112,41 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: true
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_blocks: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_blocks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -233,41 +270,6 @@ export type Database = {
           },
         ]
       }
-      calendar_blocks: {
-        Row: {
-          created_at: string
-          id: string
-          project_id: string
-          sort_order: number
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          project_id: string
-          sort_order?: number
-          title?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          project_id?: string
-          sort_order?: number
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "calendar_blocks_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       content_items: {
         Row: {
           calendar_block_id: string | null
@@ -283,7 +285,6 @@ export type Database = {
           media_url: string | null
           media_urls: string[]
           project_id: string
-          roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
@@ -305,7 +306,6 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id: string
-          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -327,7 +327,6 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id?: string
-          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -366,7 +365,6 @@ export type Database = {
           locucao: string
           media_url: string | null
           media_urls: string[]
-          roteiro: string
           version_number: number
         }
         Insert: {
@@ -382,7 +380,6 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
-          roteiro?: string
           version_number: number
         }
         Update: {
@@ -398,7 +395,6 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
-          roteiro?: string
           version_number?: number
         }
         Relationships: [
@@ -573,7 +569,11 @@ export type Database = {
       can_manage_client: { Args: { _client_id: string }; Returns: boolean }
       can_manage_content: { Args: { _content_id: string }; Returns: boolean }
       can_manage_project: { Args: { _project_id: string }; Returns: boolean }
-      content_storage_project_id: { Args: { object_name: string }; Returns: string }
+      claim_client_access: { Args: { _access_token: string }; Returns: string }
+      content_storage_project_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -581,44 +581,79 @@ export type Database = {
         }
         Returns: boolean
       }
-      admin_get_user_id_by_email: {
-        Args: { _email: string }
-        Returns: string
-      }
-      get_client_platform_login: {
-        Args: { _client_id: string }
-        Returns: string
-      }
       is_admin: { Args: never; Returns: boolean }
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
-      library_storage_project_id: { Args: { object_name: string }; Returns: string }
-      claim_client_access: {
-        Args: { _access_token: string }
+      library_storage_project_id: {
+        Args: { object_name: string }
         Returns: string
       }
       save_client_content_version: {
         Args: {
-          _content_id: string
           _caption: string
+          _change_note?: string
+          _content_id: string
           _cta: string
           _hashtags: string
-          _change_note?: string | null
         }
-        Returns: Database["public"]["Tables"]["content_items"]["Row"]
+        Returns: {
+          calendar_block_id: string | null
+          caption: string
+          created_at: string
+          created_by: string | null
+          cta: string
+          current_version: number
+          format: Database["public"]["Enums"]["content_format"]
+          hashtags: string
+          id: string
+          locucao: string
+          media_url: string | null
+          media_urls: string[]
+          project_id: string
+          scheduled_at: string | null
+          sort_order: number
+          status: Database["public"]["Enums"]["content_status"]
+          theme: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "content_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_client_contact: {
         Args: {
           _client_id: string
+          _email?: string
+          _instagram?: string
           _name: string
-          _notes?: string | null
-          _email?: string | null
-          _phone?: string | null
-          _whatsapp?: string | null
-          _instagram?: string | null
-          _logo_url?: string | null
+          _notes?: string
+          _phone?: string
+          _whatsapp?: string
         }
-        Returns: Database["public"]["Tables"]["clients"]["Row"]
+        Returns: {
+          access_token: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          instagram: string | null
+          logo_url: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "clients"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
@@ -633,22 +668,22 @@ export type Database = {
         | "changes_requested"
         | "published"
         | "comment_added"
-      brand_briefing_status: "draft" | "in_progress" | "completed"
       app_role: "admin" | "client"
+      brand_briefing_status: "draft" | "in_progress" | "completed"
       client_member_role: "owner" | "member"
-      content_status:
-        | "draft"
-        | "waiting_material"
-        | "review"
-        | "approved"
-        | "changes"
-        | "published"
       content_format:
         | "static_feed"
         | "reels"
         | "stories"
         | "carousel"
         | "recorded_video"
+      content_status:
+        | "draft"
+        | "review"
+        | "approved"
+        | "changes"
+        | "published"
+        | "waiting_material"
       library_category:
         | "brand"
         | "pdfs"
@@ -666,7 +701,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof DatabaseWithoutInternals, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -796,23 +831,23 @@ export const Constants = {
         "published",
         "comment_added",
       ],
-      brand_briefing_status: ["draft", "in_progress", "completed"],
       app_role: ["admin", "client"],
+      brand_briefing_status: ["draft", "in_progress", "completed"],
       client_member_role: ["owner", "member"],
-      content_status: [
-        "draft",
-        "waiting_material",
-        "review",
-        "approved",
-        "changes",
-        "published",
-      ],
       content_format: [
         "static_feed",
         "reels",
         "stories",
         "carousel",
         "recorded_video",
+      ],
+      content_status: [
+        "draft",
+        "review",
+        "approved",
+        "changes",
+        "published",
+        "waiting_material",
       ],
       library_category: [
         "brand",
