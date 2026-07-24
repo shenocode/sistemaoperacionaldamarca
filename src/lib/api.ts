@@ -247,7 +247,45 @@ export type ClientProjectSummary = {
 export type ClientWithProjects = Client & {
   projects: ClientProjectSummary[];
   last_update_at: string | null;
+  /** Latest activity from a non-admin actor (approval, changes, comment, version). */
+  client_updates_at: string | null;
 };
+
+const CLIENT_UPDATE_ACTIVITY_TYPES: ActivityType[] = [
+  "approved",
+  "changes_requested",
+  "comment_added",
+  "version_created",
+];
+
+async function fetchLatestClientUpdatesByClient(): Promise<Map<string, string>> {
+  const [adminsRes, eventsRes] = await Promise.all([
+    supabase.from("user_roles").select("user_id").eq("role", "admin"),
+    supabase
+      .from("activity_events")
+      .select("client_id, actor_id, created_at")
+      .in("type", CLIENT_UPDATE_ACTIVITY_TYPES)
+      .not("client_id", "is", null)
+      .not("actor_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(500),
+  ]);
+
+  if (adminsRes.error) throw new Error(adminsRes.error.message);
+  if (eventsRes.error) throw new Error(eventsRes.error.message);
+
+  const adminIds = new Set((adminsRes.data ?? []).map((row) => row.user_id));
+  const latest = new Map<string, string>();
+
+  for (const event of eventsRes.data ?? []) {
+    if (!event.client_id || !event.actor_id) continue;
+    if (adminIds.has(event.actor_id)) continue;
+    if (latest.has(event.client_id)) continue;
+    latest.set(event.client_id, event.created_at);
+  }
+
+  return latest;
+}
 
 function maxIsoDate(dates: Array<string | null | undefined>): string | null {
   let max: string | null = null;
@@ -323,10 +361,11 @@ export async function claimClientAccess(accessToken: string): Promise<string> {
 }
 
 export async function listClients(): Promise<ClientWithProjects[]> {
-  const { data, error } = await supabase
-    .from("clients")
-    .select(
-      `
+  const [clientsRes, clientUpdates] = await Promise.all([
+    supabase
+      .from("clients")
+      .select(
+        `
       *,
       projects (
         id,
@@ -336,9 +375,13 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         library_assets ( created_at )
       )
     `,
-    )
-    .order("name", { ascending: true });
-  if (error) throw new Error(error.message);
+      )
+      .order("name", { ascending: true }),
+    fetchLatestClientUpdatesByClient(),
+  ]);
+
+  if (clientsRes.error) throw new Error(clientsRes.error.message);
+  const data = clientsRes.data;
 
   return (data ?? []).map((client) => {
     const projects: ClientProjectSummary[] = (client.projects ?? []).map(
@@ -374,6 +417,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
       ...(rest as Client),
       projects,
       last_update_at,
+      client_updates_at: clientUpdates.get(client.id) ?? null,
     };
   });
 }
@@ -1606,24 +1650,47 @@ export type AdminAiKeysStatus = {
   updatedAt?: string | null;
   openaiHelpUrl: string;
   geminiHelpUrl: string;
+  platformFallbackOpenAI?: boolean;
+  platformFallbackGemini?: boolean;
 };
 
-export async function getAdminAiKeysStatus(): Promise<AdminAiKeysStatus> {
-  const { data, error } = await supabase.functions.invoke("manage-admin-ai-keys", {
-    body: { action: "status" },
-  });
-  if (error) throw new Error(await readFunctionsInvokeError(error, data));
-  const payload = data as AdminAiKeysStatus & { error?: string };
-  if (payload?.error) throw new Error(payload.error);
+type ManageAdminAiKeysResponse = {
+  error?: string;
+  openai?: { configured?: boolean; last4?: string | null };
+  gemini?: { configured?: boolean; last4?: string | null };
+  platformFallback?: { openai?: boolean; gemini?: boolean };
+  updatedAt?: string | null;
+  // legacy flat shape (older local contract)
+  openaiConfigured?: boolean;
+  geminiConfigured?: boolean;
+  openaiLast4?: string | null;
+  geminiLast4?: string | null;
+  openaiHelpUrl?: string;
+  geminiHelpUrl?: string;
+};
+
+function mapAdminAiKeysStatus(payload: ManageAdminAiKeysResponse): AdminAiKeysStatus {
   return {
-    openaiConfigured: Boolean(payload.openaiConfigured),
-    geminiConfigured: Boolean(payload.geminiConfigured),
-    openaiLast4: payload.openaiLast4 ?? null,
-    geminiLast4: payload.geminiLast4 ?? null,
+    openaiConfigured: Boolean(payload.openai?.configured ?? payload.openaiConfigured),
+    geminiConfigured: Boolean(payload.gemini?.configured ?? payload.geminiConfigured),
+    openaiLast4: payload.openai?.last4 ?? payload.openaiLast4 ?? null,
+    geminiLast4: payload.gemini?.last4 ?? payload.geminiLast4 ?? null,
     updatedAt: payload.updatedAt ?? null,
     openaiHelpUrl: payload.openaiHelpUrl || "https://platform.openai.com/api-keys",
     geminiHelpUrl: payload.geminiHelpUrl || "https://aistudio.google.com/apikey",
+    platformFallbackOpenAI: Boolean(payload.platformFallback?.openai),
+    platformFallbackGemini: Boolean(payload.platformFallback?.gemini),
   };
+}
+
+export async function getAdminAiKeysStatus(): Promise<AdminAiKeysStatus> {
+  const { data, error } = await supabase.functions.invoke("manage-admin-ai-keys", {
+    body: { action: "get" },
+  });
+  if (error) throw new Error(await readFunctionsInvokeError(error, data));
+  const payload = data as ManageAdminAiKeysResponse;
+  if (payload?.error) throw new Error(payload.error);
+  return mapAdminAiKeysStatus(payload);
 }
 
 export async function saveAdminAiKeys(input: {
@@ -1632,26 +1699,32 @@ export async function saveAdminAiKeys(input: {
   clearOpenAI?: boolean;
   clearGemini?: boolean;
 }): Promise<AdminAiKeysStatus> {
-  const { data, error } = await supabase.functions.invoke("manage-admin-ai-keys", {
-    body: {
-      action: "upsert",
-      openaiKey: input.openaiKey?.trim() || undefined,
-      geminiKey: input.geminiKey?.trim() || undefined,
-      clearOpenAI: input.clearOpenAI || undefined,
-      clearGemini: input.clearGemini || undefined,
-    },
-  });
-  if (error) throw new Error(await readFunctionsInvokeError(error, data));
-  const payload = data as AdminAiKeysStatus & { error?: string };
-  if (payload?.error) throw new Error(payload.error);
-  return {
-    openaiConfigured: Boolean(payload.openaiConfigured),
-    geminiConfigured: Boolean(payload.geminiConfigured),
-    openaiLast4: payload.openaiLast4 ?? null,
-    geminiLast4: payload.geminiLast4 ?? null,
-    openaiHelpUrl: payload.openaiHelpUrl || "https://platform.openai.com/api-keys",
-    geminiHelpUrl: payload.geminiHelpUrl || "https://aistudio.google.com/apikey",
+  let last: ManageAdminAiKeysResponse | null = null;
+
+  const invoke = async (body: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke("manage-admin-ai-keys", { body });
+    if (error) throw new Error(await readFunctionsInvokeError(error, data));
+    const payload = data as ManageAdminAiKeysResponse;
+    if (payload?.error) throw new Error(payload.error);
+    last = payload;
   };
+
+  if (input.clearOpenAI) {
+    await invoke({ action: "delete", provider: "openai" });
+  } else if (input.openaiKey?.trim()) {
+    await invoke({ action: "save", provider: "openai", apiKey: input.openaiKey.trim() });
+  }
+
+  if (input.clearGemini) {
+    await invoke({ action: "delete", provider: "gemini" });
+  } else if (input.geminiKey?.trim()) {
+    await invoke({ action: "save", provider: "gemini", apiKey: input.geminiKey.trim() });
+  }
+
+  if (!last) {
+    return getAdminAiKeysStatus();
+  }
+  return mapAdminAiKeysStatus(last);
 }
 
 // —— Comments ——

@@ -2,12 +2,15 @@ import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { Settings } from "lucide-react";
+import { Flag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useUnreadClientUpdates } from "@/hooks/use-unread-client-updates";
 import type { ClientWithProjects } from "@/lib/api";
+import { markClientUpdatesSeen } from "@/lib/client-updates-seen";
 import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
 import type { LanguageCode } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 
@@ -25,9 +28,19 @@ export function ClientCard({
   const lastUpdateLabel = client.last_update_at
     ? format(new Date(client.last_update_at), "dd/MM/yyyy", { locale })
     : null;
+  const hasClientUpdates = useUnreadClientUpdates(client.id, client.client_updates_at);
+
+  function acknowledgeClientUpdates() {
+    markClientUpdatesSeen(client.id);
+  }
 
   return (
-    <Card className="relative rounded-xl transition-colors hover:bg-muted/40">
+    <Card
+      className={cn(
+        "relative rounded-xl transition-colors hover:bg-muted/40",
+        hasClientUpdates && "ring-1 ring-sky-500/40",
+      )}
+    >
       <CardContent className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3 pr-8">
           <div className="flex min-w-0 items-start gap-3">
@@ -38,10 +51,11 @@ export function ClientCard({
                 className="mt-0.5 h-10 w-10 shrink-0 rounded-full object-cover"
               />
             ) : null}
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0 space-y-1.5">
               <Link
                 to="/clients/$clientId"
                 params={{ clientId: client.id }}
+                onClick={acknowledgeClientUpdates}
                 className="block font-medium tracking-tight hover:underline"
               >
                 {clientName}
@@ -52,6 +66,12 @@ export function ClientCard({
                   locale,
                 })}
               </p>
+              {hasClientUpdates ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-sky-600 bg-sky-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  <Flag className="h-3 w-3" aria-hidden="true" />
+                  {t("clients.clientUpdates")}
+                </span>
+              ) : null}
             </div>
           </div>
           <Button
@@ -86,6 +106,7 @@ export function ClientCard({
                     <Link
                       to="/clients/$clientId/projects/$projectId/calendar"
                       params={{ clientId: client.id, projectId: project.id }}
+                      onClick={acknowledgeClientUpdates}
                     >
                       {t("clients.access")}
                     </Link>

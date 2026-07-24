@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { loadAdminAiKeys, resolveGeminiKey, resolveOpenAiKey } from "../_shared/admin-ai-keys.ts";
+import { missingKeyMessage, resolveAiKey } from "../_shared/admin-ai-keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -312,10 +312,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Apenas administradores podem usar o assistente de design" }, 403);
     }
 
-    const adminKeys = await loadAdminAiKeys(user.id);
-    const openaiKey = resolveOpenAiKey(adminKeys.openaiKey);
-    const geminiKey = resolveGeminiKey(adminKeys.geminiKey);
-
     const body = (await req.json()) as GenerateRequest;
     const provider = normalizeProvider(body.provider);
     const templateUrl = body.templateUrl?.trim() ?? "";
@@ -331,24 +327,11 @@ Deno.serve(async (req) => {
     if (!photoUrl) return jsonResponse({ error: "Informe a imagem da arte" }, 400);
     if (!overlayText) return jsonResponse({ error: "Informe o texto da arte" }, 400);
 
-    if (provider === "openai" && !openaiKey) {
-      return jsonResponse(
-        {
-          error:
-            "Configure sua OPENAI API key em Configurações → Chaves de IA (ou adicione OPENAI_API_KEY na plataforma).",
-        },
-        400,
-      );
+    const { apiKey, source: keySource } = await resolveAiKey(admin, user.id, provider);
+    if (!apiKey) {
+      return jsonResponse({ error: missingKeyMessage(provider) }, 400);
     }
-    if (provider === "gemini" && !geminiKey) {
-      return jsonResponse(
-        {
-          error:
-            "Configure sua GEMINI API key em Configurações → Chaves de IA (ou adicione GEMINI_API_KEY na plataforma).",
-        },
-        400,
-      );
-    }
+    void keySource;
 
     const [
       { data: content, error: contentError },
@@ -427,14 +410,14 @@ Deno.serve(async (req) => {
           prompt,
           templateImage,
           photoImage,
-          apiKey: geminiKey!,
+          apiKey,
         });
       } else {
         imageBytes = await generateWithOpenAI({
           prompt,
           templateImage,
           photoImage,
-          apiKey: openaiKey!,
+          apiKey,
         });
       }
     } catch (err) {

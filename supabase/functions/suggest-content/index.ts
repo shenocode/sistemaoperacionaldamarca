@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { loadAdminAiKeys, resolveOpenAiKey } from "../_shared/admin-ai-keys.ts";
+import { resolveAiKey } from "../_shared/admin-ai-keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
@@ -213,8 +214,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Apenas administradores podem usar o assistente" }, 403);
     }
 
-    const adminKeys = await loadAdminAiKeys(user.id);
-    const openaiKey = resolveOpenAiKey(adminKeys.openaiKey);
+    const { apiKey: openaiKey } = serviceRoleKey
+      ? await resolveAiKey(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
+      : { apiKey: Deno.env.get("OPENAI_API_KEY") ?? null };
     if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
       return jsonResponse(
         {

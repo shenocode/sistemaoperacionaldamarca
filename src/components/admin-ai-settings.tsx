@@ -65,11 +65,15 @@ export function AdminAiSettingsPage() {
 
       {statusQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-      ) : statusQuery.isError ? (
+      ) : null}
+
+      {statusQuery.isError ? (
         <p className="text-sm text-destructive">
           {(statusQuery.error as Error).message || t("adminAiSettings.loadError")}
         </p>
-      ) : (
+      ) : null}
+
+      {!statusQuery.isLoading ? (
         <form
           className="space-y-6"
           onSubmit={(e) => {
@@ -176,7 +180,7 @@ export function AdminAiSettingsPage() {
             {saveMutation.isPending ? t("common.saving") : t("common.save")}
           </Button>
         </form>
-      )}
+      ) : null}
     </div>
   );
 }

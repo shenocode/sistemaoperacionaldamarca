@@ -182,6 +182,7 @@
     "created": "Cliente criado.",
     "updated": "Cliente atualizado.",
     "lastUpdates": "Últimas atualizações",
+    "clientUpdates": "Atualizações do cliente",
     "access": "Acessar",
     "whatsappMessage": "Olá! Há atualizações disponíveis no projeto \"{{project}}\" ({{client}}) para sua revisão.\n\nAcesse pelo link abaixo (entre ou crie sua conta) para ver a prévia do feed:\n{{link}}",
     "whatsappMissing": "Cadastre o WhatsApp do cliente nas configurações para enviar atualizações.",

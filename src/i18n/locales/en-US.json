@@ -182,6 +182,7 @@
     "created": "Client created.",
     "updated": "Client updated.",
     "lastUpdates": "Latest updates",
+    "clientUpdates": "Client updates",
     "access": "Open",
     "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nUse the link below (sign in or create your account) to see the feed preview:\n{{link}}",
     "whatsappMissing": "Add the client's WhatsApp in settings before sending updates.",
