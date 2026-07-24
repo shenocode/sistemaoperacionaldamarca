@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveAiKey } from "../_shared/admin-ai-keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -118,9 +119,28 @@ function extractJsonObject(text: string): Record<string, unknown> {
   }
 }
 
-async function callChatModel(messages: Array<{ role: string; content: string }>) {
+async function callChatModel(
+  messages: Array<{ role: string; content: string }>,
+  openaiKey: string | null,
+) {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+
+  if (openaiKey) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
+    return { provider: "openai" as const, res };
+  }
 
   if (lovableKey) {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -138,23 +158,6 @@ async function callChatModel(messages: Array<{ role: string; content: string }>)
       }),
     });
     return { provider: "lovable" as const, res };
-  }
-
-  if (openaiKey) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-        messages,
-      }),
-    });
-    return { provider: "openai" as const, res };
   }
 
   return null;
@@ -176,7 +179,8 @@ Deno.serve(async (req) => {
     if (!supabaseUrl || !supabaseAnonKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
     }
-    if (!Deno.env.get("LOVABLE_API_KEY") && !Deno.env.get("OPENAI_API_KEY")) {
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!Deno.env.get("LOVABLE_API_KEY") && !Deno.env.get("OPENAI_API_KEY") && !serviceRoleKey) {
       return jsonResponse(
         { error: "Nenhuma chave de IA configurada (LOVABLE_API_KEY ou OPENAI_API_KEY)" },
         500,
@@ -304,10 +308,17 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n\n");
 
-    const chat = await callChatModel([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ]);
+    const { apiKey: openaiKey } = serviceRoleKey
+      ? await resolveAiKey(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
+      : { apiKey: Deno.env.get("OPENAI_API_KEY") ?? null };
+
+    const chat = await callChatModel(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      openaiKey,
+    );
     if (!chat) {
       return jsonResponse(
         { error: "Nenhuma chave de IA configurada (LOVABLE_API_KEY ou OPENAI_API_KEY)" },
