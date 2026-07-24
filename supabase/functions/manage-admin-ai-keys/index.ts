@@ -1,158 +1,125 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.1";
-import { encryptSecret } from "../_shared/ai-key-crypto.ts";
-import { corsHeaders, handleCors, jsonResponse } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { encryptApiKey, lastFour } from "../_shared/ai-key-crypto.ts";
 
-type UpsertBody = {
-  action?: "status" | "upsert";
-  openaiKey?: string;
-  geminiKey?: string;
-  clearOpenAI?: boolean;
-  clearGemini?: boolean;
+type Action = "get" | "save" | "delete";
+type Provider = "openai" | "gemini";
+
+type RequestBody = {
+  action?: Action;
+  provider?: Provider;
+  apiKey?: string;
 };
 
-function last4(value: string): string {
-  const cleaned = value.trim();
-  return cleaned.slice(-4);
-}
-
-function statusPayload(data: {
-  openai_key_last4: string | null;
-  gemini_key_last4: string | null;
-  updated_at?: string | null;
-} | null) {
-  return {
-    openaiConfigured: Boolean(data?.openai_key_last4),
-    geminiConfigured: Boolean(data?.gemini_key_last4),
-    openaiLast4: data?.openai_key_last4 ?? null,
-    geminiLast4: data?.gemini_key_last4 ?? null,
-    updatedAt: data?.updated_at ?? null,
-    openaiHelpUrl: "https://platform.openai.com/api-keys",
-    geminiHelpUrl: "https://aistudio.google.com/apikey",
-  };
+function normalizeProvider(value: unknown): Provider | null {
+  return value === "openai" || value === "gemini" ? value : null;
 }
 
 Deno.serve(async (req) => {
-  const cors = handleCors(req);
-  if (cors) return cors;
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
+      return jsonResponse({ error: "Supabase env missing" }, 500);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return jsonResponse({ error: "Não autenticado" }, 401);
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await userClient.auth.getUser(token);
-    if (userError || !userData.user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
-    }
-    const user = userData.user;
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !user) return jsonResponse({ error: "Não autenticado" }, 401);
 
-    const { data: isAdmin, error: adminError } = await userClient.rpc("is_admin");
-    if (adminError) {
-      return jsonResponse({ error: adminError.message }, 500);
-    }
+    const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
+    if (adminError) return jsonResponse({ error: adminError.message }, 500);
     if (!isAdmin) {
-      return jsonResponse({ error: "Only admins can manage AI keys" }, 403);
+      return jsonResponse({ error: "Apenas administradores podem gerenciar chaves de IA" }, 403);
     }
 
-    if (req.method === "GET") {
+    const body = (await req.json().catch(() => ({}))) as RequestBody;
+    const action = body.action ?? "get";
+
+    const readState = async () => {
       const { data, error } = await admin
         .from("admin_ai_credentials")
         .select("openai_key_last4, gemini_key_last4, updated_at")
         .eq("user_id", user.id)
         .maybeSingle();
-      if (error) return jsonResponse({ error: error.message }, 500);
-      return jsonResponse(statusPayload(data));
-    }
-
-    if (req.method !== "POST") {
-      return jsonResponse({ error: "Method not allowed" }, 405);
-    }
-
-    const body = (await req.json().catch(() => ({}))) as UpsertBody;
-    const wantsStatus =
-      body.action === "status" ||
-      (!body.action && !body.openaiKey && !body.geminiKey && !body.clearOpenAI && !body.clearGemini);
-
-    if (wantsStatus) {
-      const { data, error } = await admin
-        .from("admin_ai_credentials")
-        .select("openai_key_last4, gemini_key_last4, updated_at")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) return jsonResponse({ error: error.message }, 500);
-      return jsonResponse(statusPayload(data));
-    }
-
-    const openaiKey = typeof body.openaiKey === "string" ? body.openaiKey.trim() : "";
-    const geminiKey = typeof body.geminiKey === "string" ? body.geminiKey.trim() : "";
-
-    if (openaiKey && openaiKey.length < 20) {
-      return jsonResponse({ error: "OpenAI API key looks invalid" }, 400);
-    }
-    if (geminiKey && geminiKey.length < 20) {
-      return jsonResponse({ error: "Gemini API key looks invalid" }, 400);
-    }
-
-    if (!openaiKey && !geminiKey && !body.clearOpenAI && !body.clearGemini) {
-      return jsonResponse({ error: "Nothing to update" }, 400);
-    }
-
-    const { data: existing } = await admin
-      .from("admin_ai_credentials")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const next = {
-      user_id: user.id,
-      openai_key_ciphertext: existing?.openai_key_ciphertext ?? null,
-      gemini_key_ciphertext: existing?.gemini_key_ciphertext ?? null,
-      openai_key_last4: existing?.openai_key_last4 ?? null,
-      gemini_key_last4: existing?.gemini_key_last4 ?? null,
-      updated_at: new Date().toISOString(),
+      if (error) throw new Error(error.message);
+      return {
+        openai: {
+          configured: Boolean(data?.openai_key_last4),
+          last4: data?.openai_key_last4 ?? null,
+        },
+        gemini: {
+          configured: Boolean(data?.gemini_key_last4),
+          last4: data?.gemini_key_last4 ?? null,
+        },
+        platformFallback: {
+          openai: Boolean(Deno.env.get("OPENAI_API_KEY")),
+          gemini: Boolean(Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY")),
+        },
+        encryptionConfigured: Boolean(Deno.env.get("AI_KEYS_ENCRYPTION_SECRET")),
+        updatedAt: data?.updated_at ?? null,
+      };
     };
 
-    if (body.clearOpenAI) {
-      next.openai_key_ciphertext = null;
-      next.openai_key_last4 = null;
-    } else if (openaiKey) {
-      next.openai_key_ciphertext = await encryptSecret(openaiKey);
-      next.openai_key_last4 = last4(openaiKey);
+    if (action === "get") {
+      return jsonResponse(await readState());
     }
 
-    if (body.clearGemini) {
-      next.gemini_key_ciphertext = null;
-      next.gemini_key_last4 = null;
-    } else if (geminiKey) {
-      next.gemini_key_ciphertext = await encryptSecret(geminiKey);
-      next.gemini_key_last4 = last4(geminiKey);
+    const provider = normalizeProvider(body.provider);
+    if (!provider) return jsonResponse({ error: "Provedor inválido" }, 400);
+
+    if (action === "delete") {
+      const patch = provider === "openai"
+        ? { openai_key_ciphertext: null, openai_key_last4: null }
+        : { gemini_key_ciphertext: null, gemini_key_last4: null };
+      const { error } = await admin
+        .from("admin_ai_credentials")
+        .upsert({ user_id: user.id, ...patch, updated_at: new Date().toISOString() }, {
+          onConflict: "user_id",
+        });
+      if (error) return jsonResponse({ error: error.message }, 500);
+      return jsonResponse(await readState());
     }
 
-    const { data, error } = await admin
-      .from("admin_ai_credentials")
-      .upsert(next, { onConflict: "user_id" })
-      .select("openai_key_last4, gemini_key_last4, updated_at")
-      .single();
+    if (action === "save") {
+      const apiKey = body.apiKey?.trim() ?? "";
+      if (apiKey.length < 12) return jsonResponse({ error: "Chave de API inválida" }, 400);
 
-    if (error) return jsonResponse({ error: error.message }, 500);
+      const ciphertext = await encryptApiKey(apiKey);
+      const patch = provider === "openai"
+        ? { openai_key_ciphertext: ciphertext, openai_key_last4: lastFour(apiKey) }
+        : { gemini_key_ciphertext: ciphertext, gemini_key_last4: lastFour(apiKey) };
 
-    return jsonResponse(statusPayload(data));
+      const { error } = await admin
+        .from("admin_ai_credentials")
+        .upsert({ user_id: user.id, ...patch, updated_at: new Date().toISOString() }, {
+          onConflict: "user_id",
+        });
+      if (error) return jsonResponse({ error: error.message }, 500);
+      return jsonResponse(await readState());
+    }
+
+    return jsonResponse({ error: "Ação inválida" }, 400);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error(error);
+    return jsonResponse({ error: error instanceof Error ? error.message : "Erro interno" }, 500);
   }
 });

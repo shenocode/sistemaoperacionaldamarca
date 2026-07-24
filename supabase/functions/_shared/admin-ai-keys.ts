@@ -1,61 +1,61 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { decryptSecret } from "./ai-key-crypto.ts";
+// Resolves which AI API key to use for a request:
+// 1) the admin's own key saved in Configurações → Chaves de IA
+// 2) fallback to the platform secret (OPENAI_API_KEY / GEMINI_API_KEY)
 
-export type AdminAiKeys = {
-  openaiKey: string | null;
-  geminiKey: string | null;
+import { decryptApiKey } from "./ai-key-crypto.ts";
+
+export type AiProvider = "openai" | "gemini";
+
+type SupabaseLike = {
+  from: (table: string) => {
+    select: (cols: string) => {
+      eq: (col: string, value: string) => {
+        maybeSingle: () => Promise<{ data: Record<string, unknown> | null; error: unknown }>;
+      };
+    };
+  };
 };
 
-/** Load and decrypt the caller's AI keys (service role). */
-export async function loadAdminAiKeys(userId: string): Promise<AdminAiKeys> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
-    return { openaiKey: null, geminiKey: null };
+export type ResolvedKey = {
+  apiKey: string | null;
+  source: "admin" | "platform" | "none";
+};
+
+function platformKey(provider: AiProvider): string | null {
+  if (provider === "gemini") {
+    return Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || null;
   }
-
-  const admin = createClient(supabaseUrl, serviceRoleKey);
-  const { data, error } = await admin
-    .from("admin_ai_credentials")
-    .select("openai_key_ciphertext, gemini_key_ciphertext")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error || !data) {
-    return { openaiKey: null, geminiKey: null };
-  }
-
-  let openaiKey: string | null = null;
-  let geminiKey: string | null = null;
-
-  try {
-    if (data.openai_key_ciphertext) {
-      openaiKey = await decryptSecret(data.openai_key_ciphertext);
-    }
-  } catch (err) {
-    console.error("Failed to decrypt OpenAI key", err);
-  }
-
-  try {
-    if (data.gemini_key_ciphertext) {
-      geminiKey = await decryptSecret(data.gemini_key_ciphertext);
-    }
-  } catch (err) {
-    console.error("Failed to decrypt Gemini key", err);
-  }
-
-  return { openaiKey, geminiKey };
+  return Deno.env.get("OPENAI_API_KEY") || null;
 }
 
-export function resolveOpenAiKey(userKey: string | null): string | null {
-  return userKey?.trim() || Deno.env.get("OPENAI_API_KEY") || null;
+export async function resolveAiKey(
+  admin: SupabaseLike,
+  userId: string,
+  provider: AiProvider,
+): Promise<ResolvedKey> {
+  try {
+    const { data } = await admin
+      .from("admin_ai_credentials")
+      .select("openai_key_ciphertext, gemini_key_ciphertext")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const ciphertext = (
+      provider === "gemini" ? data?.gemini_key_ciphertext : data?.openai_key_ciphertext
+    ) as string | null | undefined;
+
+    const own = await decryptApiKey(ciphertext);
+    if (own) return { apiKey: own, source: "admin" };
+  } catch (error) {
+    console.error("resolveAiKey lookup failed:", error);
+  }
+
+  const fallback = platformKey(provider);
+  return fallback ? { apiKey: fallback, source: "platform" } : { apiKey: null, source: "none" };
 }
 
-export function resolveGeminiKey(userKey: string | null): string | null {
-  return (
-    userKey?.trim() ||
-    Deno.env.get("GEMINI_API_KEY") ||
-    Deno.env.get("GOOGLE_API_KEY") ||
-    null
-  );
+export function missingKeyMessage(provider: AiProvider): string {
+  return provider === "gemini"
+    ? "Nenhuma chave Gemini disponível. Salve a sua chave em Configurações → Chaves de IA."
+    : "Nenhuma chave OpenAI disponível. Salve a sua chave em Configurações → Chaves de IA.";
 }

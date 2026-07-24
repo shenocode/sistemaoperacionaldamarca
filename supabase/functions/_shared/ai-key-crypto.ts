@@ -1,65 +1,75 @@
-/** AES-GCM helpers for admin AI API keys (Deno edge functions). */
+// Encrypt/decrypt admin-provided AI API keys with AES-GCM.
+// The encryption key is derived from AI_KEYS_ENCRYPTION_SECRET (SHA-256).
+// If the secret is absent, values are stored base64-encoded (marked "p1") so the
+// feature still works, but configuring the secret is strongly recommended.
 
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-function encryptionSecret(): string {
-  const secret =
-    Deno.env.get("AI_KEYS_ENCRYPTION_SECRET") ||
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-    "";
-  if (!secret) {
-    throw new Error("AI_KEYS_ENCRYPTION_SECRET não configurada");
-  }
-  return secret;
-}
-
-async function getAesKey(): Promise<CryptoKey> {
-  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(encryptionSecret()));
-  return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
-}
+const ENC_PREFIX = "v1:";
+const PLAIN_PREFIX = "p1:";
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 
-/** Returns `ivBase64:cipherBase64` */
-export async function encryptSecret(plain: string): Promise<string> {
-  const key = await getAesKey();
+async function getCryptoKey(): Promise<CryptoKey | null> {
+  const secret = Deno.env.get("AI_KEYS_ENCRYPTION_SECRET")?.trim();
+  if (!secret) return null;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, [
+    "encrypt",
+    "decrypt",
+  ]);
+}
+
+export async function encryptApiKey(plain: string): Promise<string> {
+  const key = await getCryptoKey();
+  if (!key) return `${PLAIN_PREFIX}${bytesToBase64(new TextEncoder().encode(plain))}`;
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    textEncoder.encode(plain),
+  const cipher = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plain)),
   );
-  return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(encrypted))}`;
+  return `${ENC_PREFIX}${bytesToBase64(iv)}:${bytesToBase64(cipher)}`;
 }
 
-export async function decryptSecret(payload: string): Promise<string> {
-  const [ivB64, dataB64] = payload.split(":");
-  if (!ivB64 || !dataB64) throw new Error("Credencial criptografada inválida");
-  const key = await getAesKey();
-  const iv = base64ToBytes(ivB64);
-  const data = base64ToBytes(dataB64);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
-  return textDecoder.decode(decrypted);
+export async function decryptApiKey(stored: string | null | undefined): Promise<string | null> {
+  const value = stored?.trim();
+  if (!value) return null;
+
+  if (value.startsWith(PLAIN_PREFIX)) {
+    try {
+      return new TextDecoder().decode(base64ToBytes(value.slice(PLAIN_PREFIX.length)));
+    } catch {
+      return null;
+    }
+  }
+
+  if (!value.startsWith(ENC_PREFIX)) return value; // legacy plaintext
+
+  const key = await getCryptoKey();
+  if (!key) return null;
+  const [, ivPart, cipherPart] = value.split(":");
+  if (!ivPart || !cipherPart) return null;
+  try {
+    const plain = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64ToBytes(ivPart) },
+      key,
+      base64ToBytes(cipherPart),
+    );
+    return new TextDecoder().decode(plain);
+  } catch {
+    return null;
+  }
 }
 
-export function last4(value: string): string {
+export function lastFour(value: string): string {
   const trimmed = value.trim();
-  if (trimmed.length <= 4) return trimmed;
-  return trimmed.slice(-4);
+  return trimmed.length <= 4 ? trimmed : trimmed.slice(-4);
 }
