@@ -112,13 +112,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
     }
-    if (!openaiKey) {
-      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
+    if (!lovableApiKey) {
+      return jsonResponse({ error: "LOVABLE_API_KEY não configurada" }, 500);
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -242,14 +242,15 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n\n");
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const gatewayRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${openaiKey}`,
+        "Lovable-API-Key": lovableApiKey,
+        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+        model: Deno.env.get("AI_MODEL") || "openai/gpt-5.4-mini",
         temperature: 0.7,
         response_format: { type: "json_object" },
         messages: [
@@ -259,16 +260,16 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      console.error("OpenAI error:", errText);
+    if (!gatewayRes.ok) {
+      const errText = await gatewayRes.text();
+      console.error("Lovable AI gateway error:", errText);
       return jsonResponse({ error: "Falha ao gerar sugestão com a IA" }, 502);
     }
 
-    const openaiJson = (await openaiRes.json()) as {
+    const gatewayJson = (await gatewayRes.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
-    const contentText = openaiJson.choices?.[0]?.message?.content ?? "";
+    const contentText = gatewayJson.choices?.[0]?.message?.content ?? "";
     let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(contentText) as Record<string, unknown>;
