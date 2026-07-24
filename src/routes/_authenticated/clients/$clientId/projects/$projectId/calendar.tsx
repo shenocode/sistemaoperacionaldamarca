@@ -83,6 +83,10 @@ import {
   translateTextField,
   type RowI18n,
 } from "@/lib/i18n-content";
+import {
+  readCollapsedCalendarBlockIds,
+  writeCollapsedCalendarBlockIds,
+} from "@/lib/calendar-block-collapsed";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
 
@@ -148,7 +152,7 @@ function CalendarTitleCell({
 
   return (
     <Input
-      className="h-8 min-w-[12rem] font-medium"
+      className="h-8 w-full min-w-0 font-medium md:min-w-[12rem]"
       value={value}
       disabled={disabled}
       onChange={(e) => setValue(e.target.value)}
@@ -282,7 +286,13 @@ function ProjectCalendarPage() {
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
   const [dragState, setDragState] = useState<{ blockKey: string; index: number } | null>(null);
   const [dropState, setDropState] = useState<{ blockKey: string; index: number } | null>(null);
-  const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(() => new Set());
+  const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(() =>
+    readCollapsedCalendarBlockIds(projectId),
+  );
+
+  useEffect(() => {
+    setCollapsedBlockIds(readCollapsedCalendarBlockIds(projectId));
+  }, [projectId]);
 
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
 
@@ -436,7 +446,7 @@ function ProjectCalendarPage() {
     event.dataTransfer.setData("text/plain", `${blockKey}:${index}`);
   };
 
-  const onDragOver = (blockKey: string, index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+  const onDragOver = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     if (dropState?.blockKey !== blockKey || dropState.index !== index) {
@@ -444,7 +454,7 @@ function ProjectCalendarPage() {
     }
   };
 
-  const onDrop = (blockKey: string, index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+  const onDrop = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     const raw = event.dataTransfer.getData("text/plain");
     const [fromBlock, fromIndexRaw] = raw.includes(":")
@@ -553,165 +563,184 @@ function ProjectCalendarPage() {
     reorderMutation.isPending ||
     updateBlockTitleMutation.isPending;
 
+  const renderDatetimeField = (row: ContentItem, className?: string) => (
+    <Input
+      type="datetime-local"
+      className={cn("h-8 min-w-0", className)}
+      value={toDatetimeLocalValue(row.scheduled_at)}
+      disabled={!canEdit || isBusy}
+      onChange={(e) => {
+        updateMutation.mutate({
+          contentId: row.id,
+          scheduledAt: fromDatetimeLocalValue(e.target.value),
+        });
+      }}
+    />
+  );
+
+  const renderFormatField = (row: ContentItem, rowFormat: ContentFormat, className?: string) => (
+    <Select
+      value={rowFormat}
+      disabled={!canEdit || isBusy}
+      onValueChange={(value) => {
+        updateMutation.mutate({
+          contentId: row.id,
+          format: value as ContentFormat,
+        });
+      }}
+    >
+      <SelectTrigger
+        className={cn(
+          "h-8 border text-xs font-medium shadow-sm focus:ring-1 [&>span]:min-w-0 [&>span]:truncate [&>svg]:shrink-0",
+          contentFormatStyles[rowFormat],
+          className,
+        )}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {CONTENT_FORMATS.map((formatKey) => (
+          <SelectItem key={formatKey} value={formatKey}>
+            <span className="inline-flex items-center gap-2">
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 shrink-0 rounded-full border",
+                  contentFormatStyles[formatKey],
+                )}
+                aria-hidden="true"
+              />
+              {t(`project.detail.formats.${formatKey}`)}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const renderThemeField = (row: ContentItem, className?: string) => (
+    <Select
+      value={row.theme?.trim() || NONE_VALUE}
+      disabled={!canEdit || isBusy}
+      onValueChange={(value) => {
+        if (value === NEW_THEME_VALUE) {
+          setThemeDialogContentId(row.id);
+          setNewTheme("");
+          return;
+        }
+        updateMutation.mutate({
+          contentId: row.id,
+          theme: value === NONE_VALUE ? null : value,
+        });
+      }}
+    >
+      <SelectTrigger className={cn("h-8 [&>span]:min-w-0 [&>span]:truncate [&>svg]:shrink-0", className)}>
+        <SelectValue placeholder={t("project.calendar.selectTheme")} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE_VALUE}>{t("project.calendar.noTheme")}</SelectItem>
+        {themeOptions.map((theme) => (
+          <SelectItem key={theme} value={theme}>
+            {theme}
+          </SelectItem>
+        ))}
+        {canEdit ? (
+          <SelectItem value={NEW_THEME_VALUE}>{t("project.calendar.newTheme")}</SelectItem>
+        ) : null}
+      </SelectContent>
+    </Select>
+  );
+
+  const renderRowActions = (row: ContentItem) => (
+    <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
+      <Button asChild variant="outline" size="sm">
+        <Link
+          to="/clients/$clientId/projects/$projectId/content/$contentId"
+          params={{ clientId, projectId, contentId: row.id }}
+          search={{}}
+        >
+          <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+          {t("project.calendar.access")}
+        </Link>
+      </Button>
+      {canEdit ? (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy}
+            title={t("project.calendar.duplicateHint")}
+            onClick={() => duplicateMutation.mutate(row.id)}
+          >
+            <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            {t("project.calendar.duplicate")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy}
+            className="text-destructive hover:text-destructive"
+            title={t("project.calendar.deleteHint")}
+            onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            {t("project.calendar.delete")}
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
+
   const renderBlockTable = (blockKey: string, blockRows: ContentItem[]) => {
     const canReorder = canEdit && blockRows.length > 1;
 
     return (
-      <div className="overflow-x-auto overscroll-x-contain">
-        <table className="w-full min-w-[920px] text-sm">
-          <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-3 py-3">#</th>
-              <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
-              <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
-              <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
-              <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
-              <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
-              <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
-              <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {blockRows.map((row, index) => {
-              const scheduled = row.scheduled_at ? new Date(row.scheduled_at) : null;
-              const dayLabel =
-                scheduled && !Number.isNaN(scheduled.getTime())
-                  ? format(scheduled, "EEEE", { locale })
-                  : "—";
-              const rowFormat = (row.format ?? "static_feed") as ContentFormat;
+      <>
+        <div className="space-y-3 p-3 md:hidden">
+          {blockRows.map((row, index) => {
+            const scheduled = row.scheduled_at ? new Date(row.scheduled_at) : null;
+            const dayLabel =
+              scheduled && !Number.isNaN(scheduled.getTime())
+                ? format(scheduled, "EEEE", { locale })
+                : "—";
+            const rowFormat = (row.format ?? "static_feed") as ContentFormat;
 
-              return (
-                <tr
-                  key={row.id}
-                  onDragOver={canReorder ? onDragOver(blockKey, index) : undefined}
-                  onDrop={canReorder ? onDrop(blockKey, index) : undefined}
-                  className={cn(
-                    contentFormatRowStyles[rowFormat],
-                    "hover:brightness-[0.98]",
-                    dragState?.blockKey === blockKey && dragState.index === index && "opacity-50",
-                    dropState?.blockKey === blockKey &&
-                      dropState.index === index &&
-                      dragState !== null &&
-                      !(dragState.blockKey === blockKey && dragState.index === index) &&
-                      "bg-muted",
-                  )}
-                >
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      {canReorder ? (
-                        <span
-                          draggable
-                          onDragStart={onDragStart(blockKey, index)}
-                          onDragEnd={onDragEnd}
-                          className="inline-flex shrink-0 cursor-grab touch-none text-foreground/55 hover:text-foreground active:cursor-grabbing"
-                          aria-label={t("project.calendar.dragHandle")}
-                          title={t("project.calendar.dragHandle")}
-                          role="button"
-                          tabIndex={0}
-                        >
-                          <GripVertical className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                      ) : null}
-                      <span className="text-muted-foreground">{index + 1}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2.5 capitalize text-muted-foreground">{dayLabel}</td>
-                  <td className="px-3 py-2.5">
-                    <Input
-                      type="datetime-local"
-                      className="h-8 w-[11.5rem]"
-                      value={toDatetimeLocalValue(row.scheduled_at)}
-                      disabled={!canEdit || isBusy}
-                      onChange={(e) => {
-                        updateMutation.mutate({
-                          contentId: row.id,
-                          scheduledAt: fromDatetimeLocalValue(e.target.value),
-                        });
-                      }}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <ContentStatusSelect
-                      status={row.status as ContentStatus}
-                      contentId={row.id}
-                      clientId={clientId}
-                      projectId={projectId}
-                      title={row.title}
-                      disabled={!canEdit || isBusy}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <Select
-                      value={rowFormat}
-                      disabled={!canEdit || isBusy}
-                      onValueChange={(value) => {
-                        updateMutation.mutate({
-                          contentId: row.id,
-                          format: value as ContentFormat,
-                        });
-                      }}
-                    >
-                      <SelectTrigger
-                        className={cn(
-                          "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1",
-                          contentFormatStyles[rowFormat],
-                        )}
+            return (
+              <div
+                key={row.id}
+                onDragOver={canReorder ? onDragOver(blockKey, index) : undefined}
+                onDrop={canReorder ? onDrop(blockKey, index) : undefined}
+                className={cn(
+                  contentFormatRowStyles[rowFormat],
+                  "space-y-3 rounded-lg border p-3",
+                  dragState?.blockKey === blockKey && dragState.index === index && "opacity-50",
+                  dropState?.blockKey === blockKey &&
+                    dropState.index === index &&
+                    dragState !== null &&
+                    !(dragState.blockKey === blockKey && dragState.index === index) &&
+                    "bg-muted",
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5 pt-1">
+                    {canReorder ? (
+                      <span
+                        draggable
+                        onDragStart={onDragStart(blockKey, index)}
+                        onDragEnd={onDragEnd}
+                        className="inline-flex cursor-grab touch-none text-foreground/55 hover:text-foreground active:cursor-grabbing"
+                        aria-label={t("project.calendar.dragHandle")}
+                        title={t("project.calendar.dragHandle")}
+                        role="button"
+                        tabIndex={0}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CONTENT_FORMATS.map((formatKey) => (
-                          <SelectItem key={formatKey} value={formatKey}>
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className={cn(
-                                  "h-2.5 w-2.5 shrink-0 rounded-full border",
-                                  contentFormatStyles[formatKey],
-                                )}
-                                aria-hidden="true"
-                              />
-                              {t(`project.detail.formats.${formatKey}`)}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <Select
-                      value={row.theme?.trim() || NONE_VALUE}
-                      disabled={!canEdit || isBusy}
-                      onValueChange={(value) => {
-                        if (value === NEW_THEME_VALUE) {
-                          setThemeDialogContentId(row.id);
-                          setNewTheme("");
-                          return;
-                        }
-                        updateMutation.mutate({
-                          contentId: row.id,
-                          theme: value === NONE_VALUE ? null : value,
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="h-8 w-[10.5rem]">
-                        <SelectValue placeholder={t("project.calendar.selectTheme")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE_VALUE}>{t("project.calendar.noTheme")}</SelectItem>
-                        {themeOptions.map((theme) => (
-                          <SelectItem key={theme} value={theme}>
-                            {theme}
-                          </SelectItem>
-                        ))}
-                        {canEdit ? (
-                          <SelectItem value={NEW_THEME_VALUE}>
-                            {t("project.calendar.newTheme")}
-                          </SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-3 py-2.5">
+                        <GripVertical className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                    ) : null}
+                    <span className="text-xs text-muted-foreground">{index + 1}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
                     <CalendarTitleCell
                       title={row.title}
                       disabled={!canEdit || isBusy}
@@ -722,54 +751,146 @@ function ProjectCalendarPage() {
                         });
                       }}
                     />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button asChild variant="outline" size="sm">
-                        <Link
-                          to="/clients/$clientId/projects/$projectId/content/$contentId"
-                          params={{ clientId, projectId, contentId: row.id }}
-                          search={{}}
-                        >
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                          {t("project.calendar.access")}
-                        </Link>
-                      </Button>
-                      {canEdit ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isBusy}
-                            title={t("project.calendar.duplicateHint")}
-                            onClick={() => duplicateMutation.mutate(row.id)}
-                          >
-                            <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                            {t("project.calendar.duplicate")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isBusy}
-                            className="text-destructive hover:text-destructive"
-                            title={t("project.calendar.deleteHint")}
-                            onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
-                          >
-                            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                            {t("project.calendar.delete")}
-                          </Button>
-                        </>
-                      ) : null}
+                    <p className="mt-1 text-xs capitalize text-muted-foreground">{dayLabel}</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      {t("project.calendar.columns.datetime")}
+                    </Label>
+                    {renderDatetimeField(row, "w-full")}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      {t("project.calendar.columns.status")}
+                    </Label>
+                    <ContentStatusSelect
+                      status={row.status as ContentStatus}
+                      contentId={row.id}
+                      clientId={clientId}
+                      projectId={projectId}
+                      title={row.title}
+                      disabled={!canEdit || isBusy}
+                      className="w-full max-w-none"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="min-w-0 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        {t("project.calendar.columns.format")}
+                      </Label>
+                      {renderFormatField(row, rowFormat, "w-full")}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    <div className="min-w-0 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        {t("project.calendar.columns.theme")}
+                      </Label>
+                      {renderThemeField(row, "w-full")}
+                    </div>
+                  </div>
+                </div>
+
+                {renderRowActions(row)}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto overscroll-x-contain md:block">
+          <table className="w-full min-w-[980px] text-sm">
+            <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-3">#</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
+                <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {blockRows.map((row, index) => {
+                const scheduled = row.scheduled_at ? new Date(row.scheduled_at) : null;
+                const dayLabel =
+                  scheduled && !Number.isNaN(scheduled.getTime())
+                    ? format(scheduled, "EEEE", { locale })
+                    : "—";
+                const rowFormat = (row.format ?? "static_feed") as ContentFormat;
+
+                return (
+                  <tr
+                    key={row.id}
+                    onDragOver={canReorder ? onDragOver(blockKey, index) : undefined}
+                    onDrop={canReorder ? onDrop(blockKey, index) : undefined}
+                    className={cn(
+                      contentFormatRowStyles[rowFormat],
+                      "hover:brightness-[0.98]",
+                      dragState?.blockKey === blockKey && dragState.index === index && "opacity-50",
+                      dropState?.blockKey === blockKey &&
+                        dropState.index === index &&
+                        dragState !== null &&
+                        !(dragState.blockKey === blockKey && dragState.index === index) &&
+                        "bg-muted",
+                    )}
+                  >
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        {canReorder ? (
+                          <span
+                            draggable
+                            onDragStart={onDragStart(blockKey, index)}
+                            onDragEnd={onDragEnd}
+                            className="inline-flex shrink-0 cursor-grab touch-none text-foreground/55 hover:text-foreground active:cursor-grabbing"
+                            aria-label={t("project.calendar.dragHandle")}
+                            title={t("project.calendar.dragHandle")}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <GripVertical className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                        ) : null}
+                        <span className="text-muted-foreground">{index + 1}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 capitalize text-muted-foreground">{dayLabel}</td>
+                    <td className="px-3 py-2.5">{renderDatetimeField(row, "w-[14rem]")}</td>
+                    <td className="px-3 py-2.5">
+                      <ContentStatusSelect
+                        status={row.status as ContentStatus}
+                        contentId={row.id}
+                        clientId={clientId}
+                        projectId={projectId}
+                        title={row.title}
+                        disabled={!canEdit || isBusy}
+                        className="w-[13.5rem] max-w-[13.5rem]"
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">{renderFormatField(row, rowFormat, "w-[9.5rem]")}</td>
+                    <td className="px-3 py-2.5">{renderThemeField(row, "w-[10.5rem]")}</td>
+                    <td className="px-3 py-2.5">
+                      <CalendarTitleCell
+                        title={row.title}
+                        disabled={!canEdit || isBusy}
+                        onSave={(nextTitle) => {
+                          updateMutation.mutate({
+                            contentId: row.id,
+                            title: nextTitle,
+                          });
+                        }}
+                      />
+                    </td>
+                    <td className="px-3 py-2.5">{renderRowActions(row)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </>
     );
   };
 
@@ -778,6 +899,7 @@ function ProjectCalendarPage() {
       const next = new Set(prev);
       if (next.has(blockId)) next.delete(blockId);
       else next.add(blockId);
+      writeCollapsedCalendarBlockIds(projectId, next);
       return next;
     });
   };

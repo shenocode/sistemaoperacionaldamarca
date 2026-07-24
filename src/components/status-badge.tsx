@@ -45,8 +45,8 @@ export function StatusBadge({
       className={cn(
         "inline-flex items-center justify-center border font-medium",
         asButton
-          ? "h-8 rounded-md px-3 text-xs shadow-sm"
-          : "rounded-full px-2.5 py-0.5 text-xs",
+          ? "h-8 max-w-full truncate rounded-md px-3 text-xs shadow-sm"
+          : "max-w-full truncate rounded-full px-2.5 py-0.5 text-xs",
         contentStatusStyles[status],
         className,
       )}
