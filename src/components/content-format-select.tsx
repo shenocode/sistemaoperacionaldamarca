@@ -28,7 +28,7 @@ export function ContentFormatSelect({
     return (
       <span
         className={cn(
-          "inline-flex h-8 w-[9.5rem] items-center rounded-md border px-3 text-xs font-medium shadow-sm",
+          "inline-flex h-8 w-full min-w-0 max-w-full items-center overflow-hidden truncate rounded-md border px-3 text-xs font-medium shadow-sm",
           contentFormatStyles[format],
           className,
         )}
@@ -48,7 +48,7 @@ export function ContentFormatSelect({
       <SelectTrigger
         aria-label={t("project.calendar.columns.format")}
         className={cn(
-          "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1 disabled:opacity-100",
+          "h-8 w-full min-w-0 border text-xs font-medium shadow-sm focus:ring-1 disabled:opacity-100 [&>span]:min-w-0 [&>span]:truncate [&>svg]:shrink-0",
           contentFormatStyles[format],
           className,
         )}

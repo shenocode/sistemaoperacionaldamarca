@@ -197,14 +197,14 @@ function ContentListPage() {
     event.dataTransfer.setData("text/plain", String(index));
   };
 
-  const onDragOver = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+  const onDragOver = (index: number) => (event: DragEvent<HTMLElement>) => {
     if (!canReorder) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     if (dropIndex !== index) setDropIndex(index);
   };
 
-  const onDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+  const onDrop = (index: number) => (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     if (!canReorder) return;
     const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
@@ -239,7 +239,7 @@ function ContentListPage() {
             : t("common.error")}
         </p>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col-reverse items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div className="w-full min-w-0 flex-1">
             <EmptyState
               icon={FileText}
@@ -254,13 +254,145 @@ function ContentListPage() {
             projectId={projectId}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
-            className="mx-auto w-full shrink-0 lg:sticky lg:top-6"
+            className="mx-auto hidden w-full shrink-0 lg:sticky lg:top-6 lg:block"
           />
         </div>
       ) : (
-        <div className="flex flex-col-reverse gap-8 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
           <Card className="min-w-0 flex-1 overflow-hidden rounded-xl">
-            <div className="overflow-x-auto overscroll-x-contain">
+            <div className="space-y-3 p-3 md:hidden">
+              {rows.map((r, index) => (
+                <div
+                  key={r.id}
+                  onDragOver={canReorder ? onDragOver(index) : undefined}
+                  onDrop={canReorder ? onDrop(index) : undefined}
+                  className={cn(
+                    "space-y-3 rounded-lg border p-3",
+                    dragIndex === index && "opacity-50",
+                    dropIndex === index &&
+                      dragIndex !== null &&
+                      dragIndex !== index &&
+                      "bg-muted",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    {canReorder ? (
+                      <span
+                        draggable
+                        onDragStart={onDragStart(index)}
+                        onDragEnd={onDragEnd}
+                        className="mt-1 inline-flex shrink-0 cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+                        aria-label={t("project.content.dragHandle")}
+                        title={t("project.content.dragHandle")}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <GripVertical className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                    ) : null}
+                    {r.media_url ? (
+                      <img
+                        src={r.media_url}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 shrink-0 rounded-md bg-muted" />
+                    )}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <Link
+                        to="/clients/$clientId/projects/$projectId/content/$contentId"
+                        params={{ clientId, projectId, contentId: r.id }}
+                        search={{}}
+                        className="block truncate font-medium hover:underline"
+                      >
+                        {r.title}
+                      </Link>
+                      <p className="text-xs text-muted-foreground">
+                        v{r.current_version}
+                        {" · "}
+                        {formatDistanceToNow(new Date(r.updated_at), {
+                          addSuffix: true,
+                          locale,
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <div className="min-w-0 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        {t("project.content.columns.format")}
+                      </Label>
+                      <ContentFormatSelect
+                        format={(r.format ?? "static_feed") as ContentFormat}
+                        disabled={!canManage || isBusy}
+                        className="w-full"
+                        onValueChange={(value) => {
+                          formatMutation.mutate({
+                            contentId: r.id,
+                            format: value,
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        {t("project.content.columns.status")}
+                      </Label>
+                      <ContentStatusSelect
+                        status={r.status as ContentStatus}
+                        contentId={r.id}
+                        clientId={clientId}
+                        projectId={projectId}
+                        title={r.title}
+                        disabled={!canManage || isBusy}
+                        className="w-full max-w-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        to="/clients/$clientId/projects/$projectId/content/$contentId"
+                        params={{ clientId, projectId, contentId: r.id }}
+                        search={{}}
+                      >
+                        {t("project.content.open")}
+                      </Link>
+                    </Button>
+                    {canManage ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() => duplicateMutation.mutate(r.id)}
+                        >
+                          <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                          {t("project.content.duplicate")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isBusy}
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget({ id: r.id, title: r.title })}
+                        >
+                          <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                          {t("project.content.delete")}
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto overscroll-x-contain md:block">
               <table className="w-full min-w-[1020px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -320,12 +452,12 @@ function ContentListPage() {
                           <div className="h-10 w-10 rounded-md bg-muted" />
                         )}
                       </td>
-                      <td className="px-4 py-3 font-medium">
+                      <td className="max-w-[14rem] px-4 py-3 font-medium">
                         <Link
                           to="/clients/$clientId/projects/$projectId/content/$contentId"
                           params={{ clientId, projectId, contentId: r.id }}
                           search={{}}
-                          className="hover:underline"
+                          className="block truncate hover:underline"
                         >
                           {r.title}
                         </Link>
@@ -334,6 +466,7 @@ function ContentListPage() {
                         <ContentFormatSelect
                           format={(r.format ?? "static_feed") as ContentFormat}
                           disabled={!canManage || isBusy}
+                          className="w-[9.5rem]"
                           onValueChange={(value) => {
                             formatMutation.mutate({
                               contentId: r.id,
@@ -350,6 +483,7 @@ function ContentListPage() {
                           projectId={projectId}
                           title={r.title}
                           disabled={!canManage || isBusy}
+                          className="w-[13.5rem] max-w-[13.5rem]"
                         />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">v{r.current_version}</td>
@@ -357,7 +491,7 @@ function ContentListPage() {
                         {formatDistanceToNow(new Date(r.updated_at), { addSuffix: true, locale })}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex flex-nowrap items-center justify-end gap-1.5">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <Button asChild variant="ghost" size="sm">
                             <Link
                               to="/clients/$clientId/projects/$projectId/content/$contentId"
@@ -409,7 +543,7 @@ function ContentListPage() {
             avatarUrl={clientQuery.data?.logo_url}
             canReorder={canReorder}
             onReorder={applyReorder}
-            className="mx-auto w-full shrink-0 lg:sticky lg:top-6"
+            className="mx-auto hidden w-full shrink-0 lg:sticky lg:top-6 lg:block"
           />
         </div>
       )}

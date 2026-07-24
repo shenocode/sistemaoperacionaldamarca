@@ -76,6 +76,7 @@ function PresetListEditor({
       </div>
       <div className="flex gap-2">
         <Input
+          className="min-w-0 flex-1"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
@@ -86,7 +87,13 @@ function PresetListEditor({
             }
           }}
         />
-        <Button type="button" variant="outline" onClick={addItem} disabled={!draft.trim()}>
+        <Button
+          type="button"
+          variant="outline"
+          className="shrink-0"
+          onClick={addItem}
+          disabled={!draft.trim()}
+        >
           <Plus className="h-4 w-4" />
           <span className="sr-only">{addLabel}</span>
         </Button>

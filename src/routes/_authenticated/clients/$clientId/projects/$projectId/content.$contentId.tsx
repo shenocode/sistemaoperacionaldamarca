@@ -930,15 +930,21 @@ function ContentDetailPage() {
                         </p>
                       </TabsContent>
                       <TabsContent value="url" className="space-y-1.5 pt-3">
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                           <Input
                             id="media-url"
                             type="url"
+                            className="min-w-0 flex-1"
                             value={urlDraft}
                             onChange={(e) => setUrlDraft(e.target.value)}
                             placeholder="https://"
                           />
-                          <Button type="button" variant="outline" onClick={addUrl}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="shrink-0 sm:w-auto"
+                            onClick={addUrl}
+                          >
                             {t("project.detail.addSlide")}
                           </Button>
                         </div>
@@ -1022,11 +1028,11 @@ function ContentDetailPage() {
                     const canDeleteComment = canManage || c.user_id === user?.id;
                     return (
                       <li key={c.id} className="rounded-md border p-3 text-sm">
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <span className="font-medium">
+                        <div className="mb-1 flex items-start justify-between gap-2">
+                          <span className="min-w-0 flex-1 truncate font-medium">
                             {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex shrink-0 items-center gap-1">
                             <span className="text-xs text-muted-foreground">
                               {formatDistanceToNow(new Date(c.created_at), {
                                 addSuffix: true,
@@ -1065,6 +1071,7 @@ function ContentDetailPage() {
                 }}
               >
                 <Input
+                  className="min-w-0 flex-1"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder={t("project.detail.leaveComment")}
@@ -1073,6 +1080,7 @@ function ContentDetailPage() {
                 <Button
                   type="submit"
                   size="icon"
+                  className="shrink-0"
                   aria-label={t("project.detail.send")}
                   disabled={commentMutation.isPending || !comment.trim()}
                 >
@@ -1159,8 +1167,8 @@ function ContentDetailPage() {
             <ol className="space-y-3">
               {(versionsQuery.data ?? []).map((v) => (
                 <li key={v.id} className="space-y-2 rounded-md border p-3 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                    <span className="min-w-0 font-medium">
                       {t("project.detail.version")} {v.version_number}
                       {v.version_number === content.current_version ? (
                         <span className="ml-2 text-xs text-primary">
@@ -1168,7 +1176,7 @@ function ContentDetailPage() {
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       {format(new Date(v.created_at), "dd MMM yyyy HH:mm", { locale })}
                     </span>
                   </div>

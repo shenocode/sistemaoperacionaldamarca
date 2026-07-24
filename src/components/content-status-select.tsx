@@ -84,7 +84,7 @@ export function ContentStatusSelect({
       <SelectTrigger
         aria-label={t("project.content.columns.status")}
         className={cn(
-          "h-8 w-full min-w-[12.5rem] max-w-full gap-1.5 overflow-hidden border px-2.5 text-xs font-medium shadow-sm focus:ring-1 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>svg]:shrink-0",
+          "h-8 w-full min-w-0 max-w-full gap-1.5 overflow-hidden border px-2.5 text-xs font-medium shadow-sm focus:ring-1 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>svg]:shrink-0",
           contentStatusStyles[status],
           className,
         )}
