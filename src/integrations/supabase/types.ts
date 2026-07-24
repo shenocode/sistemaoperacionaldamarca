@@ -69,6 +69,36 @@ export type Database = {
           },
         ]
       }
+      admin_ai_credentials: {
+        Row: {
+          created_at: string
+          gemini_key_ciphertext: string | null
+          gemini_key_last4: string | null
+          openai_key_ciphertext: string | null
+          openai_key_last4: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gemini_key_ciphertext?: string | null
+          gemini_key_last4?: string | null
+          openai_key_ciphertext?: string | null
+          openai_key_last4?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gemini_key_ciphertext?: string | null
+          gemini_key_last4?: string | null
+          openai_key_ciphertext?: string | null
+          openai_key_last4?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       brand_briefings: {
         Row: {
           answers: Json
