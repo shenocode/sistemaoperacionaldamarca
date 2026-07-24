@@ -38,6 +38,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  MediaLightbox,
+  type PreviewMediaItem,
+} from "@/components/content-media-preview";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import {
   canManageClient,
@@ -45,8 +49,10 @@ import {
   deleteContent,
   duplicateContent,
   getClient,
+  isVideoUrl,
   listContent,
   reorderContentItems,
+  resolveContentMediaUrls,
   updateContentCalendar,
   type ContentFormat,
   type ContentItem,
@@ -91,6 +97,19 @@ function ContentListPage() {
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    items: PreviewMediaItem[];
+    title: string;
+  } | null>(null);
+
+  const openMediaLightbox = (item: ContentItem) => {
+    const items: PreviewMediaItem[] = resolveContentMediaUrls(item).map((url) => ({
+      url,
+      kind: isVideoUrl(url) ? "video" : "image",
+    }));
+    if (items.length === 0) return;
+    setLightbox({ items, title: item.title });
+  };
 
   const contentQuery = useQuery({
     queryKey: ["content", projectId],
@@ -171,9 +190,11 @@ function ContentListPage() {
     [contentQuery.data],
   );
   const allRows = localRows ?? serverRows;
-  const rows = filter === "review" ? allRows.filter((r) => r.status === "review") : allRows;
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
   const canManage = Boolean(manageQuery.data);
+  // Clients must not see "Em produção" (draft) content.
+  const visibleRows = canManage ? allRows : allRows.filter((r) => r.status !== "draft");
+  const rows = filter === "review" ? visibleRows.filter((r) => r.status === "review") : visibleRows;
   const canReorder = canManage && filter !== "review" && rows.length > 1;
   const isBusy =
     duplicateMutation.isPending ||
@@ -291,11 +312,18 @@ function ContentListPage() {
                       </span>
                     ) : null}
                     {r.media_url ? (
-                      <img
-                        src={r.media_url}
-                        alt=""
-                        className="h-12 w-12 shrink-0 rounded-md object-cover"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => openMediaLightbox(r)}
+                        aria-label={t("project.detail.expandMedia")}
+                        className="shrink-0 cursor-zoom-in rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <img
+                          src={r.media_url}
+                          alt=""
+                          className="h-12 w-12 rounded-md object-cover"
+                        />
+                      </button>
                     ) : (
                       <div className="h-12 w-12 shrink-0 rounded-md bg-muted" />
                     )}
@@ -443,11 +471,18 @@ function ContentListPage() {
                       ) : null}
                       <td className="px-4 py-3">
                         {r.media_url ? (
-                          <img
-                            src={r.media_url}
-                            alt=""
-                            className="h-10 w-10 rounded-md object-cover"
-                          />
+                          <button
+                            type="button"
+                            onClick={() => openMediaLightbox(r)}
+                            aria-label={t("project.detail.expandMedia")}
+                            className="cursor-zoom-in rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <img
+                              src={r.media_url}
+                              alt=""
+                              className="h-10 w-10 rounded-md object-cover"
+                            />
+                          </button>
                         ) : (
                           <div className="h-10 w-10 rounded-md bg-muted" />
                         )}
@@ -582,6 +617,15 @@ function ContentListPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <MediaLightbox
+        open={Boolean(lightbox)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setLightbox(null);
+        }}
+        items={lightbox?.items ?? []}
+        title={lightbox?.title ?? ""}
+      />
 
       <AlertDialog
         open={Boolean(deleteTarget)}

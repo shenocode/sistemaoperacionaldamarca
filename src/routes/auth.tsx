@@ -17,6 +17,7 @@ import {
   readAuthNext,
   rememberAuthNext,
   resolvePostLoginPath,
+  toClientProjectFeedPath,
 } from "@/lib/api";
 
 export const Route = createFileRoute("/auth")({
@@ -70,8 +71,10 @@ function AuthPage() {
   };
 
   const goAfterLogin = async () => {
-    const destination = nextPath && isSafeAppPath(nextPath) ? nextPath : null;
-    const access = destination ? extractAccessTokenFromPath(destination) : null;
+    const rawNext = nextPath && isSafeAppPath(nextPath) ? nextPath : null;
+    // Always land on Feed for project links (WhatsApp / deep links), never the last tab.
+    const destination = rawNext ? toClientProjectFeedPath(rawNext) : null;
+    const access = rawNext ? extractAccessTokenFromPath(rawNext) : null;
 
     if (access) {
       try {

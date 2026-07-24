@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -24,6 +25,42 @@ export const CONTENT_STATUSES: ContentStatus[] = [
   "changes",
   "published",
 ];
+
+function ContentStatusLink({
+  status,
+  contentId,
+  clientId,
+  projectId,
+  className,
+}: {
+  status: ContentStatus;
+  contentId: string;
+  clientId: string;
+  projectId: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Link
+      to="/clients/$clientId/projects/$projectId/content/$contentId"
+      params={{ clientId, projectId, contentId }}
+      search={{}}
+      className={cn(
+        "inline-flex max-w-full rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+        className,
+      )}
+      title={t("project.calendar.openStatus")}
+      aria-label={t("project.calendar.openStatus")}
+    >
+      <StatusBadge
+        status={status}
+        asButton
+        className="pointer-events-none w-full max-w-full"
+      />
+    </Link>
+  );
+}
 
 export function ContentStatusSelect({
   status,
@@ -68,36 +105,52 @@ export function ContentStatusSelect({
   });
 
   if (disabled) {
-    return <StatusBadge status={status} asButton className={className} />;
+    return (
+      <ContentStatusLink
+        status={status}
+        contentId={contentId}
+        clientId={clientId}
+        projectId={projectId}
+        className={className}
+      />
+    );
   }
 
   return (
-    <Select
-      value={status}
-      disabled={statusMutation.isPending}
-      onValueChange={(value) => {
-        const next = value as ContentStatus;
-        if (next === status) return;
-        statusMutation.mutate(next);
-      }}
-    >
-      <SelectTrigger
-        aria-label={t("project.content.columns.status")}
-        className={cn(
-          "h-8 w-full min-w-0 max-w-full gap-1.5 overflow-hidden border px-2.5 text-xs font-medium shadow-sm focus:ring-1 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate [&>svg]:shrink-0",
-          contentStatusStyles[status],
-          className,
-        )}
+    <div className={cn("flex min-w-0 max-w-full items-center gap-1", className)}>
+      <ContentStatusLink
+        status={status}
+        contentId={contentId}
+        clientId={clientId}
+        projectId={projectId}
+        className="min-w-0 flex-1"
+      />
+      <Select
+        value={status}
+        disabled={statusMutation.isPending}
+        onValueChange={(value) => {
+          const next = value as ContentStatus;
+          if (next === status) return;
+          statusMutation.mutate(next);
+        }}
       >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {CONTENT_STATUSES.map((value) => (
-          <SelectItem key={value} value={value}>
-            {t(`project.content.status.${value}`)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <SelectTrigger
+          aria-label={t("project.content.columns.status")}
+          className={cn(
+            "h-8 w-8 shrink-0 justify-center border px-0 shadow-sm focus:ring-1 [&>span]:sr-only",
+            contentStatusStyles[status],
+          )}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {CONTENT_STATUSES.map((value) => (
+            <SelectItem key={value} value={value}>
+              {t(`project.content.status.${value}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

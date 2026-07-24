@@ -209,7 +209,7 @@ function LightboxMedia({
   );
 }
 
-function MediaLightbox({
+export function MediaLightbox({
   open,
   onOpenChange,
   items,

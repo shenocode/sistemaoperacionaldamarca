@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format, formatDistanceToNow } from "date-fns";
@@ -642,12 +642,24 @@ function ContentDetailPage() {
     setDropIndex(null);
   };
 
-  if (contentQuery.isLoading || roleLoading) {
+  if (contentQuery.isLoading || roleLoading || manageQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 
   if (!content) {
     return <p className="text-sm text-muted-foreground">{t("project.detail.notFound")}</p>;
+  }
+
+  // "Em produção" (draft): only managers/admins; clients cannot open the detail page.
+  if (!canManage && status === "draft") {
+    return (
+      <Navigate
+        to="/clients/$clientId/projects/$projectId/content"
+        params={{ clientId, projectId }}
+        search={{}}
+        replace
+      />
+    );
   }
 
   // Same form for admin and client. Clients edit title/format/theme/copy; media stays admin-only.

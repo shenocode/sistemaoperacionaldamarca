@@ -328,7 +328,11 @@ function ProjectCalendarPage() {
     () => [...(contentQuery.data ?? [])].sort(sortByManualOrder),
     [contentQuery.data],
   );
-  const rows = localRows ?? serverRows;
+  // Clients must not see "Em produção" (draft) content.
+  const rows = useMemo(() => {
+    const base = localRows ?? serverRows;
+    return canEdit ? base : base.filter((r) => r.status !== "draft");
+  }, [canEdit, localRows, serverRows]);
   const blocks = blocksQuery.data ?? [];
 
   const itemsByBlock = useMemo(() => {

@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getProject } from "@/lib/api";
+import { clearAuthNext, getProject } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { LanguageSwitcher } from "./language-switcher";
 import { useAppRole } from "@/hooks/use-app-role";
@@ -45,6 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     setMobileNavOpen(false);
+    clearAuthNext();
     await supabase.auth.signOut();
     router.navigate({ to: "/auth", search: {}, replace: true });
   };

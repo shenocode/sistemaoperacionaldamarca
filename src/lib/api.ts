@@ -343,6 +343,28 @@ export function extractAccessTokenFromPath(path: string): string | null {
   }
 }
 
+/**
+ * Rewrites any client project deep link to the Feed tab, preserving ?access=.
+ * Used so login / WhatsApp always land on Feed instead of the last visited tab.
+ */
+export function toClientProjectFeedPath(path: string | null | undefined): string | null {
+  if (!isSafeAppPath(path)) return null;
+  try {
+    const url = new URL(path, "https://som.local");
+    const match = url.pathname.match(
+      /^\/clients\/([^/]+)\/projects\/([^/]+)(?:\/.*)?$/,
+    );
+    if (!match) return null;
+    const [, clientId, projectId] = match;
+    const access = url.searchParams.get("access")?.trim();
+    const feedPath = `/clients/${clientId}/projects/${projectId}/feed`;
+    if (!access) return feedPath;
+    return `${feedPath}?access=${encodeURIComponent(access)}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Public share URL with SSR Open Graph (client logo). Redirects humans to the feed. */
 export function buildProjectReviewUrl(clientId: string, projectId: string, accessToken: string) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
