@@ -72,6 +72,36 @@ export type Database = {
           },
         ]
       }
+      admin_ai_credentials: {
+        Row: {
+          created_at: string
+          gemini_key_ciphertext: string | null
+          gemini_key_last4: string | null
+          openai_key_ciphertext: string | null
+          openai_key_last4: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gemini_key_ciphertext?: string | null
+          gemini_key_last4?: string | null
+          openai_key_ciphertext?: string | null
+          openai_key_last4?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gemini_key_ciphertext?: string | null
+          gemini_key_last4?: string | null
+          openai_key_ciphertext?: string | null
+          openai_key_last4?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       brand_briefings: {
         Row: {
           i18n: Json
@@ -697,6 +727,10 @@ export type Database = {
         Args: { object_name: string }
         Returns: string
       }
+      get_client_platform_login: {
+        Args: { _client_id: string }
+        Returns: string
+      }
       get_share_preview: {
         Args: { _access_token: string; _client_id: string; _project_id: string }
         Returns: {
@@ -832,6 +866,7 @@ export type Database = {
         | "references"
         | "documents"
         | "spreadsheets"
+        | "generated_arts"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -998,6 +1033,7 @@ export const Constants = {
         "references",
         "documents",
         "spreadsheets",
+        "generated_arts",
       ],
     },
   },

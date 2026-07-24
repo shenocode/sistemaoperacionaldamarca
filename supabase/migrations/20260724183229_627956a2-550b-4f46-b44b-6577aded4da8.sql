@@ -1,0 +1,1 @@
+ALTER TYPE public.library_category ADD VALUE IF NOT EXISTS 'generated_arts';
