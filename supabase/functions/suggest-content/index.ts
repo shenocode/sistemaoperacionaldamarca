@@ -100,6 +100,64 @@ function sanitizeSuggestion(raw: Record<string, unknown>, format: ContentFormat)
   };
 }
 
+function extractJsonObject(text: string): Record<string, unknown> {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced?.[1]) {
+      return JSON.parse(fenced[1].trim()) as Record<string, unknown>;
+    }
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
+    }
+    throw new Error("JSON não encontrado na resposta");
+  }
+}
+
+async function callChatModel(messages: Array<{ role: string; content: string }>) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+
+  if (lovableKey) {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: Deno.env.get("LOVABLE_AI_MODEL") || "google/gemini-2.5-flash",
+        temperature: 0.7,
+        messages,
+      }),
+    });
+    return { provider: "lovable" as const, res };
+  }
+
+  if (openaiKey) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
+    return { provider: "openai" as const, res };
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -112,13 +170,15 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
     }
-    if (!openaiKey) {
-      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
+    if (!Deno.env.get("LOVABLE_API_KEY") && !Deno.env.get("OPENAI_API_KEY")) {
+      return jsonResponse(
+        { error: "Nenhuma chave de IA configurada (LOVABLE_API_KEY ou OPENAI_API_KEY)" },
+        500,
+      );
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -242,36 +302,39 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n\n");
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+    const chat = await callChatModel([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ]);
+    if (!chat) {
+      return jsonResponse(
+        { error: "Nenhuma chave de IA configurada (LOVABLE_API_KEY ou OPENAI_API_KEY)" },
+        500,
+      );
+    }
 
-    if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      console.error("OpenAI error:", errText);
+    if (!chat.res.ok) {
+      const errText = await chat.res.text();
+      console.error(`${chat.provider} AI error:`, chat.res.status, errText);
+      if (chat.res.status === 402) {
+        return jsonResponse(
+          { error: "Créditos de IA esgotados. Recarregue em Settings → Plans & credit usage." },
+          402,
+        );
+      }
+      if (chat.res.status === 429) {
+        return jsonResponse({ error: "Limite de requisições da IA atingido. Tente de novo em instantes." }, 429);
+      }
       return jsonResponse({ error: "Falha ao gerar sugestão com a IA" }, 502);
     }
 
-    const openaiJson = (await openaiRes.json()) as {
+    const chatJson = (await chat.res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
-    const contentText = openaiJson.choices?.[0]?.message?.content ?? "";
+    const contentText = chatJson.choices?.[0]?.message?.content ?? "";
     let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(contentText) as Record<string, unknown>;
+      parsed = extractJsonObject(contentText);
     } catch {
       return jsonResponse({ error: "Resposta da IA inválida" }, 502);
     }

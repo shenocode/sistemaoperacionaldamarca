@@ -17,6 +17,8 @@ export type ContentItem = Tables<"content_items">;
 export type ContentVersion = Tables<"content_versions">;
 export type ContentComment = Tables<"content_comments">;
 export type LibraryAsset = Tables<"library_assets">;
+export type DesignTemplate = Tables<"design_templates">;
+export type DesignTemplateFormat = Database["public"]["Enums"]["design_template_format"];
 export type ActivityEvent = Tables<"activity_events">;
 export type Profile = Tables<"profiles">;
 export type BrandBriefing = Tables<"brand_briefings">;
@@ -282,13 +284,13 @@ export function extractAccessTokenFromPath(path: string): string | null {
   }
 }
 
-/** Deep link to the project feed preview; `access` lets the client claim membership after auth. */
+/** Public share URL with SSR Open Graph (client logo). Redirects humans to the feed. */
 export function buildProjectReviewUrl(clientId: string, projectId: string, accessToken: string) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams({
     access: accessToken,
   });
-  return `${origin}/clients/${clientId}/projects/${projectId}/feed?${params.toString()}`;
+  return `${origin}/share/${clientId}/${projectId}?${params.toString()}`;
 }
 
 /** Join the client workspace using the invite token from the review link. */
@@ -361,6 +363,17 @@ export async function getClient(clientId: string) {
   return data;
 }
 
+export type BrandColor = {
+  name: string;
+  hex: string;
+};
+
+export type BrandFonts = {
+  primary?: string;
+  secondary?: string;
+  notes?: string;
+};
+
 export type ClientContactInput = {
   name: string;
   notes?: string;
@@ -370,7 +383,44 @@ export type ClientContactInput = {
   instagram?: string;
   /** Public URL; empty string or null clears the logo on update. */
   logo_url?: string | null;
+  brand_colors?: BrandColor[];
+  brand_fonts?: BrandFonts;
 };
+
+export function parseBrandColors(value: unknown): BrandColor[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const row = entry as { name?: unknown; hex?: unknown };
+      const name = typeof row.name === "string" ? row.name.trim() : "";
+      const hex = typeof row.hex === "string" ? row.hex.trim() : "";
+      if (!hex) return null;
+      return { name, hex };
+    })
+    .filter((entry): entry is BrandColor => Boolean(entry))
+    .slice(0, 6);
+}
+
+export function parseBrandFonts(value: unknown): BrandFonts {
+  if (!value || typeof value !== "object") return {};
+  const row = value as { primary?: unknown; secondary?: unknown; notes?: unknown };
+  return {
+    primary: typeof row.primary === "string" ? row.primary : "",
+    secondary: typeof row.secondary === "string" ? row.secondary : "",
+    notes: typeof row.notes === "string" ? row.notes : "",
+  };
+}
+
+export function brandKitFromClient(client: {
+  brand_colors?: unknown;
+  brand_fonts?: unknown;
+}): { brand_colors: BrandColor[]; brand_fonts: BrandFonts } {
+  return {
+    brand_colors: parseBrandColors(client.brand_colors),
+    brand_fonts: parseBrandFonts(client.brand_fonts),
+  };
+}
 
 function normalizeOptionalText(value?: string) {
   const trimmed = value?.trim();
@@ -407,6 +457,9 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 export async function updateClient(clientId: string, input: ClientContactInput): Promise<Client> {
   // RPC allows client members to review/update contact fields (not only owners/admins).
   // Empty string clears logo_url; omit logo_url from input to leave unchanged (RPC null).
+  const brandColors = parseBrandColors(input.brand_colors ?? []);
+  const brandFonts = parseBrandFonts(input.brand_fonts ?? {});
+
   const baseArgs = {
     _client_id: clientId,
     _name: input.name.trim(),
@@ -423,21 +476,46 @@ export async function updateClient(clientId: string, input: ClientContactInput):
       input.logo_url === undefined ? null : (normalizeOptionalText(input.logo_url ?? undefined) ?? ""),
   };
 
-  let { data, error } = await supabase.rpc("update_client_contact", withLogoArgs);
+  const withBrandArgs = {
+    ...withLogoArgs,
+    _brand_colors: brandColors as unknown as Json,
+    _brand_fonts: brandFonts as unknown as Json,
+  };
 
-  // Remote may still be on the older RPC signature without _logo_url.
+  let { data, error } = await supabase.rpc(
+    "update_client_contact",
+    withBrandArgs as Database["public"]["Functions"]["update_client_contact"]["Args"],
+  );
+
+  // Remote may still be on an older RPC signature without brand kit / logo.
   if (error && /Could not find the function|PGRST202/i.test(error.message)) {
-    ({ data, error } = await supabase.rpc("update_client_contact", baseArgs));
+    ({ data, error } = await supabase.rpc(
+      "update_client_contact",
+      withLogoArgs as Database["public"]["Functions"]["update_client_contact"]["Args"],
+    ));
 
-    // Logo is usually persisted by upload-client-logo; if clearing without new RPC, try direct update.
-    if (!error && input.logo_url !== undefined) {
-      const logoValue = normalizeOptionalText(input.logo_url ?? undefined);
-      const { error: logoError } = await supabase
-        .from("clients")
-        .update({ logo_url: logoValue })
-        .eq("id", clientId);
-      if (logoError && !/row-level security|violates row-level/i.test(logoError.message)) {
-        // Ignore RLS for client members; logo already saved by edge function on upload.
+    if (error && /Could not find the function|PGRST202/i.test(error.message)) {
+      ({ data, error } = await supabase.rpc(
+        "update_client_contact",
+        baseArgs as Database["public"]["Functions"]["update_client_contact"]["Args"],
+      ));
+    }
+
+    if (!error) {
+      const patch: {
+        logo_url?: string | null;
+        brand_colors?: Json;
+        brand_fonts?: Json;
+      } = {
+        brand_colors: brandColors as unknown as Json,
+        brand_fonts: brandFonts as unknown as Json,
+      };
+      if (input.logo_url !== undefined) {
+        patch.logo_url = normalizeOptionalText(input.logo_url ?? undefined);
+      }
+      const { error: kitError } = await supabase.from("clients").update(patch).eq("id", clientId);
+      if (kitError && !/row-level security|violates row-level|column .* does not exist/i.test(kitError.message)) {
+        // Ignore when migration/RLS not applied yet for client members.
       }
     }
   }
@@ -1339,6 +1417,30 @@ export type ContentSuggestion = {
   roteiro: string;
 };
 
+async function readFunctionsInvokeError(
+  error: { message?: string; context?: Response } | null,
+  data: unknown,
+): Promise<string> {
+  const fromData =
+    data && typeof data === "object" && "error" in data && typeof (data as { error: unknown }).error === "string"
+      ? (data as { error: string }).error
+      : null;
+  if (fromData) return fromData;
+
+  const response = error?.context;
+  if (response && typeof response.json === "function") {
+    try {
+      const body = (await response.clone().json()) as { error?: string; message?: string };
+      if (body?.error) return body.error;
+      if (body?.message) return body.message;
+    } catch {
+      // ignore parse failures and fall through
+    }
+  }
+
+  return error?.message || "Falha ao gerar sugestão";
+}
+
 export async function suggestContent(input: {
   contentId: string;
   projectId: string;
@@ -1366,7 +1468,7 @@ export async function suggestContent(input: {
   const payload = data as { suggestion?: ContentSuggestion; error?: string } | null;
 
   if (error) {
-    throw new Error(payload?.error || error.message || "Falha ao gerar sugestão");
+    throw new Error(await readFunctionsInvokeError(error, data));
   }
   if (payload?.error) {
     throw new Error(payload.error);
@@ -1384,6 +1486,54 @@ export async function suggestContent(input: {
     locucao: payload.suggestion.locucao ?? "",
     roteiro: payload.suggestion.roteiro ?? "",
   };
+}
+
+export type DesignGenerationResult = {
+  imageUrl: string;
+};
+
+export async function generateDesign(input: {
+  contentId: string;
+  projectId: string;
+  clientId: string;
+  format: DesignTemplateFormat;
+  templateUrl: string;
+  photoUrl: string;
+  overlayText: string;
+  guidance?: string;
+}): Promise<DesignGenerationResult> {
+  const overlayText = input.overlayText.trim();
+  const templateUrl = input.templateUrl.trim();
+  const photoUrl = input.photoUrl.trim();
+  if (!templateUrl) throw new Error("Informe o template de referência");
+  if (!photoUrl) throw new Error("Informe a imagem da arte");
+  if (!overlayText) throw new Error("Informe o texto da arte");
+
+  const { data, error } = await supabase.functions.invoke("generate-design", {
+    body: {
+      contentId: input.contentId,
+      projectId: input.projectId,
+      clientId: input.clientId,
+      format: input.format,
+      templateUrl,
+      photoUrl,
+      overlayText,
+      guidance: input.guidance?.trim() || undefined,
+    },
+  });
+
+  const payload = data as { imageUrl?: string; error?: string } | null;
+  if (error) {
+    throw new Error(await readFunctionsInvokeError(error, data));
+  }
+  if (payload?.error) {
+    throw new Error(payload.error);
+  }
+  if (!payload?.imageUrl) {
+    throw new Error("Resposta inválida do assistente de design");
+  }
+
+  return { imageUrl: payload.imageUrl };
 }
 
 // —— Comments ——
@@ -1723,6 +1873,101 @@ export async function createLibraryAssets(
   }
 
   return created;
+}
+
+export const DESIGN_TEMPLATE_ACCEPT = ".jpg,.jpeg,.png,image/jpeg,image/png";
+export const DESIGN_TEMPLATE_FORMATS: DesignTemplateFormat[] = ["static_feed", "carousel"];
+const DESIGN_TEMPLATE_MAX_BYTES = 20 * 1024 * 1024;
+
+export async function listDesignTemplates(
+  projectId: string,
+  format?: DesignTemplateFormat,
+): Promise<DesignTemplate[]> {
+  let query = supabase
+    .from("design_templates")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (format) query = query.eq("format", format);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+async function uploadDesignTemplateFile(projectId: string, file: File) {
+  if (file.size > DESIGN_TEMPLATE_MAX_BYTES) {
+    throw new Error("Template deve ter no máximo 20 MB.");
+  }
+  const mime = file.type || "image/jpeg";
+  if (!/^image\/(jpeg|png)$/i.test(mime) && !/\.(jpe?g|png)$/i.test(file.name)) {
+    throw new Error("Use JPG ou PNG para templates de arte.");
+  }
+  const safeName = sanitizeFileName(file.name || "template.png");
+  const storagePath = `${projectId}/templates/${crypto.randomUUID()}-${safeName}`;
+  const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
+    cacheControl: "3600",
+    contentType: mime,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  const { data } = supabase.storage.from(LIBRARY_BUCKET).getPublicUrl(storagePath);
+  return {
+    storagePath,
+    fileUrl: data.publicUrl,
+    fileSize: file.size,
+    mimeType: mime,
+  };
+}
+
+export async function createDesignTemplate(input: {
+  projectId: string;
+  name: string;
+  format: DesignTemplateFormat;
+  file: File;
+}): Promise<DesignTemplate> {
+  const userId = await requireUserId();
+  const uploaded = await uploadDesignTemplateFile(input.projectId, input.file);
+  const { data, error } = await supabase
+    .from("design_templates")
+    .insert({
+      project_id: input.projectId,
+      name: input.name.trim() || fileTitleFallback(input.file.name),
+      format: input.format,
+      file_url: uploaded.fileUrl,
+      storage_path: uploaded.storagePath,
+      mime_type: uploaded.mimeType,
+      file_size: uploaded.fileSize,
+      created_by: userId,
+    } satisfies TablesInsert<"design_templates">)
+    .select("*")
+    .single();
+
+  if (error) {
+    await supabase.storage.from(LIBRARY_BUCKET).remove([uploaded.storagePath]);
+    throw new Error(error.message);
+  }
+  return ensureData(data, error);
+}
+
+function fileTitleFallback(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, "") || fileName;
+}
+
+export async function deleteDesignTemplate(templateId: string): Promise<void> {
+  const { data: row, error: fetchError } = await supabase
+    .from("design_templates")
+    .select("id, storage_path")
+    .eq("id", templateId)
+    .maybeSingle();
+  if (fetchError) throw new Error(fetchError.message);
+  if (!row) throw new Error("Template não encontrado");
+
+  const { error } = await supabase.from("design_templates").delete().eq("id", templateId);
+  if (error) throw new Error(error.message);
+
+  if (row.storage_path) {
+    await supabase.storage.from(LIBRARY_BUCKET).remove([row.storage_path]);
+  }
 }
 
 // —— Dashboard ——

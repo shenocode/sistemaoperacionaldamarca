@@ -32,6 +32,7 @@ import {
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
+import { ContentDesignAssistant } from "@/components/content-design-assistant";
 import { PresetField } from "@/components/preset-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -546,6 +547,24 @@ function ContentDetailPage() {
                 }
                 if (formatType === "carousel") {
                   setRoteiro(suggestion.roteiro);
+                }
+              }}
+            />
+          ) : null}
+
+          {isAdmin && (formatType === "static_feed" || formatType === "carousel") ? (
+            <ContentDesignAssistant
+              contentId={contentId}
+              projectId={projectId}
+              clientId={clientId}
+              format={formatType}
+              title={title}
+              caption={caption}
+              roteiro={roteiro}
+              onApply={(urls) => {
+                setMediaItems(mediaEntriesFromUrls(urls));
+                if (formatType !== "carousel" && urls.length > 1) {
+                  setFormatType("carousel");
                 }
               }}
             />

@@ -40,6 +40,11 @@ type InstagramFeedMockupProps = {
   showLabel?: boolean;
 };
 
+/** Conteúdo "em produção" não entra na simulação do feed. */
+function isVisibleInFeedSimulation(item: ContentItem) {
+  return item.status !== "draft";
+}
+
 function moveItem<T>(items: T[], from: number, to: number): T[] {
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
     return items;
@@ -48,6 +53,18 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
+}
+
+/** Reaplica a nova ordem dos itens visíveis mantendo os ocultos nas posições originais. */
+function mergeVisibleListOrder(
+  allItems: ContentItem[],
+  nextVisibleListOrder: ContentItem[],
+): ContentItem[] {
+  const queue = [...nextVisibleListOrder];
+  return allItems.map((item) => {
+    if (!isVisibleInFeedSimulation(item)) return item;
+    return queue.shift() ?? item;
+  });
 }
 
 function coverUrl(item: ContentItem) {
@@ -198,8 +215,10 @@ export function InstagramFeedMockup({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
-  // Feed estilo Instagram: inverso da lista (último da lista = topo-esquerda).
-  const feedItems = [...items].toReversed();
+  // Simulação: exclui "em produção" (draft). Feed Instagram: inverso da lista.
+  const visibleItems = items.filter(isVisibleInFeedSimulation);
+  const feedItems = [...visibleItems].toReversed();
+  const allowReorder = canReorder && feedItems.length > 1;
 
   const onDragStart = (index: number) => (event: DragEvent<HTMLAnchorElement>) => {
     setDragIndex(index);
@@ -208,7 +227,7 @@ export function InstagramFeedMockup({
   };
 
   const onDragOver = (index: number) => (event: DragEvent<HTMLAnchorElement>) => {
-    if (!canReorder) return;
+    if (!allowReorder) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     if (dropIndex !== index) setDropIndex(index);
@@ -216,14 +235,14 @@ export function InstagramFeedMockup({
 
   const onDrop = (index: number) => (event: DragEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    if (!canReorder) return;
+    if (!allowReorder) return;
     const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
     setDragIndex(null);
     setDropIndex(null);
     if (!Number.isFinite(from)) return;
     const nextFeed = moveItem(feedItems, from, index);
     if (nextFeed === feedItems) return;
-    onReorder?.(nextFeed.toReversed());
+    onReorder?.(mergeVisibleListOrder(items, nextFeed.toReversed()));
   };
 
   const onDragEnd = () => {
@@ -292,7 +311,7 @@ export function InstagramFeedMockup({
                     item={item}
                     clientId={clientId}
                     projectId={projectId}
-                    canReorder={canReorder}
+                    canReorder={allowReorder}
                     isDragging={dragIndex === index}
                     isDropTarget={
                       dropIndex === index && dragIndex !== null && dragIndex !== index

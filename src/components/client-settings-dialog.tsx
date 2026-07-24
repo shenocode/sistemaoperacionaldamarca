@@ -18,6 +18,7 @@ import {
   getClientPlatformLogin,
   provisionClientAccess,
   updateClient,
+  brandKitFromClient,
   type ClientContactInput,
   type ClientWithProjects,
 } from "@/lib/api";
@@ -30,6 +31,8 @@ const emptyContactForm: ClientContactInput = {
   whatsapp: "",
   instagram: "",
   logo_url: "",
+  brand_colors: [],
+  brand_fonts: {},
 };
 
 export function useClientSettingsDialog() {
@@ -48,6 +51,7 @@ export function useClientSettingsDialog() {
       whatsapp: client.whatsapp ?? "",
       instagram: client.instagram ?? "",
       logo_url: client.logo_url ?? "",
+      ...brandKitFromClient(client),
     });
     setLoginPassword("");
     setLoginEmail(client.email ?? "");

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BrandKitFields } from "@/components/brand-kit-fields";
+import { Separator } from "@/components/ui/separator";
 import {
   CLIENT_LOGO_ACCEPT,
   uploadClientLogo,
@@ -164,6 +166,23 @@ export function ClientContactFields({
           rows={3}
         />
       </div>
+
+      <Separator />
+
+      <BrandKitFields
+        idPrefix={`${idPrefix}-brand`}
+        value={{
+          brand_colors: form.brand_colors ?? [],
+          brand_fonts: form.brand_fonts ?? {},
+        }}
+        onChange={(kit) =>
+          onChange({
+            ...form,
+            brand_colors: kit.brand_colors,
+            brand_fonts: kit.brand_fonts,
+          })
+        }
+      />
     </div>
   );
 }

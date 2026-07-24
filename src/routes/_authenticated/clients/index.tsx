@@ -37,6 +37,8 @@ const emptyContactForm: ClientContactInput = {
   whatsapp: "",
   instagram: "",
   logo_url: "",
+  brand_colors: [],
+  brand_fonts: {},
 };
 
 export const Route = createFileRoute("/_authenticated/clients/")({

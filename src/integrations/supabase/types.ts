@@ -186,6 +186,8 @@ export type Database = {
       clients: {
         Row: {
           access_token: string
+          brand_colors: Json
+          brand_fonts: Json
           created_at: string
           created_by: string | null
           email: string | null
@@ -200,6 +202,8 @@ export type Database = {
         }
         Insert: {
           access_token?: string
+          brand_colors?: Json
+          brand_fonts?: Json
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -214,6 +218,8 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          brand_colors?: Json
+          brand_fonts?: Json
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -285,6 +291,7 @@ export type Database = {
           media_url: string | null
           media_urls: string[]
           project_id: string
+          roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
@@ -306,6 +313,7 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id: string
+          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -327,6 +335,7 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id?: string
+          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -365,6 +374,7 @@ export type Database = {
           locucao: string
           media_url: string | null
           media_urls: string[]
+          roteiro: string
           version_number: number
         }
         Insert: {
@@ -380,6 +390,7 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
+          roteiro?: string
           version_number: number
         }
         Update: {
@@ -395,6 +406,7 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
+          roteiro?: string
           version_number?: number
         }
         Relationships: [
@@ -453,6 +465,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "library_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_size: number | null
+          file_url: string
+          format: Database["public"]["Enums"]["design_template_format"]
+          id: string
+          mime_type: string | null
+          name: string
+          project_id: string
+          storage_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          file_url: string
+          format: Database["public"]["Enums"]["design_template_format"]
+          id?: string
+          mime_type?: string | null
+          name: string
+          project_id: string
+          storage_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          file_url?: string
+          format?: Database["public"]["Enums"]["design_template_format"]
+          id?: string
+          mime_type?: string | null
+          name?: string
+          project_id?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_templates_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -570,6 +629,20 @@ export type Database = {
       can_manage_content: { Args: { _content_id: string }; Returns: boolean }
       can_manage_project: { Args: { _project_id: string }; Returns: boolean }
       claim_client_access: { Args: { _access_token: string }; Returns: string }
+      get_share_preview: {
+        Args: {
+          _access_token: string
+          _client_id: string
+          _project_id: string
+        }
+        Returns: {
+          client_id: string
+          client_name: string
+          logo_url: string | null
+          project_id: string
+          project_name: string
+        }[]
+      }
       content_storage_project_id: {
         Args: { object_name: string }
         Returns: string
@@ -613,6 +686,7 @@ export type Database = {
           media_url: string | null
           media_urls: string[]
           project_id: string
+          roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
@@ -629,16 +703,21 @@ export type Database = {
       }
       update_client_contact: {
         Args: {
+          _brand_colors?: Json
+          _brand_fonts?: Json
           _client_id: string
-          _email?: string
-          _instagram?: string
+          _email?: string | null
+          _instagram?: string | null
+          _logo_url?: string | null
           _name: string
-          _notes?: string
-          _phone?: string
-          _whatsapp?: string
+          _notes?: string | null
+          _phone?: string | null
+          _whatsapp?: string | null
         }
         Returns: {
           access_token: string
+          brand_colors: Json
+          brand_fonts: Json
           created_at: string
           created_by: string | null
           email: string | null
@@ -680,6 +759,7 @@ export type Database = {
         | "stories"
         | "carousel"
         | "recorded_video"
+      design_template_format: "static_feed" | "carousel"
       content_status:
         | "draft"
         | "review"
@@ -844,6 +924,7 @@ export const Constants = {
         "carousel",
         "recorded_video",
       ],
+      design_template_format: ["static_feed", "carousel"],
       content_status: [
         "draft",
         "review",

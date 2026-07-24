@@ -22,6 +22,7 @@ import {
   resolvePostLoginPath,
   updateClient,
   updateOwnPassword,
+  brandKitFromClient,
   type ClientContactInput,
 } from "@/lib/api";
 
@@ -33,6 +34,8 @@ const emptyForm: ClientContactInput = {
   whatsapp: "",
   instagram: "",
   logo_url: "",
+  brand_colors: [],
+  brand_fonts: {},
 };
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -96,6 +99,7 @@ function ClientSettingsPage() {
       whatsapp: client.whatsapp ?? "",
       instagram: client.instagram ?? "",
       logo_url: client.logo_url ?? "",
+      ...brandKitFromClient(client),
     });
   }, [clients, selectedClientId]);
 
