@@ -73,7 +73,7 @@ function DashboardPage() {
   const activity = activityQuery.data ?? [];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-8">
+    <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <PageHeader
         title={t("dashboard.title")}
         description={`${t("dashboard.welcome")}, ${user.email}`}

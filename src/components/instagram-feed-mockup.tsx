@@ -251,14 +251,14 @@ export function InstagramFeedMockup({
   };
 
   return (
-    <div className={cn("w-full max-w-[320px]", className)}>
+    <div className={cn("mx-auto w-full max-w-[min(100%,320px)]", className)}>
       {showLabel ? (
         <p className="mb-2 text-center text-xs font-medium text-muted-foreground">
           {t("project.content.feedPreview")}
         </p>
       ) : null}
       <PhoneChrome>
-        <div className="flex h-[560px] flex-col bg-white">
+        <div className="flex h-[min(70vh,560px)] min-h-[420px] flex-col bg-white sm:h-[560px] sm:min-h-0">
           <div className="flex items-center justify-center border-b border-neutral-200 px-3 pb-2 pt-1">
             <p className="truncate text-[13px] font-semibold text-neutral-900">{handle}</p>
           </div>

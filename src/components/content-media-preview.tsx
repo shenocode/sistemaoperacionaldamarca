@@ -324,8 +324,8 @@ export function PhoneChrome({
   return (
     <div
       className={cn(
-        "mx-auto w-full",
-        size === "lg" ? "max-w-[420px]" : "max-w-[320px]",
+        "mx-auto w-full overflow-x-clip",
+        size === "lg" ? "max-w-[min(100%,420px)]" : "max-w-[min(100%,320px)]",
         className,
       )}
     >
@@ -339,13 +339,13 @@ export function PhoneChrome({
           className={cn(
             "pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-black",
             size === "lg"
-              ? "top-[20px] h-[28px] w-[110px]"
-              : "top-[18px] h-[26px] w-[96px]",
+              ? "top-[20px] h-[28px] w-[min(110px,40%)]"
+              : "top-[18px] h-[26px] w-[min(96px,42%)]",
           )}
         />
-        <div className="pointer-events-none absolute right-[-2px] top-[120px] h-14 w-[3px] rounded-l-sm bg-neutral-700" />
-        <div className="pointer-events-none absolute left-[-2px] top-[100px] h-8 w-[3px] rounded-r-sm bg-neutral-700" />
-        <div className="pointer-events-none absolute left-[-2px] top-[140px] h-12 w-[3px] rounded-r-sm bg-neutral-700" />
+        <div className="pointer-events-none absolute right-0 top-[120px] h-14 w-[3px] rounded-l-sm bg-neutral-700" />
+        <div className="pointer-events-none absolute left-0 top-[100px] h-8 w-[3px] rounded-r-sm bg-neutral-700" />
+        <div className="pointer-events-none absolute left-0 top-[140px] h-12 w-[3px] rounded-r-sm bg-neutral-700" />
         <div
           className={cn(
             "overflow-hidden bg-white",

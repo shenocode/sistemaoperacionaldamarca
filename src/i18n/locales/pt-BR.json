@@ -7,7 +7,8 @@
     "content": "Conteúdos",
     "approvals": "Aprovações",
     "myProjects": "Meus projetos",
-    "settings": "Meu Perfil"
+    "settings": "Meu Perfil",
+    "openMenu": "Abrir menu"
   },
   "auth": {
     "signIn": "Entrar",

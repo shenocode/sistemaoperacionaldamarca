@@ -123,7 +123,7 @@ function ClientSettingsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-8">
+    <div className="mx-auto max-w-lg space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <PageHeader title={t("clientSettings.title")} description={t("clientSettings.subtitle")} />
 
       {clientsQuery.isLoading ? (

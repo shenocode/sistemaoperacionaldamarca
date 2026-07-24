@@ -61,7 +61,7 @@ function ClientHomePage() {
   const projects = projectsQuery.data ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <PageHeader title={t("clientHome.title")} description={t("clientHome.subtitle")} />
       {projectsQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
