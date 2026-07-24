@@ -419,6 +419,53 @@ export type Database = {
           },
         ]
       }
+      design_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_size: number | null
+          file_url: string
+          format: Database["public"]["Enums"]["design_template_format"]
+          id: string
+          mime_type: string | null
+          name: string
+          project_id: string
+          storage_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          file_url: string
+          format: Database["public"]["Enums"]["design_template_format"]
+          id?: string
+          mime_type?: string | null
+          name: string
+          project_id: string
+          storage_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_size?: number | null
+          file_url?: string
+          format?: Database["public"]["Enums"]["design_template_format"]
+          id?: string
+          mime_type?: string | null
+          name?: string
+          project_id?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_assets: {
         Row: {
           category: Database["public"]["Enums"]["library_category"]
@@ -465,53 +512,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "library_assets_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      design_templates: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          file_size: number | null
-          file_url: string
-          format: Database["public"]["Enums"]["design_template_format"]
-          id: string
-          mime_type: string | null
-          name: string
-          project_id: string
-          storage_path: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          file_size?: number | null
-          file_url: string
-          format: Database["public"]["Enums"]["design_template_format"]
-          id?: string
-          mime_type?: string | null
-          name: string
-          project_id: string
-          storage_path?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          file_size?: number | null
-          file_url?: string
-          format?: Database["public"]["Enums"]["design_template_format"]
-          id?: string
-          mime_type?: string | null
-          name?: string
-          project_id?: string
-          storage_path?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "design_templates_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -633,23 +633,19 @@ export type Database = {
         Args: { object_name: string }
         Returns: string
       }
-      get_share_preview: {
-        Args: {
-          _access_token: string
-          _client_id: string
-          _project_id: string
-        }
-        Returns: {
-          client_id: string
-          client_name: string
-          logo_url: string | null
-          project_id: string
-          project_name: string
-        }[]
-      }
       content_storage_project_id: {
         Args: { object_name: string }
         Returns: string
+      }
+      get_share_preview: {
+        Args: { _access_token: string; _client_id: string; _project_id: string }
+        Returns: {
+          client_id: string
+          client_name: string
+          logo_url: string
+          project_id: string
+          project_name: string
+        }[]
       }
       has_role: {
         Args: {
@@ -707,13 +703,13 @@ export type Database = {
           _brand_colors?: Json
           _brand_fonts?: Json
           _client_id: string
-          _email?: string | null
-          _instagram?: string | null
-          _logo_url?: string | null
+          _email?: string
+          _instagram?: string
+          _logo_url?: string
           _name: string
-          _notes?: string | null
-          _phone?: string | null
-          _whatsapp?: string | null
+          _notes?: string
+          _phone?: string
+          _whatsapp?: string
         }
         Returns: {
           access_token: string
@@ -760,7 +756,6 @@ export type Database = {
         | "stories"
         | "carousel"
         | "recorded_video"
-      design_template_format: "static_feed" | "carousel"
       content_status:
         | "draft"
         | "review"
@@ -768,6 +763,7 @@ export type Database = {
         | "changes"
         | "published"
         | "waiting_material"
+      design_template_format: "static_feed" | "carousel"
       library_category:
         | "brand"
         | "pdfs"
@@ -925,7 +921,6 @@ export const Constants = {
         "carousel",
         "recorded_video",
       ],
-      design_template_format: ["static_feed", "carousel"],
       content_status: [
         "draft",
         "review",
@@ -934,6 +929,7 @@ export const Constants = {
         "published",
         "waiting_material",
       ],
+      design_template_format: ["static_feed", "carousel"],
       library_category: [
         "brand",
         "pdfs",
