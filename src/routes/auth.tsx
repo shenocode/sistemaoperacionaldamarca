@@ -40,9 +40,7 @@ function AuthPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { next: nextFromSearch } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup" | "forgot">(
-    nextFromSearch ? "signup" : "signin",
-  );
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
