@@ -96,7 +96,7 @@ function AuthPage() {
     }
 
     const dest = await resolvePostLoginPath();
-    if (dest.to === "/clients/$clientId/projects/$projectId/content") {
+    if (dest.to === "/clients/$clientId/projects/$projectId/feed") {
       router.navigate({
         to: dest.to,
         params: dest.params,

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/")({
     const { data } = await supabase.auth.getSession();
     if (data.session) {
       const dest = await resolvePostLoginPath();
-      if (dest.to === "/clients/$clientId/projects/$projectId/content") {
+      if (dest.to === "/clients/$clientId/projects/$projectId/feed") {
         throw redirect({ to: dest.to, params: dest.params, search: dest.search });
       }
       throw redirect({ to: dest.to });

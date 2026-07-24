@@ -2300,21 +2300,21 @@ export async function getClientHomeTarget(): Promise<ClientHomeTarget> {
   return { type: "picker", projects };
 }
 
-/** Path after login: admins go to dashboard; clients to their project or picker. */
+/** Path after login: admins go to dashboard; clients to their project feed or picker. */
 export async function resolvePostLoginPath(): Promise<
   | { to: "/dashboard" }
   | { to: "/home" }
   | {
-      to: "/clients/$clientId/projects/$projectId/content";
+      to: "/clients/$clientId/projects/$projectId/feed";
       params: { clientId: string; projectId: string };
-      search: { filter?: "review"; access?: string };
+      search: { access?: string };
     }
 > {
   if (await isAdmin()) return { to: "/dashboard" };
   const target = await getClientHomeTarget();
   if (target.type === "project") {
     return {
-      to: "/clients/$clientId/projects/$projectId/content",
+      to: "/clients/$clientId/projects/$projectId/feed",
       params: { clientId: target.clientId, projectId: target.projectId },
       search: {},
     };

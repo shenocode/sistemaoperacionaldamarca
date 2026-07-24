@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <>
           {showClientProjectNav ? (
             <Link
-              to="/clients/$clientId/projects/$projectId/content"
+              to="/clients/$clientId/projects/$projectId/feed"
               params={{ clientId: params.clientId!, projectId: params.projectId! }}
               search={{}}
               onClick={closeMobileNav}
