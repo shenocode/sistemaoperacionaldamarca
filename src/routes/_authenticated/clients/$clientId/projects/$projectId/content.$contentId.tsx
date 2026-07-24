@@ -78,6 +78,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
