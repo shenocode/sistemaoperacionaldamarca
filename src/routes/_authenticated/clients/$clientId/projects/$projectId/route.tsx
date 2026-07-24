@@ -61,7 +61,7 @@ function ProjectLayout() {
           <img
             src={clientQuery.data.logo_url}
             alt=""
-            className="mt-0.5 h-12 w-12 shrink-0 rounded-xl border object-cover bg-muted"
+            className="mt-0.5 h-24 w-24 shrink-0 rounded-xl border object-cover bg-muted"
           />
         ) : null}
         <div className="min-w-0">
