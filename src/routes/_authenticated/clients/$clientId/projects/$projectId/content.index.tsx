@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
+import { ContentFormatSelect } from "@/components/content-format-select";
 import { ContentStatusSelect } from "@/components/content-status-select";
-import { contentFormatStyles } from "@/components/content-format-styles";
 import type { ContentStatus } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/select";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import {
-  CONTENT_FORMATS,
   canManageClient,
   createContent,
   deleteContent,
@@ -332,42 +331,16 @@ function ContentListPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <Select
-                          value={r.format ?? "static_feed"}
+                        <ContentFormatSelect
+                          format={(r.format ?? "static_feed") as ContentFormat}
                           disabled={!canManage || isBusy}
                           onValueChange={(value) => {
                             formatMutation.mutate({
                               contentId: r.id,
-                              format: value as ContentFormat,
+                              format: value,
                             });
                           }}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1",
-                              contentFormatStyles[(r.format ?? "static_feed") as ContentFormat],
-                            )}
-                            aria-label={t("project.content.columns.format")}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CONTENT_FORMATS.map((formatKey) => (
-                              <SelectItem key={formatKey} value={formatKey}>
-                                <span className="inline-flex items-center gap-2">
-                                  <span
-                                    className={cn(
-                                      "h-2.5 w-2.5 shrink-0 rounded-full border",
-                                      contentFormatStyles[formatKey],
-                                    )}
-                                    aria-hidden="true"
-                                  />
-                                  {t(`project.detail.formats.${formatKey}`)}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <ContentStatusSelect

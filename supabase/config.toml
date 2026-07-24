@@ -1,1 +1,10 @@
 project_id = "swhjyntcyxdgfcwbwcyi"
+
+[functions.suggest-content]
+verify_jwt = true
+
+[functions.briefing-coach]
+verify_jwt = true
+
+[functions.generate-brand-guide]
+verify_jwt = true

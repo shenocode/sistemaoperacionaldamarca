@@ -67,6 +67,53 @@ export type Database = {
           },
         ]
       }
+      brand_briefings: {
+        Row: {
+          answers: Json
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          guide: Json | null
+          guide_markdown: string | null
+          id: string
+          status: Database["public"]["Enums"]["brand_briefing_status"]
+          template: Json
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          guide?: Json | null
+          guide_markdown?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["brand_briefing_status"]
+          template?: Json
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          guide?: Json | null
+          guide_markdown?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["brand_briefing_status"]
+          template?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_briefings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_members: {
         Row: {
           client_id: string
@@ -186,8 +233,44 @@ export type Database = {
           },
         ]
       }
+      calendar_blocks: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_blocks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_items: {
         Row: {
+          calendar_block_id: string | null
           caption: string
           created_at: string
           created_by: string | null
@@ -200,6 +283,7 @@ export type Database = {
           media_url: string | null
           media_urls: string[]
           project_id: string
+          roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
@@ -208,6 +292,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          calendar_block_id?: string | null
           caption?: string
           created_at?: string
           created_by?: string | null
@@ -220,6 +305,7 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id: string
+          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -228,6 +314,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          calendar_block_id?: string | null
           caption?: string
           created_at?: string
           created_by?: string | null
@@ -240,6 +327,7 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id?: string
+          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -248,6 +336,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "content_items_calendar_block_id_fkey"
+            columns: ["calendar_block_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_blocks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_items_project_id_fkey"
             columns: ["project_id"]
@@ -271,6 +366,7 @@ export type Database = {
           locucao: string
           media_url: string | null
           media_urls: string[]
+          roteiro: string
           version_number: number
         }
         Insert: {
@@ -286,6 +382,7 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
+          roteiro?: string
           version_number: number
         }
         Update: {
@@ -301,6 +398,7 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
+          roteiro?: string
           version_number?: number
         }
         Relationships: [
@@ -518,6 +616,7 @@ export type Database = {
           _phone?: string | null
           _whatsapp?: string | null
           _instagram?: string | null
+          _logo_url?: string | null
         }
         Returns: Database["public"]["Tables"]["clients"]["Row"]
       }
@@ -534,6 +633,7 @@ export type Database = {
         | "changes_requested"
         | "published"
         | "comment_added"
+      brand_briefing_status: "draft" | "in_progress" | "completed"
       app_role: "admin" | "client"
       client_member_role: "owner" | "member"
       content_status:
@@ -696,6 +796,7 @@ export const Constants = {
         "published",
         "comment_added",
       ],
+      brand_briefing_status: ["draft", "in_progress", "completed"],
       app_role: ["admin", "client"],
       client_member_role: ["owner", "member"],
       content_status: [

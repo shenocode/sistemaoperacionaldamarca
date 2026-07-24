@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,6 +10,7 @@ import {
   Link2,
   FileSpreadsheet,
   FileType,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import {
   canManageClient,
   createLibraryAsset,
   createLibraryAssets,
+  ensureBrandBriefing,
   guessLibraryCategory,
   listLibraryAssets,
   type LibraryAsset,
@@ -77,6 +79,11 @@ function LibraryPage() {
   const assetsQuery = useQuery({
     queryKey: ["library", projectId],
     queryFn: () => listLibraryAssets(projectId),
+  });
+
+  const briefingQuery = useQuery({
+    queryKey: ["brand-briefing", clientId],
+    queryFn: () => ensureBrandBriefing(clientId),
   });
 
   const manageQuery = useQuery({
@@ -139,6 +146,9 @@ function LibraryPage() {
       ? files.length > 0
       : Boolean(fileUrl.trim()) && Boolean(name.trim() || fileUrl.trim());
 
+  const briefing = briefingQuery.data;
+  const briefingStatusKey = briefing?.status ?? "draft";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end">
@@ -151,6 +161,43 @@ function LibraryPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="rounded-xl border-primary/20 bg-primary/5">
+          <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ClipboardList className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-sm font-medium">
+                {t("project.library.briefing.title")}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {briefingQuery.isLoading
+                  ? t("common.loading")
+                  : t(`project.library.briefing.status.${briefingStatusKey}`)}
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <p className="text-xs text-muted-foreground">
+              {briefing
+                ? t("project.library.briefing.progress", {
+                    answered: briefing.answeredCount,
+                    total: briefing.totalCount,
+                  })
+                : t("project.library.briefing.description")}
+            </p>
+            <Button asChild size="sm" className="w-full">
+              <Link
+                to="/clients/$clientId/briefing"
+                params={{ clientId }}
+                search={{ projectId }}
+              >
+                {t("project.library.briefing.open")}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         {categories.map((c) => {
           const Icon = c.icon;
           const categoryAssets = byCategory[c.key] ?? [];

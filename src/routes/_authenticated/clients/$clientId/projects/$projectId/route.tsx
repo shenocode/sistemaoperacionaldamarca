@@ -29,6 +29,7 @@ function ProjectLayout() {
   // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
   // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
   const tabs = [
+    { to: "/clients/$clientId/projects/$projectId/feed", label: t("project.tabs.feed") },
     { to: "/clients/$clientId/projects/$projectId/calendar", label: t("project.tabs.calendar") },
     { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
     { to: "/clients/$clientId/projects/$projectId/library", label: t("project.tabs.library") },
@@ -55,12 +56,23 @@ function ProjectLayout() {
           {t("nav.myProjects")}
         </Link>
       )}
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight">
-        {projectQuery.data?.name ?? t("common.loading")}
-      </h1>
-      {projectQuery.data?.description ? (
-        <p className="mt-1 text-sm text-muted-foreground">{projectQuery.data.description}</p>
-      ) : null}
+      <div className="mt-3 flex items-start gap-3">
+        {clientQuery.data?.logo_url ? (
+          <img
+            src={clientQuery.data.logo_url}
+            alt=""
+            className="mt-0.5 h-12 w-12 shrink-0 rounded-xl border object-cover bg-muted"
+          />
+        ) : null}
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {projectQuery.data?.name ?? t("common.loading")}
+          </h1>
+          {projectQuery.data?.description ? (
+            <p className="mt-1 text-sm text-muted-foreground">{projectQuery.data.description}</p>
+          ) : null}
+        </div>
+      </div>
 
       <div role="tablist" className="mt-6 flex gap-1 border-b">
         {tabs.map((tab) => (

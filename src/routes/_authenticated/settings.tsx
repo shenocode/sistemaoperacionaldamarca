@@ -32,6 +32,7 @@ const emptyForm: ClientContactInput = {
   phone: "",
   whatsapp: "",
   instagram: "",
+  logo_url: "",
 };
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -94,6 +95,7 @@ function ClientSettingsPage() {
       phone: client.phone ?? "",
       whatsapp: client.whatsapp ?? "",
       instagram: client.instagram ?? "",
+      logo_url: client.logo_url ?? "",
     });
   }, [clients, selectedClientId]);
 
@@ -151,7 +153,13 @@ function ClientSettingsPage() {
             </div>
           ) : null}
 
-          <ClientContactFields form={form} onChange={setForm} nameRequired idPrefix="profile" />
+          <ClientContactFields
+            form={form}
+            onChange={setForm}
+            nameRequired
+            idPrefix="profile"
+            clientId={selectedClientId || undefined}
+          />
 
           <Button type="submit" disabled={saveMutation.isPending || !form.name.trim()}>
             {t("common.save")}

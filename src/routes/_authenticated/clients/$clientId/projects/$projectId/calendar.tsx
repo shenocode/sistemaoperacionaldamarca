@@ -50,12 +50,16 @@ import {
   canManageClient,
   claimClientAccess,
   deleteContent,
+  duplicateCalendarBlock,
   duplicateContent,
+  ensureCalendarBlocks,
   getClient,
   listContent,
   getProject,
   reorderContentItems,
+  updateCalendarBlockTitle,
   updateContentCalendar,
+  type CalendarBlock,
   type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
@@ -143,6 +147,57 @@ function CalendarTitleCell({
   );
 }
 
+function BlockPeriodTitle({
+  title,
+  disabled,
+  placeholder,
+  ariaLabel,
+  onSave,
+}: {
+  title: string;
+  disabled: boolean;
+  placeholder: string;
+  ariaLabel: string;
+  onSave: (title: string) => void;
+}) {
+  const [value, setValue] = useState(title);
+
+  useEffect(() => {
+    setValue(title);
+  }, [title]);
+
+  function commit() {
+    const next = value.trim();
+    if (!next || next === title) {
+      setValue(title);
+      return;
+    }
+    onSave(next);
+  }
+
+  return (
+    <Input
+      className="h-10 max-w-xl border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0 md:text-lg"
+      value={value}
+      disabled={disabled}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+        if (e.key === "Escape") {
+          setValue(title);
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export type CalendarSearch = {
   access?: string;
 };
@@ -176,14 +231,20 @@ function ProjectCalendarPage() {
   const [newTheme, setNewTheme] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [dragState, setDragState] = useState<{ blockKey: string; index: number } | null>(null);
+  const [dropState, setDropState] = useState<{ blockKey: string; index: number } | null>(null);
 
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
 
   const contentQuery = useQuery({
     queryKey: ["content", projectId],
     queryFn: () => listContent(projectId),
+  });
+
+  const blocksQuery = useQuery({
+    queryKey: ["calendar-blocks", projectId],
+    queryFn: () => ensureCalendarBlocks(projectId),
+    enabled: Boolean(contentQuery.data),
   });
 
   const projectQuery = useQuery({
@@ -208,7 +269,24 @@ function ProjectCalendarPage() {
     [contentQuery.data],
   );
   const rows = localRows ?? serverRows;
-  const canReorder = canEdit && rows.length > 1;
+  const blocks = blocksQuery.data ?? [];
+
+  const itemsByBlock = useMemo(() => {
+    const map = new Map<string, ContentItem[]>();
+    for (const block of blocks) {
+      map.set(block.id, []);
+    }
+    const unassigned: ContentItem[] = [];
+    for (const row of rows) {
+      const blockId = row.calendar_block_id;
+      if (blockId && map.has(blockId)) {
+        map.get(blockId)!.push(row);
+      } else {
+        unassigned.push(row);
+      }
+    }
+    return { map, unassigned };
+  }, [blocks, rows]);
 
   useEffect(() => {
     setLocalRows(null);
@@ -249,6 +327,15 @@ function ProjectCalendarPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const updateBlockTitleMutation = useMutation({
+    mutationFn: ({ blockId, title }: { blockId: string; title: string }) =>
+      updateCalendarBlockTitle(blockId, title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const reorderMutation = useMutation({
     mutationFn: reorderContentItems,
     onSuccess: () => {
@@ -260,44 +347,71 @@ function ProjectCalendarPage() {
     },
   });
 
-  const onDragStart = (index: number) => (event: DragEvent<HTMLSpanElement>) => {
-    setDragIndex(index);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(index));
-  };
-
-  const onDragOver = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
-    if (!canReorder) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    if (dropIndex !== index) setDropIndex(index);
-  };
-
   const applyReorder = (next: ContentItem[]) => {
     setLocalRows(next);
     reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
   };
 
-  const onDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
-    event.preventDefault();
-    if (!canReorder) return;
-    const from = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
-    if (!Number.isFinite(from)) {
-      setDragIndex(null);
-      setDropIndex(null);
+  const applyReorderInBlock = (blockKey: string, nextBlockItems: ContentItem[]) => {
+    const nextFull: ContentItem[] = [];
+    if (blocks.length === 0) {
+      applyReorder(nextBlockItems);
       return;
     }
-    const next = moveItem(rows, from, index);
-    setDragIndex(null);
-    setDropIndex(null);
-    if (next !== rows) {
-      applyReorder(next);
+    for (const block of blocks) {
+      if (block.id === blockKey) {
+        nextFull.push(...nextBlockItems);
+      } else {
+        nextFull.push(...(itemsByBlock.map.get(block.id) ?? []));
+      }
+    }
+    if (blockKey === "__unassigned__") {
+      nextFull.push(...nextBlockItems);
+    } else {
+      nextFull.push(...itemsByBlock.unassigned);
+    }
+    applyReorder(nextFull);
+  };
+
+  const onDragStart = (blockKey: string, index: number) => (event: DragEvent<HTMLSpanElement>) => {
+    setDragState({ blockKey, index });
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `${blockKey}:${index}`);
+  };
+
+  const onDragOver = (blockKey: string, index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dropState?.blockKey !== blockKey || dropState.index !== index) {
+      setDropState({ blockKey, index });
+    }
+  };
+
+  const onDrop = (blockKey: string, index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    event.preventDefault();
+    const raw = event.dataTransfer.getData("text/plain");
+    const [fromBlock, fromIndexRaw] = raw.includes(":")
+      ? raw.split(":")
+      : [dragState?.blockKey, dragState ? String(dragState.index) : ""];
+    const fromIndex = Number(fromIndexRaw);
+    setDragState(null);
+    setDropState(null);
+    if (!fromBlock || fromBlock !== blockKey || !Number.isFinite(fromIndex)) return;
+
+    const current =
+      blockKey === "__unassigned__"
+        ? itemsByBlock.unassigned
+        : (itemsByBlock.map.get(blockKey) ?? []);
+    if (current.length < 2) return;
+    const next = moveItem(current, fromIndex, index);
+    if (next !== current) {
+      applyReorderInBlock(blockKey, next);
     }
   };
 
   const onDragEnd = () => {
-    setDragIndex(null);
-    setDropIndex(null);
+    setDragState(null);
+    setDropState(null);
   };
 
   const addThemeMutation = useMutation({
@@ -320,7 +434,24 @@ function ProjectCalendarPage() {
       duplicateContent({ contentId, clientId, projectId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
       toast.success(t("project.calendar.duplicated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const duplicateBlockMutation = useMutation({
+    mutationFn: (blockId: string) =>
+      duplicateCalendarBlock({
+        blockId,
+        clientId,
+        projectId,
+        locale: i18n.language,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+      toast.success(t("project.calendar.blockDuplicated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -329,6 +460,7 @@ function ProjectCalendarPage() {
     mutationFn: (contentId: string) => deleteContent({ contentId, projectId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setDeleteTarget(null);
       toast.success(t("project.calendar.deleted"));
@@ -343,13 +475,284 @@ function ProjectCalendarPage() {
     );
   }, [themePresets, rows, i18n.language]);
 
+  const isBusy =
+    updateMutation.isPending ||
+    duplicateMutation.isPending ||
+    duplicateBlockMutation.isPending ||
+    deleteMutation.isPending ||
+    reorderMutation.isPending ||
+    updateBlockTitleMutation.isPending;
+
+  const renderBlockTable = (blockKey: string, blockRows: ContentItem[]) => {
+    const canReorder = canEdit && blockRows.length > 1;
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[920px] text-sm">
+          <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-3">#</th>
+              <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
+              <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
+              <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
+              <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
+              <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
+              <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
+              <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {blockRows.map((row, index) => {
+              const scheduled = row.scheduled_at ? new Date(row.scheduled_at) : null;
+              const dayLabel =
+                scheduled && !Number.isNaN(scheduled.getTime())
+                  ? format(scheduled, "EEEE", { locale })
+                  : "—";
+              const rowFormat = (row.format ?? "static_feed") as ContentFormat;
+
+              return (
+                <tr
+                  key={row.id}
+                  onDragOver={canReorder ? onDragOver(blockKey, index) : undefined}
+                  onDrop={canReorder ? onDrop(blockKey, index) : undefined}
+                  className={cn(
+                    contentFormatRowStyles[rowFormat],
+                    "hover:brightness-[0.98]",
+                    dragState?.blockKey === blockKey && dragState.index === index && "opacity-50",
+                    dropState?.blockKey === blockKey &&
+                      dropState.index === index &&
+                      dragState !== null &&
+                      !(dragState.blockKey === blockKey && dragState.index === index) &&
+                      "bg-muted",
+                  )}
+                >
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      {canReorder ? (
+                        <span
+                          draggable
+                          onDragStart={onDragStart(blockKey, index)}
+                          onDragEnd={onDragEnd}
+                          className="inline-flex shrink-0 cursor-grab touch-none text-foreground/55 hover:text-foreground active:cursor-grabbing"
+                          aria-label={t("project.calendar.dragHandle")}
+                          title={t("project.calendar.dragHandle")}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <GripVertical className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                      ) : null}
+                      <span className="text-muted-foreground">{index + 1}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 capitalize text-muted-foreground">{dayLabel}</td>
+                  <td className="px-3 py-2.5">
+                    <Input
+                      type="datetime-local"
+                      className="h-8 w-[11.5rem]"
+                      value={toDatetimeLocalValue(row.scheduled_at)}
+                      disabled={!canEdit || isBusy}
+                      onChange={(e) => {
+                        updateMutation.mutate({
+                          contentId: row.id,
+                          scheduledAt: fromDatetimeLocalValue(e.target.value),
+                        });
+                      }}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <ContentStatusSelect
+                      status={row.status as ContentStatus}
+                      contentId={row.id}
+                      clientId={clientId}
+                      projectId={projectId}
+                      title={row.title}
+                      disabled={!canEdit || isBusy}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Select
+                      value={rowFormat}
+                      disabled={!canEdit || isBusy}
+                      onValueChange={(value) => {
+                        updateMutation.mutate({
+                          contentId: row.id,
+                          format: value as ContentFormat,
+                        });
+                      }}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1",
+                          contentFormatStyles[rowFormat],
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONTENT_FORMATS.map((formatKey) => (
+                          <SelectItem key={formatKey} value={formatKey}>
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  "h-2.5 w-2.5 shrink-0 rounded-full border",
+                                  contentFormatStyles[formatKey],
+                                )}
+                                aria-hidden="true"
+                              />
+                              {t(`project.detail.formats.${formatKey}`)}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Select
+                      value={row.theme?.trim() || NONE_VALUE}
+                      disabled={!canEdit || isBusy}
+                      onValueChange={(value) => {
+                        if (value === NEW_THEME_VALUE) {
+                          setThemeDialogContentId(row.id);
+                          setNewTheme("");
+                          return;
+                        }
+                        updateMutation.mutate({
+                          contentId: row.id,
+                          theme: value === NONE_VALUE ? null : value,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[10.5rem]">
+                        <SelectValue placeholder={t("project.calendar.selectTheme")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_VALUE}>{t("project.calendar.noTheme")}</SelectItem>
+                        {themeOptions.map((theme) => (
+                          <SelectItem key={theme} value={theme}>
+                            {theme}
+                          </SelectItem>
+                        ))}
+                        {canEdit ? (
+                          <SelectItem value={NEW_THEME_VALUE}>
+                            {t("project.calendar.newTheme")}
+                          </SelectItem>
+                        ) : null}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <CalendarTitleCell
+                      title={row.title}
+                      disabled={!canEdit || isBusy}
+                      onSave={(nextTitle) => {
+                        updateMutation.mutate({
+                          contentId: row.id,
+                          title: nextTitle,
+                        });
+                      }}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button asChild variant="outline" size="sm">
+                        <Link
+                          to="/clients/$clientId/projects/$projectId/content/$contentId"
+                          params={{ clientId, projectId, contentId: row.id }}
+                          search={{}}
+                        >
+                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                          {t("project.calendar.access")}
+                        </Link>
+                      </Button>
+                      {canEdit ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isBusy}
+                            title={t("project.calendar.duplicateHint")}
+                            onClick={() => duplicateMutation.mutate(row.id)}
+                          >
+                            <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                            {t("project.calendar.duplicate")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isBusy}
+                            className="text-destructive hover:text-destructive"
+                            title={t("project.calendar.deleteHint")}
+                            onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
+                          >
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                            {t("project.calendar.delete")}
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderBlockCard = (block: CalendarBlock) => {
+    const blockRows = itemsByBlock.map.get(block.id) ?? [];
+    return (
+      <Card key={block.id} className="overflow-hidden rounded-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <BlockPeriodTitle
+            title={block.title}
+            disabled={!canEdit || isBusy}
+            placeholder={t("project.calendar.blockTitlePlaceholder")}
+            ariaLabel={t("project.calendar.blockTitleLabel")}
+            onSave={(title) => updateBlockTitleMutation.mutate({ blockId: block.id, title })}
+          />
+          {canEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isBusy || blockRows.length === 0}
+              title={t("project.calendar.duplicateBlockHint")}
+              onClick={() => duplicateBlockMutation.mutate(block.id)}
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              {t("project.calendar.duplicateBlock")}
+            </Button>
+          ) : null}
+        </div>
+        {blockRows.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">{t("project.calendar.empty")}</p>
+        ) : (
+          renderBlockTable(block.id, blockRows)
+        )}
+      </Card>
+    );
+  };
+
+  const loading =
+    contentQuery.isLoading || projectQuery.isLoading || (Boolean(contentQuery.data) && blocksQuery.isLoading);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div>
             <h2 className="text-sm font-medium">{t("project.calendar.title")}</h2>
-            <p className="text-xs text-muted-foreground">{t("project.calendar.hint")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("project.calendar.hint")}
+              {canEdit && rows.length > 1
+                ? ` ${t("project.calendar.hintReorder")}`
+                : null}
+            </p>
           </div>
           <ul className="flex flex-wrap gap-1.5" aria-label={t("project.calendar.columns.format")}>
             {CONTENT_FORMATS.map((formatKey) => (
@@ -378,7 +781,7 @@ function ProjectCalendarPage() {
         ) : null}
       </div>
 
-      {contentQuery.isLoading || projectQuery.isLoading ? (
+      {loading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       ) : contentQuery.isError ? (
         <p className="text-sm text-destructive">
@@ -388,228 +791,22 @@ function ProjectCalendarPage() {
         </p>
       ) : rows.length === 0 ? (
         <EmptyState icon={CalendarDays} title={t("project.calendar.empty")} />
+      ) : blocks.length > 0 ? (
+        <div className="space-y-4">
+          {blocks.map((block) => renderBlockCard(block))}
+          {itemsByBlock.unassigned.length > 0 ? (
+            <Card className="overflow-hidden rounded-xl">
+              {renderBlockTable("__unassigned__", itemsByBlock.unassigned)}
+            </Card>
+          ) : null}
+        </div>
       ) : (
         <Card className="overflow-hidden rounded-xl">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[920px] text-sm">
-              <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  {canReorder ? <th className="w-8 px-2 py-3" aria-label={t("project.calendar.reorder")} /> : null}
-                  <th className="px-3 py-3">#</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
-                  <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
-                  <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {rows.map((row, index) => {
-                  const scheduled = row.scheduled_at ? new Date(row.scheduled_at) : null;
-                  const dayLabel =
-                    scheduled && !Number.isNaN(scheduled.getTime())
-                      ? format(scheduled, "EEEE", { locale })
-                      : "—";
-                  const rowFormat = (row.format ?? "static_feed") as ContentFormat;
-                  const isBusy =
-                    updateMutation.isPending ||
-                    duplicateMutation.isPending ||
-                    deleteMutation.isPending ||
-                    reorderMutation.isPending;
-
-                  return (
-                    <tr
-                      key={row.id}
-                      onDragOver={canReorder ? onDragOver(index) : undefined}
-                      onDrop={canReorder ? onDrop(index) : undefined}
-                      className={cn(
-                        contentFormatRowStyles[rowFormat],
-                        "hover:brightness-[0.98]",
-                        dragIndex === index && "opacity-50",
-                        dropIndex === index &&
-                          dragIndex !== null &&
-                          dragIndex !== index &&
-                          "bg-muted",
-                      )}
-                    >
-                      {canReorder ? (
-                        <td className="px-2 py-2.5">
-                          <span
-                            draggable
-                            onDragStart={onDragStart(index)}
-                            onDragEnd={onDragEnd}
-                            className="inline-flex cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
-                            aria-label={t("project.calendar.dragHandle")}
-                            title={t("project.calendar.dragHandle")}
-                            role="button"
-                            tabIndex={0}
-                          >
-                            <GripVertical className="h-4 w-4" aria-hidden="true" />
-                          </span>
-                        </td>
-                      ) : null}
-                      <td className="px-3 py-2.5 text-muted-foreground">{index + 1}</td>
-                      <td className="px-3 py-2.5 capitalize text-muted-foreground">{dayLabel}</td>
-                      <td className="px-3 py-2.5">
-                        <Input
-                          type="datetime-local"
-                          className="h-8 w-[11.5rem]"
-                          value={toDatetimeLocalValue(row.scheduled_at)}
-                          disabled={!canEdit || isBusy}
-                          onChange={(e) => {
-                            updateMutation.mutate({
-                              contentId: row.id,
-                              scheduledAt: fromDatetimeLocalValue(e.target.value),
-                            });
-                          }}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <ContentStatusSelect
-                          status={row.status as ContentStatus}
-                          contentId={row.id}
-                          clientId={clientId}
-                          projectId={projectId}
-                          title={row.title}
-                          disabled={!canEdit || isBusy}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Select
-                          value={rowFormat}
-                          disabled={!canEdit || isBusy}
-                          onValueChange={(value) => {
-                            updateMutation.mutate({
-                              contentId: row.id,
-                              format: value as ContentFormat,
-                            });
-                          }}
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              "h-8 w-[9.5rem] border text-xs font-medium shadow-sm focus:ring-1",
-                              contentFormatStyles[rowFormat],
-                            )}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CONTENT_FORMATS.map((formatKey) => (
-                              <SelectItem key={formatKey} value={formatKey}>
-                                <span className="inline-flex items-center gap-2">
-                                  <span
-                                    className={cn(
-                                      "h-2.5 w-2.5 shrink-0 rounded-full border",
-                                      contentFormatStyles[formatKey],
-                                    )}
-                                    aria-hidden="true"
-                                  />
-                                  {t(`project.detail.formats.${formatKey}`)}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Select
-                          value={row.theme?.trim() || NONE_VALUE}
-                          disabled={!canEdit || isBusy}
-                          onValueChange={(value) => {
-                            if (value === NEW_THEME_VALUE) {
-                              setThemeDialogContentId(row.id);
-                              setNewTheme("");
-                              return;
-                            }
-                            updateMutation.mutate({
-                              contentId: row.id,
-                              theme: value === NONE_VALUE ? null : value,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="h-8 w-[10.5rem]">
-                            <SelectValue placeholder={t("project.calendar.selectTheme")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={NONE_VALUE}>{t("project.calendar.noTheme")}</SelectItem>
-                            {themeOptions.map((theme) => (
-                              <SelectItem key={theme} value={theme}>
-                                {theme}
-                              </SelectItem>
-                            ))}
-                            {canEdit ? (
-                              <SelectItem value={NEW_THEME_VALUE}>
-                                {t("project.calendar.newTheme")}
-                              </SelectItem>
-                            ) : null}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <CalendarTitleCell
-                          title={row.title}
-                          disabled={!canEdit || isBusy}
-                          onSave={(nextTitle) => {
-                            updateMutation.mutate({
-                              contentId: row.id,
-                              title: nextTitle,
-                            });
-                          }}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button asChild variant="outline" size="sm">
-                            <Link
-                              to="/clients/$clientId/projects/$projectId/content/$contentId"
-                              params={{ clientId, projectId, contentId: row.id }}
-                              search={{}}
-                            >
-                              <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                              {t("project.calendar.access")}
-                            </Link>
-                          </Button>
-                          {canEdit ? (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={isBusy}
-                                title={t("project.calendar.duplicateHint")}
-                                onClick={() => duplicateMutation.mutate(row.id)}
-                              >
-                                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                {t("project.calendar.duplicate")}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={isBusy}
-                                className="text-destructive hover:text-destructive"
-                                title={t("project.calendar.deleteHint")}
-                                onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
-                              >
-                                <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                {t("project.calendar.delete")}
-                              </Button>
-                            </>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {renderBlockTable("__all__", rows)}
         </Card>
       )}
 
-      {!contentQuery.isLoading && !projectQuery.isLoading && !contentQuery.isError ? (
+      {!loading && !contentQuery.isError ? (
         <div className="flex justify-center pt-4">
           <InstagramFeedMockup
             items={rows}
@@ -617,7 +814,7 @@ function ProjectCalendarPage() {
             projectId={projectId}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
-            canReorder={canReorder}
+            canReorder={canEdit && rows.length > 1}
             onReorder={applyReorder}
           />
         </div>

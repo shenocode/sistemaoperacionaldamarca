@@ -1,8 +1,17 @@
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ImagePlus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { ClientContactInput } from "@/lib/api";
+import {
+  CLIENT_LOGO_ACCEPT,
+  uploadClientLogo,
+  type ClientContactInput,
+} from "@/lib/api";
 
 export function ClientContactFields({
   form,
@@ -10,21 +19,88 @@ export function ClientContactFields({
   nameRequired = false,
   autoFocusName = false,
   idPrefix = "client",
+  clientId,
 }: {
   form: ClientContactInput;
   onChange: (next: ClientContactInput) => void;
   nameRequired?: boolean;
   autoFocusName?: boolean;
   idPrefix?: string;
+  /** When set, enables immediate logo upload to storage. */
+  clientId?: string;
 }) {
   const { t } = useTranslation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   function setField<K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) {
     onChange({ ...form, [key]: value });
   }
 
+  async function handleLogoSelected(file: File | undefined) {
+    if (!file || !clientId) return;
+    setUploading(true);
+    try {
+      const url = await uploadClientLogo(clientId, file);
+      setField("logo_url", url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("clients.logoUploadError"));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  const logoUrl = form.logo_url?.trim() || null;
+  const initials = (form.name.trim().slice(0, 1) || "?").toUpperCase();
+
   return (
     <div className="space-y-4">
+      {clientId ? (
+        <div className="space-y-2">
+          <Label>{t("clients.logo")}</Label>
+          <div className="flex items-center gap-3">
+            <Avatar className="h-14 w-14 rounded-xl border">
+              {logoUrl ? <AvatarImage src={logoUrl} alt={t("clients.logo")} /> : null}
+              <AvatarFallback className="rounded-xl text-base font-medium">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {uploading ? t("clients.logoUploading") : t("clients.logoUpload")}
+              </Button>
+              {logoUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => setField("logo_url", "")}
+                >
+                  <Trash2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t("clients.logoRemove")}
+                </Button>
+              ) : null}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={CLIENT_LOGO_ACCEPT}
+              className="sr-only"
+              aria-label={t("clients.logoUpload")}
+              onChange={(e) => void handleLogoSelected(e.target.files?.[0])}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">{t("clients.logoHint")}</p>
+        </div>
+      ) : null}
+
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-name`}>{t("clients.name")}</Label>
         <Input

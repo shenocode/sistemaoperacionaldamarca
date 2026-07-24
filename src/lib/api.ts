@@ -1,18 +1,42 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database, Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Database, Json, Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { ContentStatus } from "@/components/status-badge";
+import {
+  DEFAULT_BRAND_BRIEFING_TEMPLATE,
+  countAnsweredQuestions,
+  countBriefingQuestions,
+  parseBriefingAnswers,
+  parseBriefingTemplate,
+  type BriefingTemplate,
+} from "@/lib/brand-briefing-template";
 
 export type Client = Tables<"clients">;
 export type Project = Tables<"projects">;
+export type CalendarBlock = Tables<"calendar_blocks">;
 export type ContentItem = Tables<"content_items">;
 export type ContentVersion = Tables<"content_versions">;
 export type ContentComment = Tables<"content_comments">;
 export type LibraryAsset = Tables<"library_assets">;
 export type ActivityEvent = Tables<"activity_events">;
 export type Profile = Tables<"profiles">;
+export type BrandBriefing = Tables<"brand_briefings">;
 export type ActivityType = Database["public"]["Enums"]["activity_type"];
 export type LibraryCategory = Database["public"]["Enums"]["library_category"];
 export type ContentFormat = Database["public"]["Enums"]["content_format"];
+export type BrandBriefingStatus = Database["public"]["Enums"]["brand_briefing_status"];
+
+export type {
+  BriefingQuestion,
+  BriefingSection,
+  BriefingTemplate,
+} from "@/lib/brand-briefing-template";
+export {
+  DEFAULT_BRAND_BRIEFING_TEMPLATE,
+  countAnsweredQuestions,
+  countBriefingQuestions,
+  parseBriefingAnswers,
+  parseBriefingTemplate,
+} from "@/lib/brand-briefing-template";
 
 export const CONTENT_FORMATS: ContentFormat[] = [
   "static_feed",
@@ -23,6 +47,9 @@ export const CONTENT_FORMATS: ContentFormat[] = [
 ];
 
 export const CONTENT_MEDIA_BUCKET = "content-media";
+export const CLIENT_LOGOS_BUCKET = "client-logos";
+
+export const CLIENT_LOGO_ACCEPT = ".jpg,.jpeg,.png,.gif,.webp,.svg,image/jpeg,image/png,image/gif,image/webp,image/svg+xml";
 
 export const CONTENT_MEDIA_ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.heic,.heif,.mp4,.webm,.mov,.avi,.txt,.md,.csv,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,image/*,video/*,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -69,6 +96,34 @@ export async function uploadContentMediaFiles(projectId: string, files: File[]) 
     urls.push(await uploadContentMedia(projectId, file));
   }
   return urls;
+}
+
+export async function uploadClientLogo(clientId: string, file: File) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Envie uma imagem (PNG, JPG, WebP ou SVG).");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("O logo deve ter no máximo 2 MB.");
+  }
+
+  const safeName = sanitizeFileName(file.name || "logo");
+  const storagePath = `${clientId}/${crypto.randomUUID()}-${safeName}`;
+  const { error } = await supabase.storage.from(CLIENT_LOGOS_BUCKET).upload(storagePath, file, {
+    cacheControl: "3600",
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+  if (error) {
+    if (/row-level security|violates row-level/i.test(error.message)) {
+      throw new Error(
+        "Não foi possível enviar o logo por falta de permissão no armazenamento. Peça para aplicar a migration de logos no banco e tente novamente.",
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  const { data } = supabase.storage.from(CLIENT_LOGOS_BUCKET).getPublicUrl(storagePath);
+  return data.publicUrl;
 }
 
 export function isVideoUrl(url: string) {
@@ -179,13 +234,13 @@ export function extractAccessTokenFromPath(path: string): string | null {
   }
 }
 
-/** Deep link to the project calendar; `access` lets the client claim membership after auth. */
+/** Deep link to the project feed preview; `access` lets the client claim membership after auth. */
 export function buildProjectReviewUrl(clientId: string, projectId: string, accessToken: string) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const params = new URLSearchParams({
     access: accessToken,
   });
-  return `${origin}/clients/${clientId}/projects/${projectId}/calendar?${params.toString()}`;
+  return `${origin}/clients/${clientId}/projects/${projectId}/feed?${params.toString()}`;
 }
 
 /** Join the client workspace using the invite token from the review link. */
@@ -265,6 +320,8 @@ export type ClientContactInput = {
   phone?: string;
   whatsapp?: string;
   instagram?: string;
+  /** Public URL; empty string or null clears the logo on update. */
+  logo_url?: string | null;
 };
 
 function normalizeOptionalText(value?: string) {
@@ -284,6 +341,7 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
     phone: normalizeOptionalText(input.phone),
     whatsapp: normalizeOptionalText(input.whatsapp),
     instagram: normalizeOptionalText(input.instagram),
+    logo_url: normalizeOptionalText(input.logo_url ?? undefined),
     created_by: userId,
   });
   if (insertError) throw new Error(insertError.message);
@@ -300,6 +358,7 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 
 export async function updateClient(clientId: string, input: ClientContactInput): Promise<Client> {
   // RPC allows client members to review/update contact fields (not only owners/admins).
+  // Empty string clears logo_url; omit logo_url from input to leave unchanged (RPC null).
   const { data, error } = await supabase.rpc("update_client_contact", {
     _client_id: clientId,
     _name: input.name.trim(),
@@ -308,6 +367,8 @@ export async function updateClient(clientId: string, input: ClientContactInput):
     _phone: normalizeOptionalText(input.phone),
     _whatsapp: normalizeOptionalText(input.whatsapp),
     _instagram: normalizeOptionalText(input.instagram),
+    _logo_url:
+      input.logo_url === undefined ? null : (normalizeOptionalText(input.logo_url ?? undefined) ?? ""),
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");
@@ -515,6 +576,13 @@ export async function createContent(input: {
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const sortOrder = await nextContentSortOrder(input.projectId);
+  let calendarBlockId: string | null = null;
+  try {
+    const blocks = await listCalendarBlocks(input.projectId);
+    calendarBlockId = blocks[0]?.id ?? null;
+  } catch {
+    calendarBlockId = null;
+  }
   const baseInsert = {
     project_id: input.projectId,
     title: input.title.trim(),
@@ -524,6 +592,7 @@ export async function createContent(input: {
     media_url: input.mediaUrl?.trim() || null,
     created_by: userId,
     status: "draft" as const,
+    ...(calendarBlockId ? { calendar_block_id: calendarBlockId } : {}),
   };
   let { data, error } = await supabase
     .from("content_items")
@@ -532,6 +601,18 @@ export async function createContent(input: {
     .single();
   if (error && isMissingSortOrderColumn(error.message)) {
     const retry = await supabase.from("content_items").insert(baseInsert).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingCalendarBlockIdColumn(error.message)) {
+    const { calendar_block_id: _ignored, ...withoutBlock } = baseInsert as typeof baseInsert & {
+      calendar_block_id?: string;
+    };
+    const retry = await supabase
+      .from("content_items")
+      .insert({ ...withoutBlock, sort_order: sortOrder })
+      .select("*")
+      .single();
     data = retry.data;
     error = retry.error;
   }
@@ -559,6 +640,10 @@ export async function duplicateContent(input: {
   projectId: string;
   /** Dias a avançar na data agendada (padrão: 7). */
   advanceDays?: number;
+  calendarBlockId?: string | null;
+  sortOrder?: number;
+  /** Quando true, não registra activity (ex.: duplicação em lote de bloco). */
+  silent?: boolean;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const source = await getContent(input.contentId);
@@ -578,7 +663,10 @@ export async function duplicateContent(input: {
   }
 
   const mediaUrls = resolveContentMediaUrls(source);
-  const sortOrder = await nextContentSortOrder(input.projectId);
+  const sortOrder =
+    input.sortOrder !== undefined ? input.sortOrder : await nextContentSortOrder(input.projectId);
+  const calendarBlockId =
+    input.calendarBlockId !== undefined ? input.calendarBlockId : source.calendar_block_id;
 
   // Intencionalmente NÃO copia current_version nem content_versions do source.
   const baseInsert = {
@@ -588,11 +676,13 @@ export async function duplicateContent(input: {
     cta: source.cta,
     hashtags: source.hashtags,
     locucao: source.locucao ?? "",
+    roteiro: source.roteiro ?? "",
     media_url: mediaUrls[0] ?? null,
     media_urls: mediaUrls,
     format: source.format,
     theme: source.theme,
     scheduled_at: scheduledAt,
+    calendar_block_id: calendarBlockId,
     created_by: userId,
     status: "draft" as const,
     current_version: 1,
@@ -604,6 +694,16 @@ export async function duplicateContent(input: {
     .single();
   if (error && isMissingSortOrderColumn(error.message)) {
     const retry = await supabase.from("content_items").insert(baseInsert).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingCalendarBlockIdColumn(error.message)) {
+    const { calendar_block_id: _ignored, ...withoutBlock } = baseInsert;
+    const retry = await supabase
+      .from("content_items")
+      .insert({ ...withoutBlock, sort_order: sortOrder })
+      .select("*")
+      .single();
     data = retry.data;
     error = retry.error;
   }
@@ -620,13 +720,15 @@ export async function duplicateContent(input: {
     row = ensureData(fixed, fixError);
   }
 
-  await logActivity({
-    type: "content_created",
-    summary: `Conteúdo duplicado: ${row.title}`,
-    clientId: input.clientId,
-    projectId: input.projectId,
-    contentId: row.id,
-  });
+  if (!input.silent) {
+    await logActivity({
+      type: "content_created",
+      summary: `Conteúdo duplicado: ${row.title}`,
+      clientId: input.clientId,
+      projectId: input.projectId,
+      contentId: row.id,
+    });
+  }
   return row;
 }
 
@@ -652,6 +754,7 @@ export async function saveContentAsNewVersion(input: {
   cta: string;
   hashtags: string;
   locucao?: string;
+  roteiro?: string;
   mediaUrl?: string | null;
   mediaUrls?: string[];
   format?: ContentFormat;
@@ -674,6 +777,7 @@ export async function saveContentAsNewVersion(input: {
   const mediaUrl = mediaUrls[0] ?? null;
   const format = input.format ?? current.format ?? "static_feed";
   const locucao = input.locucao ?? current.locucao ?? "";
+  const roteiro = input.roteiro ?? current.roteiro ?? "";
   const theme =
     input.theme !== undefined ? input.theme?.trim() || null : current.theme;
 
@@ -685,6 +789,7 @@ export async function saveContentAsNewVersion(input: {
       cta: input.cta,
       hashtags: input.hashtags,
       locucao,
+      roteiro,
       media_url: mediaUrl,
       media_urls: mediaUrls,
       format,
@@ -704,6 +809,7 @@ export async function saveContentAsNewVersion(input: {
     cta: input.cta,
     hashtags: input.hashtags,
     locucao,
+    roteiro,
     media_url: mediaUrl,
     media_urls: mediaUrls,
     format,
@@ -730,6 +836,7 @@ export async function updateContentFields(input: {
   cta: string;
   hashtags: string;
   locucao?: string;
+  roteiro?: string;
   mediaUrl?: string | null;
   mediaUrls?: string[];
   format?: ContentFormat;
@@ -748,6 +855,7 @@ export async function updateContentFields(input: {
       cta: input.cta,
       hashtags: input.hashtags,
       ...(input.locucao !== undefined ? { locucao: input.locucao } : {}),
+      ...(input.roteiro !== undefined ? { roteiro: input.roteiro } : {}),
       media_url: mediaUrl,
       media_urls: mediaUrls,
       ...(input.format ? { format: input.format } : {}),
@@ -811,6 +919,221 @@ export async function addProjectThemePreset(projectId: string, theme: string): P
     status: project.status,
     themePresets: [...existing, next],
   });
+}
+
+function isMissingCalendarBlocksTable(message: string) {
+  return /calendar_blocks/i.test(message) && /relation|table|schema cache|does not exist/i.test(message);
+}
+
+function isMissingCalendarBlockIdColumn(message: string) {
+  return /calendar_block_id/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
+export function suggestCalendarBlockTitle(
+  items: Array<{ scheduled_at: string | null }>,
+  locale: string = "pt-BR",
+): string {
+  const dates = items
+    .map((item) => (item.scheduled_at ? new Date(item.scheduled_at) : null))
+    .filter((d): d is Date => d != null && !Number.isNaN(d.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (dates.length === 0) {
+    if (locale.startsWith("en")) return "New period";
+    if (locale.startsWith("es")) return "Nuevo período";
+    return "Novo período";
+  }
+
+  const start = dates[0];
+  const end = dates[dates.length - 1];
+  const monthName = new Intl.DateTimeFormat(locale, { month: "long" }).format(start);
+  const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startLabel = `${pad(start.getDate())}/${pad(start.getMonth() + 1)}`;
+  const endLabel = `${pad(end.getDate())}/${pad(end.getMonth() + 1)}`;
+
+  if (locale.startsWith("en")) return `${capitalized} — from ${startLabel} to ${endLabel}`;
+  if (locale.startsWith("es")) return `${capitalized} — del ${startLabel} al ${endLabel}`;
+  return `${capitalized} - de ${startLabel} a ${endLabel}`;
+}
+
+function calendarPeriodAdvanceDays(items: Array<{ scheduled_at: string | null }>): number {
+  const times = items
+    .map((item) => (item.scheduled_at ? new Date(item.scheduled_at).getTime() : NaN))
+    .filter((t) => !Number.isNaN(t));
+  if (times.length < 2) return 28;
+  const spanDays = Math.round((Math.max(...times) - Math.min(...times)) / (1000 * 60 * 60 * 24));
+  return Math.max(28, spanDays + 1);
+}
+
+export async function listCalendarBlocks(projectId: string): Promise<CalendarBlock[]> {
+  const { data, error } = await supabase
+    .from("calendar_blocks")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  if (!error) return data ?? [];
+  if (isMissingCalendarBlocksTable(error.message)) return [];
+  throw new Error(error.message);
+}
+
+export async function ensureCalendarBlocks(projectId: string): Promise<CalendarBlock[]> {
+  const existing = await listCalendarBlocks(projectId);
+  if (existing.length > 0) {
+    const unassigned = await supabase
+      .from("content_items")
+      .select("id")
+      .eq("project_id", projectId)
+      .is("calendar_block_id", null);
+    if (!unassigned.error && (unassigned.data?.length ?? 0) > 0) {
+      const targetId = existing[existing.length - 1]?.id;
+      if (targetId) {
+        await supabase
+          .from("content_items")
+          .update({ calendar_block_id: targetId })
+          .eq("project_id", projectId)
+          .is("calendar_block_id", null);
+      }
+    }
+
+    const content = await listContent(projectId);
+    const untitled = existing.filter((block) => !block.title.trim());
+    if (untitled.length > 0) {
+      await Promise.all(
+        untitled.map((block) => {
+          const items = content.filter((item) => item.calendar_block_id === block.id);
+          const title = suggestCalendarBlockTitle(items);
+          return supabase.from("calendar_blocks").update({ title }).eq("id", block.id);
+        }),
+      );
+      return listCalendarBlocks(projectId);
+    }
+
+    return existing;
+  }
+
+  const content = await listContent(projectId);
+  if (content.length === 0) return [];
+
+  const title = suggestCalendarBlockTitle(content);
+  const { data, error } = await supabase
+    .from("calendar_blocks")
+    .insert({ project_id: projectId, title, sort_order: 0 })
+    .select("*")
+    .single();
+  if (error) {
+    if (isMissingCalendarBlocksTable(error.message)) return [];
+    throw new Error(error.message);
+  }
+  const block = ensureData(data, error);
+
+  const { error: linkError } = await supabase
+    .from("content_items")
+    .update({ calendar_block_id: block.id })
+    .eq("project_id", projectId)
+    .is("calendar_block_id", null);
+  if (linkError && !isMissingCalendarBlockIdColumn(linkError.message)) {
+    throw new Error(linkError.message);
+  }
+
+  return [block];
+}
+
+export async function updateCalendarBlockTitle(
+  blockId: string,
+  title: string,
+): Promise<CalendarBlock> {
+  const next = title.trim();
+  if (!next) throw new Error("Título inválido");
+  const { data, error } = await supabase
+    .from("calendar_blocks")
+    .update({ title: next })
+    .eq("id", blockId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function duplicateCalendarBlock(input: {
+  blockId: string;
+  clientId: string;
+  projectId: string;
+  locale?: string;
+}): Promise<{ block: CalendarBlock; items: ContentItem[] }> {
+  const blocks = await listCalendarBlocks(input.projectId);
+  const source = blocks.find((block) => block.id === input.blockId);
+  if (!source) throw new Error("Bloco de calendário não encontrado");
+
+  const allContent = await listContent(input.projectId);
+  const sourceItems = allContent
+    .filter((item) => item.calendar_block_id === source.id)
+    .sort(sortContentByManualOrder);
+
+  const advanceDays = calendarPeriodAdvanceDays(sourceItems);
+
+  // Empurra blocos existentes para baixo para o novo ficar no topo.
+  await Promise.all(
+    blocks.map((block) =>
+      supabase
+        .from("calendar_blocks")
+        .update({ sort_order: block.sort_order + 1 })
+        .eq("id", block.id),
+    ),
+  );
+
+  const placeholderTitle = source.title.trim() || suggestCalendarBlockTitle(sourceItems, input.locale);
+  const { data: blockData, error: blockError } = await supabase
+    .from("calendar_blocks")
+    .insert({
+      project_id: input.projectId,
+      title: placeholderTitle,
+      sort_order: 0,
+    })
+    .select("*")
+    .single();
+  const newBlock = ensureData(blockData, blockError);
+
+  const maxSort = allContent.reduce((max, item) => Math.max(max, item.sort_order ?? 0), -1);
+  const created: ContentItem[] = [];
+  for (let i = 0; i < sourceItems.length; i += 1) {
+    const item = sourceItems[i];
+    const cloned = await duplicateContent({
+      contentId: item.id,
+      clientId: input.clientId,
+      projectId: input.projectId,
+      advanceDays,
+      calendarBlockId: newBlock.id,
+      sortOrder: maxSort + 1 + i,
+      silent: true,
+    });
+    created.push(cloned);
+  }
+
+  const suggestedTitle = suggestCalendarBlockTitle(created, input.locale);
+  const { data: titled, error: titleError } = await supabase
+    .from("calendar_blocks")
+    .update({ title: suggestedTitle })
+    .eq("id", newBlock.id)
+    .select("*")
+    .single();
+  const finalBlock = ensureData(titled, titleError);
+
+  await logActivity({
+    type: "content_created",
+    summary: `Calendário duplicado: ${finalBlock.title}`,
+    clientId: input.clientId,
+    projectId: input.projectId,
+  });
+
+  return { block: finalBlock, items: created };
+}
+
+function sortContentByManualOrder(a: ContentItem, b: ContentItem) {
+  const aOrder = a.sort_order ?? 0;
+  const bOrder = b.sort_order ?? 0;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return a.title.localeCompare(b.title);
 }
 
 export async function setContentStatus(input: {
@@ -901,11 +1224,71 @@ export async function restoreVersion(input: {
     cta: input.version.cta,
     hashtags: input.version.hashtags,
     locucao: input.version.locucao ?? "",
+    roteiro: input.version.roteiro ?? "",
     mediaUrl: input.version.media_url,
     mediaUrls: resolveContentMediaUrls(input.version),
     format: input.version.format,
     changeNote: `Restaurado da v${input.version.version_number}`,
   });
+}
+
+// —— AI content assistant (admin) ——
+
+export type ContentSuggestion = {
+  title: string;
+  caption: string;
+  cta: string;
+  hashtags: string;
+  theme: string | null;
+  locucao: string;
+  roteiro: string;
+};
+
+export async function suggestContent(input: {
+  contentId: string;
+  projectId: string;
+  clientId: string;
+  prompt: string;
+  references?: string;
+  youtubeUrls?: string[];
+  format: ContentFormat;
+}): Promise<ContentSuggestion> {
+  const prompt = input.prompt.trim();
+  if (!prompt) throw new Error("Informe um prompt");
+
+  const { data, error } = await supabase.functions.invoke("suggest-content", {
+    body: {
+      contentId: input.contentId,
+      projectId: input.projectId,
+      clientId: input.clientId,
+      prompt,
+      references: input.references?.trim() || undefined,
+      youtubeUrls: (input.youtubeUrls ?? []).map((u) => u.trim()).filter(Boolean),
+      format: input.format,
+    },
+  });
+
+  const payload = data as { suggestion?: ContentSuggestion; error?: string } | null;
+
+  if (error) {
+    throw new Error(payload?.error || error.message || "Falha ao gerar sugestão");
+  }
+  if (payload?.error) {
+    throw new Error(payload.error);
+  }
+  if (!payload?.suggestion) {
+    throw new Error("Resposta inválida do assistente");
+  }
+
+  return {
+    title: payload.suggestion.title?.trim() || "",
+    caption: payload.suggestion.caption ?? "",
+    cta: payload.suggestion.cta ?? "",
+    hashtags: payload.suggestion.hashtags ?? "",
+    theme: payload.suggestion.theme?.trim() || null,
+    locucao: payload.suggestion.locucao ?? "",
+    roteiro: payload.suggestion.roteiro ?? "",
+  };
 }
 
 // —— Comments ——
@@ -955,6 +1338,153 @@ export async function addComment(input: {
 export async function deleteComment(commentId: string): Promise<void> {
   const { error } = await supabase.from("content_comments").delete().eq("id", commentId);
   if (error) throw new Error(error.message);
+}
+
+// —— Brand briefing / Guia de marca ——
+
+export type BrandBriefingView = BrandBriefing & {
+  templateParsed: BriefingTemplate;
+  answersParsed: Record<string, string>;
+  answeredCount: number;
+  totalCount: number;
+};
+
+function toBrandBriefingView(row: BrandBriefing): BrandBriefingView {
+  const templateParsed = parseBriefingTemplate(row.template);
+  const answersParsed = parseBriefingAnswers(row.answers);
+  return {
+    ...row,
+    templateParsed,
+    answersParsed,
+    answeredCount: countAnsweredQuestions(templateParsed, answersParsed),
+    totalCount: countBriefingQuestions(templateParsed),
+  };
+}
+
+export async function getBrandBriefing(clientId: string): Promise<BrandBriefingView | null> {
+  const { data, error } = await supabase
+    .from("brand_briefings")
+    .select("*")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? toBrandBriefingView(data) : null;
+}
+
+export async function ensureBrandBriefing(clientId: string): Promise<BrandBriefingView> {
+  const existing = await getBrandBriefing(clientId);
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from("brand_briefings")
+    .insert({
+      client_id: clientId,
+      template: DEFAULT_BRAND_BRIEFING_TEMPLATE as unknown as Json,
+      answers: {} as Json,
+      status: "draft",
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    // Race: another request created it
+    if (/duplicate|unique/i.test(error.message)) {
+      const again = await getBrandBriefing(clientId);
+      if (again) return again;
+    }
+    throw new Error(error.message);
+  }
+
+  return toBrandBriefingView(ensureData(data, error));
+}
+
+export async function upsertBrandBriefingAnswers(input: {
+  clientId: string;
+  answers: Record<string, string>;
+}): Promise<BrandBriefingView> {
+  const briefing = await ensureBrandBriefing(input.clientId);
+  const nextAnswers = { ...briefing.answersParsed, ...input.answers };
+  const answered = countAnsweredQuestions(briefing.templateParsed, nextAnswers);
+  const nextStatus: BrandBriefingStatus =
+    briefing.status === "completed"
+      ? "completed"
+      : answered > 0
+        ? "in_progress"
+        : "draft";
+
+  const { data, error } = await supabase
+    .from("brand_briefings")
+    .update({
+      answers: nextAnswers as unknown as Json,
+      status: nextStatus,
+    })
+    .eq("client_id", input.clientId)
+    .select("*")
+    .single();
+
+  return toBrandBriefingView(ensureData(data, error));
+}
+
+export type BriefingCoachMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type BriefingCoachResult = {
+  type: "follow_up" | "suggestion";
+  content: string;
+};
+
+export async function briefingCoach(input: {
+  clientId: string;
+  questionId: string;
+  questionLabel: string;
+  currentAnswer?: string;
+  messages: BriefingCoachMessage[];
+}): Promise<BriefingCoachResult> {
+  const { data, error } = await supabase.functions.invoke("briefing-coach", {
+    body: {
+      clientId: input.clientId,
+      questionId: input.questionId,
+      questionLabel: input.questionLabel,
+      currentAnswer: input.currentAnswer?.trim() || undefined,
+      messages: input.messages,
+    },
+  });
+
+  const payload = data as (BriefingCoachResult & { error?: string }) | null;
+  if (error) {
+    throw new Error(payload?.error || error.message || "Falha no coach do briefing");
+  }
+  if (payload?.error) throw new Error(payload.error);
+  if (!payload?.type || !payload.content?.trim()) {
+    throw new Error("Resposta inválida do coach");
+  }
+  return { type: payload.type, content: payload.content.trim() };
+}
+
+export async function generateBrandGuide(clientId: string): Promise<BrandBriefingView> {
+  const { data, error } = await supabase.functions.invoke("generate-brand-guide", {
+    body: { clientId },
+  });
+
+  const payload = data as { briefing?: BrandBriefing; error?: string } | null;
+  if (error) {
+    throw new Error(payload?.error || error.message || "Falha ao gerar o guia de marca");
+  }
+  if (payload?.error) throw new Error(payload.error);
+  if (payload?.briefing) {
+    return toBrandBriefingView(payload.briefing);
+  }
+
+  const refreshed = await getBrandBriefing(clientId);
+  if (!refreshed) throw new Error("Briefing não encontrado após gerar o guia");
+  return refreshed;
+}
+
+export async function completeBrandBriefing(clientId: string): Promise<BrandBriefingView> {
+  await ensureBrandBriefing(clientId);
+  return generateBrandGuide(clientId);
 }
 
 // —— Library ——
@@ -1138,6 +1668,7 @@ export async function isAdmin(): Promise<boolean> {
 export type ClientHomeProject = {
   clientId: string;
   clientName: string;
+  clientLogoUrl: string | null;
   projectId: string;
   projectName: string;
 };
@@ -1155,6 +1686,7 @@ export async function listAccessibleProjects(): Promise<ClientHomeProject[]> {
       projects.push({
         clientId: client.id,
         clientName: client.name,
+        clientLogoUrl: client.logo_url,
         projectId: project.id,
         projectName: project.name,
       });

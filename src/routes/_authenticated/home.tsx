@@ -36,9 +36,8 @@ export const Route = createFileRoute("/_authenticated/home")({
     const target = await getClientHomeTarget();
     if (target.type === "project") {
       throw redirect({
-        to: "/clients/$clientId/projects/$projectId/content",
+        to: "/clients/$clientId/projects/$projectId/feed",
         params: { clientId: target.clientId, projectId: target.projectId },
-        search: {},
       });
     }
   },
@@ -77,14 +76,21 @@ function ClientHomePage() {
           {projects.map((project) => (
             <li key={project.projectId}>
               <Link
-                to="/clients/$clientId/projects/$projectId/content"
+                to="/clients/$clientId/projects/$projectId/feed"
                 params={{ clientId: project.clientId, projectId: project.projectId }}
-                search={{}}
                 className="block"
               >
                 <Card className="transition-colors hover:bg-muted/40">
                   <CardContent className="flex items-center gap-3 p-4">
-                    <FolderKanban className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    {project.clientLogoUrl ? (
+                      <img
+                        src={project.clientLogoUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-lg border object-cover bg-muted"
+                      />
+                    ) : (
+                      <FolderKanban className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    )}
                     <div className="min-w-0">
                       <p className="truncate font-medium">{project.projectName}</p>
                       <p className="truncate text-sm text-muted-foreground">{project.clientName}</p>

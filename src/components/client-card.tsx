@@ -27,20 +27,29 @@ export function ClientCard({
     <Card className="relative rounded-xl transition-colors hover:bg-muted/40">
       <CardContent className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3 pr-8">
-          <div className="min-w-0 space-y-1">
-            <Link
-              to="/clients/$clientId"
-              params={{ clientId: client.id }}
-              className="block font-medium tracking-tight hover:underline"
-            >
-              {client.name}
-            </Link>
-            <p className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(client.created_at), {
-                addSuffix: true,
-                locale,
-              })}
-            </p>
+          <div className="flex min-w-0 items-start gap-3">
+            {client.logo_url ? (
+              <img
+                src={client.logo_url}
+                alt=""
+                className="mt-0.5 h-10 w-10 shrink-0 rounded-lg border object-cover bg-muted"
+              />
+            ) : null}
+            <div className="min-w-0 space-y-1">
+              <Link
+                to="/clients/$clientId"
+                params={{ clientId: client.id }}
+                className="block font-medium tracking-tight hover:underline"
+              >
+                {client.name}
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(client.created_at), {
+                  addSuffix: true,
+                  locale,
+                })}
+              </p>
+            </div>
           </div>
           <Button
             type="button"

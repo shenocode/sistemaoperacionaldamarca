@@ -79,12 +79,18 @@
     "whatsapp": "WhatsApp",
     "whatsappHint": "Use o número com DDI e DDD, só dígitos (ex.: 5511999999999).",
     "instagram": "Instagram",
+    "logo": "Logo",
+    "logoUpload": "Enviar logo",
+    "logoUploading": "Enviando…",
+    "logoRemove": "Remover logo",
+    "logoHint": "PNG, JPG, WebP ou SVG, até 2 MB. Aparece no projeto e na conta do cliente.",
+    "logoUploadError": "Não foi possível enviar o logo.",
     "settings": "Configurações do cliente",
     "created": "Cliente criado.",
     "updated": "Cliente atualizado.",
     "lastUpdates": "Últimas atualizações",
     "access": "Acessar",
-    "whatsappMessage": "Olá! Há atualizações disponíveis no projeto \"{{project}}\" ({{client}}) para sua revisão.\n\nAcesse pelo link abaixo (entre ou crie sua conta) para ver o calendário e os conteúdos:\n{{link}}",
+    "whatsappMessage": "Olá! Há atualizações disponíveis no projeto \"{{project}}\" ({{client}}) para sua revisão.\n\nAcesse pelo link abaixo (entre ou crie sua conta) para ver a prévia do feed:\n{{link}}",
     "whatsappMissing": "Cadastre o WhatsApp do cliente nas configurações para enviar atualizações.",
     "whatsappOpened": "Abrindo WhatsApp para avisar o cliente.",
     "accessTokenMissing": "Este cliente ainda não tem link de acesso. Atualize o banco e tente novamente.",
@@ -110,6 +116,7 @@
   "project": {
     "back": "Voltar",
     "tabs": {
+      "feed": "Feed",
       "library": "Biblioteca",
       "content": "Conteúdo",
       "calendar": "Calendário",
@@ -118,7 +125,8 @@
     "calendarPlaceholder": "Em breve.",
     "calendar": {
       "title": "Calendário de publicações",
-      "hint": "Defina data, horário, status, tema e formato. Arraste pelo ícone ⋮⋮ para reorganizar a ordem.",
+      "hint": "Defina data, horário, status, tema e formato.",
+      "hintReorder": "Arraste pelo ícone ⋮⋮ para reorganizar a ordem.",
       "sendUpdates": "Enviar atualizações",
       "openStatus": "Abrir conteúdo e ver status",
       "empty": "Nenhum conteúdo para agendar. Crie conteúdos na aba Conteúdo.",
@@ -126,6 +134,11 @@
       "duplicate": "Duplicar",
       "duplicateHint": "Cria uma cópia com a data +7 dias, em rascunho e histórico de versões zerado.",
       "duplicated": "Conteúdo duplicado (histórico de versões zerado).",
+      "duplicateBlock": "Duplicar calendário",
+      "duplicateBlockHint": "Cria um novo bloco no topo com as mesmas publicações e datas avançadas para o próximo período.",
+      "blockDuplicated": "Calendário duplicado. O novo período aparece no topo.",
+      "blockTitlePlaceholder": "Ex.: Julho - de 20/07 a 20/08",
+      "blockTitleLabel": "Título do período",
       "delete": "Deletar",
       "deleteHint": "Remove este conteúdo permanentemente.",
       "deleteConfirmTitle": "Deletar conteúdo?",
@@ -185,6 +198,17 @@
       "sourceFile": "Upload",
       "sourceUrl": "URL",
       "open": "Abrir",
+      "briefing": {
+        "title": "Briefing",
+        "description": "Formulário da marca para alimentar o Guia de marca.",
+        "progress": "{{answered}}/{{total}} respondidas",
+        "open": "Abrir briefing",
+        "status": {
+          "draft": "Não iniciado",
+          "in_progress": "Em andamento",
+          "completed": "Concluído"
+        }
+      },
       "categories": {
         "brand": "Guia de marca",
         "pdfs": "PDFs",
@@ -248,6 +272,27 @@
       "locucao": "Locução",
       "locucaoHint": "Texto que a cliente deve gravar e enviar o áudio por e-mail.",
       "locucaoPlaceholder": "Escreva aqui o roteiro da locução…",
+      "roteiro": "Roteiro do carrossel",
+      "roteiroHint": "Texto por slide para o designer montar as artes.",
+      "roteiroPlaceholder": "Slide 1: …\nSlide 2: …\nSlide 3: …",
+      "assistant": {
+        "title": "Assistente de conteúdo",
+        "hint": "Escreva um brief, referências e links. A IA sugere os textos; você revisa e aplica ao formulário.",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Ex.: Post sobre consciência e presença, tom reflexivo, convidar a comentar…",
+        "references": "Referências",
+        "referencesPlaceholder": "Trechos, ideias, ângulos ou notas que a IA deve considerar…",
+        "youtube": "Links do YouTube",
+        "youtubePlaceholder": "Um link por linha",
+        "youtubeHint": "Usamos título e metadados do vídeo como contexto (não a transcrição completa).",
+        "generate": "Gerar sugestão",
+        "generating": "Gerando…",
+        "generated": "Sugestão gerada.",
+        "previewTitle": "Revisar sugestão",
+        "apply": "Aplicar aos campos",
+        "applied": "Sugestão aplicada ao formulário. Salve quando estiver pronto.",
+        "discard": "Descartar"
+      },
       "cta": "CTA",
       "hashtags": "Hashtags",
       "selectCtaPreset": "Selecionar CTA cadastrado",
@@ -311,5 +356,36 @@
     "save": "Salvar",
     "saved": "Salvo.",
     "error": "Algo deu errado. Tente de novo."
+  },
+  "briefing": {
+    "pageTitle": "Briefing da marca",
+    "pageDescription": "Respostas de {{client}} que alimentam o Guia de marca.",
+    "progress": "{{answered}} de {{total}} perguntas respondidas",
+    "saving": "Salvando…",
+    "talkAbout": "Conversar sobre",
+    "answerPlaceholder": "Escreva sua resposta…",
+    "completeGuide": "Concluir e gerar Guia de marca",
+    "updateGuide": "Atualizar Guia de marca",
+    "guideGenerated": "Guia de marca atualizado.",
+    "tabs": {
+      "form": "Briefing",
+      "guide": "Guia de marca"
+    },
+    "guide": {
+      "title": "Guia de marca",
+      "emptyTitle": "Guia ainda não gerado",
+      "emptyDescription": "Preencha o briefing e use Concluir para gerar o documento da marca.",
+      "updatedAt": "Atualizado em {{date}}"
+    },
+    "coach": {
+      "title": "Conversar sobre esta pergunta",
+      "thinking": "Pensando…",
+      "placeholder": "Responda ou acrescente detalhes…",
+      "send": "Enviar",
+      "suggestionLabel": "Sugestão de resposta",
+      "useAnswer": "Usar esta resposta",
+      "dismiss": "Fechar",
+      "applied": "Resposta aplicada ao briefing."
+    }
   }
 }

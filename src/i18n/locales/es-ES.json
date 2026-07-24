@@ -79,12 +79,18 @@
     "whatsapp": "WhatsApp",
     "whatsappHint": "Usa el número con código de país, solo dígitos (ej.: 5511999999999).",
     "instagram": "Instagram",
+    "logo": "Logo",
+    "logoUpload": "Subir logo",
+    "logoUploading": "Subiendo…",
+    "logoRemove": "Quitar logo",
+    "logoHint": "PNG, JPG, WebP o SVG, hasta 2 MB. Aparece en el proyecto y en la cuenta del cliente.",
+    "logoUploadError": "No se pudo subir el logo.",
     "settings": "Configuración del cliente",
     "created": "Cliente creado.",
     "updated": "Cliente actualizado.",
     "lastUpdates": "Últimas actualizaciones",
     "access": "Acceder",
-    "whatsappMessage": "¡Hola! Hay actualizaciones disponibles en el proyecto \"{{project}}\" ({{client}}) para tu revisión.\n\nAccede con el enlace (entra o crea tu cuenta) para ver el calendario y los contenidos:\n{{link}}",
+    "whatsappMessage": "¡Hola! Hay actualizaciones disponibles en el proyecto \"{{project}}\" ({{client}}) para tu revisión.\n\nAccede con el enlace (entra o crea tu cuenta) para ver la vista previa del feed:\n{{link}}",
     "whatsappMissing": "Agrega el WhatsApp del cliente en la configuración antes de enviar actualizaciones.",
     "whatsappOpened": "Abriendo WhatsApp para avisar al cliente.",
     "accessTokenMissing": "Este cliente aún no tiene enlace de acceso. Actualiza la base de datos e inténtalo de nuevo.",
@@ -109,11 +115,12 @@
   },
   "project": {
     "back": "Volver",
-    "tabs": { "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
+    "tabs": { "feed": "Feed", "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
     "calendarPlaceholder": "Próximamente.",
     "calendar": {
       "title": "Calendario de publicaciones",
-      "hint": "Define fecha, hora, estado, tema y formato. Arrastra el icono ⋮⋮ para reordenar.",
+      "hint": "Define fecha, hora, estado, tema y formato.",
+      "hintReorder": "Arrastra el icono ⋮⋮ para reordenar.",
       "sendUpdates": "Enviar actualizaciones",
       "openStatus": "Abrir contenido y ver estado",
       "empty": "No hay contenido para programar. Crea contenidos en la pestaña Contenido.",
@@ -121,6 +128,11 @@
       "duplicate": "Duplicar",
       "duplicateHint": "Crea una copia con la fecha +7 días, en borrador y con el historial de versiones reiniciado.",
       "duplicated": "Contenido duplicado (historial de versiones reiniciado).",
+      "duplicateBlock": "Duplicar calendario",
+      "duplicateBlockHint": "Crea un nuevo bloque arriba con las mismas publicaciones y fechas avanzadas al próximo período.",
+      "blockDuplicated": "Calendario duplicado. El nuevo período aparece arriba.",
+      "blockTitlePlaceholder": "Ej.: Julio - del 20/07 al 20/08",
+      "blockTitleLabel": "Título del período",
       "delete": "Eliminar",
       "deleteHint": "Elimina este contenido de forma permanente.",
       "deleteConfirmTitle": "¿Eliminar contenido?",
@@ -180,6 +192,17 @@
       "sourceFile": "Subir",
       "sourceUrl": "URL",
       "open": "Abrir",
+      "briefing": {
+        "title": "Briefing",
+        "description": "Formulario de la marca que alimenta la Guía de marca.",
+        "progress": "{{answered}}/{{total}} respondidas",
+        "open": "Abrir briefing",
+        "status": {
+          "draft": "No iniciado",
+          "in_progress": "En progreso",
+          "completed": "Completado"
+        }
+      },
       "categories": {
         "brand": "Guía de marca",
         "pdfs": "PDFs",
@@ -243,6 +266,27 @@
       "locucao": "Locución",
       "locucaoHint": "Texto que la cliente debe grabar y enviar el audio por correo.",
       "locucaoPlaceholder": "Escribe aquí el guion de la locución…",
+      "roteiro": "Guion del carrusel",
+      "roteiroHint": "Texto por slide para que el diseñador arme las artes.",
+      "roteiroPlaceholder": "Slide 1: …\nSlide 2: …\nSlide 3: …",
+      "assistant": {
+        "title": "Asistente de contenido",
+        "hint": "Escribe un brief, referencias y enlaces. La IA sugiere textos; tú revisas y aplicas al formulario.",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Ej.: Post sobre conciencia y presencia, tono reflexivo, invitar a comentar…",
+        "references": "Referencias",
+        "referencesPlaceholder": "Fragmentos, ángulos o notas que la IA debe considerar…",
+        "youtube": "Enlaces de YouTube",
+        "youtubePlaceholder": "Un enlace por línea",
+        "youtubeHint": "Usamos el título y metadatos del video como contexto (no la transcripción completa).",
+        "generate": "Generar sugerencia",
+        "generating": "Generando…",
+        "generated": "Sugerencia generada.",
+        "previewTitle": "Revisar sugerencia",
+        "apply": "Aplicar a los campos",
+        "applied": "Sugerencia aplicada al formulario. Guarda cuando esté listo.",
+        "discard": "Descartar"
+      },
       "cta": "CTA",
       "hashtags": "Hashtags",
       "selectCtaPreset": "Seleccionar CTA guardado",
@@ -306,5 +350,36 @@
     "save": "Guardar",
     "saved": "Guardado.",
     "error": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "briefing": {
+    "pageTitle": "Briefing de marca",
+    "pageDescription": "Respuestas de {{client}} que alimentan la Guía de marca.",
+    "progress": "{{answered}} de {{total}} preguntas respondidas",
+    "saving": "Guardando…",
+    "talkAbout": "Conversar sobre",
+    "answerPlaceholder": "Escribe tu respuesta…",
+    "completeGuide": "Completar y generar Guía de marca",
+    "updateGuide": "Actualizar Guía de marca",
+    "guideGenerated": "Guía de marca actualizada.",
+    "tabs": {
+      "form": "Briefing",
+      "guide": "Guía de marca"
+    },
+    "guide": {
+      "title": "Guía de marca",
+      "emptyTitle": "Guía aún no generada",
+      "emptyDescription": "Completa el briefing y usa Completar para generar el documento de marca.",
+      "updatedAt": "Actualizado el {{date}}"
+    },
+    "coach": {
+      "title": "Conversar sobre esta pregunta",
+      "thinking": "Pensando…",
+      "placeholder": "Responde o añade detalles…",
+      "send": "Enviar",
+      "suggestionLabel": "Sugerencia de respuesta",
+      "useAnswer": "Usar esta respuesta",
+      "dismiss": "Cerrar",
+      "applied": "Respuesta aplicada al briefing."
+    }
   }
 }

@@ -29,6 +29,7 @@ const emptyContactForm: ClientContactInput = {
   phone: "",
   whatsapp: "",
   instagram: "",
+  logo_url: "",
 };
 
 export function useClientSettingsDialog() {
@@ -46,6 +47,7 @@ export function useClientSettingsDialog() {
       phone: client.phone ?? "",
       whatsapp: client.whatsapp ?? "",
       instagram: client.instagram ?? "",
+      logo_url: client.logo_url ?? "",
     });
     setLoginPassword("");
     setLoginEmail(client.email ?? "");
@@ -166,6 +168,7 @@ export function ClientSettingsDialog({
             onChange={setSettingsForm}
             nameRequired
             idPrefix="settings-client"
+            clientId={settingsClient?.id}
           />
 
           <Separator />

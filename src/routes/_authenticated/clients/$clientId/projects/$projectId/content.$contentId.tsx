@@ -31,6 +31,7 @@ import {
   guessMediaKind,
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
+import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { PresetField } from "@/components/preset-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -132,6 +133,7 @@ function ContentDetailPage() {
   const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
   const [locucao, setLocucao] = useState("");
+  const [roteiro, setRoteiro] = useState("");
   const [cta, setCta] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [theme, setTheme] = useState("");
@@ -211,6 +213,7 @@ function ContentDetailPage() {
     setTitle(content.title);
     setCaption(content.caption);
     setLocucao(content.locucao ?? "");
+    setRoteiro(content.roteiro ?? "");
     setCta(content.cta);
     setHashtags(content.hashtags);
     setTheme(content.theme ?? "");
@@ -279,6 +282,7 @@ function ContentDetailPage() {
         cta,
         hashtags,
         locucao,
+        roteiro,
         mediaUrls: urls,
         format: formatType,
         theme: theme.trim() || null,
@@ -315,6 +319,7 @@ function ContentDetailPage() {
         cta,
         hashtags,
         locucao,
+        roteiro,
         mediaUrls: urls,
         format: formatType,
         theme: theme.trim() || null,
@@ -521,6 +526,28 @@ function ContentDetailPage() {
             </CardContent>
           </Card>
 
+          {isAdmin ? (
+            <ContentAiAssistant
+              contentId={contentId}
+              projectId={projectId}
+              clientId={clientId}
+              format={formatType}
+              onApply={(suggestion) => {
+                setTitle(suggestion.title);
+                setCaption(suggestion.caption);
+                setCta(suggestion.cta);
+                setHashtags(suggestion.hashtags);
+                if (suggestion.theme) setTheme(suggestion.theme);
+                if (formatType === "reels" || formatType === "recorded_video") {
+                  setLocucao(suggestion.locucao);
+                }
+                if (formatType === "carousel") {
+                  setRoteiro(suggestion.roteiro);
+                }
+              }}
+            />
+          ) : null}
+
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
               <div className="space-y-1.5">
@@ -617,6 +644,22 @@ function ContentDetailPage() {
                     onChange={(e) => setLocucao(e.target.value)}
                     disabled={!isAdmin}
                     placeholder={t("project.detail.locucaoPlaceholder")}
+                  />
+                </div>
+              ) : null}
+              {isCarousel ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="roteiro" variant="highlight">
+                    {t("project.detail.roteiro")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">{t("project.detail.roteiroHint")}</p>
+                  <Textarea
+                    id="roteiro"
+                    rows={6}
+                    value={roteiro}
+                    onChange={(e) => setRoteiro(e.target.value)}
+                    disabled={!isAdmin}
+                    placeholder={t("project.detail.roteiroPlaceholder")}
                   />
                 </div>
               ) : null}

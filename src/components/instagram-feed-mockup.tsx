@@ -36,6 +36,8 @@ type InstagramFeedMockupProps = {
   className?: string;
   canReorder?: boolean;
   onReorder?: (nextListOrder: ContentItem[]) => void;
+  /** When false, hides the “Prévia do feed” caption above the phone. */
+  showLabel?: boolean;
 };
 
 function moveItem<T>(items: T[], from: number, to: number): T[] {
@@ -189,6 +191,7 @@ export function InstagramFeedMockup({
   className,
   canReorder = false,
   onReorder,
+  showLabel = true,
 }: InstagramFeedMockupProps) {
   const { t } = useTranslation();
   const handle = toInstagramHandle(username || "marca");
@@ -230,9 +233,11 @@ export function InstagramFeedMockup({
 
   return (
     <div className={cn("w-full max-w-[320px]", className)}>
-      <p className="mb-2 text-center text-xs font-medium text-muted-foreground">
-        {t("project.content.feedPreview")}
-      </p>
+      {showLabel ? (
+        <p className="mb-2 text-center text-xs font-medium text-muted-foreground">
+          {t("project.content.feedPreview")}
+        </p>
+      ) : null}
       <PhoneChrome>
         <div className="flex h-[560px] flex-col bg-white">
           <div className="flex items-center justify-center border-b border-neutral-200 px-3 pb-2 pt-1">

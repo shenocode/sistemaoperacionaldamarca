@@ -79,12 +79,18 @@
     "whatsapp": "WhatsApp",
     "whatsappHint": "Use the number with country code, digits only (e.g. 5511999999999).",
     "instagram": "Instagram",
+    "logo": "Logo",
+    "logoUpload": "Upload logo",
+    "logoUploading": "Uploading…",
+    "logoRemove": "Remove logo",
+    "logoHint": "PNG, JPG, WebP, or SVG, up to 2 MB. Shown on the project and client account.",
+    "logoUploadError": "Could not upload the logo.",
     "settings": "Client settings",
     "created": "Client created.",
     "updated": "Client updated.",
     "lastUpdates": "Latest updates",
     "access": "Open",
-    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nUse the link below (sign in or create your account) to see the calendar and contents:\n{{link}}",
+    "whatsappMessage": "Hi! There are updates available on project \"{{project}}\" ({{client}}) for your review.\n\nUse the link below (sign in or create your account) to see the feed preview:\n{{link}}",
     "whatsappMissing": "Add the client's WhatsApp in settings before sending updates.",
     "whatsappOpened": "Opening WhatsApp to notify the client.",
     "accessTokenMissing": "This client does not have an access link yet. Apply the database update and try again.",
@@ -109,11 +115,12 @@
   },
   "project": {
     "back": "Back",
-    "tabs": { "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
+    "tabs": { "feed": "Feed", "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
     "calendarPlaceholder": "Coming soon.",
     "calendar": {
       "title": "Publishing calendar",
-      "hint": "Set date, time, status, theme, and format. Drag the ⋮⋮ handle to reorder.",
+      "hint": "Set date, time, status, theme, and format.",
+      "hintReorder": "Drag the ⋮⋮ handle to reorder.",
       "sendUpdates": "Send updates",
       "openStatus": "Open content and view status",
       "empty": "No content to schedule. Create content in the Content tab.",
@@ -121,6 +128,11 @@
       "duplicate": "Duplicate",
       "duplicateHint": "Creates a copy with date +7 days, as draft, with version history reset.",
       "duplicated": "Content duplicated (version history reset).",
+      "duplicateBlock": "Duplicate calendar",
+      "duplicateBlockHint": "Creates a new block at the top with the same posts and dates advanced to the next period.",
+      "blockDuplicated": "Calendar duplicated. The new period appears at the top.",
+      "blockTitlePlaceholder": "E.g. July — from 20/07 to 20/08",
+      "blockTitleLabel": "Period title",
       "delete": "Delete",
       "deleteHint": "Permanently removes this content.",
       "deleteConfirmTitle": "Delete content?",
@@ -180,6 +192,17 @@
       "sourceFile": "Upload",
       "sourceUrl": "URL",
       "open": "Open",
+      "briefing": {
+        "title": "Briefing",
+        "description": "Brand form that feeds the Brand guide.",
+        "progress": "{{answered}}/{{total}} answered",
+        "open": "Open briefing",
+        "status": {
+          "draft": "Not started",
+          "in_progress": "In progress",
+          "completed": "Completed"
+        }
+      },
       "categories": {
         "brand": "Brand guide",
         "pdfs": "PDFs",
@@ -243,6 +266,27 @@
       "locucao": "Voiceover script",
       "locucaoHint": "Text the client should record and send as audio by email.",
       "locucaoPlaceholder": "Write the voiceover script here…",
+      "roteiro": "Carousel script",
+      "roteiroHint": "Per-slide copy for the designer to build the artwork.",
+      "roteiroPlaceholder": "Slide 1: …\nSlide 2: …\nSlide 3: …",
+      "assistant": {
+        "title": "Content assistant",
+        "hint": "Add a brief, references and links. AI suggests copy; you review and apply it to the form.",
+        "prompt": "Prompt",
+        "promptPlaceholder": "E.g. Post about presence and awareness, reflective tone, invite comments…",
+        "references": "References",
+        "referencesPlaceholder": "Excerpts, angles or notes the AI should consider…",
+        "youtube": "YouTube links",
+        "youtubePlaceholder": "One link per line",
+        "youtubeHint": "We use the video title and metadata as context (not a full transcript).",
+        "generate": "Generate suggestion",
+        "generating": "Generating…",
+        "generated": "Suggestion generated.",
+        "previewTitle": "Review suggestion",
+        "apply": "Apply to fields",
+        "applied": "Suggestion applied to the form. Save when ready.",
+        "discard": "Discard"
+      },
       "cta": "CTA",
       "hashtags": "Hashtags",
       "selectCtaPreset": "Select saved CTA",
@@ -306,5 +350,36 @@
     "save": "Save",
     "saved": "Saved.",
     "error": "Something went wrong. Please try again."
+  },
+  "briefing": {
+    "pageTitle": "Brand briefing",
+    "pageDescription": "{{client}} answers that feed the Brand guide.",
+    "progress": "{{answered}} of {{total}} questions answered",
+    "saving": "Saving…",
+    "talkAbout": "Talk about this",
+    "answerPlaceholder": "Write your answer…",
+    "completeGuide": "Complete and generate Brand guide",
+    "updateGuide": "Update Brand guide",
+    "guideGenerated": "Brand guide updated.",
+    "tabs": {
+      "form": "Briefing",
+      "guide": "Brand guide"
+    },
+    "guide": {
+      "title": "Brand guide",
+      "emptyTitle": "Guide not generated yet",
+      "emptyDescription": "Fill in the briefing and use Complete to generate the brand document.",
+      "updatedAt": "Updated {{date}}"
+    },
+    "coach": {
+      "title": "Talk about this question",
+      "thinking": "Thinking…",
+      "placeholder": "Reply or add details…",
+      "send": "Send",
+      "suggestionLabel": "Suggested answer",
+      "useAnswer": "Use this answer",
+      "dismiss": "Close",
+      "applied": "Answer applied to the briefing."
+    }
   }
 }
