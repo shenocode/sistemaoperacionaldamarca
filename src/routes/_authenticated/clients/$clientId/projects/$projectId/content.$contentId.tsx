@@ -34,6 +34,7 @@ import {
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { ContentDesignAssistant } from "@/components/content-design-assistant";
 import { PresetField } from "@/components/preset-field";
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -116,6 +117,45 @@ function mediaEntriesFromUrls(urls: string[]): MediaEntry[] {
   return urls.filter(Boolean).map((url) => ({ id: createMediaId(), kind: "url" as const, url }));
 }
 
+function serializeMediaForDirty(items: MediaEntry[]) {
+  return items.map((item) =>
+    item.kind === "url"
+      ? { kind: "url" as const, url: item.url }
+      : {
+          kind: "file" as const,
+          name: item.file.name,
+          size: item.file.size,
+          type: item.file.type,
+        },
+  );
+}
+
+function buildContentFormSnapshot(input: {
+  title: string;
+  caption: string;
+  locucao: string;
+  roteiro: string;
+  cta: string;
+  hashtags: string;
+  theme: string;
+  formatType: ContentFormat;
+  mediaItems: MediaEntry[];
+  rowI18n: RowI18n;
+}) {
+  return JSON.stringify({
+    title: input.title,
+    caption: input.caption,
+    locucao: input.locucao,
+    roteiro: input.roteiro,
+    cta: input.cta,
+    hashtags: input.hashtags,
+    theme: input.theme.trim(),
+    formatType: input.formatType,
+    media: serializeMediaForDirty(input.mediaItems),
+    i18n: input.rowI18n,
+  });
+}
+
 function moveItem<T>(items: T[], from: number, to: number): T[] {
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
     return items;
@@ -161,6 +201,8 @@ function ContentDetailPage() {
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [formBaseline, setFormBaseline] = useState<string | null>(null);
+  const [ignoreUnsavedChanges, setIgnoreUnsavedChanges] = useState(false);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
   const contentQuery = useQuery({
@@ -226,20 +268,58 @@ function ContentDetailPage() {
   useEffect(() => {
     if (!content) return;
     const nextI18n = parseRowI18n(content.i18n);
+    const nextTitle = getLocalizedText(nextI18n, "title", content.title, uiLocale);
+    const nextCaption = getLocalizedText(nextI18n, "caption", content.caption, uiLocale);
+    const nextLocucao = getLocalizedText(nextI18n, "locucao", content.locucao ?? "", uiLocale);
+    const nextRoteiro = getLocalizedText(nextI18n, "roteiro", content.roteiro ?? "", uiLocale);
+    const nextCta = getLocalizedText(nextI18n, "cta", content.cta, uiLocale);
+    const nextHashtags = getLocalizedText(nextI18n, "hashtags", content.hashtags, uiLocale);
+    const nextTheme = getLocalizedText(nextI18n, "theme", content.theme ?? "", uiLocale);
+    const nextFormat = content.format ?? "static_feed";
+    const nextMedia = mediaEntriesFromUrls(resolveContentMediaUrls(content));
     setRowI18n(nextI18n);
-    setTitle(getLocalizedText(nextI18n, "title", content.title, uiLocale));
-    setCaption(getLocalizedText(nextI18n, "caption", content.caption, uiLocale));
-    setLocucao(getLocalizedText(nextI18n, "locucao", content.locucao ?? "", uiLocale));
-    setRoteiro(getLocalizedText(nextI18n, "roteiro", content.roteiro ?? "", uiLocale));
-    setCta(getLocalizedText(nextI18n, "cta", content.cta, uiLocale));
-    setHashtags(getLocalizedText(nextI18n, "hashtags", content.hashtags, uiLocale));
-    setTheme(getLocalizedText(nextI18n, "theme", content.theme ?? "", uiLocale));
-    setFormatType(content.format ?? "static_feed");
-    setMediaItems(mediaEntriesFromUrls(resolveContentMediaUrls(content)));
+    setTitle(nextTitle);
+    setCaption(nextCaption);
+    setLocucao(nextLocucao);
+    setRoteiro(nextRoteiro);
+    setCta(nextCta);
+    setHashtags(nextHashtags);
+    setTheme(nextTheme);
+    setFormatType(nextFormat);
+    setMediaItems(nextMedia);
     setUrlDraft("");
     setDragIndex(null);
     setDropIndex(null);
+    setFormBaseline(
+      buildContentFormSnapshot({
+        title: nextTitle,
+        caption: nextCaption,
+        locucao: nextLocucao,
+        roteiro: nextRoteiro,
+        cta: nextCta,
+        hashtags: nextHashtags,
+        theme: nextTheme,
+        formatType: nextFormat,
+        mediaItems: nextMedia,
+        rowI18n: nextI18n,
+      }),
+    );
+    setIgnoreUnsavedChanges(false);
   }, [content, uiLocale]);
+
+  const formSnapshot = buildContentFormSnapshot({
+    title,
+    caption,
+    locucao,
+    roteiro,
+    cta,
+    hashtags,
+    theme,
+    formatType,
+    mediaItems,
+    rowI18n,
+  });
+  const isDirty = Boolean(formBaseline) && !ignoreUnsavedChanges && formSnapshot !== formBaseline;
 
   const onFieldI18nCommit = (payload: {
     field: string;
@@ -354,6 +434,7 @@ function ContentDetailPage() {
       });
     },
     onSuccess: () => {
+      setIgnoreUnsavedChanges(true);
       invalidateAll();
       toast.success(t("common.saved"));
     },
@@ -400,6 +481,7 @@ function ContentDetailPage() {
     },
     onSuccess: () => {
       setVersionNote("");
+      setIgnoreUnsavedChanges(true);
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
     },
@@ -484,6 +566,7 @@ function ContentDetailPage() {
     mutationFn: (version: ContentVersion) =>
       restoreVersion({ contentId, clientId, projectId, version }),
     onSuccess: () => {
+      setIgnoreUnsavedChanges(true);
       invalidateAll();
       toast.success(t("project.detail.restored"));
     },
@@ -578,6 +661,7 @@ function ContentDetailPage() {
 
   return (
     <div className="space-y-6">
+      <UnsavedChangesGuard isDirty={isDirty} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/clients/$clientId/projects/$projectId/content"

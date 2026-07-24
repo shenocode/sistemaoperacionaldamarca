@@ -550,7 +550,10 @@
     "save": "Save",
     "saved": "Saved.",
     "translating": "Translating…",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "unsavedChangesTitle": "Save your changes?",
+    "unsavedChangesDescription": "You have unsaved changes. If you leave now, they will be lost.",
+    "leaveWithoutSaving": "Leave without saving"
   },
   "briefing": {
     "pageTitle": "Brand briefing",

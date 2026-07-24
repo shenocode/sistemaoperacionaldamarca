@@ -550,7 +550,10 @@
     "save": "Guardar",
     "saved": "Guardado.",
     "translating": "Traduciendo…",
-    "error": "Algo salió mal. Inténtalo de nuevo."
+    "error": "Algo salió mal. Inténtalo de nuevo.",
+    "unsavedChangesTitle": "¿Guardar los cambios?",
+    "unsavedChangesDescription": "Tienes cambios sin guardar. Si sales ahora, se perderán.",
+    "leaveWithoutSaving": "Salir sin guardar"
   },
   "briefing": {
     "pageTitle": "Briefing de marca",

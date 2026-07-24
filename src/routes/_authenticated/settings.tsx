@@ -10,6 +10,7 @@ import {
   toCanonicalContactInput,
 } from "@/components/client-contact-fields";
 import { PageHeader } from "@/components/page-header";
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,10 @@ const emptyForm: ClientContactInput = {
   brand_fonts: {},
   i18n: {},
 };
+
+function serializeClientForm(form: ClientContactInput) {
+  return JSON.stringify(form);
+}
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -80,6 +85,8 @@ function ClientSettingsPage() {
   const [form, setForm] = useState<ClientContactInput>(emptyForm);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [formBaseline, setFormBaseline] = useState<string | null>(null);
+  const [ignoreUnsavedChanges, setIgnoreUnsavedChanges] = useState(false);
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
 
   const clientsQuery = useQuery({
@@ -93,6 +100,8 @@ function ClientSettingsPage() {
     if (clients.length === 0) {
       setSelectedClientId("");
       setForm(emptyForm);
+      setFormBaseline(serializeClientForm(emptyForm));
+      setIgnoreUnsavedChanges(false);
       return;
     }
     setSelectedClientId((current) => {
@@ -105,14 +114,25 @@ function ClientSettingsPage() {
     const client = clients.find((entry) => entry.id === selectedClientId);
     if (!client) {
       setForm(emptyForm);
+      setFormBaseline(serializeClientForm(emptyForm));
+      setIgnoreUnsavedChanges(false);
       return;
     }
-    setForm(contactFormFromClient(client, uiLocale, brandKitFromClient(client)));
+    const nextForm = contactFormFromClient(client, uiLocale, brandKitFromClient(client));
+    setForm(nextForm);
+    setFormBaseline(serializeClientForm(nextForm));
+    setIgnoreUnsavedChanges(false);
   }, [clients, selectedClientId, uiLocale]);
+
+  const isDirty =
+    Boolean(formBaseline) &&
+    !ignoreUnsavedChanges &&
+    serializeClientForm(form) !== formBaseline;
 
   const saveMutation = useMutation({
     mutationFn: () => updateClient(selectedClientId, toCanonicalContactInput(form)),
     onSuccess: () => {
+      setIgnoreUnsavedChanges(true);
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success(t("clientSettings.updated"));
     },
@@ -131,6 +151,7 @@ function ClientSettingsPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
+      <UnsavedChangesGuard isDirty={isDirty} />
       <PageHeader title={t("clientSettings.title")} description={t("clientSettings.subtitle")} />
 
       {clientsQuery.isLoading ? (

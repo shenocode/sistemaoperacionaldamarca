@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -142,6 +143,8 @@ function ProjectSettingsPage() {
   const [ctaPresets, setCtaPresets] = useState<string[]>([]);
   const [hashtagPresets, setHashtagPresets] = useState<string[]>([]);
   const [themePresets, setThemePresets] = useState<string[]>([]);
+  const [formBaseline, setFormBaseline] = useState<string | null>(null);
+  const [ignoreUnsavedChanges, setIgnoreUnsavedChanges] = useState(false);
 
   const projectQuery = useQuery({
     queryKey: ["projects", "detail", projectId],
@@ -163,32 +166,63 @@ function ProjectSettingsPage() {
   useEffect(() => {
     if (!projectQuery.data) return;
     const nextI18n = parseRowI18n(projectQuery.data.i18n);
+    const nextName = getLocalizedText(nextI18n, "name", projectQuery.data.name, uiLocale);
+    const nextDescription = getLocalizedText(
+      nextI18n,
+      "description",
+      projectQuery.data.description ?? "",
+      uiLocale,
+    );
+    const nextStatus = projectQuery.data.status;
+    const nextCta = getLocalizedPresetList(
+      nextI18n,
+      "cta_presets",
+      projectQuery.data.cta_presets ?? [],
+      uiLocale,
+    );
+    const nextHashtags = getLocalizedPresetList(
+      nextI18n,
+      "hashtag_presets",
+      projectQuery.data.hashtag_presets ?? [],
+      uiLocale,
+    );
+    const nextThemes = getLocalizedPresetList(
+      nextI18n,
+      "theme_presets",
+      projectQuery.data.theme_presets ?? [],
+      uiLocale,
+    );
     setRowI18n(nextI18n);
-    setName(getLocalizedText(nextI18n, "name", projectQuery.data.name, uiLocale));
-    setDescription(
-      getLocalizedText(nextI18n, "description", projectQuery.data.description ?? "", uiLocale),
+    setName(nextName);
+    setDescription(nextDescription);
+    setStatus(nextStatus);
+    setCtaPresets(nextCta);
+    setHashtagPresets(nextHashtags);
+    setThemePresets(nextThemes);
+    setFormBaseline(
+      JSON.stringify({
+        name: nextName,
+        description: nextDescription,
+        status: nextStatus,
+        ctaPresets: nextCta,
+        hashtagPresets: nextHashtags,
+        themePresets: nextThemes,
+        i18n: nextI18n,
+      }),
     );
-    setStatus(projectQuery.data.status);
-    setCtaPresets(
-      getLocalizedPresetList(nextI18n, "cta_presets", projectQuery.data.cta_presets ?? [], uiLocale),
-    );
-    setHashtagPresets(
-      getLocalizedPresetList(
-        nextI18n,
-        "hashtag_presets",
-        projectQuery.data.hashtag_presets ?? [],
-        uiLocale,
-      ),
-    );
-    setThemePresets(
-      getLocalizedPresetList(
-        nextI18n,
-        "theme_presets",
-        projectQuery.data.theme_presets ?? [],
-        uiLocale,
-      ),
-    );
+    setIgnoreUnsavedChanges(false);
   }, [projectQuery.data, uiLocale]);
+
+  const formSnapshot = JSON.stringify({
+    name,
+    description,
+    status,
+    ctaPresets,
+    hashtagPresets,
+    themePresets,
+    i18n: rowI18n,
+  });
+  const isDirty = Boolean(formBaseline) && !ignoreUnsavedChanges && formSnapshot !== formBaseline;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -227,6 +261,7 @@ function ProjectSettingsPage() {
       });
     },
     onSuccess: () => {
+      setIgnoreUnsavedChanges(true);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast.success(t("common.saved"));
     },
@@ -246,13 +281,15 @@ function ProjectSettingsPage() {
   }
 
   return (
-    <form
-      className="max-w-lg space-y-6"
-      onSubmit={(e) => {
-        e.preventDefault();
-        saveMutation.mutate();
-      }}
-    >
+    <>
+      <UnsavedChangesGuard isDirty={isDirty} />
+      <form
+        className="max-w-lg space-y-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          saveMutation.mutate();
+        }}
+      >
       {canManage ? (
         <>
           <div className="space-y-1.5">
@@ -341,5 +378,6 @@ function ProjectSettingsPage() {
         {t("common.save")}
       </Button>
     </form>
+    </>
   );
 }
