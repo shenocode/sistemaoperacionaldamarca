@@ -285,6 +285,7 @@ export type Database = {
           media_url: string | null
           media_urls: string[]
           project_id: string
+          roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
@@ -306,6 +307,7 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id: string
+          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -327,6 +329,7 @@ export type Database = {
           media_url?: string | null
           media_urls?: string[]
           project_id?: string
+          roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
@@ -365,6 +368,7 @@ export type Database = {
           locucao: string
           media_url: string | null
           media_urls: string[]
+          roteiro: string
           version_number: number
         }
         Insert: {
@@ -380,6 +384,7 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
+          roteiro?: string
           version_number: number
         }
         Update: {
@@ -395,6 +400,7 @@ export type Database = {
           locucao?: string
           media_url?: string | null
           media_urls?: string[]
+          roteiro?: string
           version_number?: number
         }
         Relationships: [
@@ -570,6 +576,10 @@ export type Database = {
       can_manage_content: { Args: { _content_id: string }; Returns: boolean }
       can_manage_project: { Args: { _project_id: string }; Returns: boolean }
       claim_client_access: { Args: { _access_token: string }; Returns: string }
+      client_logo_storage_client_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
       content_storage_project_id: {
         Args: { object_name: string }
         Returns: string
@@ -594,10 +604,7 @@ export type Database = {
           _change_note?: string
           _content_id: string
           _cta: string
-          _format?: Database["public"]["Enums"]["content_format"]
           _hashtags: string
-          _theme?: string | null
-          _title?: string
         }
         Returns: {
           calendar_block_id: string | null
@@ -613,6 +620,7 @@ export type Database = {
           media_url: string | null
           media_urls: string[]
           project_id: string
+          roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
@@ -632,6 +640,7 @@ export type Database = {
           _client_id: string
           _email?: string
           _instagram?: string
+          _logo_url?: string
           _name: string
           _notes?: string
           _phone?: string
