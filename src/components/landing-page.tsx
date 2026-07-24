@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -10,7 +11,11 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { buildWhatsAppNotifyUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const FEATURE_KEYS = [
@@ -32,6 +37,9 @@ const FEATURE_ICONS = {
 } as const;
 
 const PLAN_KEYS = ["solo", "studio", "agency"] as const;
+
+/** Commercial contact for access / subscription requests. */
+const CONTACT_WHATSAPP = "5511993397398";
 
 function ProductMockup({
   status,
@@ -87,8 +95,91 @@ function ProductMockup({
   );
 }
 
+function ContactForm() {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = t("landing.contactWhatsAppBody", {
+      name: name.trim(),
+      email: email.trim(),
+      whatsapp: whatsapp.trim(),
+      message: message.trim(),
+    });
+    const url = buildWhatsAppNotifyUrl(CONTACT_WHATSAPP, body);
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mx-auto mt-10 max-w-lg space-y-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="contact-name">{t("landing.contactName")}</Label>
+        <Input
+          id="contact-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          className="bg-white/80"
+          autoComplete="name"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="contact-email">{t("landing.contactEmail")}</Label>
+        <Input
+          id="contact-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="bg-white/80"
+          autoComplete="email"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="contact-whatsapp">{t("landing.contactWhatsapp")}</Label>
+        <Input
+          id="contact-whatsapp"
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+          required
+          className="bg-white/80"
+          placeholder="11999999999"
+          autoComplete="tel"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="contact-message">{t("landing.contactMessage")}</Label>
+        <Textarea
+          id="contact-message"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          required
+          rows={4}
+          className="bg-white/80"
+        />
+      </div>
+      <Button type="submit" size="lg" className="w-full sm:w-auto">
+        {t("landing.contactSubmit")}
+      </Button>
+    </form>
+  );
+}
+
 export function LandingPage() {
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#contato") return;
+    requestAnimationFrame(() => {
+      document.getElementById("contato")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
   return (
     <div className="theme-mint landing-atmosphere relative min-h-screen overflow-x-hidden">
@@ -108,6 +199,9 @@ export function LandingPage() {
           <a href="#planos" className="transition-colors hover:text-neutral-900">
             {t("landing.navPricing")}
           </a>
+          <a href="#contato" className="transition-colors hover:text-neutral-900">
+            {t("landing.navContact")}
+          </a>
         </nav>
         <div className="flex items-center gap-2 sm:gap-3">
           <LanguageSwitcher />
@@ -115,7 +209,7 @@ export function LandingPage() {
             <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
           </Button>
           <Button asChild size="sm">
-            <Link to="/auth" search={{}}>{t("landing.cta")}</Link>
+            <a href="#contato">{t("landing.cta")}</a>
           </Button>
         </div>
       </header>
@@ -138,7 +232,7 @@ export function LandingPage() {
             </p>
             <div className="landing-rise landing-rise-delay-3 mt-8 flex flex-wrap items-center gap-3">
               <Button asChild size="lg" className="px-7">
-                <Link to="/auth" search={{}}>{t("landing.cta")}</Link>
+                <a href="#contato">{t("landing.cta")}</a>
               </Button>
               <Button asChild size="lg" variant="outline" className="border-neutral-300 bg-white/60 backdrop-blur-sm">
                 <a href="#planos">{t("landing.ctaSecondary")}</a>
@@ -295,13 +389,26 @@ export function LandingPage() {
                     )}
                     variant={popular ? "secondary" : "default"}
                   >
-                    <Link to="/auth" search={{}}>{t("landing.pricingCta")}</Link>
+                    <a href="#contato">{t("landing.pricingCta")}</a>
                   </Button>
                 </article>
               );
             })}
           </div>
           <p className="mt-6 text-center text-xs text-neutral-500">{t("landing.pricingNote")}</p>
+        </section>
+
+        {/* Contact */}
+        <section id="contato" className="border-y border-neutral-900/8 bg-white/50">
+          <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+            <h2 className="text-center font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              {t("landing.contactTitle")}
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-base text-neutral-600">
+              {t("landing.contactSubtitle")}
+            </p>
+            <ContactForm />
+          </div>
         </section>
 
         {/* Final CTA */}
@@ -318,7 +425,7 @@ export function LandingPage() {
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Link to="/auth" search={{}}>{t("landing.finalCta")}</Link>
+              <a href="#contato">{t("landing.finalCta")}</a>
             </Button>
           </div>
         </section>

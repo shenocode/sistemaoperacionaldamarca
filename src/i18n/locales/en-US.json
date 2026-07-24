@@ -9,6 +9,7 @@
     "myProjects": "My projects",
     "settings": "My Profile",
     "aiSettings": "AI keys",
+    "accessRelease": "Access release",
     "openMenu": "Open menu"
   },
   "auth": {
@@ -23,11 +24,32 @@
     "newPassword": "New password",
     "sendResetLink": "Send reset link",
     "backToSignIn": "Back to sign in",
-    "noAccount": "Don't have an account?",
+    "noAccount": "Don't have access yet?",
     "hasAccount": "Already have an account?",
     "checkEmail": "Check your inbox to confirm your email.",
     "resetSent": "Reset link sent.",
-    "reviewInviteHint": "Create your account or sign in to review content pending approval."
+    "reviewInviteHint": "Sign in with the email and password provided by the team to review content.",
+    "accessDenied": "Contact us to request platform access and learn about our subscription plans.",
+    "accessDeniedCta": "Go to the contact form",
+    "requestAccess": "Request access"
+  },
+  "accessRelease": {
+    "title": "Access release",
+    "description": "Create or update login and password for platform managers.",
+    "formTitle": "New or update manager",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Manager name",
+    "email": "Login email",
+    "password": "Password",
+    "passwordHint": "At least 6 characters. Share the email and password with the manager.",
+    "submit": "Grant access",
+    "listTitle": "Managers with access",
+    "empty": "No managers granted yet.",
+    "created": "Manager access created. Share the email and password.",
+    "updated": "Manager access updated.",
+    "roleAdministrator": "Administrator",
+    "roleGestor": "Manager",
+    "resetPassword": "Reset password"
   },
   "landing": {
     "heroTitle": "From briefing to approval — no spreadsheet chaos.",
@@ -39,6 +61,7 @@
     "navFeatures": "Product",
     "navHow": "How it works",
     "navPricing": "Pricing",
+    "navContact": "Contact",
     "problemTitle": "Production stalls at approval.",
     "problemBody": "Captions in Docs, art in Drive, feedback on WhatsApp, deadlines in Notion. Clients lose context — you lose time.",
     "howTitle": "One flow, from briefing to post.",
@@ -103,11 +126,19 @@
       }
     },
     "finalTitle": "Put your content operation on the right rails.",
-    "finalSubtitle": "Create your account and plan next week’s posts in BOS.",
-    "finalCta": "Create free account",
+    "finalSubtitle": "Contact us, pick a plan, and get access granted by our team.",
+    "finalCta": "Request access",
     "footerTag": "BOS - Brand Operating System",
     "mockStatus": "Awaiting approval",
-    "mockCaption": "New campaign live — brand tone, CTA, and art aligned."
+    "mockCaption": "New campaign live — brand tone, CTA, and art aligned.",
+    "contactTitle": "Request platform access",
+    "contactSubtitle": "Fill out the form and message us on WhatsApp to learn about subscription plans.",
+    "contactName": "Name",
+    "contactEmail": "Email",
+    "contactWhatsapp": "WhatsApp",
+    "contactMessage": "Message",
+    "contactSubmit": "Send on WhatsApp",
+    "contactWhatsAppBody": "Hi! I'd like to request access to the SOM platform and learn about subscription plans.\n\nName: {{name}}\nEmail: {{email}}\nWhatsApp: {{whatsapp}}\n\nMessage:\n{{message}}"
   },
   "dashboard": {
     "title": "Dashboard",

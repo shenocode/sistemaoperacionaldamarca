@@ -12,6 +12,7 @@ import {
   claimClientAccess,
   clearAuthNext,
   extractAccessTokenFromPath,
+  hasPlatformAccess,
   isSafeAppPath,
   readAuthNext,
   rememberAuthNext,
@@ -36,21 +37,37 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+function isUnauthorizedLoginError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("invalid login") ||
+    normalized.includes("invalid credentials") ||
+    normalized.includes("invalid email or password") ||
+    normalized.includes("user not found") ||
+    normalized.includes("email not confirmed")
+  );
+}
+
 function AuthPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { next: nextFromSearch } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+  const [mode, setMode] = useState<"signin" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const nextPath = nextFromSearch ?? readAuthNext() ?? undefined;
 
   useEffect(() => {
     if (nextFromSearch) rememberAuthNext(nextFromSearch);
   }, [nextFromSearch]);
+
+  const denyAccess = async () => {
+    await supabase.auth.signOut();
+    setAccessDenied(true);
+  };
 
   const goAfterLogin = async () => {
     const destination = nextPath && isSafeAppPath(nextPath) ? nextPath : null;
@@ -64,7 +81,14 @@ function AuthPage() {
       }
     }
 
+    const allowed = await hasPlatformAccess();
+    if (!allowed) {
+      await denyAccess();
+      return;
+    }
+
     clearAuthNext();
+    setAccessDenied(false);
 
     if (destination) {
       router.history.push(destination);
@@ -94,27 +118,18 @@ function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    setAccessDenied(false);
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        await goAfterLogin();
-      } else if (mode === "signup") {
-        const redirectTo = destinationRedirect(nextPath);
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectTo,
-            data: { full_name: fullName },
-          },
-        });
-        if (error) throw error;
-        if (data.session) {
-          await goAfterLogin();
-        } else {
-          toast.success(t("auth.checkEmail"));
+        if (error) {
+          if (isUnauthorizedLoginError(error.message)) {
+            setAccessDenied(true);
+            return;
+          }
+          throw error;
         }
+        await goAfterLogin();
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
@@ -131,6 +146,7 @@ function AuthPage() {
   };
 
   const handleGoogle = async () => {
+    setAccessDenied(false);
     rememberAuthNext(nextPath);
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: `${window.location.origin}/auth${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`,
@@ -160,17 +176,10 @@ function AuthPage() {
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-medium">
             {mode === "signin" && t("auth.signIn")}
-            {mode === "signup" && t("auth.signUp")}
             {mode === "forgot" && t("auth.resetPassword")}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="fullName">{t("auth.fullName")}</Label>
-                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("auth.email")}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -190,10 +199,22 @@ function AuthPage() {
             )}
             <Button type="submit" className="w-full" disabled={busy}>
               {mode === "signin" && t("auth.signIn")}
-              {mode === "signup" && t("auth.signUp")}
               {mode === "forgot" && t("auth.sendResetLink")}
             </Button>
           </form>
+
+          {accessDenied ? (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+              <p>{t("auth.accessDenied")}</p>
+              <Link
+                to="/"
+                hash="contato"
+                className="mt-2 inline-block font-medium text-primary underline-offset-4 hover:underline"
+              >
+                {t("auth.accessDeniedCta")}
+              </Link>
+            </div>
+          ) : null}
 
           {mode !== "forgot" && (
             <>
@@ -211,27 +232,34 @@ function AuthPage() {
           <div className="mt-6 space-y-2 text-center text-sm">
             {mode === "signin" && (
               <>
-                <button className="text-muted-foreground hover:underline" onClick={() => setMode("forgot")}>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:underline"
+                  onClick={() => {
+                    setAccessDenied(false);
+                    setMode("forgot");
+                  }}
+                >
                   {t("auth.forgotPassword")}
                 </button>
                 <div>
                   {t("auth.noAccount")}{" "}
-                  <button className="font-medium text-primary hover:underline" onClick={() => setMode("signup")}>
-                    {t("auth.signUp")}
-                  </button>
+                  <Link
+                    to="/"
+                    hash="contato"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {t("auth.requestAccess")}
+                  </Link>
                 </div>
               </>
             )}
-            {mode === "signup" && (
-              <div>
-                {t("auth.hasAccount")}{" "}
-                <button className="font-medium text-primary hover:underline" onClick={() => setMode("signin")}>
-                  {t("auth.signIn")}
-                </button>
-              </div>
-            )}
             {mode === "forgot" && (
-              <button className="text-muted-foreground hover:underline" onClick={() => setMode("signin")}>
+              <button
+                type="button"
+                className="text-muted-foreground hover:underline"
+                onClick={() => setMode("signin")}
+              >
                 {t("auth.backToSignIn")}
               </button>
             )}
@@ -246,11 +274,4 @@ function AuthPage() {
       </div>
     </div>
   );
-}
-
-function destinationRedirect(nextPath: string | undefined) {
-  if (nextPath && isSafeAppPath(nextPath)) {
-    return `${window.location.origin}/auth?next=${encodeURIComponent(nextPath)}`;
-  }
-  return `${window.location.origin}/home`;
 }

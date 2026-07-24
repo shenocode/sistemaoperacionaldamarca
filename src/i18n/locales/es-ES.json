@@ -9,6 +9,7 @@
     "myProjects": "Mis proyectos",
     "settings": "Mi Perfil",
     "aiSettings": "Claves de IA",
+    "accessRelease": "Liberación de accesos",
     "openMenu": "Abrir menú"
   },
   "auth": {
@@ -23,11 +24,32 @@
     "newPassword": "Nueva contraseña",
     "sendResetLink": "Enviar enlace",
     "backToSignIn": "Volver a entrar",
-    "noAccount": "¿No tienes cuenta?",
+    "noAccount": "¿Aún no tienes acceso?",
     "hasAccount": "¿Ya tienes cuenta?",
     "checkEmail": "Revisa tu correo para confirmar la cuenta.",
     "resetSent": "Enlace de restablecimiento enviado.",
-    "reviewInviteHint": "Crea tu cuenta o entra para revisar los contenidos pendientes de aprobación."
+    "reviewInviteHint": "Entra con el correo y la contraseña liberados por el equipo para revisar los contenidos.",
+    "accessDenied": "Contáctanos para pedir acceso a la plataforma y conoce nuestros planes de suscripción.",
+    "accessDeniedCta": "Ir al formulario de contacto",
+    "requestAccess": "Pedir acceso"
+  },
+  "accessRelease": {
+    "title": "Liberación de accesos",
+    "description": "Crea o actualiza el inicio de sesión y la contraseña de los gestores de la plataforma.",
+    "formTitle": "Nuevo o actualizar gestor",
+    "fullName": "Nombre completo",
+    "fullNamePlaceholder": "Nombre del gestor",
+    "email": "Correo de acceso",
+    "password": "Contraseña",
+    "passwordHint": "Mínimo 6 caracteres. Envía el correo y la contraseña al gestor.",
+    "submit": "Liberar acceso",
+    "listTitle": "Gestores con acceso",
+    "empty": "Aún no hay gestores liberados.",
+    "created": "Acceso de gestor creado. Envía el correo y la contraseña.",
+    "updated": "Acceso de gestor actualizado.",
+    "roleAdministrator": "Administrador",
+    "roleGestor": "Gestor",
+    "resetPassword": "Restablecer contraseña"
   },
   "landing": {
     "heroTitle": "Del briefing a la aprobación, sin planillas eternas.",
@@ -39,6 +61,7 @@
     "navFeatures": "Producto",
     "navHow": "Cómo funciona",
     "navPricing": "Planes",
+    "navContact": "Contacto",
     "problemTitle": "La producción se traba en la aprobación.",
     "problemBody": "Textos en Docs, artes en Drive, feedbacks en WhatsApp, plazos en Notion. El cliente pierde el contexto — tú pierdes tiempo.",
     "howTitle": "Un solo flujo, del briefing al post.",
@@ -103,11 +126,19 @@
       }
     },
     "finalTitle": "Pon tu operación de contenido en el riel correcto.",
-    "finalSubtitle": "Crea tu cuenta y organiza la próxima semana de posts en SOM.",
-    "finalCta": "Crear cuenta gratis",
+    "finalSubtitle": "Contáctanos, elige un plan y recibe el acceso liberado por nuestro equipo.",
+    "finalCta": "Pedir acceso",
     "footerTag": "Sistema Operativo de la Marca",
     "mockStatus": "Esperando aprobación",
-    "mockCaption": "Nueva campaña al aire — tono de marca, CTA y artes alineados."
+    "mockCaption": "Nueva campaña al aire — tono de marca, CTA y artes alineados.",
+    "contactTitle": "Pide acceso a la plataforma",
+    "contactSubtitle": "Completa el formulario y escríbenos por WhatsApp para conocer los planes de suscripción.",
+    "contactName": "Nombre",
+    "contactEmail": "Correo",
+    "contactWhatsapp": "WhatsApp",
+    "contactMessage": "Mensaje",
+    "contactSubmit": "Enviar por WhatsApp",
+    "contactWhatsAppBody": "¡Hola! Quisiera pedir acceso a la plataforma SOM y conocer los planes de suscripción.\n\nNombre: {{name}}\nCorreo: {{email}}\nWhatsApp: {{whatsapp}}\n\nMensaje:\n{{message}}"
   },
   "dashboard": {
     "title": "Panel",

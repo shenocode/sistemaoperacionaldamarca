@@ -634,6 +634,26 @@ export async function provisionClientAccess(input: {
   });
 }
 
+export async function listGestores() {
+  const { listGestoresFn } = await import("./provision-gestor-access.functions");
+  return listGestoresFn();
+}
+
+export async function provisionGestorAccess(input: {
+  email: string;
+  password: string;
+  fullName?: string;
+}) {
+  const { provisionGestorAccessFn } = await import("./provision-gestor-access.functions");
+  return provisionGestorAccessFn({
+    data: {
+      email: input.email,
+      password: input.password,
+      fullName: input.fullName,
+    },
+  });
+}
+
 export async function updateOwnPassword(password: string) {
   const trimmed = password.trim();
   if (trimmed.length < 6) {
@@ -2228,6 +2248,13 @@ export async function isAdmin(): Promise<boolean> {
   const { data, error } = await supabase.rpc("is_admin");
   if (error) throw new Error(error.message);
   return Boolean(data);
+}
+
+/** User was provisioned as gestor/admin or linked to at least one client. */
+export async function hasPlatformAccess(): Promise<boolean> {
+  if (await isAdmin()) return true;
+  const projects = await listAccessibleProjects();
+  return projects.length > 0;
 }
 
 export type ClientHomeProject = {

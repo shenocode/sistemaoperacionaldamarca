@@ -9,6 +9,7 @@
     "myProjects": "Meus projetos",
     "settings": "Meu Perfil",
     "aiSettings": "Chaves de IA",
+    "accessRelease": "Liberação de acessos",
     "openMenu": "Abrir menu"
   },
   "auth": {
@@ -23,11 +24,32 @@
     "newPassword": "Nova senha",
     "sendResetLink": "Enviar link de redefinição",
     "backToSignIn": "Voltar para entrar",
-    "noAccount": "Não tem uma conta?",
+    "noAccount": "Ainda não tem acesso?",
     "hasAccount": "Já tem uma conta?",
     "checkEmail": "Verifique seu e-mail para confirmar a conta.",
     "resetSent": "Link de redefinição enviado.",
-    "reviewInviteHint": "Crie sua conta ou entre para revisar os conteúdos pendentes de aprovação."
+    "reviewInviteHint": "Entre com o e-mail e a senha liberados pela equipe para revisar os conteúdos.",
+    "accessDenied": "Fale conosco para pedir acesso à plataforma e conheça os nossos planos de assinatura.",
+    "accessDeniedCta": "Ir para o formulário de contato",
+    "requestAccess": "Peça acesso"
+  },
+  "accessRelease": {
+    "title": "Liberação de acessos",
+    "description": "Crie ou atualize o login e a senha dos gestores da plataforma.",
+    "formTitle": "Novo ou atualizar gestor",
+    "fullName": "Nome completo",
+    "fullNamePlaceholder": "Nome do gestor",
+    "email": "E-mail de login",
+    "password": "Senha",
+    "passwordHint": "Mínimo de 6 caracteres. Envie o e-mail e a senha ao gestor.",
+    "submit": "Liberar acesso",
+    "listTitle": "Gestores com acesso",
+    "empty": "Nenhum gestor liberado ainda.",
+    "created": "Acesso de gestor criado. Envie o e-mail e a senha.",
+    "updated": "Acesso de gestor atualizado.",
+    "roleAdministrator": "Administrador",
+    "roleGestor": "Gestor",
+    "resetPassword": "Redefinir senha"
   },
   "landing": {
     "heroTitle": "Do briefing à aprovação, sem planilha e sem WhatsApp eterno.",
@@ -39,6 +61,7 @@
     "navFeatures": "Produto",
     "navHow": "Como funciona",
     "navPricing": "Planos",
+    "navContact": "Contato",
     "problemTitle": "A produção trava na aprovação.",
     "problemBody": "Legendas no Docs, artes no Drive, feedbacks no WhatsApp, prazos no Notion. O cliente perde o contexto — e você perde tempo.",
     "howTitle": "Um fluxo só, do briefing ao post.",
@@ -103,11 +126,19 @@
       }
     },
     "finalTitle": "Coloque sua operação de conteúdo no piloto certo.",
-    "finalSubtitle": "Crie sua conta e organize a próxima semana de posts no SOM.",
-    "finalCta": "Criar conta grátis",
+    "finalSubtitle": "Fale conosco, escolha um plano e receba o acesso liberado pela nossa equipe.",
+    "finalCta": "Pedir acesso",
     "footerTag": "Sistema Operacional da Marca",
     "mockStatus": "Aguardando aprovação",
-    "mockCaption": "Nova campanha no ar — tom da marca, CTA e artes alinhados."
+    "mockCaption": "Nova campanha no ar — tom da marca, CTA e artes alinhados.",
+    "contactTitle": "Peça acesso à plataforma",
+    "contactSubtitle": "Preencha o formulário e fale conosco no WhatsApp para conhecer os planos de assinatura.",
+    "contactName": "Nome",
+    "contactEmail": "E-mail",
+    "contactWhatsapp": "WhatsApp",
+    "contactMessage": "Mensagem",
+    "contactSubmit": "Enviar no WhatsApp",
+    "contactWhatsAppBody": "Olá! Gostaria de pedir acesso à plataforma SOM e conhecer os planos de assinatura.\n\nNome: {{name}}\nE-mail: {{email}}\nWhatsApp: {{whatsapp}}\n\nMensagem:\n{{message}}"
   },
   "dashboard": {
     "title": "Dashboard",
