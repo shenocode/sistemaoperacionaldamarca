@@ -29,10 +29,84 @@
     "reviewInviteHint": "Crea tu cuenta o entra para revisar los contenidos pendientes de aprobación."
   },
   "landing": {
-    "heroTitle": "Gestión de contenidos de marca.",
-    "heroSubtitle": "Gestiona producción y aprobaciones con tus clientes en un solo lugar.",
-    "cta": "Entrar",
-    "goToApp": "Ir a la app"
+    "heroTitle": "Del briefing a la aprobación, sin planillas eternas.",
+    "heroSubtitle": "El sistema operativo para gestores de contenido que producen, alinean y aprueban posts con clientes — en un solo lugar.",
+    "cta": "Empezar ahora",
+    "ctaSecondary": "Ver planes",
+    "signIn": "Entrar",
+    "goToApp": "Ir a la app",
+    "navFeatures": "Producto",
+    "navHow": "Cómo funciona",
+    "navPricing": "Planes",
+    "problemTitle": "La producción se traba en la aprobación.",
+    "problemBody": "Textos en Docs, artes en Drive, feedbacks en WhatsApp, plazos en Notion. El cliente pierde el contexto — tú pierdes tiempo.",
+    "howTitle": "Un solo flujo, del briefing al post.",
+    "howSteps": {
+      "1": { "title": "Define la marca", "body": "Briefing guiado por IA y kit visual (colores, tipografías, voz)." },
+      "2": { "title": "Produce con aceleración", "body": "Copy, guiones y artes alineados al proyecto y al calendario." },
+      "3": { "title": "Aprueba en el preview", "body": "El cliente comenta y aprueba en un feed estilo Instagram, con historial de versiones." }
+    },
+    "featuresTitle": "Hecho para quien vive de contenido.",
+    "featuresSubtitle": "Todo lo que un gestor o agencia necesita para operar varias marcas sin perder el ritmo.",
+    "features": {
+      "calendar": { "title": "Calendario editorial", "body": "Bloques, estados, temas y formatos — visión clara del mes de cada cliente." },
+      "approval": { "title": "Aprobación con preview real", "body": "Comentarios, versiones y decisión donde se verá el post." },
+      "aiCopy": { "title": "IA de copy", "body": "Leyendas, CTAs, hashtags, locución y guiones a partir del briefing." },
+      "aiDesign": { "title": "IA de diseño", "body": "Artes de feed y carrusel con el kit de marca y plantillas de referencia." },
+      "briefing": { "title": "Brand briefing + guía", "body": "Cuestionario estratégico con coach de IA y guía de marca automática." },
+      "share": { "title": "Acceso del cliente", "body": "Enlace seguro, aviso por WhatsApp y login propio — sin ZIPs de artes." }
+    },
+    "pricingTitle": "Planes según el tamaño de tu operación.",
+    "pricingSubtitle": "Empieza solo y escala a equipo. Cancela cuando quieras.",
+    "pricingNote": "Precios sugeridos de lanzamiento. Cobro mensual en reales.",
+    "pricingPeriod": "/mes",
+    "pricingCta": "Suscribirse",
+    "pricingPopular": "Más elegido",
+    "plans": {
+      "solo": {
+        "name": "Solo",
+        "price": "97",
+        "desc": "Para gestores freelance con pocos clientes.",
+        "features": [
+          "1 usuario",
+          "Hasta 3 clientes",
+          "Calendario y aprobaciones",
+          "IA de copy (cuota mensual)",
+          "Enlace de compartición"
+        ]
+      },
+      "studio": {
+        "name": "Studio",
+        "price": "247",
+        "desc": "Para studios y gestores con cartera activa.",
+        "features": [
+          "Hasta 3 usuarios",
+          "Hasta 12 clientes",
+          "Todo de Solo",
+          "IA de copy + diseño",
+          "Brand briefing y guía de marca",
+          "Biblioteca y presets de proyecto"
+        ]
+      },
+      "agency": {
+        "name": "Agencia",
+        "price": "597",
+        "desc": "Para agencias que operan varias marcas en paralelo.",
+        "features": [
+          "Hasta 10 usuarios",
+          "Clientes ilimitados",
+          "Todo de Studio",
+          "Onboarding guiado",
+          "Soporte prioritario"
+        ]
+      }
+    },
+    "finalTitle": "Pon tu operación de contenido en el riel correcto.",
+    "finalSubtitle": "Crea tu cuenta y organiza la próxima semana de posts en SOM.",
+    "finalCta": "Crear cuenta gratis",
+    "footerTag": "Sistema Operativo de la Marca",
+    "mockStatus": "Esperando aprobación",
+    "mockCaption": "Nueva campaña al aire — tono de marca, CTA y artes alineados."
   },
   "dashboard": {
     "title": "Panel",

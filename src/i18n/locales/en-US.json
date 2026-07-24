@@ -29,10 +29,84 @@
     "reviewInviteHint": "Create your account or sign in to review content pending approval."
   },
   "landing": {
-    "heroTitle": "Brand content management.",
-    "heroSubtitle": "Manage production and client approvals in one place.",
-    "cta": "Sign in",
-    "goToApp": "Go to app"
+    "heroTitle": "From briefing to approval — no spreadsheet chaos.",
+    "heroSubtitle": "The operating system for content managers who produce, align, and approve posts with clients — in one place.",
+    "cta": "Get started",
+    "ctaSecondary": "See plans",
+    "signIn": "Sign in",
+    "goToApp": "Go to app",
+    "navFeatures": "Product",
+    "navHow": "How it works",
+    "navPricing": "Pricing",
+    "problemTitle": "Production stalls at approval.",
+    "problemBody": "Captions in Docs, art in Drive, feedback on WhatsApp, deadlines in Notion. Clients lose context — you lose time.",
+    "howTitle": "One flow, from briefing to post.",
+    "howSteps": {
+      "1": { "title": "Define the brand", "body": "AI-guided briefing and visual kit (colors, fonts, voice)." },
+      "2": { "title": "Produce faster", "body": "Copy, scripts, and art aligned to the project and calendar." },
+      "3": { "title": "Approve in preview", "body": "Clients comment and approve in an Instagram-style feed, with version history." }
+    },
+    "featuresTitle": "Built for people who live on content.",
+    "featuresSubtitle": "Everything a manager or agency needs to run multiple brands without losing rhythm.",
+    "features": {
+      "calendar": { "title": "Editorial calendar", "body": "Blocks, statuses, themes, and formats — a clear view of each client’s month." },
+      "approval": { "title": "Real preview approvals", "body": "Comments, versions, and decisions where the post will actually be seen." },
+      "aiCopy": { "title": "Copy AI", "body": "Captions, CTAs, hashtags, voiceover, and scripts from the brand briefing." },
+      "aiDesign": { "title": "Design AI", "body": "Feed and carousel art with the brand kit and reference templates." },
+      "briefing": { "title": "Brand briefing + guide", "body": "Strategic questionnaire with an AI coach and an auto-generated brand guide." },
+      "share": { "title": "Client access", "body": "Secure link, WhatsApp invite, and their own login — no ZIP attachments." }
+    },
+    "pricingTitle": "Plans that match your operation.",
+    "pricingSubtitle": "Start solo and scale to a team. Cancel anytime.",
+    "pricingNote": "Suggested launch pricing. Billed monthly in BRL.",
+    "pricingPeriod": "/mo",
+    "pricingCta": "Subscribe",
+    "pricingPopular": "Most popular",
+    "plans": {
+      "solo": {
+        "name": "Solo",
+        "price": "97",
+        "desc": "For freelance managers with a few clients.",
+        "features": [
+          "1 user",
+          "Up to 3 clients",
+          "Calendar and approvals",
+          "Copy AI (monthly quota)",
+          "Share link"
+        ]
+      },
+      "studio": {
+        "name": "Studio",
+        "price": "247",
+        "desc": "For studios and managers with an active roster.",
+        "features": [
+          "Up to 3 users",
+          "Up to 12 clients",
+          "Everything in Solo",
+          "Copy + design AI",
+          "Brand briefing and guide",
+          "Library and project presets"
+        ]
+      },
+      "agency": {
+        "name": "Agency",
+        "price": "597",
+        "desc": "For agencies running multiple brands in parallel.",
+        "features": [
+          "Up to 10 users",
+          "Unlimited clients",
+          "Everything in Studio",
+          "Guided onboarding",
+          "Priority support"
+        ]
+      }
+    },
+    "finalTitle": "Put your content operation on the right rails.",
+    "finalSubtitle": "Create your account and plan next week’s posts in SOM.",
+    "finalCta": "Create free account",
+    "footerTag": "Brand Operating System",
+    "mockStatus": "Awaiting approval",
+    "mockCaption": "New campaign live — brand tone, CTA, and art aligned."
   },
   "dashboard": {
     "title": "Dashboard",
