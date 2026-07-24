@@ -75,6 +75,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Users className="h-4 w-4" /> {t("nav.clients")}
           </Link>
+          <Link
+            to="/settings"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <Settings className="h-4 w-4" /> {t("nav.aiSettings")}
+          </Link>
         </>
       ) : (
         <>

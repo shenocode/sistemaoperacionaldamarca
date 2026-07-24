@@ -29,7 +29,7 @@ type ContentAiAssistantProps = {
   projectId: string;
   clientId: string;
   format: ContentFormat;
-  onApply: (suggestion: ContentAiAssistantApply) => void;
+  onApply: (suggestion: ContentAiAssistantApply) => void | Promise<void>;
 };
 
 function parseYoutubeUrls(raw: string): string[] {
@@ -46,7 +46,7 @@ export function ContentAiAssistant({
   format,
   onApply,
 }: ContentAiAssistantProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [prompt, setPrompt] = useState("");
   const [references, setReferences] = useState("");
   const [youtubeUrls, setYoutubeUrls] = useState("");
@@ -65,6 +65,7 @@ export function ContentAiAssistant({
         references,
         youtubeUrls: parseYoutubeUrls(youtubeUrls),
         format,
+        locale: i18n.resolvedLanguage ?? i18n.language,
       }),
     onSuccess: (suggestion) => {
       setDraft(suggestion);
@@ -77,9 +78,9 @@ export function ContentAiAssistant({
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!draft) return;
-    onApply({
+    await onApply({
       title: draft.title,
       caption: draft.caption,
       cta: draft.cta,

@@ -6,6 +6,7 @@ import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ClientWithProjects } from "@/lib/api";
+import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -19,6 +20,8 @@ export function ClientCard({
 }) {
   const { t, i18n } = useTranslation();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const clientName = getLocalizedText(client.i18n, "name", client.name, uiLocale);
   const lastUpdateLabel = client.last_update_at
     ? format(new Date(client.last_update_at), "dd/MM/yyyy", { locale })
     : null;
@@ -41,7 +44,7 @@ export function ClientCard({
                 params={{ clientId: client.id }}
                 className="block font-medium tracking-tight hover:underline"
               >
-                {client.name}
+                {clientName}
               </Link>
               <p className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(client.created_at), {

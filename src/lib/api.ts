@@ -9,6 +9,25 @@ import {
   parseBriefingTemplate,
   type BriefingTemplate,
 } from "@/lib/brand-briefing-template";
+import type { RowI18n } from "@/lib/i18n-content";
+import { getCanonicalText, parseRowI18n } from "@/lib/i18n-content";
+
+export type { RowI18n, LocalizedField, AppLocale } from "@/lib/i18n-content";
+export {
+  getLocalizedText,
+  parseRowI18n,
+  normalizeAppLocale,
+  getCanonicalText,
+  translateTextField,
+  translateManyFields,
+  setLocalizedField,
+  mergeRowI18n,
+  buildLocalizedFieldFromSource,
+} from "@/lib/i18n-content";
+
+function toI18nJson(i18n: RowI18n | null | undefined): Json {
+  return parseRowI18n(i18n) as unknown as Json;
+}
 
 export type Client = Tables<"clients">;
 export type Project = Tables<"projects">;
@@ -196,6 +215,7 @@ async function logActivity(input: {
   clientId?: string | null;
   projectId?: string | null;
   contentId?: string | null;
+  i18n?: RowI18n;
 }) {
   const actorId = await requireUserId();
   await supabase.from("activity_events").insert({
@@ -205,6 +225,7 @@ async function logActivity(input: {
     project_id: input.projectId ?? null,
     content_id: input.contentId ?? null,
     actor_id: actorId,
+    ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
   });
 }
 
@@ -385,6 +406,7 @@ export type ClientContactInput = {
   logo_url?: string | null;
   brand_colors?: BrandColor[];
   brand_fonts?: BrandFonts;
+  i18n?: RowI18n;
 };
 
 export function parseBrandColors(value: unknown): BrandColor[] {
@@ -429,17 +451,21 @@ function normalizeOptionalText(value?: string) {
 
 export async function createClient(input: ClientContactInput): Promise<Client> {
   const userId = await requireUserId();
+  const i18n = parseRowI18n(input.i18n);
+  const name = getCanonicalText(i18n, "name", input.name).trim();
+  const notes = normalizeOptionalText(getCanonicalText(i18n, "notes", input.notes));
   // Avoid insert().select(): RETURNING hits SELECT RLS before membership exists.
   const id = crypto.randomUUID();
   const { error: insertError } = await supabase.from("clients").insert({
     id,
-    name: input.name.trim(),
-    notes: normalizeOptionalText(input.notes),
+    name,
+    notes,
     email: normalizeOptionalText(input.email),
     phone: normalizeOptionalText(input.phone),
     whatsapp: normalizeOptionalText(input.whatsapp),
     instagram: normalizeOptionalText(input.instagram),
     logo_url: normalizeOptionalText(input.logo_url ?? undefined),
+    ...(input.i18n ? { i18n: toI18nJson(i18n) } : {}),
     created_by: userId,
   });
   if (insertError) throw new Error(insertError.message);
@@ -459,11 +485,14 @@ export async function updateClient(clientId: string, input: ClientContactInput):
   // Empty string clears logo_url; omit logo_url from input to leave unchanged (RPC null).
   const brandColors = parseBrandColors(input.brand_colors ?? []);
   const brandFonts = parseBrandFonts(input.brand_fonts ?? {});
+  const i18n = parseRowI18n(input.i18n);
+  const name = getCanonicalText(i18n, "name", input.name).trim();
+  const notes = normalizeOptionalText(getCanonicalText(i18n, "notes", input.notes));
 
   const baseArgs = {
     _client_id: clientId,
-    _name: input.name.trim(),
-    _notes: normalizeOptionalText(input.notes),
+    _name: name,
+    _notes: notes,
     _email: normalizeOptionalText(input.email),
     _phone: normalizeOptionalText(input.phone),
     _whatsapp: normalizeOptionalText(input.whatsapp),
@@ -522,6 +551,17 @@ export async function updateClient(clientId: string, input: ClientContactInput):
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");
+
+  if (input.i18n) {
+    const { data: withI18n, error: i18nError } = await supabase
+      .from("clients")
+      .update({ i18n: toI18nJson(input.i18n) })
+      .eq("id", clientId)
+      .select("*")
+      .maybeSingle();
+    if (!i18nError && withI18n) return withI18n as Client;
+  }
+
   return data as Client;
 }
 
@@ -612,6 +652,7 @@ export async function updateProject(
     ctaPresets?: string[];
     hashtagPresets?: string[];
     themePresets?: string[];
+    i18n?: RowI18n;
   },
 ): Promise<Project> {
   const normalizePresets = (items?: string[]) =>
@@ -635,6 +676,7 @@ export async function updateProject(
       ...(input.themePresets !== undefined
         ? { theme_presets: normalizePresets(input.themePresets) ?? [] }
         : {}),
+      ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
     })
     .eq("id", projectId)
     .select("*")
@@ -910,6 +952,7 @@ export async function saveContentAsNewVersion(input: {
   format?: ContentFormat;
   theme?: string | null;
   changeNote?: string;
+  i18n?: RowI18n;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const current = await getContent(input.contentId);
@@ -930,6 +973,7 @@ export async function saveContentAsNewVersion(input: {
   const roteiro = input.roteiro ?? current.roteiro ?? "";
   const theme =
     input.theme !== undefined ? input.theme?.trim() || null : current.theme;
+  const nextI18n = input.i18n ?? parseRowI18n(current.i18n);
 
   const { data, error } = await supabase
     .from("content_items")
@@ -946,6 +990,7 @@ export async function saveContentAsNewVersion(input: {
       theme,
       current_version: nextVersion,
       status: nextStatus,
+      i18n: toI18nJson(nextI18n),
     })
     .eq("id", input.contentId)
     .select("*")
@@ -965,6 +1010,7 @@ export async function saveContentAsNewVersion(input: {
     format,
     change_note: input.changeNote?.trim() || `Versão ${nextVersion}`,
     created_by: userId,
+    i18n: toI18nJson(nextI18n),
   });
   if (versionInsert.error) throw new Error(versionInsert.error.message);
 
@@ -991,6 +1037,7 @@ export async function updateContentFields(input: {
   mediaUrls?: string[];
   format?: ContentFormat;
   theme?: string | null;
+  i18n?: RowI18n;
 }): Promise<ContentItem> {
   const mediaUrls =
     input.mediaUrls?.filter((url) => url.trim()) ??
@@ -1010,6 +1057,7 @@ export async function updateContentFields(input: {
       media_urls: mediaUrls,
       ...(input.format ? { format: input.format } : {}),
       ...(input.theme !== undefined ? { theme: input.theme?.trim() || null } : {}),
+      ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
     })
     .eq("id", input.contentId)
     .select("*")
@@ -1193,12 +1241,13 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
 export async function updateCalendarBlockTitle(
   blockId: string,
   title: string,
+  i18n?: RowI18n,
 ): Promise<CalendarBlock> {
   const next = title.trim();
   if (!next) throw new Error("Título inválido");
   const { data, error } = await supabase
     .from("calendar_blocks")
-    .update({ title: next })
+    .update({ title: next, ...(i18n ? { i18n: toI18nJson(i18n) } : {}) })
     .eq("id", blockId)
     .select("*")
     .single();
@@ -1449,6 +1498,7 @@ export async function suggestContent(input: {
   references?: string;
   youtubeUrls?: string[];
   format: ContentFormat;
+  locale?: string;
 }): Promise<ContentSuggestion> {
   const prompt = input.prompt.trim();
   if (!prompt) throw new Error("Informe um prompt");
@@ -1462,6 +1512,7 @@ export async function suggestContent(input: {
       references: input.references?.trim() || undefined,
       youtubeUrls: (input.youtubeUrls ?? []).map((u) => u.trim()).filter(Boolean),
       format: input.format,
+      locale: input.locale,
     },
   });
 
@@ -1545,6 +1596,64 @@ export async function generateDesign(input: {
   return { imageUrl: payload.imageUrl, provider: payload.provider ?? provider };
 }
 
+// —— Admin AI credentials ——
+
+export type AdminAiKeysStatus = {
+  openaiConfigured: boolean;
+  geminiConfigured: boolean;
+  openaiLast4: string | null;
+  geminiLast4: string | null;
+  updatedAt?: string | null;
+  openaiHelpUrl: string;
+  geminiHelpUrl: string;
+};
+
+export async function getAdminAiKeysStatus(): Promise<AdminAiKeysStatus> {
+  const { data, error } = await supabase.functions.invoke("manage-admin-ai-keys", {
+    body: { action: "status" },
+  });
+  if (error) throw new Error(await readFunctionsInvokeError(error, data));
+  const payload = data as AdminAiKeysStatus & { error?: string };
+  if (payload?.error) throw new Error(payload.error);
+  return {
+    openaiConfigured: Boolean(payload.openaiConfigured),
+    geminiConfigured: Boolean(payload.geminiConfigured),
+    openaiLast4: payload.openaiLast4 ?? null,
+    geminiLast4: payload.geminiLast4 ?? null,
+    updatedAt: payload.updatedAt ?? null,
+    openaiHelpUrl: payload.openaiHelpUrl || "https://platform.openai.com/api-keys",
+    geminiHelpUrl: payload.geminiHelpUrl || "https://aistudio.google.com/apikey",
+  };
+}
+
+export async function saveAdminAiKeys(input: {
+  openaiKey?: string;
+  geminiKey?: string;
+  clearOpenAI?: boolean;
+  clearGemini?: boolean;
+}): Promise<AdminAiKeysStatus> {
+  const { data, error } = await supabase.functions.invoke("manage-admin-ai-keys", {
+    body: {
+      action: "upsert",
+      openaiKey: input.openaiKey?.trim() || undefined,
+      geminiKey: input.geminiKey?.trim() || undefined,
+      clearOpenAI: input.clearOpenAI || undefined,
+      clearGemini: input.clearGemini || undefined,
+    },
+  });
+  if (error) throw new Error(await readFunctionsInvokeError(error, data));
+  const payload = data as AdminAiKeysStatus & { error?: string };
+  if (payload?.error) throw new Error(payload.error);
+  return {
+    openaiConfigured: Boolean(payload.openaiConfigured),
+    geminiConfigured: Boolean(payload.geminiConfigured),
+    openaiLast4: payload.openaiLast4 ?? null,
+    geminiLast4: payload.geminiLast4 ?? null,
+    openaiHelpUrl: payload.openaiHelpUrl || "https://platform.openai.com/api-keys",
+    geminiHelpUrl: payload.geminiHelpUrl || "https://aistudio.google.com/apikey",
+  };
+}
+
 // —— Comments ——
 
 export type CommentWithAuthor = ContentComment & {
@@ -1562,6 +1671,7 @@ export async function addComment(input: {
   projectId: string;
   body: string;
   contentTitle: string;
+  i18n?: RowI18n;
 }): Promise<ContentComment> {
   const userId = await requireUserId();
   const { data, error } = await supabase
@@ -1570,6 +1680,7 @@ export async function addComment(input: {
       content_id: input.contentId,
       user_id: userId,
       body: input.body.trim(),
+      ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
     })
     .select("*")
     .single();
@@ -1650,6 +1761,7 @@ export async function ensureBrandBriefing(clientId: string): Promise<BrandBriefi
 export async function upsertBrandBriefingAnswers(input: {
   clientId: string;
   answers: Record<string, string>;
+  i18n?: RowI18n;
 }): Promise<BrandBriefingView> {
   const briefing = await ensureBrandBriefing(input.clientId);
   const nextAnswers = { ...briefing.answersParsed, ...input.answers };
@@ -1660,12 +1772,16 @@ export async function upsertBrandBriefingAnswers(input: {
       : answered > 0
         ? "in_progress"
         : "draft";
+  const nextI18n = input.i18n
+    ? { ...parseRowI18n(briefing.i18n), ...input.i18n }
+    : parseRowI18n(briefing.i18n);
 
   const { data, error } = await supabase
     .from("brand_briefings")
     .update({
       answers: nextAnswers as unknown as Json,
       status: nextStatus,
+      i18n: toI18nJson(nextI18n),
     })
     .eq("client_id", input.clientId)
     .select("*")
@@ -1690,6 +1806,7 @@ export async function briefingCoach(input: {
   questionLabel: string;
   currentAnswer?: string;
   messages: BriefingCoachMessage[];
+  locale?: string;
 }): Promise<BriefingCoachResult> {
   const { data, error } = await supabase.functions.invoke("briefing-coach", {
     body: {
@@ -1698,6 +1815,7 @@ export async function briefingCoach(input: {
       questionLabel: input.questionLabel,
       currentAnswer: input.currentAnswer?.trim() || undefined,
       messages: input.messages,
+      locale: input.locale,
     },
   });
 
@@ -1712,9 +1830,12 @@ export async function briefingCoach(input: {
   return { type: payload.type, content: payload.content.trim() };
 }
 
-export async function generateBrandGuide(clientId: string): Promise<BrandBriefingView> {
+export async function generateBrandGuide(
+  clientId: string,
+  locale?: string,
+): Promise<BrandBriefingView> {
   const { data, error } = await supabase.functions.invoke("generate-brand-guide", {
-    body: { clientId },
+    body: { clientId, locale },
   });
 
   const payload = data as { briefing?: BrandBriefing; error?: string } | null;
@@ -1731,9 +1852,12 @@ export async function generateBrandGuide(clientId: string): Promise<BrandBriefin
   return refreshed;
 }
 
-export async function completeBrandBriefing(clientId: string): Promise<BrandBriefingView> {
+export async function completeBrandBriefing(
+  clientId: string,
+  locale?: string,
+): Promise<BrandBriefingView> {
   await ensureBrandBriefing(clientId);
-  return generateBrandGuide(clientId);
+  return generateBrandGuide(clientId, locale);
 }
 
 // —— Library ——
@@ -1810,6 +1934,7 @@ export async function createLibraryAsset(input: {
   fileUrl?: string;
   file?: File | null;
   notes?: string;
+  i18n?: RowI18n;
 }): Promise<LibraryAsset> {
   const userId = await requireUserId();
   let uploaded:
@@ -1842,6 +1967,7 @@ export async function createLibraryAsset(input: {
         uploaded?.mimeType ?? (input.category === "generated_arts" ? "image/png" : null),
       notes: input.notes?.trim() || null,
       created_by: userId,
+      ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
     } satisfies TablesInsert<"library_assets">)
     .select("*")
     .single();
@@ -1879,6 +2005,7 @@ export async function createLibraryAssets(
     fileUrl?: string;
     file?: File | null;
     notes?: string;
+    i18n?: RowI18n;
   }>,
 ): Promise<LibraryAsset[]> {
   const created: LibraryAsset[] = [];
@@ -2108,6 +2235,7 @@ export async function saveClientContentVersion(input: {
   /** `null` or `""` clears theme; omit to leave unchanged. */
   theme?: string | null;
   changeNote?: string;
+  i18n?: RowI18n;
 }): Promise<ContentItem> {
   const { data, error } = await supabase.rpc("save_client_content_version", {
     _content_id: input.contentId,
@@ -2121,5 +2249,16 @@ export async function saveClientContentVersion(input: {
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");
+
+  if (input.i18n) {
+    const { data: withI18n, error: i18nError } = await supabase
+      .from("content_items")
+      .update({ i18n: toI18nJson(input.i18n) })
+      .eq("id", input.contentId)
+      .select("*")
+      .maybeSingle();
+    if (!i18nError && withI18n) return withI18n as ContentItem;
+  }
+
   return data as ContentItem;
 }

@@ -16,6 +16,7 @@ type PresetFieldProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   presets: string[];
   disabled?: boolean;
   selectLabel: string;
@@ -59,6 +60,7 @@ export function PresetField({
   label,
   value,
   onChange,
+  onBlur,
   presets,
   disabled,
   selectLabel,
@@ -78,6 +80,7 @@ export function PresetField({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
           disabled={disabled}
           className={cn(hasPresets && "rounded-r-none")}
         />

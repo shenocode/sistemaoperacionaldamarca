@@ -24,6 +24,7 @@ import {
   listRecentActivity,
   resolvePostLoginPath,
 } from "@/lib/api";
+import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -52,6 +53,7 @@ function DashboardPage() {
   const { t, i18n } = useTranslation();
   const { user } = AuthLayout.useRouteContext();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const settingsDialog = useClientSettingsDialog();
 
   const clientsQuery = useQuery({ queryKey: ["clients"], queryFn: listClients });
@@ -166,7 +168,7 @@ function DashboardPage() {
               <ul className="space-y-3">
                 {activity.map((event) => (
                   <li key={event.id} className="flex items-start justify-between gap-3 text-sm">
-                    <p>{event.summary}</p>
+                    <p>{getLocalizedText(event.i18n, "summary", event.summary, uiLocale)}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(event.created_at), {
                         addSuffix: true,

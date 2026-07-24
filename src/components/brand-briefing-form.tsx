@@ -20,25 +20,71 @@ import {
   upsertBrandBriefingAnswers,
   type BrandBriefingView,
 } from "@/lib/api";
+import {
+  buildLocalizedFieldFromSource,
+  getCanonicalText,
+  getLocalizedAnswer,
+  getLocalizedText,
+  normalizeAppLocale,
+  parseRowI18n,
+  setLocalizedAnswer,
+  translateTextField,
+  type RowI18n,
+} from "@/lib/i18n-content";
 
 type BrandBriefingFormProps = {
   clientId: string;
   briefing: BrandBriefingView;
 };
 
+function localizedAnswersFromI18n(
+  answers: Record<string, string>,
+  i18n: RowI18n,
+  locale: string,
+): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [questionId, fallback] of Object.entries(answers)) {
+    next[questionId] = getLocalizedAnswer(i18n, questionId, fallback, locale);
+  }
+  return next;
+}
+
+function canonicalAnswersFromI18n(
+  answers: Record<string, string>,
+  i18n: RowI18n,
+): Record<string, string> {
+  const answersI18n = parseRowI18n(i18n).answers;
+  const blocks =
+    answersI18n && typeof answersI18n === "object" && !Array.isArray(answersI18n)
+      ? (answersI18n as Record<string, unknown>)
+      : {};
+  const next: Record<string, string> = { ...answers };
+  for (const [questionId, fallback] of Object.entries(answers)) {
+    next[questionId] = getCanonicalText({ [questionId]: blocks[questionId] }, questionId, fallback);
+  }
+  return next;
+}
+
 export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [answers, setAnswers] = useState<Record<string, string>>(briefing.answersParsed);
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const [rowI18n, setRowI18n] = useState<RowI18n>(() => parseRowI18n(briefing.i18n));
+  const [answers, setAnswers] = useState<Record<string, string>>(() =>
+    localizedAnswersFromI18n(briefing.answersParsed, parseRowI18n(briefing.i18n), uiLocale),
+  );
   const [coachQuestion, setCoachQuestion] = useState<{
     id: string;
     label: string;
   } | null>(null);
   const [tab, setTab] = useState("form");
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setAnswers(briefing.answersParsed);
-  }, [briefing.id, briefing.updated_at]);
+    const nextI18n = parseRowI18n(briefing.i18n);
+    setRowI18n(nextI18n);
+    setAnswers(localizedAnswersFromI18n(briefing.answersParsed, nextI18n, uiLocale));
+  }, [briefing.id, briefing.updated_at, briefing.i18n, briefing.answersParsed, uiLocale]);
 
   const answeredCount = useMemo(() => {
     let count = 0;
@@ -51,8 +97,18 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
   }, [answers, briefing.templateParsed.sections]);
 
   const saveMutation = useMutation({
-    mutationFn: (next: Record<string, string>) =>
-      upsertBrandBriefingAnswers({ clientId, answers: next }),
+    mutationFn: ({
+      nextAnswers,
+      nextI18n,
+    }: {
+      nextAnswers: Record<string, string>;
+      nextI18n: RowI18n;
+    }) =>
+      upsertBrandBriefingAnswers({
+        clientId,
+        answers: canonicalAnswersFromI18n(nextAnswers, nextI18n),
+        i18n: nextI18n,
+      }),
     onSuccess: (data) => {
       queryClient.setQueryData(["brand-briefing", clientId], data);
     },
@@ -61,8 +117,12 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      await upsertBrandBriefingAnswers({ clientId, answers });
-      return completeBrandBriefing(clientId);
+      await upsertBrandBriefingAnswers({
+        clientId,
+        answers: canonicalAnswersFromI18n(answers, rowI18n),
+        i18n: rowI18n,
+      });
+      return completeBrandBriefing(clientId, i18n.resolvedLanguage ?? i18n.language);
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["brand-briefing", clientId], data);
@@ -73,16 +133,28 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
   });
 
   const setAnswer = (questionId: string, value: string) => {
-    setAnswers((prev) => {
-      const next = { ...prev, [questionId]: value };
-      return next;
-    });
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
-  const persistAnswer = (questionId: string, value: string) => {
-    const next = { ...answers, [questionId]: value };
-    setAnswers(next);
-    saveMutation.mutate(next);
+  const persistAnswer = async (questionId: string, value: string) => {
+    const trimmed = value.trimEnd();
+    setTranslatingId(questionId);
+    try {
+      let block;
+      try {
+        block = await translateTextField({ text: trimmed });
+      } catch {
+        block = buildLocalizedFieldFromSource(trimmed, uiLocale);
+      }
+      const nextI18n = setLocalizedAnswer(rowI18n, questionId, block);
+      const display = getLocalizedAnswer(nextI18n, questionId, trimmed, uiLocale);
+      const nextAnswers = { ...answers, [questionId]: display };
+      setRowI18n(nextI18n);
+      setAnswers(nextAnswers);
+      saveMutation.mutate({ nextAnswers, nextI18n });
+    } finally {
+      setTranslatingId(null);
+    }
   };
 
   return (
@@ -93,10 +165,10 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
             answered: answeredCount,
             total: briefing.totalCount,
           })}
-          {saveMutation.isPending ? (
+          {saveMutation.isPending || translatingId ? (
             <span className="ml-2 inline-flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-              {t("briefing.saving")}
+              {translatingId ? t("common.translating") : t("briefing.saving")}
             </span>
           ) : null}
         </p>
@@ -154,14 +226,22 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
                       {question.helper ? (
                         <p className="text-xs text-muted-foreground">{question.helper}</p>
                       ) : null}
-                      <Textarea
-                        id={question.id}
-                        value={answers[question.id] ?? ""}
-                        rows={3}
-                        onChange={(e) => setAnswer(question.id, e.target.value)}
-                        onBlur={(e) => persistAnswer(question.id, e.target.value)}
-                        placeholder={t("briefing.answerPlaceholder")}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          id={question.id}
+                          value={answers[question.id] ?? ""}
+                          rows={3}
+                          disabled={translatingId === question.id}
+                          onChange={(e) => setAnswer(question.id, e.target.value)}
+                          onBlur={(e) => void persistAnswer(question.id, e.target.value)}
+                          placeholder={t("briefing.answerPlaceholder")}
+                        />
+                        {translatingId === question.id ? (
+                          <span className="pointer-events-none absolute bottom-2 right-2 text-[10px] text-muted-foreground">
+                            {t("common.translating")}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </AccordionContent>
@@ -172,7 +252,12 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
 
         <TabsContent value="guide" className="pt-4">
           <BrandGuideView
-            markdown={briefing.guide_markdown}
+            markdown={getLocalizedText(
+              briefing.i18n,
+              "guide_markdown",
+              briefing.guide_markdown,
+              uiLocale,
+            )}
             updatedAt={briefing.completed_at ?? briefing.updated_at}
           />
         </TabsContent>
@@ -189,7 +274,7 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
           questionLabel={coachQuestion.label}
           currentAnswer={answers[coachQuestion.id] ?? ""}
           onApply={(suggestion) => {
-            persistAnswer(coachQuestion.id, suggestion);
+            void persistAnswer(coachQuestion.id, suggestion);
             toast.success(t("briefing.coach.applied"));
           }}
         />

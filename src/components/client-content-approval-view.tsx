@@ -34,6 +34,14 @@ import {
   setContentStatus,
   type ContentFormat,
 } from "@/lib/api";
+import {
+  buildLocalizedFieldFromSource,
+  getCanonicalText,
+  getLocalizedText,
+  normalizeAppLocale,
+  translateTextField,
+  type RowI18n,
+} from "@/lib/i18n-content";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -57,6 +65,20 @@ type ClientContentApprovalViewProps = {
   onCtaChange: (value: string) => void;
 };
 
+async function buildCommentI18n(text: string, locale: string): Promise<{ body: string; i18n: RowI18n }> {
+  let i18n: RowI18n = {};
+  try {
+    const block = await translateTextField({ text });
+    i18n = { body: block };
+  } catch {
+    i18n = { body: buildLocalizedFieldFromSource(text, locale) };
+  }
+  return {
+    body: getCanonicalText(i18n, "body", text),
+    i18n,
+  };
+}
+
 export function ClientContentApprovalView({
   clientId,
   projectId,
@@ -77,6 +99,7 @@ export function ClientContentApprovalView({
 }: ClientContentApprovalViewProps) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
   const [comment, setComment] = useState("");
   const [changesOpen, setChangesOpen] = useState(false);
@@ -134,14 +157,17 @@ export function ClientContentApprovalView({
   });
 
   const commentMutation = useMutation({
-    mutationFn: () =>
-      addComment({
+    mutationFn: async () => {
+      const payload = await buildCommentI18n(comment, uiLocale);
+      return addComment({
         contentId,
         clientId,
         projectId,
-        body: comment,
+        body: payload.body,
         contentTitle: title,
-      }),
+        i18n: payload.i18n,
+      });
+    },
     onSuccess: () => {
       setComment("");
       invalidateAll();
@@ -151,12 +177,14 @@ export function ClientContentApprovalView({
 
   const requestChanges = async () => {
     if (changesNote.trim()) {
+      const payload = await buildCommentI18n(changesNote.trim(), uiLocale);
       await addComment({
         contentId,
         clientId,
         projectId,
-        body: changesNote.trim(),
+        body: payload.body,
         contentTitle: title,
+        i18n: payload.i18n,
       });
     }
     statusMutation.mutate("changes");
@@ -287,7 +315,9 @@ export function ClientContentApprovalView({
                           })}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap text-muted-foreground">{c.body}</p>
+                      <p className="whitespace-pre-wrap text-muted-foreground">
+                        {getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -312,7 +342,7 @@ export function ClientContentApprovalView({
                   aria-label={t("project.detail.send")}
                   disabled={commentMutation.isPending || !comment.trim()}
                 >
-                  <Send className="h-4 w-4" aria-hidden="true" />
+                  <Send className="h-4 w-4" />
                 </Button>
               </form>
             </div>
@@ -335,7 +365,7 @@ export function ClientContentApprovalView({
             <Button variant="outline" onClick={() => setChangesOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={requestChanges} disabled={statusMutation.isPending}>
+            <Button onClick={() => void requestChanges()} disabled={statusMutation.isPending}>
               {t("project.detail.requestChanges")}
             </Button>
           </DialogFooter>

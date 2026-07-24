@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { loadAdminAiKeys, resolveOpenAiKey } from "../_shared/admin-ai-keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,7 @@ type SuggestRequest = {
   references?: string;
   youtubeUrls?: string[];
   format?: ContentFormat;
+  locale?: string;
 };
 
 type ContentSuggestion = {
@@ -86,6 +88,13 @@ async function fetchYoutubeMeta(url: string): Promise<YoutubeMeta> {
   }
 }
 
+function languageInstruction(locale?: string): string {
+  const lower = (locale ?? "pt-BR").toLowerCase();
+  if (lower.startsWith("en")) return "Generate all copy in English (US).";
+  if (lower.startsWith("es")) return "Genera todos los textos en español.";
+  return "Gere textos em português do Brasil.";
+}
+
 function sanitizeSuggestion(raw: Record<string, unknown>, format: ContentFormat): ContentSuggestion {
   const asString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
   const themeRaw = asString(raw.theme);
@@ -118,10 +127,29 @@ function extractJsonObject(text: string): Record<string, unknown> {
   }
 }
 
-async function callChatModel(messages: Array<{ role: string; content: string }>) {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+async function callChatModel(
+  messages: Array<{ role: string; content: string }>,
+  openaiKey: string | null,
+) {
+  // Prefer the admin's own OpenAI key so each manager pays for their usage.
+  if (openaiKey) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+        messages,
+      }),
+    });
+    return { provider: "openai" as const, res };
+  }
 
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (lovableKey) {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -138,23 +166,6 @@ async function callChatModel(messages: Array<{ role: string; content: string }>)
       }),
     });
     return { provider: "lovable" as const, res };
-  }
-
-  if (openaiKey) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-        messages,
-      }),
-    });
-    return { provider: "openai" as const, res };
   }
 
   return null;
@@ -175,12 +186,6 @@ Deno.serve(async (req) => {
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
-    }
-    if (!Deno.env.get("LOVABLE_API_KEY") && !Deno.env.get("OPENAI_API_KEY")) {
-      return jsonResponse(
-        { error: "Nenhuma chave de IA configurada (LOVABLE_API_KEY ou OPENAI_API_KEY)" },
-        500,
-      );
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -206,6 +211,18 @@ Deno.serve(async (req) => {
     }
     if (!isAdmin) {
       return jsonResponse({ error: "Apenas administradores podem usar o assistente" }, 403);
+    }
+
+    const adminKeys = await loadAdminAiKeys(user.id);
+    const openaiKey = resolveOpenAiKey(adminKeys.openaiKey);
+    if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
+      return jsonResponse(
+        {
+          error:
+            "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
+        },
+        400,
+      );
     }
 
     const body = (await req.json()) as SuggestRequest;
@@ -264,8 +281,8 @@ Deno.serve(async (req) => {
 
     const systemPrompt = [
       "Você é um copywriter de Instagram para agências de marca.",
-      "Gere textos em português do Brasil, claros, humanos e alinhados ao brief.",
-      "Quando houver Guia de marca, trate-o como fonte prioritária de voz, público, pilares e limites éticos.",
+      languageInstruction(body.locale),
+      "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
       '{"title":"...","caption":"...","cta":"...","hashtags":"...","theme":"...|null","locucao":"...","roteiro":"..."}',
       "Regras:",
@@ -304,14 +321,20 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n\n");
 
-    const chat = await callChatModel([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ]);
+    const chat = await callChatModel(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      openaiKey,
+    );
     if (!chat) {
       return jsonResponse(
-        { error: "Nenhuma chave de IA configurada (LOVABLE_API_KEY ou OPENAI_API_KEY)" },
-        500,
+        {
+          error:
+            "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
+        },
+        400,
       );
     }
 

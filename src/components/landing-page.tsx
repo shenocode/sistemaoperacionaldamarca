@@ -33,7 +33,15 @@ const FEATURE_ICONS = {
 
 const PLAN_KEYS = ["solo", "studio", "agency"] as const;
 
-function ProductMockup({ status, caption }: { status: string; caption: string }) {
+function ProductMockup({
+  status,
+  caption,
+  brandName,
+}: {
+  status: string;
+  caption: string;
+  brandName: string;
+}) {
   return (
     <div className="landing-float relative mx-auto w-full max-w-md">
       <div className="absolute -inset-8 landing-drift rounded-[40%] bg-primary/15 blur-3xl" aria-hidden />
@@ -50,7 +58,7 @@ function ProductMockup({ status, caption }: { status: string; caption: string })
           <div className="aspect-square overflow-hidden rounded-2xl bg-gradient-to-br from-teal-200 via-sky-100 to-emerald-100">
             <div className="flex h-full flex-col justify-between p-5">
               <p className="font-display text-2xl font-semibold leading-tight text-teal-950/90">
-                SOM
+                {brandName}
               </p>
               <p className="max-w-[14ch] text-sm leading-snug text-teal-950/70">{caption}</p>
             </div>
@@ -141,6 +149,7 @@ export function LandingPage() {
             <ProductMockup
               status={t("landing.mockStatus")}
               caption={t("landing.mockCaption")}
+              brandName={t("app.name")}
             />
           </div>
         </section>

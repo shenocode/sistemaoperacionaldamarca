@@ -42,7 +42,7 @@ export function BriefingCoachSheet({
   currentAnswer,
   onApply,
 }: BriefingCoachSheetProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [messages, setMessages] = useState<ChatItem[]>([]);
   const [input, setInput] = useState("");
   const [suggestion, setSuggestion] = useState<string | null>(null);
@@ -64,6 +64,7 @@ export function BriefingCoachSheet({
         questionLabel,
         currentAnswer,
         messages: history,
+        locale: i18n.resolvedLanguage ?? i18n.language,
       }),
     onSuccess: (result) => {
       setMessages((prev) => [

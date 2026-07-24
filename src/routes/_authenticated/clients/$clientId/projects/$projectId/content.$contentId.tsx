@@ -71,8 +71,18 @@ import {
   setContentStatus,
   updateContentFields,
   uploadContentMediaFiles,
+  getLocalizedText,
+  getCanonicalText,
+  parseRowI18n,
+  normalizeAppLocale,
+  setLocalizedField,
+  mergeRowI18n,
+  translateTextField,
+  translateManyFields,
+  buildLocalizedFieldFromSource,
   type ContentFormat,
   type ContentVersion,
+  type RowI18n,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
 import { useAppRole } from "@/hooks/use-app-role";
@@ -84,6 +94,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
 import { cn } from "@/lib/utils";
 import { validateContentSearch } from "./content";
 
@@ -138,6 +149,7 @@ function ContentDetailPage() {
   const [cta, setCta] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [theme, setTheme] = useState("");
+  const [rowI18n, setRowI18n] = useState<RowI18n>({});
   const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
   const [mediaItems, setMediaItems] = useState<MediaEntry[]>([]);
   const [source, setSource] = useState<SourceMode>("file");
@@ -209,21 +221,71 @@ function ContentDetailPage() {
     })
     .filter((item) => item.url);
 
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+
   useEffect(() => {
     if (!content) return;
-    setTitle(content.title);
-    setCaption(content.caption);
-    setLocucao(content.locucao ?? "");
-    setRoteiro(content.roteiro ?? "");
-    setCta(content.cta);
-    setHashtags(content.hashtags);
-    setTheme(content.theme ?? "");
+    const nextI18n = parseRowI18n(content.i18n);
+    setRowI18n(nextI18n);
+    setTitle(getLocalizedText(nextI18n, "title", content.title, uiLocale));
+    setCaption(getLocalizedText(nextI18n, "caption", content.caption, uiLocale));
+    setLocucao(getLocalizedText(nextI18n, "locucao", content.locucao ?? "", uiLocale));
+    setRoteiro(getLocalizedText(nextI18n, "roteiro", content.roteiro ?? "", uiLocale));
+    setCta(getLocalizedText(nextI18n, "cta", content.cta, uiLocale));
+    setHashtags(getLocalizedText(nextI18n, "hashtags", content.hashtags, uiLocale));
+    setTheme(getLocalizedText(nextI18n, "theme", content.theme ?? "", uiLocale));
     setFormatType(content.format ?? "static_feed");
     setMediaItems(mediaEntriesFromUrls(resolveContentMediaUrls(content)));
     setUrlDraft("");
     setDragIndex(null);
     setDropIndex(null);
-  }, [content]);
+  }, [content, uiLocale]);
+
+  const onFieldI18nCommit = (payload: {
+    field: string;
+    display: string;
+    canonical: string;
+    i18n: RowI18n;
+  }) => {
+    setRowI18n(payload.i18n);
+    if (payload.field === "title") setTitle(payload.display);
+    if (payload.field === "caption") setCaption(payload.display);
+    if (payload.field === "locucao") setLocucao(payload.display);
+    if (payload.field === "roteiro") setRoteiro(payload.display);
+    if (payload.field === "cta") setCta(payload.display);
+    if (payload.field === "hashtags") setHashtags(payload.display);
+    if (payload.field === "theme") setTheme(payload.display);
+    if (payload.field === "versionNote") setVersionNote(payload.display);
+  };
+
+  const translatePresetField = async (field: "cta" | "hashtags" | "theme", value: string) => {
+    try {
+      const block = await translateTextField({ text: value });
+      const merged = setLocalizedField(rowI18n, field, block);
+      setRowI18n(merged);
+      const display = getLocalizedText(merged, field, value, uiLocale);
+      if (field === "cta") setCta(display);
+      if (field === "hashtags") setHashtags(display);
+      if (field === "theme") setTheme(display);
+    } catch {
+      const block = buildLocalizedFieldFromSource(value, uiLocale);
+      setRowI18n(setLocalizedField(rowI18n, field, block));
+    }
+  };
+
+  const buildSavePayload = () => {
+    const i18nPayload = rowI18n;
+    return {
+      title: getCanonicalText(i18nPayload, "title", title),
+      caption: getCanonicalText(i18nPayload, "caption", caption),
+      cta: getCanonicalText(i18nPayload, "cta", cta),
+      hashtags: getCanonicalText(i18nPayload, "hashtags", hashtags),
+      locucao: getCanonicalText(i18nPayload, "locucao", locucao),
+      roteiro: getCanonicalText(i18nPayload, "roteiro", roteiro),
+      theme: getCanonicalText(i18nPayload, "theme", theme.trim()) || null,
+      i18n: i18nPayload,
+    };
+  };
 
   const pendingFileKey = mediaItems
     .filter((item): item is Extract<MediaEntry, { kind: "file" }> => item.kind === "file")
@@ -276,17 +338,19 @@ function ContentDetailPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const urls = await resolveMediaForSave();
+      const payload = buildSavePayload();
       return updateContentFields({
         contentId,
-        title,
-        caption,
-        cta,
-        hashtags,
-        locucao,
-        roteiro,
+        title: payload.title,
+        caption: payload.caption,
+        cta: payload.cta,
+        hashtags: payload.hashtags,
+        locucao: payload.locucao,
+        roteiro: payload.roteiro,
         mediaUrls: urls,
         format: formatType,
-        theme: theme.trim() || null,
+        theme: payload.theme,
+        i18n: payload.i18n,
       });
     },
     onSuccess: () => {
@@ -298,19 +362,22 @@ function ContentDetailPage() {
 
   const versionMutation = useMutation({
     mutationFn: async () => {
+      const payload = buildSavePayload();
+      const noteCanonical = getCanonicalText(rowI18n, "versionNote", versionNote);
       // Clients save title/format/theme/copy via RPC; admins save full content as a new version.
       if (!isAdmin) {
         return saveClientContentVersion({
           contentId,
           clientId,
           projectId,
-          title,
-          caption,
-          cta,
-          hashtags,
+          title: payload.title,
+          caption: payload.caption,
+          cta: payload.cta,
+          hashtags: payload.hashtags,
           format: formatType,
-          theme: theme.trim() || null,
-          changeNote: versionNote,
+          theme: payload.theme,
+          changeNote: noteCanonical,
+          i18n: payload.i18n,
         });
       }
       const urls = await resolveMediaForSave();
@@ -318,16 +385,17 @@ function ContentDetailPage() {
         contentId,
         clientId,
         projectId,
-        title,
-        caption,
-        cta,
-        hashtags,
-        locucao,
-        roteiro,
+        title: payload.title,
+        caption: payload.caption,
+        cta: payload.cta,
+        hashtags: payload.hashtags,
+        locucao: payload.locucao,
+        roteiro: payload.roteiro,
         mediaUrls: urls,
         format: formatType,
-        theme: theme.trim() || null,
-        changeNote: versionNote,
+        theme: payload.theme,
+        changeNote: noteCanonical,
+        i18n: payload.i18n,
       });
     },
     onSuccess: () => {
@@ -374,14 +442,27 @@ function ContentDetailPage() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: () =>
-      addComment({
+    mutationFn: async () => {
+      let commentI18n: RowI18n = {};
+      try {
+        const block = await translateTextField({ text: comment });
+        commentI18n = { body: block };
+      } catch {
+        commentI18n = { body: buildLocalizedFieldFromSource(comment, uiLocale) };
+      }
+      const bodyCanonical =
+        (commentI18n.body as { values?: Record<string, string>; source?: string })?.values?.[
+          (commentI18n.body as { source?: string })?.source ?? "pt-BR"
+        ] ?? comment;
+      return addComment({
         contentId,
         clientId,
         projectId,
-        body: comment,
+        body: bodyCanonical,
         contentTitle: content?.title ?? title,
-      }),
+        i18n: commentI18n,
+      });
+    },
     onSuccess: () => {
       setComment("");
       invalidateAll();
@@ -536,17 +617,32 @@ function ContentDetailPage() {
               projectId={projectId}
               clientId={clientId}
               format={formatType}
-              onApply={(suggestion) => {
-                setTitle(suggestion.title);
-                setCaption(suggestion.caption);
-                setCta(suggestion.cta);
-                setHashtags(suggestion.hashtags);
-                if (suggestion.theme) setTheme(suggestion.theme);
+              onApply={async (suggestion) => {
+                const translated = await translateManyFields({
+                  title: suggestion.title,
+                  caption: suggestion.caption,
+                  cta: suggestion.cta,
+                  hashtags: suggestion.hashtags,
+                  ...(suggestion.theme ? { theme: suggestion.theme } : {}),
+                  ...(formatType === "reels" || formatType === "recorded_video"
+                    ? { locucao: suggestion.locucao }
+                    : {}),
+                  ...(formatType === "carousel" ? { roteiro: suggestion.roteiro } : {}),
+                });
+                const merged = mergeRowI18n(rowI18n, translated);
+                setRowI18n(merged);
+                setTitle(getLocalizedText(merged, "title", suggestion.title, uiLocale));
+                setCaption(getLocalizedText(merged, "caption", suggestion.caption, uiLocale));
+                setCta(getLocalizedText(merged, "cta", suggestion.cta, uiLocale));
+                setHashtags(getLocalizedText(merged, "hashtags", suggestion.hashtags, uiLocale));
+                if (suggestion.theme) {
+                  setTheme(getLocalizedText(merged, "theme", suggestion.theme, uiLocale));
+                }
                 if (formatType === "reels" || formatType === "recorded_video") {
-                  setLocucao(suggestion.locucao);
+                  setLocucao(getLocalizedText(merged, "locucao", suggestion.locucao, uiLocale));
                 }
                 if (formatType === "carousel") {
-                  setRoteiro(suggestion.roteiro);
+                  setRoteiro(getLocalizedText(merged, "roteiro", suggestion.roteiro, uiLocale));
                 }
               }}
             />
@@ -576,10 +672,12 @@ function ContentDetailPage() {
                 <Label htmlFor="title" variant="highlight">
                   {t("project.content.title")}
                 </Label>
-                <Input
+                <LocalizedTextInput
                   id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  field="title"
+                  i18n={rowI18n}
+                  fallback={title}
+                  onI18nCommit={onFieldI18nCommit}
                 />
               </div>
               <div className="space-y-1.5">
@@ -641,11 +739,13 @@ function ContentDetailPage() {
                 <Label htmlFor="caption" variant="highlight">
                   {t("project.detail.caption")}
                 </Label>
-                <Textarea
+                <LocalizedTextarea
                   id="caption"
+                  field="caption"
+                  i18n={rowI18n}
+                  fallback={caption}
                   rows={4}
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
+                  onI18nCommit={onFieldI18nCommit}
                 />
               </div>
               {needsLocucao ? (
@@ -654,13 +754,15 @@ function ContentDetailPage() {
                     {t("project.detail.locucao")}
                   </Label>
                   <p className="text-xs text-muted-foreground">{t("project.detail.locucaoHint")}</p>
-                  <Textarea
+                  <LocalizedTextarea
                     id="locucao"
+                    field="locucao"
+                    i18n={rowI18n}
+                    fallback={locucao}
                     rows={5}
-                    value={locucao}
-                    onChange={(e) => setLocucao(e.target.value)}
                     disabled={!isAdmin}
                     placeholder={t("project.detail.locucaoPlaceholder")}
+                    onI18nCommit={onFieldI18nCommit}
                   />
                 </div>
               ) : null}
@@ -670,13 +772,15 @@ function ContentDetailPage() {
                     {t("project.detail.roteiro")}
                   </Label>
                   <p className="text-xs text-muted-foreground">{t("project.detail.roteiroHint")}</p>
-                  <Textarea
+                  <LocalizedTextarea
                     id="roteiro"
+                    field="roteiro"
+                    i18n={rowI18n}
+                    fallback={roteiro}
                     rows={6}
-                    value={roteiro}
-                    onChange={(e) => setRoteiro(e.target.value)}
                     disabled={!isAdmin}
                     placeholder={t("project.detail.roteiroPlaceholder")}
+                    onI18nCommit={onFieldI18nCommit}
                   />
                 </div>
               ) : null}
@@ -686,6 +790,7 @@ function ContentDetailPage() {
                   label={t("project.detail.cta")}
                   value={cta}
                   onChange={setCta}
+                  onBlur={() => void translatePresetField("cta", cta)}
                   presets={ctaPresets}
                   selectLabel={t("project.detail.selectCtaPreset")}
                   emptyPresetsLabel={t("project.detail.noCtaPresets")}
@@ -696,6 +801,7 @@ function ContentDetailPage() {
                   label={t("project.detail.hashtags")}
                   value={hashtags}
                   onChange={setHashtags}
+                  onBlur={() => void translatePresetField("hashtags", hashtags)}
                   presets={hashtagPresets}
                   selectLabel={t("project.detail.selectHashtagPreset")}
                   emptyPresetsLabel={t("project.detail.noHashtagPresets")}
@@ -858,7 +964,9 @@ function ContentDetailPage() {
                             ) : null}
                           </div>
                         </div>
-                        <p className="whitespace-pre-wrap text-muted-foreground">{c.body}</p>
+                        <p className="whitespace-pre-wrap text-muted-foreground">
+                          {getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                        </p>
                       </li>
                     );
                   })}
@@ -896,11 +1004,13 @@ function ContentDetailPage() {
                 <Label htmlFor="version-note" variant="highlight">
                   {t("project.detail.versionNote")}
                 </Label>
-                <Input
+                <LocalizedTextInput
                   id="version-note"
-                  value={versionNote}
-                  onChange={(e) => setVersionNote(e.target.value)}
+                  field="versionNote"
+                  i18n={rowI18n}
+                  fallback={versionNote}
                   placeholder={t("project.detail.versionNotePlaceholder")}
+                  onI18nCommit={onFieldI18nCommit}
                 />
               </div>
               <div className="flex flex-wrap gap-2">

@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ClientContactFields } from "@/components/client-contact-fields";
+import { AdminAiSettingsPage } from "@/components/admin-ai-settings";
+import {
+  ClientContactFields,
+  contactFormFromClient,
+  toCanonicalContactInput,
+} from "@/components/client-contact-fields";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,15 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAppRole } from "@/hooks/use-app-role";
 import {
-  isAdmin,
   listClients,
-  resolvePostLoginPath,
   updateClient,
   updateOwnPassword,
   brandKitFromClient,
   type ClientContactInput,
 } from "@/lib/api";
+import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
 
 const emptyForm: ClientContactInput = {
   name: "",
@@ -36,35 +41,46 @@ const emptyForm: ClientContactInput = {
   logo_url: "",
   brand_colors: [],
   brand_fonts: {},
+  i18n: {},
 };
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  beforeLoad: async () => {
-    if (await isAdmin()) {
-      const dest = await resolvePostLoginPath();
-      if (dest.to === "/clients/$clientId/projects/$projectId/content") {
-        throw redirect({ to: dest.to, params: dest.params, search: dest.search });
-      }
-      throw redirect({ to: dest.to });
-    }
-  },
   head: () => ({
     meta: [
-      { title: "Meu Perfil — SOM" },
-      { name: "description", content: "Revise e atualize seus dados de contato." },
+      { title: "Configurações — SOM" },
+      { name: "description", content: "Configurações da conta e chaves de IA." },
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: ClientSettingsPage,
+  component: SettingsPage,
 });
 
+function SettingsPage() {
+  const { isAdmin, loading } = useAppRole();
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-6 sm:px-6 sm:py-8 md:p-8">
+        <p className="text-sm text-muted-foreground">…</p>
+      </div>
+    );
+  }
+
+  if (isAdmin) {
+    return <AdminAiSettingsPage />;
+  }
+
+  return <ClientSettingsPage />;
+}
+
 function ClientSettingsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [form, setForm] = useState<ClientContactInput>(emptyForm);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
 
   const clientsQuery = useQuery({
     queryKey: ["clients"],
@@ -91,20 +107,11 @@ function ClientSettingsPage() {
       setForm(emptyForm);
       return;
     }
-    setForm({
-      name: client.name,
-      notes: client.notes ?? "",
-      email: client.email ?? "",
-      phone: client.phone ?? "",
-      whatsapp: client.whatsapp ?? "",
-      instagram: client.instagram ?? "",
-      logo_url: client.logo_url ?? "",
-      ...brandKitFromClient(client),
-    });
-  }, [clients, selectedClientId]);
+    setForm(contactFormFromClient(client, uiLocale, brandKitFromClient(client)));
+  }, [clients, selectedClientId, uiLocale]);
 
   const saveMutation = useMutation({
-    mutationFn: () => updateClient(selectedClientId, form),
+    mutationFn: () => updateClient(selectedClientId, toCanonicalContactInput(form)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success(t("clientSettings.updated"));
@@ -149,7 +156,7 @@ function ClientSettingsPage() {
                 <SelectContent>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
-                      {client.name}
+                      {getLocalizedText(client.i18n, "name", client.name, uiLocale)}
                     </SelectItem>
                   ))}
                 </SelectContent>

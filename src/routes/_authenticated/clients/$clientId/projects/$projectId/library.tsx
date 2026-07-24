@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { LocalizedTextInput } from "@/components/localized-text-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,6 +57,15 @@ import {
   type LibraryCategory,
 } from "@/lib/api";
 import { downloadImageFromUrl, downloadImagesAsZip } from "@/lib/download-image";
+import {
+  buildLocalizedFieldFromSource,
+  getCanonicalText,
+  getLocalizedText,
+  normalizeAppLocale,
+  setLocalizedField,
+  translateTextField,
+  type RowI18n,
+} from "@/lib/i18n-content";
 
 const categories = [
   { key: "pdfs" as const, icon: FileText },
@@ -79,6 +89,10 @@ function fileTitle(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "") || fileName;
 }
 
+function localizedAssetName(asset: LibraryAsset, locale: string) {
+  return getLocalizedText(asset.i18n, "name", asset.name, locale);
+}
+
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/library",
 )({
@@ -87,10 +101,12 @@ export const Route = createFileRoute(
 
 function LibraryPage() {
   const { clientId, projectId } = Route.useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [rowI18n, setRowI18n] = useState<RowI18n>({});
   const [fileUrl, setFileUrl] = useState("");
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [source, setSource] = useState<SourceMode>("file");
@@ -123,6 +139,7 @@ function LibraryPage() {
 
   const resetForm = () => {
     setName("");
+    setRowI18n({});
     setFileUrl("");
     setFiles([]);
     setSource("file");
@@ -137,23 +154,50 @@ function LibraryPage() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (source === "url") {
+        const displayName = name.trim() || fileUrl.trim();
+        let nextI18n = rowI18n;
+        if (!getCanonicalText(nextI18n, "name", "").trim() && displayName) {
+          try {
+            const block = await translateTextField({ text: displayName });
+            nextI18n = setLocalizedField(nextI18n, "name", block);
+          } catch {
+            nextI18n = setLocalizedField(
+              nextI18n,
+              "name",
+              buildLocalizedFieldFromSource(displayName, uiLocale),
+            );
+          }
+        }
         return [
           await createLibraryAsset({
             projectId,
-            name: name.trim() || fileUrl.trim(),
+            name: getCanonicalText(nextI18n, "name", displayName),
             category: "references",
             fileUrl,
+            i18n: nextI18n,
           }),
         ];
       }
 
       return createLibraryAssets(
-        files.map((item) => ({
-          projectId,
-          name: item.name,
-          category: item.category,
-          file: item.file,
-        })),
+        await Promise.all(
+          files.map(async (item) => {
+            let block;
+            try {
+              block = await translateTextField({ text: item.name });
+            } catch {
+              block = buildLocalizedFieldFromSource(item.name, uiLocale);
+            }
+            const assetI18n = setLocalizedField({}, "name", block);
+            return {
+              projectId,
+              name: getCanonicalText(assetI18n, "name", item.name),
+              category: item.category,
+              file: item.file,
+              i18n: assetI18n,
+            };
+          }),
+        ),
       );
     },
     onSuccess: (created) => {
@@ -352,7 +396,7 @@ function LibraryPage() {
                         onCheckedChange={(checked) =>
                           toggleGeneratedSelection(asset.id, checked === true)
                         }
-                        aria-label={asset.name}
+                        aria-label={localizedAssetName(asset, uiLocale)}
                       />
                       {asset.file_url ? (
                         <img
@@ -366,8 +410,11 @@ function LibraryPage() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium" title={asset.name}>
-                          {asset.name}
+                        <p
+                          className="truncate text-sm font-medium"
+                          title={localizedAssetName(asset, uiLocale)}
+                        >
+                          {localizedAssetName(asset, uiLocale)}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1">
                           <Button
@@ -519,7 +566,9 @@ function LibraryPage() {
                   <p className="text-xs text-muted-foreground">{t("project.library.empty")}</p>
                 ) : (
                   <ul className="space-y-1.5">
-                    {categoryAssets.map((asset) => (
+                    {categoryAssets.map((asset) => {
+                      const displayName = localizedAssetName(asset, uiLocale);
+                      return (
                       <li key={asset.id} className="flex items-start gap-2 text-sm">
                         <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
                         {asset.file_url ? (
@@ -528,17 +577,18 @@ function LibraryPage() {
                             target="_blank"
                             rel="noreferrer"
                             className="line-clamp-2 text-left text-primary hover:underline"
-                            title={asset.name}
+                            title={displayName}
                           >
-                            {asset.name}
+                            {displayName}
                           </a>
                         ) : (
-                          <span className="line-clamp-2 text-muted-foreground" title={asset.name}>
-                            {asset.name}
+                          <span className="line-clamp-2 text-muted-foreground" title={displayName}>
+                            {displayName}
                           </span>
                         )}
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </CardContent>
@@ -644,11 +694,15 @@ function LibraryPage() {
               <TabsContent value="url" className="space-y-3 pt-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="asset-name">{t("project.library.urlName")}</Label>
-                  <Input
+                  <LocalizedTextInput
                     id="asset-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required={source === "url"}
+                    field="name"
+                    i18n={rowI18n}
+                    fallback={name}
+                    onI18nCommit={(payload) => {
+                      setRowI18n(payload.i18n);
+                      setName(payload.display);
+                    }}
                   />
                 </div>
                 <div className="space-y-1.5">

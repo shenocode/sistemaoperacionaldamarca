@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ImagePlus, Trash2 } from "lucide-react";
@@ -7,14 +7,61 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { BrandKitFields } from "@/components/brand-kit-fields";
+import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
 import { Separator } from "@/components/ui/separator";
 import {
   CLIENT_LOGO_ACCEPT,
   uploadClientLogo,
   type ClientContactInput,
 } from "@/lib/api";
+import {
+  getCanonicalText,
+  getLocalizedText,
+  normalizeAppLocale,
+  parseRowI18n,
+  type RowI18n,
+} from "@/lib/i18n-content";
+
+export function contactFormFromClient(
+  client: {
+    name: string;
+    notes?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    whatsapp?: string | null;
+    instagram?: string | null;
+    logo_url?: string | null;
+    i18n?: unknown;
+    brand_colors?: unknown;
+    brand_fonts?: unknown;
+  },
+  locale: string,
+  brandKit: Pick<ClientContactInput, "brand_colors" | "brand_fonts">,
+): ClientContactInput {
+  const i18n = parseRowI18n(client.i18n);
+  return {
+    name: getLocalizedText(i18n, "name", client.name, locale),
+    notes: getLocalizedText(i18n, "notes", client.notes ?? "", locale),
+    email: client.email ?? "",
+    phone: client.phone ?? "",
+    whatsapp: client.whatsapp ?? "",
+    instagram: client.instagram ?? "",
+    logo_url: client.logo_url ?? "",
+    ...brandKit,
+    i18n,
+  };
+}
+
+export function toCanonicalContactInput(form: ClientContactInput): ClientContactInput {
+  const i18n = parseRowI18n(form.i18n);
+  return {
+    ...form,
+    name: getCanonicalText(i18n, "name", form.name),
+    notes: getCanonicalText(i18n, "notes", form.notes),
+    i18n,
+  };
+}
 
 export function ClientContactFields({
   form,
@@ -32,10 +79,25 @@ export function ClientContactFields({
   /** When set, enables immediate logo upload to storage. */
   clientId?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const rowI18n: RowI18n = parseRowI18n(form.i18n);
+  const localeRef = useRef(uiLocale);
+
+  useEffect(() => {
+    if (localeRef.current === uiLocale) return;
+    localeRef.current = uiLocale;
+    onChange({
+      ...form,
+      name: getLocalizedText(rowI18n, "name", form.name, uiLocale),
+      notes: getLocalizedText(rowI18n, "notes", form.notes ?? "", uiLocale),
+    });
+    // Only re-sync display strings when UI locale changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional locale-only sync
+  }, [uiLocale]);
 
   function setField<K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) {
     onChange({ ...form, [key]: value });
@@ -109,13 +171,30 @@ export function ClientContactFields({
 
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-name`}>{t("clients.name")}</Label>
-        <Input
+        <LocalizedTextInput
           id={`${idPrefix}-name`}
-          value={form.name}
-          onChange={(e) => setField("name", e.target.value)}
-          required={nameRequired}
-          autoFocus={autoFocusName}
+          field="name"
+          i18n={rowI18n}
+          fallback={form.name}
+          onI18nCommit={(payload) => {
+            onChange({
+              ...form,
+              name: payload.display,
+              i18n: payload.i18n,
+            });
+          }}
         />
+        {nameRequired ? (
+          <input
+            tabIndex={-1}
+            aria-hidden="true"
+            className="sr-only"
+            required
+            value={form.name}
+            onChange={() => undefined}
+            autoFocus={autoFocusName}
+          />
+        ) : null}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-email`}>{t("clients.email")}</Label>
@@ -159,11 +238,19 @@ export function ClientContactFields({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-notes`}>{t("clients.notes")}</Label>
-        <Textarea
+        <LocalizedTextarea
           id={`${idPrefix}-notes`}
-          value={form.notes ?? ""}
-          onChange={(e) => setField("notes", e.target.value)}
+          field="notes"
+          i18n={rowI18n}
+          fallback={form.notes}
           rows={3}
+          onI18nCommit={(payload) => {
+            onChange({
+              ...form,
+              notes: payload.display,
+              i18n: payload.i18n,
+            });
+          }}
         />
       </div>
 

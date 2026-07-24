@@ -1,5 +1,5 @@
 {
-  "app": { "name": "SOM", "tagline": "Sistema Operacional da Marca" },
+  "app": { "name": "SOM", "tagline": "Sistema Operacional da Marca", "fullName": "SOM — Sistema Operacional da Marca" },
   "nav": {
     "dashboard": "Dashboard",
     "clients": "Clientes",
@@ -8,6 +8,7 @@
     "approvals": "Aprovações",
     "myProjects": "Meus projetos",
     "settings": "Meu Perfil",
+    "aiSettings": "Chaves de IA",
     "openMenu": "Abrir menu"
   },
   "auth": {
@@ -58,7 +59,7 @@
     },
     "pricingTitle": "Planos para o tamanho da sua operação.",
     "pricingSubtitle": "Comece solo e escale para equipe. Cancele quando quiser.",
-    "pricingNote": "Valores sugeridos de lançamento. Cobrança mensal em reais.",
+    "pricingNote": "Valores sugeridos de lançamento. Cobrança mensal em reais. O uso de IA é cobrado na sua conta OpenAI/Gemini.",
     "pricingPeriod": "/mês",
     "pricingCta": "Assinar",
     "pricingPopular": "Mais escolhido",
@@ -71,7 +72,7 @@
           "1 usuário",
           "Até 3 clientes",
           "Calendário e aprovações",
-          "IA de copy (quota mensal)",
+          "IA de copy com a sua chave API",
           "Link de compartilhamento"
         ]
       },
@@ -83,7 +84,7 @@
           "Até 3 usuários",
           "Até 12 clientes",
           "Tudo do Solo",
-          "IA de copy + design (quota mensal)",
+          "IA de copy + design com as suas chaves API",
           "Brand briefing e guia de marca",
           "Biblioteca e presets de projeto"
         ]
@@ -142,6 +143,22 @@
     "passwordMismatch": "As senhas não coincidem.",
     "passwordUpdated": "Senha atualizada.",
     "savePassword": "Salvar senha"
+  },
+  "adminAiSettings": {
+    "title": "Chaves de IA",
+    "subtitle": "Cada gestor usa as próprias chaves OpenAI e Gemini. O consumo fica na sua conta.",
+    "billingTitle": "Você controla os tokens",
+    "billingBody": "As chaves ficam criptografadas e só são usadas nas gerações da sua conta. Se não configurar, o sistema tenta as chaves da plataforma (quando existirem).",
+    "openaiLabel": "OpenAI API key",
+    "geminiLabel": "Gemini API key",
+    "howToGet": "Como obter",
+    "configured": "Configurada (••••{{last4}})",
+    "notConfigured": "Ainda não configurada",
+    "replacePlaceholder": "Cole uma nova chave para substituir",
+    "clear": "Remover chave",
+    "saved": "Chaves salvas.",
+    "cleared": "Chave removida.",
+    "loadError": "Não foi possível carregar o status das chaves."
   },
   "clients": {
     "title": "Clientes",
@@ -538,6 +555,7 @@
     "cancel": "Cancelar",
     "save": "Salvar",
     "saved": "Salvo.",
+    "translating": "Traduzindo…",
     "error": "Algo deu errado. Tente de novo."
   },
   "briefing": {

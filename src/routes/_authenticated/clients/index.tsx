@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ClientCard } from "@/components/client-card";
-import { ClientContactFields } from "@/components/client-contact-fields";
+import { ClientContactFields, toCanonicalContactInput } from "@/components/client-contact-fields";
 import {
   ClientSettingsDialog,
   useClientSettingsDialog,
@@ -39,6 +39,7 @@ const emptyContactForm: ClientContactInput = {
   logo_url: "",
   brand_colors: [],
   brand_fonts: {},
+  i18n: {},
 };
 
 export const Route = createFileRoute("/_authenticated/clients/")({
@@ -142,7 +143,7 @@ function ClientsPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!createForm.name.trim()) return;
-              createMutation.mutate(createForm);
+              createMutation.mutate(toCanonicalContactInput(createForm));
             }}
           >
             <ClientContactFields

@@ -73,6 +73,16 @@ import {
   type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
+import {
+  buildLocalizedFieldFromSource,
+  getCanonicalText,
+  getLocalizedText,
+  normalizeAppLocale,
+  parseRowI18n,
+  setLocalizedField,
+  translateTextField,
+  type RowI18n,
+} from "@/lib/i18n-content";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
 
@@ -159,52 +169,76 @@ function CalendarTitleCell({
 
 function BlockPeriodTitle({
   title,
+  i18n,
   disabled,
   placeholder,
   ariaLabel,
   onSave,
 }: {
   title: string;
+  i18n?: unknown;
   disabled: boolean;
   placeholder: string;
   ariaLabel: string;
-  onSave: (title: string) => void;
+  onSave: (title: string, rowI18n: RowI18n) => void;
 }) {
-  const [value, setValue] = useState(title);
+  const { i18n: i18next } = useTranslation();
+  const uiLocale = normalizeAppLocale(i18next.resolvedLanguage ?? i18next.language);
+  const rowI18n = parseRowI18n(i18n);
+  const displayTitle = getLocalizedText(rowI18n, "title", title, uiLocale);
+  const [value, setValue] = useState(displayTitle);
+  const [translating, setTranslating] = useState(false);
 
   useEffect(() => {
-    setValue(title);
-  }, [title]);
+    setValue(displayTitle);
+  }, [displayTitle]);
 
-  function commit() {
+  async function commit() {
     const next = value.trim();
-    if (!next || next === title) {
-      setValue(title);
+    if (!next || next === displayTitle) {
+      setValue(displayTitle);
       return;
     }
-    onSave(next);
+    setTranslating(true);
+    try {
+      let block;
+      try {
+        block = await translateTextField({ text: next });
+      } catch {
+        block = buildLocalizedFieldFromSource(next, uiLocale);
+      }
+      const merged = setLocalizedField(rowI18n, "title", block);
+      const canonical = getCanonicalText(merged, "title", next);
+      const display = getLocalizedText(merged, "title", next, uiLocale);
+      setValue(display);
+      onSave(canonical, merged);
+    } finally {
+      setTranslating(false);
+    }
   }
 
   return (
-    <Input
-      className="h-10 max-w-xl border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0 md:text-lg"
-      value={value}
-      disabled={disabled}
-      placeholder={placeholder}
-      aria-label={ariaLabel}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.currentTarget.blur();
-        }
-        if (e.key === "Escape") {
-          setValue(title);
-          e.currentTarget.blur();
-        }
-      }}
-    />
+    <div className="relative min-w-0 flex-1">
+      <Input
+        className="h-10 max-w-xl border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0 md:text-lg"
+        value={value}
+        disabled={disabled || translating}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+          if (e.key === "Escape") {
+            setValue(displayTitle);
+            e.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
   );
 }
 
@@ -344,8 +378,15 @@ function ProjectCalendarPage() {
   });
 
   const updateBlockTitleMutation = useMutation({
-    mutationFn: ({ blockId, title }: { blockId: string; title: string }) =>
-      updateCalendarBlockTitle(blockId, title),
+    mutationFn: ({
+      blockId,
+      title,
+      i18n,
+    }: {
+      blockId: string;
+      title: string;
+      i18n?: RowI18n;
+    }) => updateCalendarBlockTitle(blockId, title, i18n),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
     },
@@ -754,10 +795,13 @@ function ProjectCalendarPage() {
         >
           <BlockPeriodTitle
             title={block.title}
+            i18n={block.i18n}
             disabled={!canEdit || isBusy}
             placeholder={t("project.calendar.blockTitlePlaceholder")}
             ariaLabel={t("project.calendar.blockTitleLabel")}
-            onSave={(title) => updateBlockTitleMutation.mutate({ blockId: block.id, title })}
+            onSave={(title, nextI18n) =>
+              updateBlockTitleMutation.mutate({ blockId: block.id, title, i18n: nextI18n })
+            }
           />
           <div className="flex items-center gap-1.5">
             <Button

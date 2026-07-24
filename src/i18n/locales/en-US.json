@@ -1,5 +1,5 @@
 {
-  "app": { "name": "SOM", "tagline": "Brand Operating System" },
+  "app": { "name": "BOS", "tagline": "Brand Operating System", "fullName": "BOS - Brand Operating System" },
   "nav": {
     "dashboard": "Dashboard",
     "clients": "Clients",
@@ -8,6 +8,7 @@
     "approvals": "Approvals",
     "myProjects": "My projects",
     "settings": "My Profile",
+    "aiSettings": "AI keys",
     "openMenu": "Open menu"
   },
   "auth": {
@@ -58,7 +59,7 @@
     },
     "pricingTitle": "Plans that match your operation.",
     "pricingSubtitle": "Start solo and scale to a team. Cancel anytime.",
-    "pricingNote": "Suggested launch pricing. Billed monthly in BRL.",
+    "pricingNote": "Suggested launch pricing. Billed monthly in BRL. AI usage is billed to your OpenAI/Gemini account.",
     "pricingPeriod": "/mo",
     "pricingCta": "Subscribe",
     "pricingPopular": "Most popular",
@@ -71,7 +72,7 @@
           "1 user",
           "Up to 3 clients",
           "Calendar and approvals",
-          "Copy AI (monthly quota)",
+          "Copy AI with your own API key",
           "Share link"
         ]
       },
@@ -83,7 +84,7 @@
           "Up to 3 users",
           "Up to 12 clients",
           "Everything in Solo",
-          "Copy + design AI (monthly quota)",
+          "Copy + design AI with your own API keys",
           "Brand briefing and guide",
           "Library and project presets"
         ]
@@ -102,9 +103,9 @@
       }
     },
     "finalTitle": "Put your content operation on the right rails.",
-    "finalSubtitle": "Create your account and plan next week’s posts in SOM.",
+    "finalSubtitle": "Create your account and plan next week’s posts in BOS.",
     "finalCta": "Create free account",
-    "footerTag": "Brand Operating System",
+    "footerTag": "BOS - Brand Operating System",
     "mockStatus": "Awaiting approval",
     "mockCaption": "New campaign live — brand tone, CTA, and art aligned."
   },
@@ -142,6 +143,22 @@
     "passwordMismatch": "Passwords do not match.",
     "passwordUpdated": "Password updated.",
     "savePassword": "Save password"
+  },
+  "adminAiSettings": {
+    "title": "AI keys",
+    "subtitle": "Each manager uses their own OpenAI and Gemini keys. Usage is billed to their account.",
+    "billingTitle": "You control the tokens",
+    "billingBody": "Keys are encrypted and only used for generations on your account. If unset, the platform keys are used when available.",
+    "openaiLabel": "OpenAI API key",
+    "geminiLabel": "Gemini API key",
+    "howToGet": "How to get one",
+    "configured": "Configured (••••{{last4}})",
+    "notConfigured": "Not configured yet",
+    "replacePlaceholder": "Paste a new key to replace",
+    "clear": "Remove key",
+    "saved": "Keys saved.",
+    "cleared": "Key removed.",
+    "loadError": "Could not load key status."
   },
   "clients": {
     "title": "Clients",
@@ -532,6 +549,7 @@
     "cancel": "Cancel",
     "save": "Save",
     "saved": "Saved.",
+    "translating": "Translating…",
     "error": "Something went wrong. Please try again."
   },
   "briefing": {

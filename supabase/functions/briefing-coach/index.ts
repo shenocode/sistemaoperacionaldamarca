@@ -16,12 +16,20 @@ type CoachRequest = {
   questionLabel: string;
   currentAnswer?: string;
   messages?: CoachMessage[];
+  locale?: string;
 };
 
 type CoachResponse = {
   type: "follow_up" | "suggestion";
   content: string;
 };
+
+function languageInstruction(locale?: string): string {
+  const lower = (locale ?? "pt-BR").toLowerCase();
+  if (lower.startsWith("en")) return "Speak in English (US).";
+  if (lower.startsWith("es")) return "Habla en español.";
+  return "Fale em português do Brasil.";
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -122,7 +130,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = [
       "Você é um coach de branding empático que ajuda a pessoa a clarear ideias para um briefing de marca.",
-      "Fale em português do Brasil, de forma acolhedora e concreta.",
+      languageInstruction(body.locale),
       "Não invente fatos biográficos ou profissionais; use apenas o que a pessoa disser e o contexto fornecido.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
       '{"type":"follow_up"|"suggestion","content":"..."}',

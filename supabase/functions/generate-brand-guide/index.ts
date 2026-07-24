@@ -7,6 +7,7 @@ const corsHeaders: Record<string, string> = {
 
 type GenerateRequest = {
   clientId: string;
+  locale?: string;
 };
 
 type BriefingSection = {
@@ -19,6 +20,20 @@ type BriefingTemplate = {
   title?: string;
   sections?: BriefingSection[];
 };
+
+function languageInstruction(locale?: string): string {
+  const lower = (locale ?? "pt-BR").toLowerCase();
+  if (lower.startsWith("en")) return "Write in English (US).";
+  if (lower.startsWith("es")) return "Escribe en español.";
+  return "Escreva em português do Brasil.";
+}
+
+function normalizeLocale(locale?: string): "pt-BR" | "en-US" | "es-ES" {
+  const lower = (locale ?? "pt-BR").toLowerCase();
+  if (lower.startsWith("en")) return "en-US";
+  if (lower.startsWith("es")) return "es-ES";
+  return "pt-BR";
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -125,7 +140,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = [
       "Você sintetiza briefings de marca em um Guia de marca interno para produção de conteúdo.",
-      "Escreva em português do Brasil, claro e acionável.",
+      languageInstruction(body.locale),
       "Responda APENAS com JSON válido (sem markdown) no formato:",
       '{"guide":{"proposito":"...","publico":"...","voz":"...","pilares":"...","posicionamento":"...","etica":"...","visual":"...","objetivos":"...","regras_ia":"...","notas":"..."},"guide_markdown":"..."}',
       "Regras:",
@@ -187,6 +202,19 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date().toISOString();
+    const sourceLocale = normalizeLocale(body.locale);
+    const existingI18n =
+      briefing.i18n && typeof briefing.i18n === "object" && !Array.isArray(briefing.i18n)
+        ? (briefing.i18n as Record<string, unknown>)
+        : {};
+    const nextI18n = {
+      ...existingI18n,
+      guide_markdown: {
+        source: sourceLocale,
+        values: { [sourceLocale]: guideMarkdown },
+      },
+    };
+
     const { data: updated, error: updateError } = await supabase
       .from("brand_briefings")
       .update({
@@ -194,6 +222,7 @@ Deno.serve(async (req) => {
         guide_markdown: guideMarkdown,
         status: "completed",
         completed_at: now,
+        i18n: nextI18n,
       })
       .eq("client_id", body.clientId)
       .select("*")

@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ClientContactFields } from "@/components/client-contact-fields";
+import {
+  ClientContactFields,
+  contactFormFromClient,
+  toCanonicalContactInput,
+} from "@/components/client-contact-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +26,7 @@ import {
   type ClientContactInput,
   type ClientWithProjects,
 } from "@/lib/api";
+import { normalizeAppLocale } from "@/lib/i18n-content";
 
 const emptyContactForm: ClientContactInput = {
   name: "",
@@ -33,26 +38,20 @@ const emptyContactForm: ClientContactInput = {
   logo_url: "",
   brand_colors: [],
   brand_fonts: {},
+  i18n: {},
 };
 
 export function useClientSettingsDialog() {
+  const { i18n } = useTranslation();
   const [settingsClient, setSettingsClient] = useState<ClientWithProjects | null>(null);
   const [settingsForm, setSettingsForm] = useState<ClientContactInput>(emptyContactForm);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
   async function openSettings(client: ClientWithProjects) {
+    const locale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
     setSettingsClient(client);
-    setSettingsForm({
-      name: client.name,
-      notes: client.notes ?? "",
-      email: client.email ?? "",
-      phone: client.phone ?? "",
-      whatsapp: client.whatsapp ?? "",
-      instagram: client.instagram ?? "",
-      logo_url: client.logo_url ?? "",
-      ...brandKitFromClient(client),
-    });
+    setSettingsForm(contactFormFromClient(client, locale, brandKitFromClient(client)));
     setLoginPassword("");
     setLoginEmail(client.email ?? "");
     try {
@@ -108,7 +107,7 @@ export function ClientSettingsDialog({
       accessPassword: string;
       fullName: string;
     }) => {
-      const client = await updateClient(clientId, input);
+      const client = await updateClient(clientId, toCanonicalContactInput(input));
       const email = accessEmail.trim();
       const password = accessPassword.trim();
 
@@ -158,12 +157,13 @@ export function ClientSettingsDialog({
           onSubmit={(e) => {
             e.preventDefault();
             if (!settingsClient || !settingsForm.name.trim()) return;
+            const canonical = toCanonicalContactInput(settingsForm);
             updateMutation.mutate({
               clientId: settingsClient.id,
               input: settingsForm,
               accessEmail: loginEmail,
               accessPassword: loginPassword,
-              fullName: settingsForm.name.trim(),
+              fullName: canonical.name.trim(),
             });
           }}
         >

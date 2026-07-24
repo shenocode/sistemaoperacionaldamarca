@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -16,6 +16,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { canAccessClient, canManageClient, getProject, updateProject } from "@/lib/api";
+import {
+  buildLocalizedFieldFromSource,
+  getCanonicalText,
+  getLocalizedPresetList,
+  getLocalizedText,
+  normalizeAppLocale,
+  parseRowI18n,
+  setLocalizedPresetList,
+  translateTextField,
+  type LocalizedField,
+  type RowI18n,
+} from "@/lib/i18n-content";
 
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/settings",
@@ -106,10 +118,24 @@ function PresetListEditor({
   );
 }
 
+async function translatePresetList(items: string[]): Promise<LocalizedField[]> {
+  return Promise.all(
+    items.map(async (text) => {
+      try {
+        return await translateTextField({ text });
+      } catch {
+        return buildLocalizedFieldFromSource(text, "pt-BR");
+      }
+    }),
+  );
+}
+
 function ProjectSettingsPage() {
   const { clientId, projectId } = Route.useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const [rowI18n, setRowI18n] = useState<RowI18n>({});
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
@@ -136,24 +162,70 @@ function ProjectSettingsPage() {
 
   useEffect(() => {
     if (!projectQuery.data) return;
-    setName(projectQuery.data.name);
-    setDescription(projectQuery.data.description ?? "");
+    const nextI18n = parseRowI18n(projectQuery.data.i18n);
+    setRowI18n(nextI18n);
+    setName(getLocalizedText(nextI18n, "name", projectQuery.data.name, uiLocale));
+    setDescription(
+      getLocalizedText(nextI18n, "description", projectQuery.data.description ?? "", uiLocale),
+    );
     setStatus(projectQuery.data.status);
-    setCtaPresets(projectQuery.data.cta_presets ?? []);
-    setHashtagPresets(projectQuery.data.hashtag_presets ?? []);
-    setThemePresets(projectQuery.data.theme_presets ?? []);
-  }, [projectQuery.data]);
+    setCtaPresets(
+      getLocalizedPresetList(nextI18n, "cta_presets", projectQuery.data.cta_presets ?? [], uiLocale),
+    );
+    setHashtagPresets(
+      getLocalizedPresetList(
+        nextI18n,
+        "hashtag_presets",
+        projectQuery.data.hashtag_presets ?? [],
+        uiLocale,
+      ),
+    );
+    setThemePresets(
+      getLocalizedPresetList(
+        nextI18n,
+        "theme_presets",
+        projectQuery.data.theme_presets ?? [],
+        uiLocale,
+      ),
+    );
+  }, [projectQuery.data, uiLocale]);
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      updateProject(projectId, {
-        name: canManage ? name : (projectQuery.data?.name ?? name),
-        description: canManage ? description : (projectQuery.data?.description ?? ""),
+    mutationFn: async () => {
+      let nextI18n = rowI18n;
+      const [ctaBlocks, hashtagBlocks, themeBlocks] = await Promise.all([
+        translatePresetList(ctaPresets),
+        translatePresetList(hashtagPresets),
+        translatePresetList(themePresets),
+      ]);
+      nextI18n = setLocalizedPresetList(nextI18n, "cta_presets", ctaBlocks);
+      nextI18n = setLocalizedPresetList(nextI18n, "hashtag_presets", hashtagBlocks);
+      nextI18n = setLocalizedPresetList(nextI18n, "theme_presets", themeBlocks);
+
+      const canonicalCta = ctaBlocks.map(
+        (block, index) => block.values[block.source] ?? ctaPresets[index] ?? "",
+      );
+      const canonicalHashtags = hashtagBlocks.map(
+        (block, index) => block.values[block.source] ?? hashtagPresets[index] ?? "",
+      );
+      const canonicalThemes = themeBlocks.map(
+        (block, index) => block.values[block.source] ?? themePresets[index] ?? "",
+      );
+
+      return updateProject(projectId, {
+        name: canManage
+          ? getCanonicalText(nextI18n, "name", name)
+          : (projectQuery.data?.name ?? name),
+        description: canManage
+          ? getCanonicalText(nextI18n, "description", description)
+          : (projectQuery.data?.description ?? ""),
         ...(canManage ? { status } : {}),
-        ctaPresets,
-        hashtagPresets,
-        themePresets,
-      }),
+        ctaPresets: canonicalCta,
+        hashtagPresets: canonicalHashtags,
+        themePresets: canonicalThemes,
+        i18n: nextI18n,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast.success(t("common.saved"));
@@ -185,20 +257,29 @@ function ProjectSettingsPage() {
         <>
           <div className="space-y-1.5">
             <Label htmlFor="settings-name">{t("clients.projectName")}</Label>
-            <Input
+            <LocalizedTextInput
               id="settings-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+              field="name"
+              i18n={rowI18n}
+              fallback={name}
+              onI18nCommit={(payload) => {
+                setRowI18n(payload.i18n);
+                setName(payload.display);
+              }}
             />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="settings-description">{t("clients.projectDescription")}</Label>
-            <Textarea
+            <LocalizedTextarea
               id="settings-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              field="description"
+              i18n={rowI18n}
+              fallback={description}
               rows={4}
+              onI18nCommit={(payload) => {
+                setRowI18n(payload.i18n);
+                setDescription(payload.display);
+              }}
             />
           </div>
           <div className="space-y-1.5">
