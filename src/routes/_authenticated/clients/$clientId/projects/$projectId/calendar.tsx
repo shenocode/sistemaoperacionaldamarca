@@ -51,6 +51,7 @@ import {
   claimClientAccess,
   deleteContent,
   duplicateCalendarBlock,
+  deleteCalendarBlock,
   duplicateContent,
   ensureCalendarBlocks,
   getClient,
@@ -230,6 +231,11 @@ function ProjectCalendarPage() {
   const [themeDialogContentId, setThemeDialogContentId] = useState<string | null>(null);
   const [newTheme, setNewTheme] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleteBlockTarget, setDeleteBlockTarget] = useState<{
+    id: string;
+    title: string;
+    itemCount: number;
+  } | null>(null);
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
   const [dragState, setDragState] = useState<{ blockKey: string; index: number } | null>(null);
   const [dropState, setDropState] = useState<{ blockKey: string; index: number } | null>(null);
@@ -468,6 +474,18 @@ function ProjectCalendarPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const deleteBlockMutation = useMutation({
+    mutationFn: (blockId: string) => deleteCalendarBlock({ blockId, projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setDeleteBlockTarget(null);
+      toast.success(t("project.calendar.blockDeleted"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const themeOptions = useMemo(() => {
     const fromRows = rows.map((r) => r.theme?.trim()).filter(Boolean) as string[];
     return Array.from(new Set([...themePresets, ...fromRows])).sort((a, b) =>
@@ -480,6 +498,7 @@ function ProjectCalendarPage() {
     duplicateMutation.isPending ||
     duplicateBlockMutation.isPending ||
     deleteMutation.isPending ||
+    deleteBlockMutation.isPending ||
     reorderMutation.isPending ||
     updateBlockTitleMutation.isPending;
 
@@ -716,17 +735,37 @@ function ProjectCalendarPage() {
             onSave={(title) => updateBlockTitleMutation.mutate({ blockId: block.id, title })}
           />
           {canEdit ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isBusy || blockRows.length === 0}
-              title={t("project.calendar.duplicateBlockHint")}
-              onClick={() => duplicateBlockMutation.mutate(block.id)}
-            >
-              <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-              {t("project.calendar.duplicateBlock")}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isBusy || blockRows.length === 0}
+                title={t("project.calendar.duplicateBlockHint")}
+                onClick={() => duplicateBlockMutation.mutate(block.id)}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                {t("project.calendar.duplicateBlock")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isBusy}
+                className="text-destructive hover:text-destructive"
+                title={t("project.calendar.deleteBlockHint")}
+                aria-label={t("project.calendar.deleteBlock")}
+                onClick={() =>
+                  setDeleteBlockTarget({
+                    id: block.id,
+                    title: block.title,
+                    itemCount: blockRows.length,
+                  })
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </div>
           ) : null}
         </div>
         {blockRows.length === 0 ? (
@@ -905,6 +944,45 @@ function ProjectCalendarPage() {
               }}
             >
               {t("project.calendar.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(deleteBlockTarget)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deleteBlockMutation.isPending) setDeleteBlockTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.calendar.deleteBlockConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(deleteBlockTarget?.itemCount ?? 0) > 0
+                ? t("project.calendar.deleteBlockConfirmDescription", {
+                    title: deleteBlockTarget?.title || t("project.calendar.blockTitlePlaceholder"),
+                    count: deleteBlockTarget?.itemCount ?? 0,
+                  })
+                : t("project.calendar.deleteBlockConfirmEmpty", {
+                    title: deleteBlockTarget?.title || t("project.calendar.blockTitlePlaceholder"),
+                  })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBlockMutation.isPending}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteBlockMutation.isPending || !deleteBlockTarget}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deleteBlockTarget) return;
+                deleteBlockMutation.mutate(deleteBlockTarget.id);
+              }}
+            >
+              {t("project.calendar.deleteBlock")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

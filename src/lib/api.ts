@@ -1201,6 +1201,29 @@ export async function duplicateCalendarBlock(input: {
   return { block: finalBlock, items: created };
 }
 
+export async function deleteCalendarBlock(input: {
+  blockId: string;
+  projectId: string;
+}): Promise<void> {
+  const blocks = await listCalendarBlocks(input.projectId);
+  const target = blocks.find((block) => block.id === input.blockId);
+  if (!target) throw new Error("Bloco de calendário não encontrado");
+
+  const { error: contentError } = await supabase
+    .from("content_items")
+    .delete()
+    .eq("project_id", input.projectId)
+    .eq("calendar_block_id", input.blockId);
+  if (contentError) throw new Error(contentError.message);
+
+  const { error: blockError } = await supabase
+    .from("calendar_blocks")
+    .delete()
+    .eq("id", input.blockId)
+    .eq("project_id", input.projectId);
+  if (blockError) throw new Error(blockError.message);
+}
+
 function sortContentByManualOrder(a: ContentItem, b: ContentItem) {
   const aOrder = a.sort_order ?? 0;
   const bOrder = b.sort_order ?? 0;
