@@ -281,8 +281,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
@@ -329,11 +327,9 @@ Deno.serve(async (req) => {
     if (!photoUrl) return jsonResponse({ error: "Informe a imagem da arte" }, 400);
     if (!overlayText) return jsonResponse({ error: "Informe o texto da arte" }, 400);
 
-    if (provider === "openai" && !openaiKey) {
-      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
-    }
-    if (provider === "gemini" && !geminiKey) {
-      return jsonResponse({ error: "GEMINI_API_KEY (ou GOOGLE_API_KEY) não configurada" }, 500);
+    const { apiKey, source: keySource } = await resolveAiKey(admin, user.id, provider);
+    if (!apiKey) {
+      return jsonResponse({ error: missingKeyMessage(provider) }, 400);
     }
 
     const [
@@ -413,14 +409,14 @@ Deno.serve(async (req) => {
           prompt,
           templateImage,
           photoImage,
-          apiKey: geminiKey!,
+          apiKey,
         });
       } else {
         imageBytes = await generateWithOpenAI({
           prompt,
           templateImage,
           photoImage,
-          apiKey: openaiKey!,
+          apiKey,
         });
       }
     } catch (err) {
@@ -449,7 +445,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: publicUrlData } = admin.storage.from(CONTENT_MEDIA_BUCKET).getPublicUrl(storagePath);
-    return jsonResponse({ imageUrl: publicUrlData.publicUrl, provider });
+    return jsonResponse({ imageUrl: publicUrlData.publicUrl, provider, keySource });
   } catch (error) {
     console.error(error);
     return jsonResponse(
