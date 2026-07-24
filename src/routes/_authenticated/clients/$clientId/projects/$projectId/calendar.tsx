@@ -506,7 +506,7 @@ function ProjectCalendarPage() {
     const canReorder = canEdit && blockRows.length > 1;
 
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overscroll-x-contain">
         <table className="w-full min-w-[920px] text-sm">
           <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -846,7 +846,7 @@ function ProjectCalendarPage() {
       )}
 
       {!loading && !contentQuery.isError ? (
-        <div className="flex justify-center pt-4">
+        <div className="flex min-w-0 justify-center overflow-x-clip pt-4">
           <InstagramFeedMockup
             items={rows}
             clientId={clientId}

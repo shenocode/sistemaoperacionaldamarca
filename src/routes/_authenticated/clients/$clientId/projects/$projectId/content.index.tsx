@@ -221,9 +221,9 @@ function ContentListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {canManage ? (
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             {t("project.content.new")}
           </Button>
@@ -239,8 +239,8 @@ function ContentListPage() {
             : t("common.error")}
         </p>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
-          <div className="w-full flex-1">
+        <div className="flex flex-col-reverse items-center gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="w-full min-w-0 flex-1">
             <EmptyState
               icon={FileText}
               title={
@@ -254,13 +254,13 @@ function ContentListPage() {
             projectId={projectId}
             username={clientQuery.data?.name}
             avatarUrl={clientQuery.data?.logo_url}
-            className="mx-auto shrink-0 lg:sticky lg:top-6"
+            className="mx-auto w-full shrink-0 lg:sticky lg:top-6"
           />
         </div>
       ) : (
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+        <div className="flex flex-col-reverse gap-8 lg:flex-row lg:items-start">
           <Card className="min-w-0 flex-1 overflow-hidden rounded-xl">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[1020px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -409,7 +409,7 @@ function ContentListPage() {
             avatarUrl={clientQuery.data?.logo_url}
             canReorder={canReorder}
             onReorder={applyReorder}
-            className="mx-auto shrink-0 lg:sticky lg:top-6"
+            className="mx-auto w-full shrink-0 lg:sticky lg:top-6"
           />
         </div>
       )}
