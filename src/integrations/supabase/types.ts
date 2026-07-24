@@ -629,6 +629,10 @@ export type Database = {
       can_manage_content: { Args: { _content_id: string }; Returns: boolean }
       can_manage_project: { Args: { _project_id: string }; Returns: boolean }
       claim_client_access: { Args: { _access_token: string }; Returns: string }
+      client_logo_storage_client_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
       get_share_preview: {
         Args: {
           _access_token: string
@@ -667,10 +671,7 @@ export type Database = {
           _change_note?: string
           _content_id: string
           _cta: string
-          _format?: Database["public"]["Enums"]["content_format"]
           _hashtags: string
-          _theme?: string | null
-          _title?: string
         }
         Returns: {
           calendar_block_id: string | null

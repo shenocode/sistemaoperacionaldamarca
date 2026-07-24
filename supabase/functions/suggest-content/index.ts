@@ -126,12 +126,14 @@ async function callChatModel(messages: Array<{ role: string; content: string }>)
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
+        "Lovable-API-Key": lovableKey,
+        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: Deno.env.get("LOVABLE_AI_MODEL") || "google/gemini-2.5-flash",
+        model: Deno.env.get("AI_MODEL") || Deno.env.get("LOVABLE_AI_MODEL") || "openai/gpt-5.4-mini",
         temperature: 0.7,
+        response_format: { type: "json_object" },
         messages,
       }),
     });
