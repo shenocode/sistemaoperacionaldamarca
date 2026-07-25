@@ -480,6 +480,29 @@ export async function claimClientAccess(accessToken: string): Promise<string> {
   return ensureData(data, error);
 }
 
+/** Best-effort library dates for last_update; never blocks the clients list. */
+async function fetchLibraryAssetDatesByClient(
+  clientIds: string[],
+): Promise<Map<string, string[]>> {
+  if (clientIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("library_assets")
+    .select("client_id, created_at")
+    .in("client_id", clientIds);
+  // If client-scope migration is not applied yet, ignore and continue.
+  if (error) return new Map();
+
+  const byClient = new Map<string, string[]>();
+  for (const row of data ?? []) {
+    if (!row.client_id) continue;
+    const dates = byClient.get(row.client_id) ?? [];
+    dates.push(row.created_at);
+    byClient.set(row.client_id, dates);
+  }
+  return byClient;
+}
+
 export async function listClients(): Promise<ClientWithProjects[]> {
   const {
     data: { user },
@@ -490,6 +513,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
 
   // Portfolio owners (incl. admin master): only clients they created.
   // Team collaborators: keep RLS membership list (no created_by filter).
+  // Do not nest library_assets here: a missing FK/migration would fail the whole list.
   let clientsQuery = supabase
     .from("clients")
     .select(
@@ -500,8 +524,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         name,
         updated_at,
         content_items ( updated_at )
-      ),
-      library_assets ( created_at )
+      )
     `,
     )
     .order("name", { ascending: true });
@@ -516,12 +539,13 @@ export async function listClients(): Promise<ClientWithProjects[]> {
   ]);
 
   if (clientsRes.error) throw new Error(clientsRes.error.message);
-  const data = clientsRes.data;
+  const data = clientsRes.data ?? [];
+  const libraryDatesByClient = await fetchLibraryAssetDatesByClient(
+    data.map((client) => client.id),
+  );
 
-  return (data ?? []).map((client) => {
-    const libraryAssetDates = (
-      (client as { library_assets?: Array<{ created_at: string }> | null }).library_assets ?? []
-    ).map((asset) => asset.created_at);
+  return data.map((client) => {
+    const libraryAssetDates = libraryDatesByClient.get(client.id) ?? [];
 
     const projects: ClientProjectSummary[] = (client.projects ?? []).map(
       (project: {
@@ -551,9 +575,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
       ...libraryAssetDates,
     ]);
 
-    const { projects: _projects, library_assets: _libraryAssets, ...rest } = client as typeof client & {
-      library_assets?: unknown;
-    };
+    const { projects: _projects, ...rest } = client;
     return {
       ...(rest as Client),
       projects,
