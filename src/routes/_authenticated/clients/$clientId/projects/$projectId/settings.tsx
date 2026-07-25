@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
+import { ProjectCategoriesField } from "@/components/project-categories-field";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { canAccessClient, canManageClient, getProject, updateProject } from "@/lib/api";
+import {
+  canAccessClient,
+  canManageClient,
+  getPrimaryProjectCategory,
+  getProject,
+  updateProject,
+  type ProjectCategory,
+} from "@/lib/api";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { useAppRole } from "@/hooks/use-app-role";
 import {
@@ -152,6 +160,7 @@ function ProjectSettingsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
+  const [category, setCategory] = useState<ProjectCategory | null>(null);
   const [ctaPresets, setCtaPresets] = useState<string[]>([]);
   const [hashtagPresets, setHashtagPresets] = useState<string[]>([]);
   const [themePresets, setThemePresets] = useState<string[]>([]);
@@ -186,6 +195,7 @@ function ProjectSettingsPage() {
       uiLocale,
     );
     const nextStatus = projectQuery.data.status;
+    const nextCategory = getPrimaryProjectCategory(projectQuery.data.categories);
     const nextCta = getLocalizedPresetList(
       nextI18n,
       "cta_presets",
@@ -208,6 +218,7 @@ function ProjectSettingsPage() {
     setName(nextName);
     setDescription(nextDescription);
     setStatus(nextStatus);
+    setCategory(nextCategory);
     setCtaPresets(nextCta);
     setHashtagPresets(nextHashtags);
     setThemePresets(nextThemes);
@@ -216,6 +227,7 @@ function ProjectSettingsPage() {
         name: nextName,
         description: nextDescription,
         status: nextStatus,
+        category: nextCategory,
         ctaPresets: nextCta,
         hashtagPresets: nextHashtags,
         themePresets: nextThemes,
@@ -229,6 +241,7 @@ function ProjectSettingsPage() {
     name,
     description,
     status,
+    category,
     ctaPresets,
     hashtagPresets,
     themePresets,
@@ -270,7 +283,9 @@ function ProjectSettingsPage() {
         description: canManage
           ? getCanonicalText(nextI18n, "description", description)
           : (projectQuery.data?.description ?? ""),
-        ...(canManage ? { status } : {}),
+        ...(canManage
+          ? { status, categories: category ? [category] : ["instagram"] }
+          : {}),
         ...(shouldSavePresets
           ? {
               ctaPresets: canonicalCta,
@@ -352,6 +367,7 @@ function ProjectSettingsPage() {
               </SelectContent>
             </Select>
           </div>
+          <ProjectCategoriesField value={category} onChange={setCategory} required />
         </>
       ) : null}
 

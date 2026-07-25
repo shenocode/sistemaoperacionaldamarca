@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { clearAuthNext, getProject } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { LanguageSwitcher } from "./language-switcher";
+import { SiteFooter } from "./site-footer";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { Button } from "./ui/button";
@@ -188,51 +189,54 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-1 p-3">{navLinks}</nav>
       </aside>
 
-      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="-ml-1"
-          onClick={() => setMobileNavOpen(true)}
-          aria-label={t("nav.openMenu")}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        <Link
-          to="/"
-          className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <div className="truncate text-sm font-semibold tracking-tight">{t("app.name")}</div>
-          <div className="truncate text-[11px] text-muted-foreground">{t("app.tagline")}</div>
-        </Link>
-      </header>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="-ml-1"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label={t("nav.openMenu")}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <Link
+            to="/"
+            className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <div className="truncate text-sm font-semibold tracking-tight">{t("app.name")}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{t("app.tagline")}</div>
+          </Link>
+        </header>
 
-      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <SheetContent
-          side="left"
-          className="flex w-[min(100%,20rem)] flex-col bg-sidebar p-0 text-sidebar-foreground"
-        >
-          <SheetHeader className="border-b px-6 py-4 text-left">
-            <SheetTitle className="p-0 text-sidebar-foreground">
-              <Link
-                to="/"
-                onClick={closeMobileNav}
-                className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
-              </Link>
-            </SheetTitle>
-            <SheetDescription className="text-xs text-muted-foreground">
-              {t("app.tagline")}
-            </SheetDescription>
-            <LanguageSwitcher className="mt-3 w-full" />
-          </SheetHeader>
-          <nav className="flex-1 space-y-1 overflow-y-auto p-3">{navLinks}</nav>
-        </SheetContent>
-      </Sheet>
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent
+            side="left"
+            className="flex w-[min(100%,20rem)] flex-col bg-sidebar p-0 text-sidebar-foreground"
+          >
+            <SheetHeader className="border-b px-6 py-4 text-left">
+              <SheetTitle className="p-0 text-sidebar-foreground">
+                <Link
+                  to="/"
+                  onClick={closeMobileNav}
+                  className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
+                </Link>
+              </SheetTitle>
+              <SheetDescription className="text-xs text-muted-foreground">
+                {t("app.tagline")}
+              </SheetDescription>
+              <LanguageSwitcher className="mt-3 w-full" />
+            </SheetHeader>
+            <nav className="flex-1 space-y-1 overflow-y-auto p-3">{navLinks}</nav>
+          </SheetContent>
+        </Sheet>
 
-      <main className="min-w-0 flex-1 pt-14 md:pt-0">{children}</main>
+        <main className="min-w-0 flex-1 pt-14 md:pt-0">{children}</main>
+        <SiteFooter variant="app" />
+      </div>
     </div>
   );
 }

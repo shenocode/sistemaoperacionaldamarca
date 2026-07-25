@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { SiteFooter } from "@/components/site-footer";
 import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import {
   buildWhatsAppNotifyUrl,
@@ -29,6 +30,7 @@ import {
   type ContactLeadNiche,
   type SubscriptionPlanKey,
 } from "@/lib/api";
+import { CONTACT_WHATSAPP } from "@/lib/company";
 import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -70,12 +72,6 @@ const ASSET_ICONS = {
 } as const;
 
 const PLAN_KEYS = ["solo", "studio", "agency"] as const satisfies readonly SubscriptionPlanKey[];
-
-/** Commercial contact for access / subscription requests. */
-const CONTACT_WHATSAPP = "5511993397398";
-const CONTACT_WHATSAPP_DISPLAY = "+55 11 99339-7398";
-const COMPANY_URL = "https://solucyona.lovable.app/#inicio";
-const COMPANY_NAME = "Solucyona Comunicação e Tecnologia";
 
 function ProductMockup({
   status,
@@ -620,32 +616,7 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-neutral-900/8 bg-white/60 px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="font-display text-lg font-semibold">{t("app.name")}</p>
-            <p className="text-sm text-neutral-600">{t("landing.footerTag")}</p>
-          </div>
-          <div className="flex flex-col gap-1 text-sm text-neutral-600 sm:items-end sm:text-right">
-            <a
-              href={COMPANY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-neutral-800 underline-offset-4 hover:underline"
-            >
-              {COMPANY_NAME}
-            </a>
-            <a
-              href={`https://wa.me/${CONTACT_WHATSAPP}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline-offset-4 hover:underline"
-            >
-              {t("landing.footerWhatsapp", { number: CONTACT_WHATSAPP_DISPLAY })}
-            </a>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

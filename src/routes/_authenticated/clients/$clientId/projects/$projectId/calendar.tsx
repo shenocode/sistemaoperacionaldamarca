@@ -52,12 +52,12 @@ import {
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import type { ContentStatus } from "@/components/status-badge";
 import {
-  CONTENT_FORMATS,
   addProjectThemePreset,
   buildProjectReviewUrl,
   buildWhatsAppNotifyUrl,
   canManageClient,
   claimClientAccess,
+  contentFormatsForProject,
   deleteContent,
   duplicateCalendarBlock,
   deleteCalendarBlock,
@@ -66,6 +66,7 @@ import {
   getClient,
   listContent,
   getProject,
+  projectCategoryConfig,
   reorderContentItems,
   updateCalendarBlockTitle,
   updateContentCalendar,
@@ -324,6 +325,10 @@ function ProjectCalendarPage() {
 
   const canEdit = Boolean(manageQuery.data);
   const themePresets = projectQuery.data?.theme_presets ?? [];
+  const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
+  const showInstagramMockup = projectCategoryConfig(projectQuery.data?.categories).tabs.includes(
+    "feed",
+  );
   const serverRows = useMemo(
     () => [...(contentQuery.data ?? [])].sort(sortByManualOrder),
     [contentQuery.data],
@@ -603,7 +608,7 @@ function ProjectCalendarPage() {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {CONTENT_FORMATS.map((formatKey) => (
+        {allowedFormats.map((formatKey) => (
           <SelectItem key={formatKey} value={formatKey}>
             <span className="inline-flex items-center gap-2">
               <span
@@ -1012,7 +1017,7 @@ function ProjectCalendarPage() {
             </p>
           </div>
           <ul className="flex flex-wrap gap-1.5" aria-label={t("project.calendar.columns.format")}>
-            {CONTENT_FORMATS.map((formatKey) => (
+            {allowedFormats.map((formatKey) => (
               <li
                 key={formatKey}
                 className={cn(
@@ -1063,7 +1068,7 @@ function ProjectCalendarPage() {
         </Card>
       )}
 
-      {!loading && !contentQuery.isError ? (
+      {!loading && !contentQuery.isError && showInstagramMockup ? (
         <div className="flex min-w-0 justify-center overflow-x-clip pt-4">
           <InstagramFeedMockup
             items={rows}

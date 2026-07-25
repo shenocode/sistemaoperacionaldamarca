@@ -6,6 +6,7 @@ import { ChevronLeft, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ProjectCategoriesField } from "@/components/project-categories-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { canManageClient, createProject, getClient, listProjects } from "@/lib/api";
+import {
+  canManageClient,
+  createProject,
+  getClient,
+  getPrimaryProjectCategory,
+  listProjects,
+  projectDefaultRoute,
+  type ProjectCategory,
+} from "@/lib/api";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/")({
   head: () => ({
@@ -34,6 +43,7 @@ function ClientDetailPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<ProjectCategory | null>(null);
 
   const clientQuery = useQuery({
     queryKey: ["clients", clientId],
@@ -50,14 +60,19 @@ function ClientDetailPage() {
     queryFn: () => canManageClient(clientId),
   });
 
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setCategory(null);
+  };
+
   const createMutation = useMutation({
     mutationFn: createProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects", clientId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setOpen(false);
-      setName("");
-      setDescription("");
+      resetForm();
       toast.success(t("clients.projectCreated"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -95,33 +110,46 @@ function ClientDetailPage() {
         <EmptyState icon={FolderKanban} title={t("clients.noProjects")} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <Link
-              key={project.id}
-              to="/clients/$clientId/projects/$projectId/calendar"
-              params={{ clientId, projectId: project.id }}
-              className="block"
-            >
-              <Card className="rounded-xl transition-colors hover:bg-muted/40">
-                <CardContent className="space-y-2 p-5">
-                  <p className="font-medium tracking-tight">{project.name}</p>
-                  {project.description ? (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
-                  ) : null}
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {project.status === "archived"
-                      ? t("clients.archived")
-                      : t("clients.active")}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+          {projects.map((project) => {
+            const primaryCategory = getPrimaryProjectCategory(project.categories);
+            const defaultRoute = projectDefaultRoute(project.categories);
+            return (
+              <Link
+                key={project.id}
+                to={defaultRoute.to}
+                params={{ clientId, projectId: project.id }}
+                className="block"
+              >
+                <Card className="rounded-xl transition-colors hover:bg-muted/40">
+                  <CardContent className="space-y-2 p-5">
+                    <p className="font-medium tracking-tight">{project.name}</p>
+                    {project.description ? (
+                      <p className="line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
+                    ) : null}
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {t(`clients.categories.${primaryCategory}.label`)}
+                    </p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {project.status === "archived"
+                        ? t("clients.archived")
+                        : t("clients.active")}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) resetForm();
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("clients.newProject")}</DialogTitle>
           </DialogHeader>
@@ -130,7 +158,16 @@ function ClientDetailPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!name.trim()) return;
-              createMutation.mutate({ clientId, name, description });
+              if (!category) {
+                toast.error(t("clients.projectCategoryRequired"));
+                return;
+              }
+              createMutation.mutate({
+                clientId,
+                name,
+                description,
+                categories: [category],
+              });
             }}
           >
             <div className="space-y-1.5">
@@ -152,11 +189,19 @@ function ClientDetailPage() {
                 rows={3}
               />
             </div>
+            <ProjectCategoriesField
+              value={category}
+              onChange={setCategory}
+              required
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || !name.trim() || !category}
+              >
                 {t("common.save")}
               </Button>
             </DialogFooter>

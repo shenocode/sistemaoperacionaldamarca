@@ -409,6 +409,23 @@
     "projectCreated": "Proyecto creado.",
     "projectName": "Nombre del proyecto",
     "projectDescription": "Descripción",
+    "projectCategories": "Tipo de proyecto",
+    "projectCategoriesHint": "Elige el tipo de entregables. Las pestañas y la vista previa siguen esta categoría.",
+    "projectCategoryRequired": "Selecciona el tipo de proyecto.",
+    "categories": {
+      "instagram": {
+        "label": "Contenidos de Instagram",
+        "formats": "Feed, Reels, Stories y carrusel."
+      },
+      "graphic_arts": {
+        "label": "Artes gráficas",
+        "formats": "Banners, carteles, ilustraciones y piezas sueltas."
+      },
+      "videos": {
+        "label": "Videos",
+        "formats": "Video grabado y otros contenidos en video."
+      }
+    },
     "search": "Buscar clientes...",
     "openProject": "Abrir proyecto",
     "active": "Activo",
@@ -450,6 +467,7 @@
   "project": {
     "back": "Volver",
     "tabs": { "feed": "Feed", "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
+    "categoryExperiencePending": "La experiencia completa de esta categoría (pestañas y mockups) aún está en construcción. Por ahora puedes organizar contenidos, calendario y biblioteca.",
     "calendarPlaceholder": "Próximamente.",
     "calendar": {
       "title": "Calendario de publicaciones",

@@ -54,11 +54,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  CONTENT_FORMATS,
   CONTENT_MEDIA_ACCEPT,
   addComment,
   addProjectThemePreset,
   canManageClient,
+  contentFormatsForProject,
+  defaultContentFormatForProject,
   deleteComment,
   getClient,
   getContent,
@@ -240,6 +241,7 @@ function ContentDetailPage() {
   const ctaPresets = projectQuery.data?.cta_presets ?? [];
   const hashtagPresets = projectQuery.data?.hashtag_presets ?? [];
   const themePresets = projectQuery.data?.theme_presets ?? [];
+  const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isCarousel = formatType === "carousel";
@@ -275,7 +277,8 @@ function ContentDetailPage() {
     const nextCta = getLocalizedText(nextI18n, "cta", content.cta, uiLocale);
     const nextHashtags = getLocalizedText(nextI18n, "hashtags", content.hashtags, uiLocale);
     const nextTheme = getLocalizedText(nextI18n, "theme", content.theme ?? "", uiLocale);
-    const nextFormat = content.format ?? "static_feed";
+    const nextFormat =
+      content.format ?? defaultContentFormatForProject(projectQuery.data?.categories);
     const nextMedia = mediaEntriesFromUrls(resolveContentMediaUrls(content));
     setRowI18n(nextI18n);
     setTitle(nextTitle);
@@ -305,7 +308,7 @@ function ContentDetailPage() {
       }),
     );
     setIgnoreUnsavedChanges(false);
-  }, [content, uiLocale]);
+  }, [content, uiLocale, projectQuery.data?.categories]);
 
   const formSnapshot = buildContentFormSnapshot({
     title,
@@ -582,9 +585,11 @@ function ContentDetailPage() {
       setMediaItems((prev) => [...prev, entry]);
     } else if (mediaItems.length === 0) {
       setMediaItems([entry]);
-    } else {
+    } else if (allowedFormats.includes("carousel")) {
       setFormatType("carousel");
       setMediaItems((prev) => [...prev, entry]);
+    } else {
+      setMediaItems([entry]);
     }
     setUrlDraft("");
   };
@@ -607,8 +612,13 @@ function ContentDetailPage() {
       return;
     }
 
-    setFormatType("carousel");
-    setMediaItems((prev) => [...prev, ...entries]);
+    if (allowedFormats.includes("carousel")) {
+      setFormatType("carousel");
+      setMediaItems((prev) => [...prev, ...entries]);
+      return;
+    }
+
+    setMediaItems(entries.slice(0, 1));
   };
 
   const removeMediaAt = (index: number) => {
@@ -755,7 +765,11 @@ function ContentDetailPage() {
               roteiro={roteiro}
               onApply={(urls) => {
                 setMediaItems(mediaEntriesFromUrls(urls));
-                if (formatType !== "carousel" && urls.length > 1) {
+                if (
+                  formatType !== "carousel" &&
+                  urls.length > 1 &&
+                  allowedFormats.includes("carousel")
+                ) {
                   setFormatType("carousel");
                 }
               }}
@@ -792,7 +806,7 @@ function ContentDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CONTENT_FORMATS.map((key) => (
+                    {allowedFormats.map((key) => (
                       <SelectItem key={key} value={key}>
                         {t(`project.detail.formats.${key}`)}
                       </SelectItem>

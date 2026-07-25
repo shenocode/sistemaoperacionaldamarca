@@ -67,6 +67,84 @@ export const CONTENT_FORMATS: ContentFormat[] = [
   "recorded_video",
 ];
 
+export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos"] as const;
+export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
+
+export type ProjectTabId = "feed" | "calendar" | "content" | "library" | "settings";
+
+export type ProjectCategoryConfig = {
+  formats: ContentFormat[];
+  tabs: ProjectTabId[];
+  defaultTab: Exclude<ProjectTabId, "library" | "settings">;
+  /** Experiência completa (abas + mockup) já disponível para a categoria. */
+  experienceReady: boolean;
+};
+
+/** Capacidades por tipo de projeto. Instagram é o fluxo pronto (ex.: Marina Mazon). */
+export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryConfig> = {
+  instagram: {
+    formats: ["static_feed", "reels", "stories", "carousel"],
+    tabs: ["feed", "calendar", "content", "library", "settings"],
+    defaultTab: "feed",
+    experienceReady: true,
+  },
+  graphic_arts: {
+    // Formatos específicos (banner, cartaz…) entram depois; por ora peça estática.
+    formats: ["static_feed"],
+    tabs: ["calendar", "content", "library", "settings"],
+    defaultTab: "content",
+    experienceReady: false,
+  },
+  videos: {
+    formats: ["recorded_video"],
+    tabs: ["calendar", "content", "library", "settings"],
+    defaultTab: "content",
+    experienceReady: false,
+  },
+};
+
+/** Uma categoria por projeto (primeira válida). Legado sem categoria → Instagram. */
+export function getPrimaryProjectCategory(values?: string[] | null): ProjectCategory {
+  const normalized = normalizeProjectCategories(values);
+  return normalized[0] ?? "instagram";
+}
+
+export function projectCategoryConfig(values?: string[] | null): ProjectCategoryConfig {
+  return PROJECT_CATEGORY_CONFIG[getPrimaryProjectCategory(values)];
+}
+
+export function contentFormatsForProject(values?: string[] | null): ContentFormat[] {
+  return projectCategoryConfig(values).formats;
+}
+
+export function defaultContentFormatForProject(values?: string[] | null): ContentFormat {
+  return contentFormatsForProject(values)[0] ?? "static_feed";
+}
+
+export function projectDefaultRoute(values?: string[] | null): {
+  to:
+    | "/clients/$clientId/projects/$projectId/feed"
+    | "/clients/$clientId/projects/$projectId/calendar"
+    | "/clients/$clientId/projects/$projectId/content";
+} {
+  const tab = projectCategoryConfig(values).defaultTab;
+  if (tab === "calendar") {
+    return { to: "/clients/$clientId/projects/$projectId/calendar" };
+  }
+  if (tab === "content") {
+    return { to: "/clients/$clientId/projects/$projectId/content" };
+  }
+  return { to: "/clients/$clientId/projects/$projectId/feed" };
+}
+
+/** Mantém no máximo uma categoria válida (seleção única no cadastro). */
+export function normalizeProjectCategories(values?: string[] | null): ProjectCategory[] {
+  if (!values?.length) return [];
+  const allowed = new Set<string>(PROJECT_CATEGORIES);
+  const first = values.find((value): value is ProjectCategory => allowed.has(value));
+  return first ? [first] : [];
+}
+
 export const CONTENT_MEDIA_BUCKET = "content-media";
 export const CLIENT_LOGOS_BUCKET = "client-logos";
 
@@ -854,14 +932,20 @@ export async function createProject(input: {
   clientId: string;
   name: string;
   description?: string;
+  categories?: ProjectCategory[];
 }): Promise<Project> {
   const userId = await requireUserId();
+  const categories = normalizeProjectCategories(input.categories);
+  if (categories.length === 0) {
+    throw new Error("Selecione o tipo do projeto.");
+  }
   const { data, error } = await supabase
     .from("projects")
     .insert({
       client_id: input.clientId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
+      categories,
       created_by: userId,
     })
     .select("*")
@@ -882,6 +966,7 @@ export async function updateProject(
     name: string;
     description?: string;
     status?: string;
+    categories?: ProjectCategory[];
     ctaPresets?: string[];
     hashtagPresets?: string[];
     themePresets?: string[];
@@ -900,6 +985,9 @@ export async function updateProject(
       name: input.name.trim(),
       description: input.description?.trim() || null,
       ...(input.status ? { status: input.status } : {}),
+      ...(input.categories !== undefined
+        ? { categories: normalizeProjectCategories(input.categories) }
+        : {}),
       ...(input.ctaPresets !== undefined
         ? { cta_presets: normalizePresets(input.ctaPresets) ?? [] }
         : {}),
@@ -998,6 +1086,7 @@ export async function createContent(input: {
   cta?: string;
   hashtags?: string;
   mediaUrl?: string;
+  format?: ContentFormat;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const sortOrder = await nextContentSortOrder(input.projectId);
@@ -1008,6 +1097,15 @@ export async function createContent(input: {
   } catch {
     calendarBlockId = null;
   }
+  let format = input.format;
+  if (!format) {
+    try {
+      const project = await getProject(input.projectId);
+      format = defaultContentFormatForProject(project?.categories);
+    } catch {
+      format = "static_feed";
+    }
+  }
   const baseInsert = {
     project_id: input.projectId,
     title: input.title.trim(),
@@ -1015,6 +1113,7 @@ export async function createContent(input: {
     cta: input.cta?.trim() || "",
     hashtags: input.hashtags?.trim() || "",
     media_url: input.mediaUrl?.trim() || null,
+    format,
     created_by: userId,
     status: "draft" as const,
     ...(calendarBlockId ? { calendar_block_id: calendarBlockId } : {}),

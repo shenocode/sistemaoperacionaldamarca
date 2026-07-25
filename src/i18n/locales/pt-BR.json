@@ -409,6 +409,23 @@
     "projectCreated": "Projeto criado.",
     "projectName": "Nome do projeto",
     "projectDescription": "Descrição",
+    "projectCategories": "Tipo de projeto",
+    "projectCategoriesHint": "Escolha o tipo de entregáveis. As abas e o preview seguem essa categoria.",
+    "projectCategoryRequired": "Selecione o tipo do projeto.",
+    "categories": {
+      "instagram": {
+        "label": "Conteúdos Instagram",
+        "formats": "Feed, Reels, Stories e carrossel."
+      },
+      "graphic_arts": {
+        "label": "Artes gráficas",
+        "formats": "Banners, cartazes, ilustrações e peças avulsas."
+      },
+      "videos": {
+        "label": "Vídeos",
+        "formats": "Vídeo gravado e outros conteúdos em vídeo."
+      }
+    },
     "search": "Buscar clientes...",
     "openProject": "Abrir projeto",
     "active": "Ativo",
@@ -456,6 +473,7 @@
       "calendar": "Calendário",
       "settings": "Configurações"
     },
+    "categoryExperiencePending": "A experiência completa desta categoria (abas e mockups) ainda está em construção. Por enquanto você pode organizar conteúdos, calendário e biblioteca.",
     "calendarPlaceholder": "Em breve.",
     "calendar": {
       "title": "Calendário de publicações",

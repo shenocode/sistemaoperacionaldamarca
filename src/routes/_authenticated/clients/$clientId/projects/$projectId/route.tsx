@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getClient, getProject } from "@/lib/api";
+import { getClient, getProject, projectCategoryConfig, type ProjectTabId } from "@/lib/api";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
@@ -11,6 +11,21 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/projects
   head: () => ({ meta: [{ title: "Projeto — SOM" }, { name: "robots", content: "noindex" }] }),
   component: ProjectLayout,
 });
+
+const TAB_PATHS: Record<
+  ProjectTabId,
+  | "/clients/$clientId/projects/$projectId/feed"
+  | "/clients/$clientId/projects/$projectId/calendar"
+  | "/clients/$clientId/projects/$projectId/content"
+  | "/clients/$clientId/projects/$projectId/library"
+  | "/clients/$clientId/projects/$projectId/settings"
+> = {
+  feed: "/clients/$clientId/projects/$projectId/feed",
+  calendar: "/clients/$clientId/projects/$projectId/calendar",
+  content: "/clients/$clientId/projects/$projectId/content",
+  library: "/clients/$clientId/projects/$projectId/library",
+  settings: "/clients/$clientId/projects/$projectId/settings",
+};
 
 function ProjectLayout() {
   const { clientId, projectId } = Route.useParams();
@@ -28,24 +43,23 @@ function ProjectLayout() {
     queryFn: () => getClient(clientId),
   });
 
+  const categoryConfig = projectCategoryConfig(projectQuery.data?.categories);
+
   // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
   // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
-  const tabs = [
-    { to: "/clients/$clientId/projects/$projectId/feed", label: t("project.tabs.feed") },
-    { to: "/clients/$clientId/projects/$projectId/calendar", label: t("project.tabs.calendar") },
-    { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
-    {
-      to: "/clients/$clientId/projects/$projectId/library",
-      label: t("project.tabs.library"),
-      requiresLibrary: true as const,
-    },
-    { to: "/clients/$clientId/projects/$projectId/settings", label: t("project.tabs.settings") },
-  ].filter((tab) => {
-    if ("requiresLibrary" in tab && tab.requiresLibrary) {
-      return isClient || entitlements.library;
-    }
-    return true;
-  });
+  const tabs = categoryConfig.tabs
+    .map((tabId) => ({
+      id: tabId,
+      to: TAB_PATHS[tabId],
+      label: t(`project.tabs.${tabId}`),
+      requiresLibrary: tabId === "library",
+    }))
+    .filter((tab) => {
+      if (tab.requiresLibrary) {
+        return isClient || entitlements.library;
+      }
+      return true;
+    });
 
   return (
     <div
@@ -91,6 +105,12 @@ function ProjectLayout() {
           ) : null}
         </div>
       </div>
+
+      {!categoryConfig.experienceReady ? (
+        <p className="mt-4 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          {t("project.categoryExperiencePending")}
+        </p>
+      ) : null}
 
       <div
         role="tablist"

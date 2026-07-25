@@ -45,12 +45,15 @@ import {
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import {
   canManageClient,
+  contentFormatsForProject,
   createContent,
   deleteContent,
   duplicateContent,
   getClient,
+  getProject,
   isVideoUrl,
   listContent,
+  projectCategoryConfig,
   reorderContentItems,
   resolveContentMediaUrls,
   updateContentCalendar,
@@ -116,6 +119,11 @@ function ContentListPage() {
     queryFn: () => listContent(projectId),
   });
 
+  const projectQuery = useQuery({
+    queryKey: ["projects", "detail", projectId],
+    queryFn: () => getProject(projectId),
+  });
+
   const manageQuery = useQuery({
     queryKey: ["can-manage", clientId],
     queryFn: () => canManageClient(clientId),
@@ -125,6 +133,11 @@ function ContentListPage() {
     queryKey: ["clients", clientId],
     queryFn: () => getClient(clientId),
   });
+
+  const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
+  const showInstagramMockup = projectCategoryConfig(projectQuery.data?.categories).tabs.includes(
+    "feed",
+  );
 
   const createMutation = useMutation({
     mutationFn: createContent,
@@ -269,14 +282,16 @@ function ContentListPage() {
               }
             />
           </div>
-          <InstagramFeedMockup
-            items={[]}
-            clientId={clientId}
-            projectId={projectId}
-            username={clientQuery.data?.name}
-            avatarUrl={clientQuery.data?.logo_url}
-            className="mx-auto hidden w-full shrink-0 lg:sticky lg:top-6 lg:block"
-          />
+          {showInstagramMockup ? (
+            <InstagramFeedMockup
+              items={[]}
+              clientId={clientId}
+              projectId={projectId}
+              username={clientQuery.data?.name}
+              avatarUrl={clientQuery.data?.logo_url}
+              className="mx-auto hidden w-full shrink-0 lg:sticky lg:top-6 lg:block"
+            />
+          ) : null}
         </div>
       ) : (
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
@@ -353,7 +368,8 @@ function ContentListPage() {
                         {t("project.content.columns.format")}
                       </Label>
                       <ContentFormatSelect
-                        format={(r.format ?? "static_feed") as ContentFormat}
+                        format={(r.format ?? allowedFormats[0] ?? "static_feed") as ContentFormat}
+                        formats={allowedFormats}
                         disabled={!canManage || isBusy}
                         className="w-full"
                         onValueChange={(value) => {
@@ -499,7 +515,8 @@ function ContentListPage() {
                       </td>
                       <td className="px-4 py-3">
                         <ContentFormatSelect
-                          format={(r.format ?? "static_feed") as ContentFormat}
+                          format={(r.format ?? allowedFormats[0] ?? "static_feed") as ContentFormat}
+                          formats={allowedFormats}
                           disabled={!canManage || isBusy}
                           className="w-[9.5rem]"
                           onValueChange={(value) => {
@@ -570,16 +587,18 @@ function ContentListPage() {
             </div>
           </Card>
 
-          <InstagramFeedMockup
-            items={rows}
-            clientId={clientId}
-            projectId={projectId}
-            username={clientQuery.data?.name}
-            avatarUrl={clientQuery.data?.logo_url}
-            canReorder={canReorder}
-            onReorder={applyReorder}
-            className="mx-auto hidden w-full shrink-0 lg:sticky lg:top-6 lg:block"
-          />
+          {showInstagramMockup ? (
+            <InstagramFeedMockup
+              items={rows}
+              clientId={clientId}
+              projectId={projectId}
+              username={clientQuery.data?.name}
+              avatarUrl={clientQuery.data?.logo_url}
+              canReorder={canReorder}
+              onReorder={applyReorder}
+              className="mx-auto hidden w-full shrink-0 lg:sticky lg:top-6 lg:block"
+            />
+          ) : null}
         </div>
       )}
 

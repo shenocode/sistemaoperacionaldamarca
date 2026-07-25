@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -8,7 +8,10 @@ import {
   canManageClient,
   claimClientAccess,
   getClient,
+  getProject,
   listContent,
+  projectCategoryConfig,
+  projectDefaultRoute,
   reorderContentItems,
   type ContentItem,
 } from "@/lib/api";
@@ -48,8 +51,14 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/projects
 function ProjectFeedPage() {
   const { clientId, projectId } = Route.useParams();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
+
+  const projectQuery = useQuery({
+    queryKey: ["projects", "detail", projectId],
+    queryFn: () => getProject(projectId),
+  });
 
   const contentQuery = useQuery({
     queryKey: ["content", projectId],
@@ -65,6 +74,20 @@ function ProjectFeedPage() {
     queryKey: ["can-manage", clientId],
     queryFn: () => canManageClient(clientId),
   });
+
+  const categoryConfig = projectCategoryConfig(projectQuery.data?.categories);
+  const feedAvailable = categoryConfig.tabs.includes("feed");
+
+  useEffect(() => {
+    if (!projectQuery.data || feedAvailable) return;
+    const { to } = projectDefaultRoute(projectQuery.data.categories);
+    void navigate({
+      to,
+      params: { clientId, projectId },
+      replace: true,
+      ...(to === "/clients/$clientId/projects/$projectId/content" ? { search: {} } : {}),
+    });
+  }, [projectQuery.data, feedAvailable, navigate, clientId, projectId]);
 
   const canEdit = Boolean(manageQuery.data);
   const serverRows = useMemo(
@@ -94,7 +117,11 @@ function ProjectFeedPage() {
     reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
   };
 
-  if (contentQuery.isLoading) {
+  if (projectQuery.isLoading || contentQuery.isLoading) {
+    return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
+  }
+
+  if (!feedAvailable) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 

@@ -12,16 +12,19 @@ import { cn } from "@/lib/utils";
 
 export function ContentFormatSelect({
   format,
+  formats = CONTENT_FORMATS,
   disabled = false,
   className,
   onValueChange,
 }: {
   format: ContentFormat;
+  formats?: ContentFormat[];
   disabled?: boolean;
   className?: string;
   onValueChange: (value: ContentFormat) => void;
 }) {
   const { t } = useTranslation();
+  const options = formats.length > 0 ? formats : CONTENT_FORMATS;
   const label = t(`project.detail.formats.${format}`);
 
   if (disabled) {
@@ -56,7 +59,7 @@ export function ContentFormatSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {CONTENT_FORMATS.map((formatKey) => (
+        {options.map((formatKey) => (
           <SelectItem key={formatKey} value={formatKey}>
             <span className="inline-flex items-center gap-2">
               <span

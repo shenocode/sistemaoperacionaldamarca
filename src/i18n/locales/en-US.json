@@ -409,6 +409,23 @@
     "projectCreated": "Project created.",
     "projectName": "Project name",
     "projectDescription": "Description",
+    "projectCategories": "Project type",
+    "projectCategoriesHint": "Choose the deliverable type. Tabs and preview follow this category.",
+    "projectCategoryRequired": "Select the project type.",
+    "categories": {
+      "instagram": {
+        "label": "Instagram content",
+        "formats": "Feed, Reels, Stories, and carousel."
+      },
+      "graphic_arts": {
+        "label": "Graphic arts",
+        "formats": "Banners, posters, illustrations, and standalone pieces."
+      },
+      "videos": {
+        "label": "Videos",
+        "formats": "Recorded video and other video content."
+      }
+    },
     "search": "Search clients...",
     "openProject": "Open project",
     "active": "Active",
@@ -450,6 +467,7 @@
   "project": {
     "back": "Back",
     "tabs": { "feed": "Feed", "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
+    "categoryExperiencePending": "The full experience for this category (tabs and mockups) is still being built. For now you can organize content, calendar, and library.",
     "calendarPlaceholder": "Coming soon.",
     "calendar": {
       "title": "Publishing calendar",
