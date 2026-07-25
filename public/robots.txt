@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /share/
+
+Sitemap: https://sistemaoperacionaldamarca.lovable.app/sitemap.xml

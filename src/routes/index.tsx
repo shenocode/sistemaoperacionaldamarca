@@ -24,6 +24,31 @@ export const Route = createFileRoute("/")({
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: FONT_STYLESHEET },
+      { rel: "canonical", href: "https://sistemaoperacionaldamarca.lovable.app/" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              name: "SOM — Sistema Operacional da Marca",
+              url: "https://sistemaoperacionaldamarca.lovable.app/",
+              logo: "https://sistemaoperacionaldamarca.lovable.app/favicon.ico",
+            },
+            {
+              "@type": "WebSite",
+              name: "SOM — Sistema Operacional da Marca",
+              url: "https://sistemaoperacionaldamarca.lovable.app/",
+              inLanguage: "pt-BR",
+              description:
+                "Do briefing à aprovação: produção de conteúdo, calendário editorial e aprovações com clientes — em um só lugar.",
+            },
+          ],
+        }),
+      },
     ],
   }),
   component: LandingPage,

@@ -1,0 +1,9 @@
+# SOM — Sistema Operacional da Marca
+
+> Plataforma para gestores de conteúdo: briefing, produção, calendário editorial e aprovação de posts com clientes em um só lugar.
+
+O SOM organiza o fluxo de conteúdo de marcas: cadastro de clientes, guia de marca, biblioteca de assets, criação de posts, calendário editorial e aprovação do cliente com comentários.
+
+## Pages
+
+- [Início](/): Visão geral do SOM, recursos, fluxo de trabalho e planos.

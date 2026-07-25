@@ -31,7 +31,18 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Entrar — SOM" },
-      { name: "description", content: "Acesse sua conta SOM." },
+      {
+        name: "description",
+        content:
+          "Acesse sua conta no SOM para gerenciar clientes, produzir conteúdo e acompanhar aprovações de posts em um só lugar.",
+      },
+      { property: "og:title", content: "Entrar — SOM" },
+      {
+        property: "og:description",
+        content:
+          "Entre no SOM para gerenciar clientes, produção de conteúdo e aprovações com sua equipe.",
+      },
+      { property: "og:type", content: "website" },
       { name: "robots", content: "noindex" },
     ],
   }),
