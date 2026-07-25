@@ -383,11 +383,19 @@ export async function claimClientAccess(accessToken: string): Promise<string> {
 }
 
 export async function listClients(): Promise<ClientWithProjects[]> {
-  const [clientsRes, clientUpdates] = await Promise.all([
-    supabase
-      .from("clients")
-      .select(
-        `
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Não autenticado.");
+
+  const entitlements = await getMyEntitlements();
+
+  // Portfolio owners (incl. admin master): only clients they created.
+  // Team collaborators: keep RLS membership list (no created_by filter).
+  let clientsQuery = supabase
+    .from("clients")
+    .select(
+      `
       *,
       projects (
         id,
@@ -397,8 +405,15 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         library_assets ( created_at )
       )
     `,
-      )
-      .order("name", { ascending: true }),
+    )
+    .order("name", { ascending: true });
+
+  if (entitlements.isTeamOwner || entitlements.isMaster) {
+    clientsQuery = clientsQuery.eq("created_by", user.id);
+  }
+
+  const [clientsRes, clientUpdates] = await Promise.all([
+    clientsQuery,
     fetchLatestClientUpdatesByClient(),
   ]);
 
@@ -685,6 +700,19 @@ export async function provisionClientAccess(input: {
 export async function listGestores() {
   const { listGestoresFn } = await import("./provision-gestor-access.functions");
   return listGestoresFn();
+}
+
+export async function listAssinantes() {
+  const { listAssinantesFn } = await import("./provision-gestor-access.functions");
+  return listAssinantesFn();
+}
+
+export async function setAssinanteStatus(input: {
+  userId: string;
+  active: boolean;
+}) {
+  const { setAssinanteStatusFn } = await import("./provision-gestor-access.functions");
+  return setAssinanteStatusFn({ data: input });
 }
 
 export async function provisionGestorAccess(input: {

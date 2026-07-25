@@ -113,12 +113,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {isAdminMaster ? (
             <>
               <Link
-                to="/access"
+                to="/assinantes"
                 onClick={closeMobileNav}
                 className={navClass}
                 activeProps={{ className: navActiveClass }}
               >
-                <KeyRound className="h-4 w-4" /> {t("nav.accessRelease")}
+                <KeyRound className="h-4 w-4" /> {t("nav.subscribers")}
               </Link>
               <Link
                 to="/leads"

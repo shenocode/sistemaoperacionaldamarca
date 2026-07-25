@@ -43,6 +43,23 @@ export type GestorListItem = {
   planSource: "stripe" | "manual" | null;
 };
 
+export type AssinanteClientSummary = {
+  id: string;
+  name: string;
+};
+
+export type AssinanteListItem = GestorListItem & {
+  isActive: boolean;
+  clientCount: number;
+  clients: AssinanteClientSummary[];
+  maxClients: number | null;
+};
+
+const setStatusInput = z.object({
+  userId: z.string().uuid(),
+  active: z.boolean(),
+});
+
 type AdminClient = typeof SupabaseAdmin;
 type AuthedClient = SupabaseClient<Database>;
 
@@ -115,6 +132,36 @@ function pickActiveSubscription(rows: SubscriptionRow[]): SubscriptionRow | null
   return active[0] ?? null;
 }
 
+/** Active subscription if any; otherwise most recently updated (for canceled display). */
+function pickPrimarySubscription(rows: SubscriptionRow[]): SubscriptionRow | null {
+  const active = pickActiveSubscription(rows);
+  if (active) return active;
+  return (
+    [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0] ?? null
+  );
+}
+
+function isSubscriptionActiveStatus(status: string | null | undefined): boolean {
+  return status === "active" || status === "trialing";
+}
+
+async function ensureAdminRole(admin: AdminClient, userId: string): Promise<void> {
+  const { error } = await admin.from("user_roles").insert({
+    user_id: userId,
+    role: "admin",
+  });
+  if (error && error.code !== "23505") throw new Error(error.message);
+}
+
+async function revokeAdminRole(admin: AdminClient, userId: string): Promise<void> {
+  const { error } = await admin
+    .from("user_roles")
+    .delete()
+    .eq("user_id", userId)
+    .eq("role", "admin");
+  if (error) throw new Error(error.message);
+}
+
 async function upsertManualPlan(
   admin: AdminClient,
   input: { userId: string; email: string; plan: AssignablePlan },
@@ -158,68 +205,182 @@ async function upsertManualPlan(
 export const listGestoresFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<GestorListItem[]> => {
-    const { supabase, userId } = context;
+    const assinantes = await listAssinantesCore(context);
+    return assinantes
+      .filter((item) => item.isMaster || item.isActive)
+      .map(
+        ({
+          userId,
+          email,
+          fullName,
+          isMaster,
+          plan,
+          planStatus,
+          planSource,
+        }): GestorListItem => ({
+          userId,
+          email,
+          fullName,
+          isMaster,
+          plan,
+          planStatus,
+          planSource,
+        }),
+      );
+  });
+
+async function listAssinantesCore(context: {
+  supabase: AuthedClient;
+  userId: string;
+}): Promise<AssinanteListItem[]> {
+  const { supabase, userId } = context;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await requireAdminMaster(supabase, userId, supabaseAdmin);
+
+  const { data: subscriptions, error: subsError } = await supabaseAdmin
+    .from("subscriptions")
+    .select("user_id, plan, status, source, updated_at");
+  if (subsError) throw new Error(subsError.message);
+
+  const subsByUser = new Map<string, SubscriptionRow[]>();
+  for (const row of subscriptions ?? []) {
+    if (!row.user_id) continue;
+    const list = subsByUser.get(row.user_id) ?? [];
+    list.push(row as SubscriptionRow);
+    subsByUser.set(row.user_id, list);
+  }
+
+  // Always include admin master even without a subscription row.
+  const masterUserId = await findUserIdByEmail(supabaseAdmin, ADMIN_MASTER_EMAIL);
+  const candidateIds = new Set<string>(subsByUser.keys());
+  if (masterUserId) candidateIds.add(masterUserId);
+
+  if (candidateIds.size === 0) return [];
+
+  const ids = [...candidateIds];
+
+  const { data: profiles, error: profilesError } = await supabaseAdmin
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", ids);
+  if (profilesError) throw new Error(profilesError.message);
+
+  const { data: clients, error: clientsError } = await supabaseAdmin
+    .from("clients")
+    .select("id, name, created_by")
+    .in("created_by", ids)
+    .order("name", { ascending: true });
+  if (clientsError) throw new Error(clientsError.message);
+
+  const clientsByOwner = new Map<string, AssinanteClientSummary[]>();
+  for (const client of clients ?? []) {
+    if (!client.created_by) continue;
+    const list = clientsByOwner.get(client.created_by) ?? [];
+    list.push({ id: client.id, name: client.name });
+    clientsByOwner.set(client.created_by, list);
+  }
+
+  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+
+  const items: AssinanteListItem[] = [];
+  for (const id of ids) {
+    const user = await findUserById(supabaseAdmin, id);
+    const email = (user?.email ?? "").toLowerCase();
+    if (!email) continue;
+
+    const isMaster = isAdminMasterEmail(email);
+    const primary = pickPrimarySubscription(subsByUser.get(id) ?? []);
+    const plan =
+      primary && isAssignablePlan(primary.plan) ? (primary.plan as AssignablePlan) : null;
+    const planStatus = isMaster ? "active" : (primary?.status ?? null);
+    const isActive = isMaster || isSubscriptionActiveStatus(planStatus);
+    const ownerClients = clientsByOwner.get(id) ?? [];
+    const entitlements = entitlementsForPlan(plan, { isMaster, isTeamOwner: true });
+
+    items.push({
+      userId: id,
+      email,
+      fullName: nameById.get(id) ?? null,
+      isMaster,
+      plan,
+      planStatus,
+      planSource:
+        primary?.source === "stripe" || primary?.source === "manual"
+          ? primary.source
+          : null,
+      isActive,
+      clientCount: ownerClients.length,
+      clients: ownerClients,
+      maxClients: entitlements.maxClients,
+    });
+  }
+
+  items.sort((a, b) => {
+    if (a.isMaster !== b.isMaster) return a.isMaster ? -1 : 1;
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    return (a.fullName || a.email).localeCompare(b.fullName || b.email, "pt-BR");
+  });
+
+  return items;
+}
+
+export const listAssinantesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AssinanteListItem[]> => {
+    return listAssinantesCore(context);
+  });
+
+export const setAssinanteStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator(setStatusInput)
+  .handler(async ({ data, context }): Promise<{ userId: string; active: boolean }> => {
+    const { supabase, userId: callerId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await requireAdminMaster(supabase, userId, supabaseAdmin);
+    await requireAdminMaster(supabase, callerId, supabaseAdmin);
 
-    const { data: roles, error: rolesError } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "admin");
-    if (rolesError) throw new Error(rolesError.message);
+    const user = await findUserById(supabaseAdmin, data.userId);
+    const email = (user?.email ?? "").toLowerCase();
+    if (!email) throw new Error("Usuário não encontrado.");
+    if (isAdminMasterEmail(email)) {
+      throw new Error("Não é possível desativar o administrador.");
+    }
 
-    const adminIds = [...new Set((roles ?? []).map((row) => row.user_id))];
-    if (adminIds.length === 0) return [];
-
-    const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", adminIds);
-    if (profilesError) throw new Error(profilesError.message);
-
-    const { data: subscriptions, error: subsError } = await supabaseAdmin
+    const { data: rows, error: subsError } = await supabaseAdmin
       .from("subscriptions")
-      .select("user_id, plan, status, source, updated_at")
-      .in("user_id", adminIds);
+      .select("id, plan, status, source, updated_at, user_id")
+      .eq("user_id", data.userId);
     if (subsError) throw new Error(subsError.message);
 
-    const subsByUser = new Map<string, SubscriptionRow[]>();
-    for (const row of subscriptions ?? []) {
-      if (!row.user_id) continue;
-      const list = subsByUser.get(row.user_id) ?? [];
-      list.push(row as SubscriptionRow);
-      subsByUser.set(row.user_id, list);
+    if (!rows || rows.length === 0) {
+      throw new Error("Assinante sem registro de assinatura.");
     }
 
-    const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
-
-    const items: GestorListItem[] = [];
-    for (const id of adminIds) {
-      const user = await findUserById(supabaseAdmin, id);
-      const email = (user?.email ?? "").toLowerCase();
-      if (!email) continue;
-      const active = pickActiveSubscription(subsByUser.get(id) ?? []);
-      const plan = active && isAssignablePlan(active.plan) ? active.plan : null;
-      items.push({
-        userId: id,
+    if (data.active) {
+      const primary = pickPrimarySubscription(rows as SubscriptionRow[]);
+      const plan =
+        primary && isAssignablePlan(primary.plan)
+          ? (primary.plan as AssignablePlan)
+          : "courtesy";
+      await upsertManualPlan(supabaseAdmin, {
+        userId: data.userId,
         email,
-        fullName: nameById.get(id) ?? null,
-        isMaster: isAdminMasterEmail(email),
         plan,
-        planStatus: active?.status ?? null,
-        planSource:
-          active?.source === "stripe" || active?.source === "manual"
-            ? active.source
-            : null,
       });
+      await ensureAdminRole(supabaseAdmin, data.userId);
+    } else {
+      const { error: cancelError } = await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: "canceled",
+          cancel_at_period_end: false,
+        })
+        .eq("user_id", data.userId)
+        .in("status", ["active", "trialing", "past_due", "incomplete"]);
+      if (cancelError) throw new Error(cancelError.message);
+      await revokeAdminRole(supabaseAdmin, data.userId);
     }
 
-    items.sort((a, b) => {
-      if (a.isMaster !== b.isMaster) return a.isMaster ? -1 : 1;
-      return (a.fullName || a.email).localeCompare(b.fullName || b.email, "pt-BR");
-    });
-
-    return items;
+    return { userId: data.userId, active: data.active };
   });
 
 export const provisionGestorAccessFn = createServerFn({ method: "POST" })
@@ -315,6 +476,7 @@ export const setGestorPlanFn = createServerFn({ method: "POST" })
       email,
       plan: data.plan,
     });
+    await ensureAdminRole(supabaseAdmin, data.userId);
 
     return { userId: data.userId, plan: data.plan };
   });
