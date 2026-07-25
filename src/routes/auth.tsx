@@ -222,7 +222,7 @@ function AuthPage() {
               <p>{t("auth.accessDenied")}</p>
               <Link
                 to="/"
-                hash="contato"
+                hash="planos"
                 className="mt-2 inline-block font-medium text-primary underline-offset-4 hover:underline"
               >
                 {t("auth.accessDeniedCta")}
@@ -260,7 +260,7 @@ function AuthPage() {
                   {t("auth.noAccount")}{" "}
                   <Link
                     to="/"
-                    hash="contato"
+                    hash="planos"
                     className="font-medium text-primary hover:underline"
                   >
                     {t("auth.requestAccess")}

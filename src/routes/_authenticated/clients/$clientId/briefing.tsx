@@ -5,6 +5,8 @@ import { ChevronLeft } from "lucide-react";
 import { BrandBriefingForm } from "@/components/brand-briefing-form";
 import { PageHeader } from "@/components/page-header";
 import { ensureBrandBriefing, getClient } from "@/lib/api";
+import { useAppRole } from "@/hooks/use-app-role";
+import { useEntitlements } from "@/hooks/use-entitlements";
 
 type BriefingSearch = {
   projectId?: string;
@@ -24,6 +26,9 @@ function BrandBriefingPage() {
   const { clientId } = Route.useParams();
   const { projectId } = Route.useSearch();
   const { t } = useTranslation();
+  const { isClient } = useAppRole();
+  const { entitlements, loading: entitlementsLoading } = useEntitlements();
+  const briefingAllowed = isClient || entitlements.brandBriefing;
 
   const clientQuery = useQuery({
     queryKey: ["clients", clientId],
@@ -33,6 +38,7 @@ function BrandBriefingPage() {
   const briefingQuery = useQuery({
     queryKey: ["brand-briefing", clientId],
     queryFn: () => ensureBrandBriefing(clientId),
+    enabled: briefingAllowed,
   });
 
   const backTo =
@@ -65,7 +71,11 @@ function BrandBriefingPage() {
         }
       />
 
-      {briefingQuery.isLoading ? (
+      {entitlementsLoading ? (
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      ) : !briefingAllowed ? (
+        <p className="text-sm text-muted-foreground">{t("accessRelease.featureLocked")}</p>
+      ) : briefingQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
       ) : briefingQuery.isError ? (
         <p className="text-sm text-destructive">

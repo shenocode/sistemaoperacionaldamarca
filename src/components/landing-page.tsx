@@ -27,8 +27,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { buildWhatsAppNotifyUrl } from "@/lib/api";
+import { buildWhatsAppNotifyUrl, startSubscriptionCheckout, type SubscriptionPlanKey } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const FEATURE_KEYS = [
   "calendar",
@@ -66,10 +67,13 @@ const ASSET_ICONS = {
   art: Palette,
 } as const;
 
-const PLAN_KEYS = ["solo", "studio", "agency"] as const;
+const PLAN_KEYS = ["solo", "studio", "agency"] as const satisfies readonly SubscriptionPlanKey[];
 
 /** Commercial contact for access / subscription requests. */
 const CONTACT_WHATSAPP = "5511993397398";
+const CONTACT_WHATSAPP_DISPLAY = "+55 11 99339-7398";
+const COMPANY_URL = "https://solucyona.lovable.app/#inicio";
+const COMPANY_NAME = "Solucyona Comunicação e Tecnologia";
 
 const WHATSAPP_COUNTRIES = [
   { iso: "BR", dial: "55", placeholder: "11999999999" },
@@ -263,14 +267,27 @@ function ContactForm() {
 
 export function LandingPage() {
   const { t } = useTranslation();
+  const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanKey | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.hash !== "#contato") return;
+    const hash = window.location.hash;
+    if (hash !== "#contato" && hash !== "#planos") return;
+    const id = hash.slice(1);
     requestAnimationFrame(() => {
-      document.getElementById("contato")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, []);
+
+  const handleSubscribe = async (plan: SubscriptionPlanKey) => {
+    setCheckoutPlan(plan);
+    try {
+      await startSubscriptionCheckout(plan);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      setCheckoutPlan(null);
+    }
+  };
 
   return (
     <div className="theme-mint landing-atmosphere relative min-h-screen overflow-x-hidden">
@@ -509,7 +526,6 @@ export function LandingPage() {
                     ))}
                   </ul>
                   <Button
-                    asChild
                     className={cn(
                       "mt-8 w-full",
                       popular
@@ -517,8 +533,12 @@ export function LandingPage() {
                         : undefined,
                     )}
                     variant={popular ? "secondary" : "default"}
+                    disabled={checkoutPlan !== null}
+                    onClick={() => handleSubscribe(plan)}
                   >
-                    <a href="#contato">{t("landing.pricingCta")}</a>
+                    {checkoutPlan === plan
+                      ? t("landing.pricingCtaLoading")
+                      : t("landing.pricingCta")}
                   </Button>
                 </article>
               );
@@ -554,16 +574,36 @@ export function LandingPage() {
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <a href="#contato">{t("landing.finalCta")}</a>
+              <a href="#planos">{t("landing.finalCta")}</a>
             </Button>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-neutral-900/8 bg-white/60 px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
-          <p className="font-display text-lg font-semibold">{t("app.name")}</p>
-          <p className="text-sm text-neutral-600">{t("landing.footerTag")}</p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="font-display text-lg font-semibold">{t("app.name")}</p>
+            <p className="text-sm text-neutral-600">{t("landing.footerTag")}</p>
+          </div>
+          <div className="flex flex-col gap-1 text-sm text-neutral-600 sm:items-end sm:text-right">
+            <a
+              href={COMPANY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-neutral-800 underline-offset-4 hover:underline"
+            >
+              {COMPANY_NAME}
+            </a>
+            <a
+              href={`https://wa.me/${CONTACT_WHATSAPP}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-4 hover:underline"
+            >
+              {t("landing.footerWhatsapp", { number: CONTACT_WHATSAPP_DISPLAY })}
+            </a>
+          </div>
         </div>
       </footer>
     </div>

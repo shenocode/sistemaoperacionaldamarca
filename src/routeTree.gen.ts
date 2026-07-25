@@ -18,6 +18,8 @@ import { Route as AuthenticatedAccessRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AssinaturaCanceladaRouteImport } from './routes/assinatura.cancelada'
+import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura.sucesso'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
 import { Route as ShareClientIdProjectIdRouteImport } from './routes/share.$clientId.$projectId'
 import { Route as AuthenticatedClientsClientIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/index'
@@ -75,6 +77,16 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AssinaturaCanceladaRoute = AssinaturaCanceladaRouteImport.update({
+  id: '/assinatura/cancelada',
+  path: '/assinatura/cancelada',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinaturaSucessoRoute = AssinaturaSucessoRouteImport.update({
+  id: '/assinatura/sucesso',
+  path: '/assinatura/sucesso',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedClientsIndexRoute =
   AuthenticatedClientsIndexRouteImport.update({
@@ -173,6 +185,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/home': typeof AuthenticatedHomeRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
+  '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
@@ -196,6 +210,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/home': typeof AuthenticatedHomeRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
+  '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
@@ -219,6 +235,8 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
+  '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
@@ -244,6 +262,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/home'
     | '/settings'
+    | '/assinatura/cancelada'
+    | '/assinatura/sucesso'
     | '/share/$clientId/$projectId'
     | '/clients/'
     | '/clients/$clientId/briefing'
@@ -267,6 +287,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/home'
     | '/settings'
+    | '/assinatura/cancelada'
+    | '/assinatura/sucesso'
     | '/share/$clientId/$projectId'
     | '/clients'
     | '/clients/$clientId/briefing'
@@ -289,6 +311,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/home'
     | '/_authenticated/settings'
+    | '/assinatura/cancelada'
+    | '/assinatura/sucesso'
     | '/share/$clientId/$projectId'
     | '/_authenticated/clients/'
     | '/_authenticated/clients/$clientId/briefing'
@@ -310,6 +334,8 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  AssinaturaCanceladaRoute: typeof AssinaturaCanceladaRoute
+  AssinaturaSucessoRoute: typeof AssinaturaSucessoRoute
   ShareClientIdProjectIdRoute: typeof ShareClientIdProjectIdRoute
 }
 
@@ -377,6 +403,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/assinatura/cancelada': {
+      id: '/assinatura/cancelada'
+      path: '/assinatura/cancelada'
+      fullPath: '/assinatura/cancelada'
+      preLoaderRoute: typeof AssinaturaCanceladaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinatura/sucesso': {
+      id: '/assinatura/sucesso'
+      path: '/assinatura/sucesso'
+      fullPath: '/assinatura/sucesso'
+      preLoaderRoute: typeof AssinaturaSucessoRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/clients/': {
       id: '/_authenticated/clients/'
@@ -554,6 +594,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  AssinaturaCanceladaRoute: AssinaturaCanceladaRoute,
+  AssinaturaSucessoRoute: AssinaturaSucessoRoute,
   ShareClientIdProjectIdRoute: ShareClientIdProjectIdRoute,
 }
 export const routeTree = rootRouteImport

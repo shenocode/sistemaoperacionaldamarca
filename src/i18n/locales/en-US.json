@@ -29,19 +29,23 @@
     "checkEmail": "Check your inbox to confirm your email.",
     "resetSent": "Reset link sent.",
     "reviewInviteHint": "Sign in with the email and password provided by the team to review content.",
-    "accessDenied": "Contact us to request platform access and learn about our subscription plans.",
-    "accessDeniedCta": "Go to the contact form",
+    "accessDenied": "No platform access. Subscribe to a plan or contact us.",
+    "accessDeniedCta": "See plans",
     "requestAccess": "Request access"
   },
   "accessRelease": {
     "title": "Access release",
-    "description": "Create new managers or reset passwords for those who already have access.",
+    "description": "Create managers, assign a subscription plan, and reset passwords.",
     "formTitle": "New manager",
     "fullName": "Full name",
     "fullNamePlaceholder": "Manager name",
     "email": "Login email",
     "password": "Password",
     "passwordHint": "At least 6 characters. Share the email and password with the manager.",
+    "plan": "Plan",
+    "planHint": "Defines client limits and unlocked features.",
+    "planUpdated": "Manager plan updated.",
+    "noPlan": "No plan",
     "submit": "Grant access",
     "listTitle": "Managers with access",
     "empty": "No managers granted yet.",
@@ -52,7 +56,16 @@
     "roleGestor": "Manager",
     "resetPassword": "Reset password",
     "newPassword": "New password",
-    "confirmReset": "Reset"
+    "confirmReset": "Reset",
+    "plans": {
+      "solo": "Solo",
+      "studio": "Studio",
+      "agency": "Agency",
+      "courtesy": "Courtesy (test)",
+      "fullAccess": "Full access"
+    },
+    "featureLocked": "Available from the Studio plan.",
+    "featureLockedCourtesy": "Not included in your plan."
   },
   "landing": {
     "heroTitle": "From briefing to approval — no spreadsheet chaos.",
@@ -117,6 +130,7 @@
     "pricingNote": "Suggested launch pricing. Billed monthly in BRL. AI usage is billed to your OpenAI/Gemini account.",
     "pricingPeriod": "/mo",
     "pricingCta": "Subscribe",
+    "pricingCtaLoading": "Redirecting…",
     "pricingPopular": "Most popular",
     "plans": {
       "solo": {
@@ -158,13 +172,14 @@
       }
     },
     "finalTitle": "Put your content operation on the right rails.",
-    "finalSubtitle": "Contact us, pick a plan, and get access granted by our team.",
-    "finalCta": "Request access",
+    "finalSubtitle": "Pick a plan, pay securely with Stripe, and get access by email.",
+    "finalCta": "See plans",
     "footerTag": "BOS - Brand Operating System",
+    "footerWhatsapp": "WhatsApp {{number}}",
     "mockStatus": "Awaiting approval",
     "mockCaption": "New campaign live — brand tone, CTA, and art aligned.",
-    "contactTitle": "Request platform access",
-    "contactSubtitle": "Fill out the form and message us on WhatsApp to learn about subscription plans.",
+    "contactTitle": "Contact us",
+    "contactSubtitle": "Questions about plans or onboarding? Message us on WhatsApp.",
     "contactName": "Name",
     "contactEmail": "Email",
     "contactWhatsapp": "WhatsApp",
@@ -173,6 +188,15 @@
     "contactMessage": "Message",
     "contactSubmit": "Send on WhatsApp",
     "contactWhatsAppBody": "Hi! I'd like to request access to the SOM platform and learn about subscription plans.\n\nName: {{name}}\nEmail: {{email}}\nWhatsApp: {{whatsapp}}\n\nMessage:\n{{message}}"
+  },
+  "subscription": {
+    "successTitle": "Payment confirmed",
+    "successBody": "Your access is being provisioned. Check the email used at checkout to set your password (or sign in with your existing account).",
+    "successCta": "Go to sign in",
+    "cancelTitle": "Checkout canceled",
+    "cancelBody": "No charge was made. You can pick a plan again whenever you're ready.",
+    "cancelCta": "See plans",
+    "backHome": "Back to home"
   },
   "dashboard": {
     "title": "Dashboard",

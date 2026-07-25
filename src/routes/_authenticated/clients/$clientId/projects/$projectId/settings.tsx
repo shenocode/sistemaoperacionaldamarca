@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { canAccessClient, canManageClient, getProject, updateProject } from "@/lib/api";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { useAppRole } from "@/hooks/use-app-role";
 import {
   buildLocalizedFieldFromSource,
   getCanonicalText,
@@ -142,6 +144,9 @@ function ProjectSettingsPage() {
   const { clientId, projectId } = Route.useParams();
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const { isClient } = useAppRole();
+  const { entitlements } = useEntitlements();
+  const presetsAllowed = isClient || entitlements.presets;
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const [rowI18n, setRowI18n] = useState<RowI18n>({});
   const [name, setName] = useState("");
@@ -234,14 +239,19 @@ function ProjectSettingsPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       let nextI18n = rowI18n;
-      const [ctaBlocks, hashtagBlocks, themeBlocks] = await Promise.all([
-        translatePresetList(ctaPresets),
-        translatePresetList(hashtagPresets),
-        translatePresetList(themePresets),
-      ]);
-      nextI18n = setLocalizedPresetList(nextI18n, "cta_presets", ctaBlocks);
-      nextI18n = setLocalizedPresetList(nextI18n, "hashtag_presets", hashtagBlocks);
-      nextI18n = setLocalizedPresetList(nextI18n, "theme_presets", themeBlocks);
+      const shouldSavePresets = presetsAllowed;
+      const [ctaBlocks, hashtagBlocks, themeBlocks] = shouldSavePresets
+        ? await Promise.all([
+            translatePresetList(ctaPresets),
+            translatePresetList(hashtagPresets),
+            translatePresetList(themePresets),
+          ])
+        : [[], [], []];
+      if (shouldSavePresets) {
+        nextI18n = setLocalizedPresetList(nextI18n, "cta_presets", ctaBlocks);
+        nextI18n = setLocalizedPresetList(nextI18n, "hashtag_presets", hashtagBlocks);
+        nextI18n = setLocalizedPresetList(nextI18n, "theme_presets", themeBlocks);
+      }
 
       const canonicalCta = ctaBlocks.map(
         (block, index) => block.values[block.source] ?? ctaPresets[index] ?? "",
@@ -261,9 +271,13 @@ function ProjectSettingsPage() {
           ? getCanonicalText(nextI18n, "description", description)
           : (projectQuery.data?.description ?? ""),
         ...(canManage ? { status } : {}),
-        ctaPresets: canonicalCta,
-        hashtagPresets: canonicalHashtags,
-        themePresets: canonicalThemes,
+        ...(shouldSavePresets
+          ? {
+              ctaPresets: canonicalCta,
+              hashtagPresets: canonicalHashtags,
+              themePresets: canonicalThemes,
+            }
+          : {}),
         i18n: nextI18n,
       });
     },
@@ -341,6 +355,7 @@ function ProjectSettingsPage() {
         </>
       ) : null}
 
+      {presetsAllowed ? (
       <div className={canManage ? "space-y-4 border-t pt-4" : "space-y-4"}>
         <div>
           <h2 className="text-sm font-medium">{t("project.settings.presetsTitle")}</h2>
@@ -377,6 +392,11 @@ function ProjectSettingsPage() {
           onChange={setThemePresets}
         />
       </div>
+      ) : canManage ? (
+        <p className="border-t pt-4 text-sm text-muted-foreground">
+          {t("accessRelease.featureLocked")}
+        </p>
+      ) : null}
 
       <Button
         type="submit"

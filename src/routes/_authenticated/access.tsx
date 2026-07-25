@@ -4,11 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { isAdminMasterEmail } from "@/lib/admin-master";
+import { ASSIGNABLE_PLANS, type AssignablePlan } from "@/lib/plan-entitlements";
 import {
   isAdmin,
   listGestores,
   provisionGestorAccess,
   resolvePostLoginPath,
+  setGestorPlan,
 } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -18,6 +20,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/access")({
   beforeLoad: async () => {
@@ -50,6 +59,7 @@ function AccessReleasePage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [plan, setPlan] = useState<AssignablePlan>("courtesy");
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [resetPassword, setResetPassword] = useState("");
 
@@ -64,12 +74,14 @@ function AccessReleasePage() {
         email: email.trim(),
         password: password.trim(),
         fullName: fullName.trim() || undefined,
+        plan,
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["gestores"] });
       setFullName("");
       setEmail("");
       setPassword("");
+      setPlan("courtesy");
       toast.success(
         result.created ? t("accessRelease.created") : t("accessRelease.updated"),
       );
@@ -78,17 +90,27 @@ function AccessReleasePage() {
   });
 
   const resetMutation = useMutation({
-    mutationFn: (input: { email: string; fullName?: string; password: string }) =>
+    mutationFn: (input: { email: string; fullName?: string; password: string; plan?: AssignablePlan }) =>
       provisionGestorAccess({
         email: input.email,
         password: input.password,
         fullName: input.fullName,
+        plan: input.plan,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gestores"] });
       setResettingUserId(null);
       setResetPassword("");
       toast.success(t("accessRelease.passwordUpdated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const planMutation = useMutation({
+    mutationFn: (input: { userId: string; plan: AssignablePlan }) => setGestorPlan(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gestores"] });
+      toast.success(t("accessRelease.planUpdated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -161,6 +183,22 @@ function AccessReleasePage() {
               />
               <p className="text-xs text-muted-foreground">{t("accessRelease.passwordHint")}</p>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gestor-plan">{t("accessRelease.plan")}</Label>
+              <Select value={plan} onValueChange={(value) => setPlan(value as AssignablePlan)}>
+                <SelectTrigger id="gestor-plan">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSIGNABLE_PLANS.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {t(`accessRelease.plans.${key}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{t("accessRelease.planHint")}</p>
+            </div>
             <Button
               type="submit"
               disabled={
@@ -199,12 +237,37 @@ function AccessReleasePage() {
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={gestor.isMaster ? "default" : "secondary"}>
                         {gestor.isMaster
                           ? t("accessRelease.roleAdministrator")
                           : t("accessRelease.roleGestor")}
                       </Badge>
+                      {gestor.isMaster ? (
+                        <Badge variant="outline">{t("accessRelease.plans.fullAccess")}</Badge>
+                      ) : (
+                        <Select
+                          value={gestor.plan ?? undefined}
+                          onValueChange={(value) =>
+                            planMutation.mutate({
+                              userId: gestor.userId,
+                              plan: value as AssignablePlan,
+                            })
+                          }
+                          disabled={planMutation.isPending}
+                        >
+                          <SelectTrigger className="h-8 w-[11.5rem]">
+                            <SelectValue placeholder={t("accessRelease.noPlan")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ASSIGNABLE_PLANS.map((key) => (
+                              <SelectItem key={key} value={key}>
+                                {t(`accessRelease.plans.${key}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       {!gestor.isMaster ? (
                         <Button
                           type="button"
@@ -229,6 +292,7 @@ function AccessReleasePage() {
                           email: gestor.email,
                           fullName: gestor.fullName ?? undefined,
                           password: resetPassword.trim(),
+                          plan: gestor.plan ?? "courtesy",
                         });
                       }}
                     >

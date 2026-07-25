@@ -29,19 +29,23 @@
     "checkEmail": "Verifique seu e-mail para confirmar a conta.",
     "resetSent": "Link de redefinição enviado.",
     "reviewInviteHint": "Entre com o e-mail e a senha liberados pela equipe para revisar os conteúdos.",
-    "accessDenied": "Fale conosco para pedir acesso à plataforma e conheça os nossos planos de assinatura.",
-    "accessDeniedCta": "Ir para o formulário de contato",
+    "accessDenied": "Sem acesso à plataforma. Assine um plano ou fale conosco.",
+    "accessDeniedCta": "Ver planos",
     "requestAccess": "Peça acesso"
   },
   "accessRelease": {
     "title": "Liberação de acessos",
-    "description": "Crie novos gestores ou redefina a senha dos que já têm acesso.",
+    "description": "Crie gestores, atribua o plano de assinatura e redefina senhas.",
     "formTitle": "Novo gestor",
     "fullName": "Nome completo",
     "fullNamePlaceholder": "Nome do gestor",
     "email": "E-mail de login",
     "password": "Senha",
     "passwordHint": "Mínimo de 6 caracteres. Envie o e-mail e a senha ao gestor.",
+    "plan": "Plano",
+    "planHint": "Define limites de clientes e recursos liberados.",
+    "planUpdated": "Plano do gestor atualizado.",
+    "noPlan": "Sem plano",
     "submit": "Liberar acesso",
     "listTitle": "Gestores com acesso",
     "empty": "Nenhum gestor liberado ainda.",
@@ -52,7 +56,16 @@
     "roleGestor": "Gestor",
     "resetPassword": "Redefinir senha",
     "newPassword": "Nova senha",
-    "confirmReset": "Redefinir"
+    "confirmReset": "Redefinir",
+    "plans": {
+      "solo": "Solo",
+      "studio": "Studio",
+      "agency": "Agência",
+      "courtesy": "Cortesia de Teste",
+      "fullAccess": "Acesso total"
+    },
+    "featureLocked": "Recurso disponível a partir do plano Studio.",
+    "featureLockedCourtesy": "Recurso não incluído no seu plano."
   },
   "landing": {
     "heroTitle": "Do briefing à aprovação, sem planilha e sem WhatsApp eterno.",
@@ -117,6 +130,7 @@
     "pricingNote": "Valores sugeridos de lançamento. Cobrança mensal em reais. O uso de IA é cobrado na sua conta OpenAI/Gemini.",
     "pricingPeriod": "/mês",
     "pricingCta": "Assinar",
+    "pricingCtaLoading": "Redirecionando…",
     "pricingPopular": "Mais escolhido",
     "plans": {
       "solo": {
@@ -158,13 +172,14 @@
       }
     },
     "finalTitle": "Coloque sua operação de conteúdo no piloto certo.",
-    "finalSubtitle": "Fale conosco, escolha um plano e receba o acesso liberado pela nossa equipe.",
-    "finalCta": "Pedir acesso",
+    "finalSubtitle": "Escolha um plano, pague com segurança no Stripe e receba o acesso por e-mail.",
+    "finalCta": "Ver planos",
     "footerTag": "Sistema Operacional da Marca",
+    "footerWhatsapp": "WhatsApp {{number}}",
     "mockStatus": "Aguardando aprovação",
     "mockCaption": "Nova campanha no ar — tom da marca, CTA e artes alinhados.",
-    "contactTitle": "Peça acesso à plataforma",
-    "contactSubtitle": "Preencha o formulário e fale conosco no WhatsApp para conhecer os planos de assinatura.",
+    "contactTitle": "Fale conosco",
+    "contactSubtitle": "Dúvidas sobre planos ou onboarding? Envie uma mensagem no WhatsApp.",
     "contactName": "Nome",
     "contactEmail": "E-mail",
     "contactWhatsapp": "WhatsApp",
@@ -173,6 +188,15 @@
     "contactMessage": "Mensagem",
     "contactSubmit": "Enviar no WhatsApp",
     "contactWhatsAppBody": "Olá! Gostaria de pedir acesso à plataforma SOM e conhecer os planos de assinatura.\n\nNome: {{name}}\nE-mail: {{email}}\nWhatsApp: {{whatsapp}}\n\nMensagem:\n{{message}}"
+  },
+  "subscription": {
+    "successTitle": "Pagamento confirmado",
+    "successBody": "Seu acesso está sendo liberado. Confira o e-mail usado no checkout para definir a senha (ou entre com a conta que já tinha) e faça login.",
+    "successCta": "Ir para o login",
+    "cancelTitle": "Checkout cancelado",
+    "cancelBody": "Nenhuma cobrança foi feita. Você pode escolher um plano novamente quando quiser.",
+    "cancelCta": "Ver planos",
+    "backHome": "Voltar ao início"
   },
   "dashboard": {
     "title": "Dashboard",

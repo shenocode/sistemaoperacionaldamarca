@@ -656,6 +656,54 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          email: string
+          id: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          source: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          email: string
+          id?: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          source?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          email?: string
+          id?: string
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          source?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -815,6 +863,7 @@ export type Database = {
         | "comment_added"
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
+      subscription_plan: "solo" | "studio" | "agency" | "courtesy"
       client_member_role: "owner" | "member"
       content_format:
         | "static_feed"
@@ -980,6 +1029,7 @@ export const Constants = {
       ],
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
+      subscription_plan: ["solo", "studio", "agency", "courtesy"],
       client_member_role: ["owner", "member"],
       content_format: [
         "static_feed",

@@ -517,6 +517,26 @@ function normalizeOptionalText(value?: string) {
 
 export async function createClient(input: ClientContactInput): Promise<Client> {
   const userId = await requireUserId();
+
+  const entitlements = await getMyEntitlements();
+  if (!entitlements.isMaster) {
+    const { count, error: countError } = await supabase
+      .from("clients")
+      .select("id", { count: "exact", head: true })
+      .eq("created_by", userId);
+    if (countError) throw new Error(countError.message);
+
+    const { canCreateAnotherClient } = await import("./plan-entitlements");
+    if (!canCreateAnotherClient(entitlements, count ?? 0)) {
+      const max = entitlements.maxClients ?? 0;
+      throw new Error(
+        max <= 0
+          ? "Seu plano não permite criar clientes. Peça ao administrador para atribuir uma assinatura."
+          : `Limite do plano atingido (${max} cliente${max === 1 ? "" : "s"}). Atualize o plano para adicionar mais.`,
+      );
+    }
+  }
+
   const i18n = parseRowI18n(input.i18n);
   const name = getCanonicalText(i18n, "name", input.name).trim();
   const notes = normalizeOptionalText(getCanonicalText(i18n, "notes", input.notes));
@@ -665,6 +685,7 @@ export async function provisionGestorAccess(input: {
   email: string;
   password: string;
   fullName?: string;
+  plan?: import("./plan-entitlements").AssignablePlan;
 }) {
   const { provisionGestorAccessFn } = await import("./provision-gestor-access.functions");
   return provisionGestorAccessFn({
@@ -672,8 +693,22 @@ export async function provisionGestorAccess(input: {
       email: input.email,
       password: input.password,
       fullName: input.fullName,
+      plan: input.plan ?? "courtesy",
     },
   });
+}
+
+export async function setGestorPlan(input: {
+  userId: string;
+  plan: import("./plan-entitlements").AssignablePlan;
+}) {
+  const { setGestorPlanFn } = await import("./provision-gestor-access.functions");
+  return setGestorPlanFn({ data: input });
+}
+
+export async function getMyEntitlements() {
+  const { getMyEntitlementsFn } = await import("./provision-gestor-access.functions");
+  return getMyEntitlementsFn();
 }
 
 export async function updateOwnPassword(password: string) {
@@ -1851,6 +1886,13 @@ export async function getBrandBriefing(clientId: string): Promise<BrandBriefingV
 }
 
 export async function ensureBrandBriefing(clientId: string): Promise<BrandBriefingView> {
+  if (await isAdmin()) {
+    const entitlements = await getMyEntitlements();
+    if (!entitlements.isMaster && !entitlements.brandBriefing) {
+      throw new Error("Brand briefing disponível a partir do plano Studio.");
+    }
+  }
+
   const existing = await getBrandBriefing(clientId);
   if (existing) return existing;
 
@@ -2281,6 +2323,31 @@ export async function hasPlatformAccess(): Promise<boolean> {
   if (await isAdmin()) return true;
   const projects = await listAccessibleProjects();
   return projects.length > 0;
+}
+
+export type SubscriptionPlanKey = "solo" | "studio" | "agency";
+
+/** Starts Stripe Checkout for a monthly subscription plan. */
+export async function startSubscriptionCheckout(
+  plan: SubscriptionPlanKey,
+  customerEmail?: string,
+): Promise<void> {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+    body: {
+      plan,
+      customerEmail: customerEmail?.trim() || undefined,
+      successUrl: `${origin}/assinatura/sucesso`,
+      cancelUrl: `${origin}/assinatura/cancelada`,
+    },
+  });
+
+  const payload = data as { url?: string; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+  if (!payload?.url) throw new Error("Não foi possível iniciar o checkout.");
+
+  window.location.assign(payload.url);
 }
 
 export type ClientHomeProject = {

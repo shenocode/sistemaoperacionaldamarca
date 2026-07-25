@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getClient, getProject } from "@/lib/api";
 import { useAppRole } from "@/hooks/use-app-role";
+import { useEntitlements } from "@/hooks/use-entitlements";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId")({
   head: () => ({ meta: [{ title: "Projeto — SOM" }, { name: "robots", content: "noindex" }] }),
@@ -15,6 +16,7 @@ function ProjectLayout() {
   const { clientId, projectId } = Route.useParams();
   const { t } = useTranslation();
   const { isAdmin, isClient } = useAppRole();
+  const { entitlements } = useEntitlements();
 
   const projectQuery = useQuery({
     queryKey: ["projects", "detail", projectId],
@@ -32,9 +34,18 @@ function ProjectLayout() {
     { to: "/clients/$clientId/projects/$projectId/feed", label: t("project.tabs.feed") },
     { to: "/clients/$clientId/projects/$projectId/calendar", label: t("project.tabs.calendar") },
     { to: "/clients/$clientId/projects/$projectId/content", label: t("project.tabs.content") },
-    { to: "/clients/$clientId/projects/$projectId/library", label: t("project.tabs.library") },
+    {
+      to: "/clients/$clientId/projects/$projectId/library",
+      label: t("project.tabs.library"),
+      requiresLibrary: true as const,
+    },
     { to: "/clients/$clientId/projects/$projectId/settings", label: t("project.tabs.settings") },
-  ] as const;
+  ].filter((tab) => {
+    if ("requiresLibrary" in tab && tab.requiresLibrary) {
+      return isClient || entitlements.library;
+    }
+    return true;
+  });
 
   return (
     <div

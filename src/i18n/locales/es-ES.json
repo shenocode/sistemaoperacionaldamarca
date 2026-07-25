@@ -29,19 +29,23 @@
     "checkEmail": "Revisa tu correo para confirmar la cuenta.",
     "resetSent": "Enlace de restablecimiento enviado.",
     "reviewInviteHint": "Entra con el correo y la contraseña liberados por el equipo para revisar los contenidos.",
-    "accessDenied": "Contáctanos para pedir acceso a la plataforma y conoce nuestros planes de suscripción.",
-    "accessDeniedCta": "Ir al formulario de contacto",
+    "accessDenied": "Sin acceso a la plataforma. Suscríbete a un plan o contáctanos.",
+    "accessDeniedCta": "Ver planes",
     "requestAccess": "Pedir acceso"
   },
   "accessRelease": {
     "title": "Liberación de accesos",
-    "description": "Crea nuevos gestores o restablece la contraseña de quienes ya tienen acceso.",
+    "description": "Crea gestores, asigna el plan de suscripción y restablece contraseñas.",
     "formTitle": "Nuevo gestor",
     "fullName": "Nombre completo",
     "fullNamePlaceholder": "Nombre del gestor",
     "email": "Correo de acceso",
     "password": "Contraseña",
     "passwordHint": "Mínimo 6 caracteres. Envía el correo y la contraseña al gestor.",
+    "plan": "Plan",
+    "planHint": "Define límites de clientes y recursos liberados.",
+    "planUpdated": "Plan del gestor actualizado.",
+    "noPlan": "Sin plan",
     "submit": "Liberar acceso",
     "listTitle": "Gestores con acceso",
     "empty": "Aún no hay gestores liberados.",
@@ -52,7 +56,16 @@
     "roleGestor": "Gestor",
     "resetPassword": "Restablecer contraseña",
     "newPassword": "Nueva contraseña",
-    "confirmReset": "Restablecer"
+    "confirmReset": "Restablecer",
+    "plans": {
+      "solo": "Solo",
+      "studio": "Studio",
+      "agency": "Agencia",
+      "courtesy": "Cortesía de prueba",
+      "fullAccess": "Acceso total"
+    },
+    "featureLocked": "Disponible a partir del plan Studio.",
+    "featureLockedCourtesy": "No incluido en tu plan."
   },
   "landing": {
     "heroTitle": "Del briefing a la aprobación, sin planillas eternas.",
@@ -117,6 +130,7 @@
     "pricingNote": "Precios sugeridos de lanzamiento. Cobro mensual en reales. El uso de IA se cobra en tu cuenta de OpenAI/Gemini.",
     "pricingPeriod": "/mes",
     "pricingCta": "Suscribirse",
+    "pricingCtaLoading": "Redirigiendo…",
     "pricingPopular": "Más elegido",
     "plans": {
       "solo": {
@@ -158,13 +172,14 @@
       }
     },
     "finalTitle": "Pon tu operación de contenido en el riel correcto.",
-    "finalSubtitle": "Contáctanos, elige un plan y recibe el acceso liberado por nuestro equipo.",
-    "finalCta": "Pedir acceso",
+    "finalSubtitle": "Elige un plan, paga con seguridad en Stripe y recibe el acceso por correo.",
+    "finalCta": "Ver planes",
     "footerTag": "Sistema Operativo de la Marca",
+    "footerWhatsapp": "WhatsApp {{number}}",
     "mockStatus": "Esperando aprobación",
     "mockCaption": "Nueva campaña al aire — tono de marca, CTA y artes alineados.",
-    "contactTitle": "Pide acceso a la plataforma",
-    "contactSubtitle": "Completa el formulario y escríbenos por WhatsApp para conocer los planes de suscripción.",
+    "contactTitle": "Contáctanos",
+    "contactSubtitle": "¿Dudas sobre planes u onboarding? Escríbenos por WhatsApp.",
     "contactName": "Nombre",
     "contactEmail": "Correo",
     "contactWhatsapp": "WhatsApp",
@@ -173,6 +188,15 @@
     "contactMessage": "Mensaje",
     "contactSubmit": "Enviar por WhatsApp",
     "contactWhatsAppBody": "¡Hola! Quisiera pedir acceso a la plataforma SOM y conocer los planes de suscripción.\n\nNombre: {{name}}\nCorreo: {{email}}\nWhatsApp: {{whatsapp}}\n\nMensaje:\n{{message}}"
+  },
+  "subscription": {
+    "successTitle": "Pago confirmado",
+    "successBody": "Tu acceso se está liberando. Revisa el correo usado en el checkout para definir la contraseña (o entra con la cuenta que ya tenías).",
+    "successCta": "Ir al inicio de sesión",
+    "cancelTitle": "Checkout cancelado",
+    "cancelBody": "No se realizó ningún cobro. Puedes elegir un plan de nuevo cuando quieras.",
+    "cancelCta": "Ver planes",
+    "backHome": "Volver al inicio"
   },
   "dashboard": {
     "title": "Panel",
