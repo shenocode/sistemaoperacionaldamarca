@@ -125,7 +125,7 @@
         "desc": "For freelance managers with a few clients.",
         "features": [
           "1 user",
-          "Up to 3 clients",
+          "Up to 1 client",
           "Calendar and approvals",
           "Copy AI with your own API key",
           "Share link"
@@ -137,7 +137,7 @@
         "desc": "For studios and managers with an active roster.",
         "features": [
           "Up to 3 users",
-          "Up to 12 clients",
+          "Up to 3 clients",
           "Everything in Solo",
           "Copy + design AI with your own API keys",
           "Brand briefing and guide",
@@ -150,7 +150,7 @@
         "desc": "For agencies running multiple brands in parallel.",
         "features": [
           "Up to 10 users",
-          "Unlimited clients",
+          "Up to 10 clients (contact us for more)",
           "Everything in Studio",
           "Guided onboarding",
           "Priority support"

@@ -125,7 +125,7 @@
         "desc": "Para gestores freelancers com poucos clientes.",
         "features": [
           "1 usuário",
-          "Até 3 clientes",
+          "Até 1 cliente",
           "Calendário e aprovações",
           "IA de copy com a sua chave API",
           "Link de compartilhamento"
@@ -137,7 +137,7 @@
         "desc": "Para studios e gestores com carteira ativa.",
         "features": [
           "Até 3 usuários",
-          "Até 12 clientes",
+          "Até 3 clientes",
           "Tudo do Solo",
           "IA de copy + design com as suas chaves API",
           "Brand briefing e guia de marca",
@@ -150,7 +150,7 @@
         "desc": "Para agências que operam várias marcas em paralelo.",
         "features": [
           "Até 10 usuários",
-          "Clientes ilimitados",
+          "Até 10 clientes (consulte para mais clientes)",
           "Tudo do Studio",
           "Onboarding guiado",
           "Suporte prioritário"

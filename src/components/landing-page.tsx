@@ -57,37 +57,13 @@ const ASSET_KEYS = [
   "art",
 ] as const;
 
-const ASSET_META = {
-  feed: {
-    Icon: Image,
-    frame: "aspect-square w-full",
-    surface: "from-sky-200 via-sky-100 to-teal-50",
-  },
-  carousel: {
-    Icon: Images,
-    frame: "aspect-[4/5] w-full",
-    surface: "from-violet-200 via-fuchsia-100 to-sky-50",
-  },
-  reels: {
-    Icon: Clapperboard,
-    frame: "mx-auto aspect-[9/16] h-56",
-    surface: "from-fuchsia-200 via-rose-100 to-amber-50",
-  },
-  stories: {
-    Icon: LayoutGrid,
-    frame: "mx-auto aspect-[9/16] h-56",
-    surface: "from-teal-200 via-emerald-100 to-cyan-50",
-  },
-  video: {
-    Icon: Film,
-    frame: "aspect-video w-full",
-    surface: "from-indigo-200 via-sky-100 to-slate-50",
-  },
-  art: {
-    Icon: Palette,
-    frame: "aspect-[5/4] w-full",
-    surface: "from-amber-200 via-orange-100 to-teal-50",
-  },
+const ASSET_ICONS = {
+  feed: Image,
+  carousel: Images,
+  reels: Clapperboard,
+  stories: LayoutGrid,
+  video: Film,
+  art: Palette,
 } as const;
 
 const PLAN_KEYS = ["solo", "studio", "agency"] as const;
@@ -407,32 +383,25 @@ export function LandingPage() {
             <p className="mt-3 max-w-2xl text-base text-neutral-600">
               {t("landing.assetsSubtitle")}
             </p>
-            <ul className="mt-12 grid items-start gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {ASSET_KEYS.map((key) => {
-                const { Icon, frame, surface } = ASSET_META[key];
+                const Icon = ASSET_ICONS[key];
                 return (
-                  <li key={key}>
-                    <div
-                      className={cn(
-                        "relative overflow-hidden rounded-2xl bg-gradient-to-br",
-                        frame,
-                        surface,
-                      )}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Icon
-                          className="h-8 w-8 text-neutral-800/35"
-                          strokeWidth={1.5}
-                          aria-hidden
-                        />
-                      </div>
+                  <li
+                    key={key}
+                    className="flex gap-3 rounded-xl border border-neutral-200/80 bg-white/70 p-3.5"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden />
                     </div>
-                    <h3 className="mt-4 font-display text-lg font-semibold tracking-tight">
-                      {t(`landing.assets.${key}.title`)}
-                    </h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
-                      {t(`landing.assets.${key}.body`)}
-                    </p>
+                    <div className="min-w-0">
+                      <h3 className="font-display text-sm font-semibold tracking-tight">
+                        {t(`landing.assets.${key}.title`)}
+                      </h3>
+                      <p className="mt-1 text-xs leading-relaxed text-neutral-600 sm:text-sm">
+                        {t(`landing.assets.${key}.body`)}
+                      </p>
+                    </div>
                   </li>
                 );
               })}
