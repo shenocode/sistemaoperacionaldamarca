@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -19,8 +19,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAppRole } from "@/hooks/use-app-role";
+import {
+  getClientGestor,
   getClientPlatformLogin,
+  listGestores,
   provisionClientAccess,
+  reassignClientGestor,
   updateClient,
   brandKitFromClient,
   type ClientContactInput,
@@ -80,6 +91,109 @@ export function useClientSettingsDialog() {
   };
 }
 
+function MigrateGestorSection({
+  clientId,
+  currentCreatedBy,
+}: {
+  clientId: string;
+  currentCreatedBy: string | null;
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [selectedGestorId, setSelectedGestorId] = useState(currentCreatedBy ?? "");
+
+  const currentGestorQuery = useQuery({
+    queryKey: ["client-gestor", clientId],
+    queryFn: () => getClientGestor(clientId),
+  });
+
+  const gestoresQuery = useQuery({
+    queryKey: ["gestores"],
+    queryFn: listGestores,
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: (newGestorUserId: string) =>
+      reassignClientGestor({ clientId, newGestorUserId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["client-gestor", clientId] });
+      toast.success(t("clients.migrateGestorSuccess"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const currentGestor = currentGestorQuery.data;
+  const currentLabel = currentGestor
+    ? currentGestor.fullName
+      ? `${currentGestor.fullName} (${currentGestor.email})`
+      : currentGestor.email
+    : t("clients.currentGestorUnknown");
+
+  const gestores = gestoresQuery.data ?? [];
+  const effectiveCurrentId = currentGestor?.userId ?? currentCreatedBy;
+  const canSubmit =
+    Boolean(selectedGestorId) &&
+    selectedGestorId !== effectiveCurrentId &&
+    !reassignMutation.isPending;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <p className="text-sm font-medium">{t("clients.migrateGestor")}</p>
+        <p className="text-xs text-muted-foreground">{t("clients.migrateGestorHint")}</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>{t("clients.currentGestor")}</Label>
+        <p className="text-sm text-muted-foreground">
+          {currentGestorQuery.isLoading ? t("common.loading") : currentLabel}
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="settings-migrate-gestor">{t("clients.newGestor")}</Label>
+        <Select
+          value={selectedGestorId || undefined}
+          onValueChange={setSelectedGestorId}
+          disabled={gestoresQuery.isLoading || reassignMutation.isPending}
+        >
+          <SelectTrigger id="settings-migrate-gestor">
+            <SelectValue placeholder={t("clients.newGestorPlaceholder")} />
+          </SelectTrigger>
+          <SelectContent>
+            {gestores.map((gestor) => (
+              <SelectItem key={gestor.userId} value={gestor.userId}>
+                {gestor.fullName
+                  ? `${gestor.fullName} (${gestor.email})`
+                  : gestor.email}
+                {gestor.isMaster ? ` — ${t("accessRelease.roleAdministrator")}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={!canSubmit}
+        onClick={() => {
+          if (!selectedGestorId) return;
+          if (selectedGestorId === effectiveCurrentId) {
+            toast.message(t("clients.migrateGestorSame"));
+            return;
+          }
+          reassignMutation.mutate(selectedGestorId);
+        }}
+      >
+        {t("clients.migrateGestorSubmit")}
+      </Button>
+    </div>
+  );
+}
+
 export function ClientSettingsDialog({
   settingsClient,
   settingsForm,
@@ -92,6 +206,7 @@ export function ClientSettingsDialog({
 }: ReturnType<typeof useClientSettingsDialog>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { isAdminMaster } = useAppRole();
 
   const updateMutation = useMutation({
     mutationFn: async ({
@@ -207,6 +322,17 @@ export function ClientSettingsDialog({
               <p className="text-xs text-muted-foreground">{t("clients.loginPasswordHint")}</p>
             </div>
           </div>
+
+          {isAdminMaster && settingsClient ? (
+            <>
+              <Separator />
+              <MigrateGestorSection
+                key={settingsClient.id}
+                clientId={settingsClient.id}
+                currentCreatedBy={settingsClient.created_by}
+              />
+            </>
+          ) : null}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={closeSettings}>

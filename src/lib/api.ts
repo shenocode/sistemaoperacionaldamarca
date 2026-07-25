@@ -520,6 +520,12 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 
   const entitlements = await getMyEntitlements();
   if (!entitlements.isMaster) {
+    if (!entitlements.isTeamOwner) {
+      throw new Error(
+        "Apenas o gestor dono do plano pode criar clientes. Peça ao gestor para atribuir um cliente à sua conta.",
+      );
+    }
+
     const { count, error: countError } = await supabase
       .from("clients")
       .select("id", { count: "exact", head: true })
@@ -706,9 +712,63 @@ export async function setGestorPlan(input: {
   return setGestorPlanFn({ data: input });
 }
 
+export async function getClientGestor(clientId: string) {
+  const { getClientGestorFn } = await import("./reassign-client-gestor.functions");
+  return getClientGestorFn({ data: { clientId } });
+}
+
+export async function reassignClientGestor(input: {
+  clientId: string;
+  newGestorUserId: string;
+}) {
+  const { reassignClientGestorFn } = await import("./reassign-client-gestor.functions");
+  return reassignClientGestorFn({ data: input });
+}
+
 export async function getMyEntitlements() {
   const { getMyEntitlementsFn } = await import("./provision-gestor-access.functions");
   return getMyEntitlementsFn();
+}
+
+export async function listMyTeam() {
+  const { listMyTeamFn } = await import("./team-access.functions");
+  return listMyTeamFn();
+}
+
+export async function provisionTeamMember(input: {
+  email: string;
+  password: string;
+  fullName?: string;
+}) {
+  const { provisionTeamMemberFn } = await import("./team-access.functions");
+  return provisionTeamMemberFn({
+    data: {
+      email: input.email,
+      password: input.password,
+      fullName: input.fullName,
+    },
+  });
+}
+
+export async function removeTeamMember(memberUserId: string) {
+  const { removeTeamMemberFn } = await import("./team-access.functions");
+  return removeTeamMemberFn({ data: { memberUserId } });
+}
+
+export async function setTeamMemberClients(input: {
+  memberUserId: string;
+  clientIds: string[];
+}) {
+  const { setTeamMemberClientsFn } = await import("./team-access.functions");
+  return setTeamMemberClientsFn({ data: input });
+}
+
+export async function resetTeamMemberPassword(input: {
+  memberUserId: string;
+  password: string;
+}) {
+  const { resetTeamMemberPasswordFn } = await import("./team-access.functions");
+  return resetTeamMemberPasswordFn({ data: input });
 }
 
 export async function updateOwnPassword(password: string) {
@@ -2348,6 +2408,70 @@ export async function startSubscriptionCheckout(
   if (!payload?.url) throw new Error("Não foi possível iniciar o checkout.");
 
   window.location.assign(payload.url);
+}
+
+export type ContactLeadIntent = "trial" | "human";
+
+export type ContactLeadNiche = "agency" | "social_media" | "brand_owner";
+
+export type ContactLead = {
+  id: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  whatsapp: string;
+  intent: ContactLeadIntent;
+  niche: ContactLeadNiche;
+  locale: string | null;
+  source: string;
+};
+
+export async function submitContactLead(input: {
+  name: string;
+  email: string;
+  whatsapp: string;
+  intent: ContactLeadIntent;
+  niche: ContactLeadNiche;
+  locale?: string;
+}): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("submit-contact-lead", {
+    body: {
+      name: input.name.trim(),
+      email: input.email.trim(),
+      whatsapp: input.whatsapp.replace(/\D/g, ""),
+      intent: input.intent,
+      niche: input.niche,
+      locale: input.locale,
+      source: "landing",
+    },
+  });
+
+  const payload = data as { ok?: boolean; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+  if (!payload?.ok) throw new Error("Não foi possível salvar o contato.");
+}
+
+export async function listContactLeads(): Promise<ContactLead[]> {
+  const { data, error } = await supabase
+    .from("contact_leads")
+    .select("id, created_at, name, email, whatsapp, intent, niche, locale, source")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    name: row.name,
+    email: row.email,
+    whatsapp: row.whatsapp,
+    intent: row.intent as ContactLeadIntent,
+    niche: row.niche as ContactLeadNiche,
+    locale: row.locale,
+    source: row.source,
+  }));
 }
 
 export type ClientHomeProject = {

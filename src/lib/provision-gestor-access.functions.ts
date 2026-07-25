@@ -343,6 +343,32 @@ export const getMyEntitlementsFn = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const active = pickActiveSubscription((rows ?? []) as SubscriptionRow[]);
-    const plan = active && isAssignablePlan(active.plan) ? active.plan : null;
-    return entitlementsForPlan(plan);
+    if (active && isAssignablePlan(active.plan)) {
+      return entitlementsForPlan(active.plan, { isTeamOwner: true });
+    }
+
+    // Team collaborator: inherit features from the plan owner.
+    const { data: membership, error: teamError } = await supabaseAdmin
+      .from("team_memberships")
+      .select("owner_user_id")
+      .eq("member_user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (teamError) throw new Error(teamError.message);
+
+    if (membership?.owner_user_id) {
+      const { data: ownerRows, error: ownerError } = await supabaseAdmin
+        .from("subscriptions")
+        .select("user_id, plan, status, source, updated_at")
+        .eq("user_id", membership.owner_user_id);
+      if (ownerError) throw new Error(ownerError.message);
+
+      const ownerActive = pickActiveSubscription((ownerRows ?? []) as SubscriptionRow[]);
+      const ownerPlan =
+        ownerActive && isAssignablePlan(ownerActive.plan) ? ownerActive.plan : null;
+      return entitlementsForPlan(ownerPlan, { asCollaborator: true });
+    }
+
+    return entitlementsForPlan(null);
   });

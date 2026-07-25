@@ -17,7 +17,9 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedAccessRouteImport } from './routes/_authenticated/access'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
+import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AssinaturaCanceladaRouteImport } from './routes/assinatura.cancelada'
 import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura.sucesso'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
@@ -73,9 +75,19 @@ const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AssinaturaCanceladaRoute = AssinaturaCanceladaRouteImport.update({
@@ -184,7 +196,9 @@ export interface FileRoutesByFullPath {
   '/access': typeof AuthenticatedAccessRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/home': typeof AuthenticatedHomeRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
@@ -209,7 +223,9 @@ export interface FileRoutesByTo {
   '/access': typeof AuthenticatedAccessRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/home': typeof AuthenticatedHomeRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
@@ -234,7 +250,9 @@ export interface FileRoutesById {
   '/_authenticated/access': typeof AuthenticatedAccessRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
+  '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
@@ -261,7 +279,9 @@ export interface FileRouteTypes {
     | '/access'
     | '/dashboard'
     | '/home'
+    | '/leads'
     | '/settings'
+    | '/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
     | '/share/$clientId/$projectId'
@@ -286,7 +306,9 @@ export interface FileRouteTypes {
     | '/access'
     | '/dashboard'
     | '/home'
+    | '/leads'
     | '/settings'
+    | '/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
     | '/share/$clientId/$projectId'
@@ -310,7 +332,9 @@ export interface FileRouteTypes {
     | '/_authenticated/access'
     | '/_authenticated/dashboard'
     | '/_authenticated/home'
+    | '/_authenticated/leads'
     | '/_authenticated/settings'
+    | '/_authenticated/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
     | '/share/$clientId/$projectId'
@@ -397,11 +421,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/leads': {
+      id: '/_authenticated/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof AuthenticatedLeadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/assinatura/cancelada': {
@@ -564,7 +602,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccessRoute: typeof AuthenticatedAccessRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
+  AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedClientsClientIdBriefingRoute: typeof AuthenticatedClientsClientIdBriefingRoute
   AuthenticatedClientsClientIdIndexRoute: typeof AuthenticatedClientsClientIdIndexRoute
@@ -575,7 +615,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccessRoute: AuthenticatedAccessRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
+  AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedClientsClientIdBriefingRoute:
     AuthenticatedClientsClientIdBriefingRoute,

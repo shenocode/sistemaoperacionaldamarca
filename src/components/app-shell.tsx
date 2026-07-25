@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import {
   FileText,
   FolderKanban,
+  Inbox,
   KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
   Settings,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +18,7 @@ import { clearAuthNext, getProject } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { LanguageSwitcher } from "./language-switcher";
 import { useAppRole } from "@/hooks/use-app-role";
+import { useEntitlements } from "@/hooks/use-entitlements";
 import { Button } from "./ui/button";
 import {
   Sheet,
@@ -29,6 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const router = useRouter();
   const { isAdmin, isAdminMaster, isClient, loading } = useAppRole();
+  const { entitlements } = useEntitlements();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const params = useParams({ strict: false }) as {
     clientId?: string;
@@ -88,6 +92,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Users className="h-4 w-4" /> {t("nav.clients")}
           </Link>
+          {entitlements.canManageTeam ? (
+            <Link
+              to="/team"
+              onClick={closeMobileNav}
+              className={navClass}
+              activeProps={{ className: navActiveClass }}
+            >
+              <UserPlus className="h-4 w-4" /> {t("nav.team")}
+            </Link>
+          ) : null}
           <Link
             to="/settings"
             onClick={closeMobileNav}
@@ -97,14 +111,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Settings className="h-4 w-4" /> {t("nav.aiSettings")}
           </Link>
           {isAdminMaster ? (
-            <Link
-              to="/access"
-              onClick={closeMobileNav}
-              className={navClass}
-              activeProps={{ className: navActiveClass }}
-            >
-              <KeyRound className="h-4 w-4" /> {t("nav.accessRelease")}
-            </Link>
+            <>
+              <Link
+                to="/access"
+                onClick={closeMobileNav}
+                className={navClass}
+                activeProps={{ className: navActiveClass }}
+              >
+                <KeyRound className="h-4 w-4" /> {t("nav.accessRelease")}
+              </Link>
+              <Link
+                to="/leads"
+                onClick={closeMobileNav}
+                className={navClass}
+                activeProps={{ className: navActiveClass }}
+              >
+                <Inbox className="h-4 w-4" /> {t("nav.leads")}
+              </Link>
+            </>
           ) : null}
         </>
       ) : (

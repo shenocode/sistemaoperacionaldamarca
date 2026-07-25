@@ -25,9 +25,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { buildWhatsAppNotifyUrl, startSubscriptionCheckout, type SubscriptionPlanKey } from "@/lib/api";
+import {
+  buildWhatsAppNotifyUrl,
+  startSubscriptionCheckout,
+  submitContactLead,
+  type ContactLeadIntent,
+  type ContactLeadNiche,
+  type SubscriptionPlanKey,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -162,7 +169,9 @@ function ContactForm() {
     defaultDialByLanguage(i18n.language),
   );
   const [whatsapp, setWhatsapp] = useState("");
-  const [message, setMessage] = useState("");
+  const [niche, setNiche] = useState<ContactLeadNiche | "">("");
+  const [intent, setIntent] = useState<ContactLeadIntent | "">("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (whatsapp.trim()) return;
@@ -171,19 +180,57 @@ function ContactForm() {
 
   const selectedCountry = findCountry(countryDial);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const nicheLabel = (value: ContactLeadNiche) => {
+    if (value === "agency") return t("landing.contactNicheAgency");
+    if (value === "social_media") return t("landing.contactNicheSocialMedia");
+    return t("landing.contactNicheBrandOwner");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!niche) {
+      toast.error(t("landing.contactNicheRequired"));
+      return;
+    }
+    if (!intent) {
+      toast.error(t("landing.contactIntentRequired"));
+      return;
+    }
     const localDigits = whatsapp.replace(/\D/g, "");
     if (localDigits.length < 6) return;
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
     const fullWhatsapp = `${countryDial}${localDigits}`;
-    const body = t("landing.contactWhatsAppBody", {
-      name: name.trim(),
-      email: email.trim(),
+    const bodyKey =
+      intent === "trial"
+        ? "landing.contactWhatsAppBodyTrial"
+        : "landing.contactWhatsAppBodyHuman";
+    const body = t(bodyKey, {
+      name: trimmedName,
+      email: trimmedEmail,
       whatsapp: fullWhatsapp,
-      message: message.trim(),
+      niche: nicheLabel(niche),
     });
     const url = buildWhatsAppNotifyUrl(CONTACT_WHATSAPP, body);
     if (!url) return;
+
+    setSubmitting(true);
+    try {
+      await submitContactLead({
+        name: trimmedName,
+        email: trimmedEmail,
+        whatsapp: fullWhatsapp,
+        intent,
+        niche,
+        locale: i18n.language,
+      });
+    } catch {
+      toast.error(t("landing.contactLeadSaveFailed"));
+    } finally {
+      setSubmitting(false);
+    }
+
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
@@ -247,18 +294,76 @@ function ContactForm() {
         </div>
         <p className="text-xs text-muted-foreground">{t("landing.contactWhatsappHint")}</p>
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="contact-message">{t("landing.contactMessage")}</Label>
-        <Textarea
-          id="contact-message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-medium leading-none">
+          {t("landing.contactNicheLabel")}
+        </legend>
+        <RadioGroup
+          value={niche}
+          onValueChange={(value) => setNiche(value as ContactLeadNiche)}
+          className="gap-3"
           required
-          rows={4}
-          className="bg-white/80"
-        />
-      </div>
-      <Button type="submit" size="lg" className="w-full sm:w-auto">
+        >
+          {(
+            [
+              { value: "agency" as const, labelKey: "landing.contactNicheAgency" },
+              { value: "social_media" as const, labelKey: "landing.contactNicheSocialMedia" },
+              { value: "brand_owner" as const, labelKey: "landing.contactNicheBrandOwner" },
+            ] as const
+          ).map((option) => (
+            <label
+              key={option.value}
+              htmlFor={`contact-niche-${option.value}`}
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-md border border-neutral-900/10 bg-white/80 px-3 py-3 text-sm transition-colors",
+                niche === option.value && "border-neutral-900/40 bg-white",
+              )}
+            >
+              <RadioGroupItem
+                id={`contact-niche-${option.value}`}
+                value={option.value}
+                className="mt-0.5"
+              />
+              <span>{t(option.labelKey)}</span>
+            </label>
+          ))}
+        </RadioGroup>
+      </fieldset>
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-medium leading-none">
+          {t("landing.contactIntentLabel")}
+        </legend>
+        <RadioGroup
+          value={intent}
+          onValueChange={(value) => setIntent(value as ContactLeadIntent)}
+          className="gap-3"
+          required
+        >
+          {(
+            [
+              { value: "trial" as const, labelKey: "landing.contactIntentTrial" },
+              { value: "human" as const, labelKey: "landing.contactIntentHuman" },
+            ] as const
+          ).map((option) => (
+            <label
+              key={option.value}
+              htmlFor={`contact-intent-${option.value}`}
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-md border border-neutral-900/10 bg-white/80 px-3 py-3 text-sm transition-colors",
+                intent === option.value && "border-neutral-900/40 bg-white",
+              )}
+            >
+              <RadioGroupItem
+                id={`contact-intent-${option.value}`}
+                value={option.value}
+                className="mt-0.5"
+              />
+              <span>{t(option.labelKey)}</span>
+            </label>
+          ))}
+        </RadioGroup>
+      </fieldset>
+      <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={submitting}>
         {t("landing.contactSubmit")}
       </Button>
     </form>

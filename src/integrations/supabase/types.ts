@@ -276,6 +276,42 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          intent: Database["public"]["Enums"]["contact_lead_intent"]
+          locale: string | null
+          name: string
+          niche: Database["public"]["Enums"]["contact_lead_niche"]
+          source: string
+          whatsapp: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          intent: Database["public"]["Enums"]["contact_lead_intent"]
+          locale?: string | null
+          name: string
+          niche: Database["public"]["Enums"]["contact_lead_niche"]
+          source?: string
+          whatsapp: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          intent?: Database["public"]["Enums"]["contact_lead_intent"]
+          locale?: string | null
+          name?: string
+          niche?: Database["public"]["Enums"]["contact_lead_niche"]
+          source?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
       content_comments: {
         Row: {
           body: string
@@ -704,6 +740,27 @@ export type Database = {
         }
         Relationships: []
       }
+      team_memberships: {
+        Row: {
+          created_at: string
+          id: string
+          member_user_id: string
+          owner_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_user_id: string
+          owner_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_user_id?: string
+          owner_user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -767,8 +824,11 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_admin_master: { Args: never; Returns: boolean }
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
+      is_team_owner: { Args: never; Returns: boolean }
+      get_team_owner_id: { Args: never; Returns: string }
       library_storage_project_id: {
         Args: { object_name: string }
         Returns: string
@@ -863,6 +923,8 @@ export type Database = {
         | "comment_added"
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
+      contact_lead_intent: "trial" | "human"
+      contact_lead_niche: "agency" | "social_media" | "brand_owner"
       subscription_plan: "solo" | "studio" | "agency" | "courtesy"
       client_member_role: "owner" | "member"
       content_format:
@@ -1029,6 +1091,8 @@ export const Constants = {
       ],
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
+      contact_lead_intent: ["trial", "human"],
+      contact_lead_niche: ["agency", "social_media", "brand_owner"],
       subscription_plan: ["solo", "studio", "agency", "courtesy"],
       client_member_role: ["owner", "member"],
       content_format: [

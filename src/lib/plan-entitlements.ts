@@ -11,17 +11,24 @@ export type PlanEntitlements = {
   plan: AssignablePlan | null;
   /** null = unlimited (admin master or courtesy testing). */
   maxClients: number | null;
+  /** null = unlimited. Includes the plan owner seat. */
+  maxUsers: number | null;
   brandBriefing: boolean;
   library: boolean;
   presets: boolean;
   designAi: boolean;
   /** True when caller is platform admin master (full access). */
   isMaster: boolean;
+  /** True when caller owns the subscription (not a team collaborator). */
+  isTeamOwner: boolean;
+  /** True when caller may invite/manage team members. */
+  canManageTeam: boolean;
 };
 
-const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMaster">> = {
+const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMaster" | "isTeamOwner" | "canManageTeam">> = {
   solo: {
     maxClients: 1,
+    maxUsers: 1,
     brandBriefing: false,
     library: false,
     presets: false,
@@ -29,6 +36,7 @@ const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMa
   },
   studio: {
     maxClients: 3,
+    maxUsers: 3,
     brandBriefing: true,
     library: true,
     presets: true,
@@ -36,6 +44,7 @@ const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMa
   },
   agency: {
     maxClients: 10,
+    maxUsers: 10,
     brandBriefing: true,
     library: true,
     presets: true,
@@ -43,6 +52,7 @@ const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMa
   },
   courtesy: {
     maxClients: null,
+    maxUsers: null,
     brandBriefing: true,
     library: true,
     presets: true,
@@ -57,19 +67,37 @@ export function isAssignablePlan(value: unknown): value is AssignablePlan {
   );
 }
 
+function canManageTeamFor(
+  maxUsers: number | null,
+  opts: { isMaster?: boolean; isTeamOwner?: boolean },
+): boolean {
+  if (opts.isMaster) return true;
+  if (!opts.isTeamOwner) return false;
+  if (maxUsers === null) return true;
+  return maxUsers > 1;
+}
+
 export function entitlementsForPlan(
   plan: AssignablePlan | null | undefined,
-  opts?: { isMaster?: boolean },
+  opts?: {
+    isMaster?: boolean;
+    isTeamOwner?: boolean;
+    /** When true, collaborator inherits features but cannot create clients. */
+    asCollaborator?: boolean;
+  },
 ): PlanEntitlements {
   if (opts?.isMaster) {
     return {
       plan: plan ?? null,
       maxClients: null,
+      maxUsers: null,
       brandBriefing: true,
       library: true,
       presets: true,
       designAi: true,
       isMaster: true,
+      isTeamOwner: true,
+      canManageTeam: true,
     };
   }
 
@@ -77,18 +105,28 @@ export function entitlementsForPlan(
     return {
       plan: null,
       maxClients: 0,
+      maxUsers: 0,
       brandBriefing: false,
       library: false,
       presets: false,
       designAi: false,
       isMaster: false,
+      isTeamOwner: false,
+      canManageTeam: false,
     };
   }
 
+  const base = ENTITLEMENTS[plan];
+  const isTeamOwner = opts?.asCollaborator ? false : (opts?.isTeamOwner ?? true);
+  const maxClients = opts?.asCollaborator ? 0 : base.maxClients;
+
   return {
     plan,
-    ...ENTITLEMENTS[plan],
+    ...base,
+    maxClients,
     isMaster: false,
+    isTeamOwner,
+    canManageTeam: canManageTeamFor(base.maxUsers, { isTeamOwner }),
   };
 }
 
@@ -97,6 +135,17 @@ export function canCreateAnotherClient(
   currentClientCount: number,
 ): boolean {
   if (entitlements.isMaster) return true;
+  if (!entitlements.isTeamOwner) return false;
   if (entitlements.maxClients === null) return true;
   return currentClientCount < entitlements.maxClients;
+}
+
+export function canInviteAnotherTeamMember(
+  entitlements: PlanEntitlements,
+  currentSeatCount: number,
+): boolean {
+  if (!entitlements.canManageTeam) return false;
+  if (entitlements.isMaster) return true;
+  if (entitlements.maxUsers === null) return true;
+  return currentSeatCount < entitlements.maxUsers;
 }

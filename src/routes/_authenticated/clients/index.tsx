@@ -28,6 +28,7 @@ import {
   resolvePostLoginPath,
   type ClientContactInput,
 } from "@/lib/api";
+import { useEntitlements } from "@/hooks/use-entitlements";
 
 const emptyContactForm: ClientContactInput = {
   name: "",
@@ -65,6 +66,8 @@ export const Route = createFileRoute("/_authenticated/clients/")({
 function ClientsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { entitlements } = useEntitlements();
+  const canCreateClients = entitlements.isMaster || entitlements.isTeamOwner;
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<ClientContactInput>(emptyContactForm);
@@ -96,10 +99,12 @@ function ClientsPage() {
       <PageHeader
         title={t("clients.title")}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t("clients.new")}
-          </Button>
+          canCreateClients ? (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t("clients.new")}
+            </Button>
+          ) : undefined
         }
       />
       <div className="relative max-w-sm">
