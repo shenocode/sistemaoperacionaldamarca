@@ -16,33 +16,33 @@ export type Database = {
     Tables: {
       activity_events: {
         Row: {
+          i18n: Json
           actor_id: string | null
           client_id: string | null
           content_id: string | null
           created_at: string
-          i18n: Json
           id: string
           project_id: string | null
           summary: string
           type: Database["public"]["Enums"]["activity_type"]
         }
         Insert: {
+          i18n?: Json
           actor_id?: string | null
           client_id?: string | null
           content_id?: string | null
           created_at?: string
-          i18n?: Json
           id?: string
           project_id?: string | null
           summary: string
           type: Database["public"]["Enums"]["activity_type"]
         }
         Update: {
+          i18n?: Json
           actor_id?: string | null
           client_id?: string | null
           content_id?: string | null
           created_at?: string
-          i18n?: Json
           id?: string
           project_id?: string | null
           summary?: string
@@ -104,39 +104,39 @@ export type Database = {
       }
       brand_briefings: {
         Row: {
+          i18n: Json
           answers: Json
           client_id: string
           completed_at: string | null
           created_at: string
           guide: Json | null
           guide_markdown: string | null
-          i18n: Json
           id: string
           status: Database["public"]["Enums"]["brand_briefing_status"]
           template: Json
           updated_at: string
         }
         Insert: {
+          i18n?: Json
           answers?: Json
           client_id: string
           completed_at?: string | null
           created_at?: string
           guide?: Json | null
           guide_markdown?: string | null
-          i18n?: Json
           id?: string
           status?: Database["public"]["Enums"]["brand_briefing_status"]
           template?: Json
           updated_at?: string
         }
         Update: {
+          i18n?: Json
           answers?: Json
           client_id?: string
           completed_at?: string | null
           created_at?: string
           guide?: Json | null
           guide_markdown?: string | null
-          i18n?: Json
           id?: string
           status?: Database["public"]["Enums"]["brand_briefing_status"]
           template?: Json
@@ -154,8 +154,8 @@ export type Database = {
       }
       calendar_blocks: {
         Row: {
-          created_at: string
           i18n: Json
+          created_at: string
           id: string
           project_id: string
           sort_order: number
@@ -163,8 +163,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          created_at?: string
           i18n?: Json
+          created_at?: string
           id?: string
           project_id: string
           sort_order?: number
@@ -172,8 +172,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          created_at?: string
           i18n?: Json
+          created_at?: string
           id?: string
           project_id?: string
           sort_order?: number
@@ -224,13 +224,13 @@ export type Database = {
       }
       clients: {
         Row: {
+          i18n: Json
           access_token: string
           brand_colors: Json
           brand_fonts: Json
           created_at: string
           created_by: string | null
           email: string | null
-          i18n: Json
           id: string
           instagram: string | null
           logo_url: string | null
@@ -241,13 +241,13 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          i18n?: Json
           access_token?: string
           brand_colors?: Json
           brand_fonts?: Json
           created_at?: string
           created_by?: string | null
           email?: string | null
-          i18n?: Json
           id?: string
           instagram?: string | null
           logo_url?: string | null
@@ -258,13 +258,13 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          i18n?: Json
           access_token?: string
           brand_colors?: Json
           brand_fonts?: Json
           created_at?: string
           created_by?: string | null
           email?: string | null
-          i18n?: Json
           id?: string
           instagram?: string | null
           logo_url?: string | null
@@ -278,28 +278,28 @@ export type Database = {
       }
       content_comments: {
         Row: {
+          i18n: Json
           body: string
           content_id: string
           created_at: string
-          i18n: Json
           id: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          i18n?: Json
           body: string
           content_id: string
           created_at?: string
-          i18n?: Json
           id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          i18n?: Json
           body?: string
           content_id?: string
           created_at?: string
-          i18n?: Json
           id?: string
           updated_at?: string
           user_id?: string
@@ -323,6 +323,7 @@ export type Database = {
       }
       content_items: {
         Row: {
+          i18n: Json
           calendar_block_id: string | null
           caption: string
           created_at: string
@@ -331,7 +332,6 @@ export type Database = {
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
-          i18n: Json
           id: string
           locucao: string
           media_url: string | null
@@ -346,6 +346,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          i18n?: Json
           calendar_block_id?: string | null
           caption?: string
           created_at?: string
@@ -354,7 +355,6 @@ export type Database = {
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
-          i18n?: Json
           id?: string
           locucao?: string
           media_url?: string | null
@@ -369,6 +369,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          i18n?: Json
           calendar_block_id?: string | null
           caption?: string
           created_at?: string
@@ -377,7 +378,6 @@ export type Database = {
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
-          i18n?: Json
           id?: string
           locucao?: string
           media_url?: string | null
@@ -410,6 +410,7 @@ export type Database = {
       }
       content_versions: {
         Row: {
+          i18n: Json
           caption: string
           change_note: string | null
           content_id: string
@@ -418,7 +419,6 @@ export type Database = {
           cta: string
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
-          i18n: Json
           id: string
           locucao: string
           media_url: string | null
@@ -427,6 +427,7 @@ export type Database = {
           version_number: number
         }
         Insert: {
+          i18n?: Json
           caption?: string
           change_note?: string | null
           content_id: string
@@ -435,7 +436,6 @@ export type Database = {
           cta?: string
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
-          i18n?: Json
           id?: string
           locucao?: string
           media_url?: string | null
@@ -444,6 +444,7 @@ export type Database = {
           version_number: number
         }
         Update: {
+          i18n?: Json
           caption?: string
           change_note?: string | null
           content_id?: string
@@ -452,7 +453,6 @@ export type Database = {
           cta?: string
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
-          i18n?: Json
           id?: string
           locucao?: string
           media_url?: string | null
@@ -517,15 +517,45 @@ export type Database = {
           },
         ]
       }
+      admin_ai_credentials: {
+        Row: {
+          created_at: string
+          gemini_key_ciphertext: string | null
+          gemini_key_last4: string | null
+          openai_key_ciphertext: string | null
+          openai_key_last4: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gemini_key_ciphertext?: string | null
+          gemini_key_last4?: string | null
+          openai_key_ciphertext?: string | null
+          openai_key_last4?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gemini_key_ciphertext?: string | null
+          gemini_key_last4?: string | null
+          openai_key_ciphertext?: string | null
+          openai_key_last4?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       library_assets: {
         Row: {
+          i18n: Json
           category: Database["public"]["Enums"]["library_category"]
           created_at: string
           created_by: string | null
           file_name: string | null
           file_size: number | null
           file_url: string | null
-          i18n: Json
           id: string
           mime_type: string | null
           name: string
@@ -534,13 +564,13 @@ export type Database = {
           storage_path: string | null
         }
         Insert: {
+          i18n?: Json
           category?: Database["public"]["Enums"]["library_category"]
           created_at?: string
           created_by?: string | null
           file_name?: string | null
           file_size?: number | null
           file_url?: string | null
-          i18n?: Json
           id?: string
           mime_type?: string | null
           name: string
@@ -549,13 +579,13 @@ export type Database = {
           storage_path?: string | null
         }
         Update: {
+          i18n?: Json
           category?: Database["public"]["Enums"]["library_category"]
           created_at?: string
           created_by?: string | null
           file_name?: string | null
           file_size?: number | null
           file_url?: string | null
-          i18n?: Json
           id?: string
           mime_type?: string | null
           name?: string
@@ -575,28 +605,28 @@ export type Database = {
       }
       profiles: {
         Row: {
+          i18n: Json
           avatar_url: string | null
           created_at: string
           full_name: string | null
-          i18n: Json
           id: string
           locale: string
           updated_at: string
         }
         Insert: {
+          i18n?: Json
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
-          i18n?: Json
           id: string
           locale?: string
           updated_at?: string
         }
         Update: {
+          i18n?: Json
           avatar_url?: string | null
           created_at?: string
           full_name?: string | null
-          i18n?: Json
           id?: string
           locale?: string
           updated_at?: string
@@ -605,13 +635,13 @@ export type Database = {
       }
       projects: {
         Row: {
+          i18n: Json
           client_id: string
           created_at: string
           created_by: string | null
           cta_presets: string[]
           description: string | null
           hashtag_presets: string[]
-          i18n: Json
           id: string
           name: string
           status: string
@@ -619,13 +649,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          i18n?: Json
           client_id: string
           created_at?: string
           created_by?: string | null
           cta_presets?: string[]
           description?: string | null
           hashtag_presets?: string[]
-          i18n?: Json
           id?: string
           name: string
           status?: string
@@ -633,13 +663,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          i18n?: Json
           client_id?: string
           created_at?: string
           created_by?: string | null
           cta_presets?: string[]
           description?: string | null
           hashtag_presets?: string[]
-          i18n?: Json
           id?: string
           name?: string
           status?: string
@@ -719,6 +749,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_admin_master: { Args: never; Returns: boolean }
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
       library_storage_project_id: {
@@ -742,7 +773,6 @@ export type Database = {
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
-          i18n: Json
           id: string
           locucao: string
           media_url: string | null
@@ -783,7 +813,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
-          i18n: Json
           id: string
           instagram: string | null
           logo_url: string | null
