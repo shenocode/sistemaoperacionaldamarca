@@ -23,6 +23,7 @@ export const Route = createFileRoute("/")({
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "preload", as: "style", href: FONT_STYLESHEET },
       { rel: "stylesheet", href: FONT_STYLESHEET },
       { rel: "canonical", href: "https://sistemaoperacionaldamarca.lovable.app/" },
     ],

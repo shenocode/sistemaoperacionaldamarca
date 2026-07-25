@@ -100,7 +100,7 @@ function ProductMockup({
               <p className="font-display text-2xl font-semibold leading-tight text-teal-950/90">
                 {brandName}
               </p>
-              <p className="max-w-[14ch] text-sm leading-snug text-teal-950/70">{caption}</p>
+              <p className="max-w-[14ch] text-sm leading-snug text-teal-950/85">{caption}</p>
             </div>
           </div>
           <p className="mt-3 line-clamp-2 px-1 text-xs leading-relaxed text-neutral-600">
@@ -289,7 +289,7 @@ export function LandingPage() {
             <p className="landing-rise font-display text-5xl font-semibold tracking-tight text-neutral-900 sm:text-6xl lg:text-7xl">
               {t("app.name")}
             </p>
-            <p className="landing-rise landing-rise-delay-1 mt-2 font-display text-base font-medium tracking-wide text-neutral-500 sm:text-lg">
+            <p className="landing-rise landing-rise-delay-1 mt-2 font-display text-base font-medium tracking-wide text-neutral-600 sm:text-lg">
               {t("app.tagline")}
             </p>
             <h1 className="landing-rise landing-rise-delay-2 mt-5 max-w-xl font-display text-2xl font-medium leading-snug tracking-tight text-neutral-800 sm:text-3xl">
@@ -426,7 +426,7 @@ export function LandingPage() {
                     <span
                       className={cn(
                         "ml-1 text-sm font-normal",
-                        popular ? "text-primary-foreground/75" : "text-neutral-500",
+                        popular ? "text-primary-foreground/90" : "text-neutral-600",
                       )}
                     >
                       {t("landing.pricingPeriod")}
@@ -463,7 +463,7 @@ export function LandingPage() {
               );
             })}
           </div>
-          <p className="mt-6 text-center text-xs text-neutral-500">{t("landing.pricingNote")}</p>
+          <p className="mt-6 text-center text-xs text-neutral-600">{t("landing.pricingNote")}</p>
         </section>
 
         {/* Contact */}
@@ -486,7 +486,7 @@ export function LandingPage() {
               <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
                 {t("landing.finalTitle")}
               </h2>
-              <p className="mt-3 text-base text-white/70">{t("landing.finalSubtitle")}</p>
+              <p className="mt-3 text-base text-white/90">{t("landing.finalSubtitle")}</p>
             </div>
             <Button
               asChild
@@ -502,7 +502,7 @@ export function LandingPage() {
       <footer className="border-t border-neutral-900/8 bg-white/60 px-6 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
           <p className="font-display text-lg font-semibold">{t("app.name")}</p>
-          <p className="text-sm text-neutral-500">{t("landing.footerTag")}</p>
+          <p className="text-sm text-neutral-600">{t("landing.footerTag")}</p>
         </div>
       </footer>
     </div>
