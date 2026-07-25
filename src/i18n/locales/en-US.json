@@ -63,6 +63,7 @@
     "goToApp": "Go to app",
     "navFeatures": "Product",
     "navHow": "How it works",
+    "navAssets": "Assets",
     "navPricing": "Pricing",
     "navContact": "Contact",
     "problemTitle": "Production stalls at approval.",
@@ -72,6 +73,34 @@
       "1": { "title": "Define the brand", "body": "AI-guided briefing and visual kit (colors, fonts, voice)." },
       "2": { "title": "Produce faster", "body": "Copy, scripts, and art aligned to the project and calendar." },
       "3": { "title": "Approve in preview", "body": "Clients comment and approve in an Instagram-style feed, with version history." }
+    },
+    "assetsTitle": "Every format you already produce — in one workflow.",
+    "assetsSubtitle": "From static posts to recorded video: organize, review, and approve each asset with your client.",
+    "assets": {
+      "feed": {
+        "title": "Feed posts",
+        "body": "Static 1:1 or 4:5 art for the Instagram grid."
+      },
+      "carousel": {
+        "title": "Carousels",
+        "body": "Sequences with per-slide scripts and a navigable preview."
+      },
+      "reels": {
+        "title": "Reels",
+        "body": "Vertical videos with caption, CTA, and approval status."
+      },
+      "stories": {
+        "title": "Stories",
+        "body": "Ephemeral pieces aligned to the campaign and calendar."
+      },
+      "video": {
+        "title": "Recorded videos",
+        "body": "Footage shot by the brand or team, with voiceover and briefing."
+      },
+      "art": {
+        "title": "Art & illustrations",
+        "body": "Graphic pieces in general."
+      }
     },
     "featuresTitle": "Built for people who live on content.",
     "featuresSubtitle": "Everything a manager or agency needs to run multiple brands without losing rhythm.",

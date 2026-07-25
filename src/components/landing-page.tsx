@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import {
   CalendarDays,
   Check,
+  Clapperboard,
+  Film,
+  Image,
+  Images,
+  LayoutGrid,
   MessageSquareText,
   Palette,
   Share2,
@@ -41,6 +46,48 @@ const FEATURE_ICONS = {
   aiDesign: Palette,
   briefing: Wand2,
   share: Share2,
+} as const;
+
+const ASSET_KEYS = [
+  "feed",
+  "carousel",
+  "reels",
+  "stories",
+  "video",
+  "art",
+] as const;
+
+const ASSET_META = {
+  feed: {
+    Icon: Image,
+    frame: "aspect-square w-full",
+    surface: "from-sky-200 via-sky-100 to-teal-50",
+  },
+  carousel: {
+    Icon: Images,
+    frame: "aspect-[4/5] w-full",
+    surface: "from-violet-200 via-fuchsia-100 to-sky-50",
+  },
+  reels: {
+    Icon: Clapperboard,
+    frame: "mx-auto aspect-[9/16] h-56",
+    surface: "from-fuchsia-200 via-rose-100 to-amber-50",
+  },
+  stories: {
+    Icon: LayoutGrid,
+    frame: "mx-auto aspect-[9/16] h-56",
+    surface: "from-teal-200 via-emerald-100 to-cyan-50",
+  },
+  video: {
+    Icon: Film,
+    frame: "aspect-video w-full",
+    surface: "from-indigo-200 via-sky-100 to-slate-50",
+  },
+  art: {
+    Icon: Palette,
+    frame: "aspect-[5/4] w-full",
+    surface: "from-amber-200 via-orange-100 to-teal-50",
+  },
 } as const;
 
 const PLAN_KEYS = ["solo", "studio", "agency"] as const;
@@ -261,6 +308,9 @@ export function LandingPage() {
           <a href="#produto" className="transition-colors hover:text-neutral-900">
             {t("landing.navFeatures")}
           </a>
+          <a href="#ativos" className="transition-colors hover:text-neutral-900">
+            {t("landing.navAssets")}
+          </a>
           <a href="#como" className="transition-colors hover:text-neutral-900">
             {t("landing.navHow")}
           </a>
@@ -346,6 +396,48 @@ export function LandingPage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        {/* Content assets */}
+        <section id="ativos" className="border-y border-neutral-900/8 bg-white/50">
+          <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+            <h2 className="max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              {t("landing.assetsTitle")}
+            </h2>
+            <p className="mt-3 max-w-2xl text-base text-neutral-600">
+              {t("landing.assetsSubtitle")}
+            </p>
+            <ul className="mt-12 grid items-start gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+              {ASSET_KEYS.map((key) => {
+                const { Icon, frame, surface } = ASSET_META[key];
+                return (
+                  <li key={key}>
+                    <div
+                      className={cn(
+                        "relative overflow-hidden rounded-2xl bg-gradient-to-br",
+                        frame,
+                        surface,
+                      )}
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Icon
+                          className="h-8 w-8 text-neutral-800/35"
+                          strokeWidth={1.5}
+                          aria-hidden
+                        />
+                      </div>
+                    </div>
+                    <h3 className="mt-4 font-display text-lg font-semibold tracking-tight">
+                      {t(`landing.assets.${key}.title`)}
+                    </h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
+                      {t(`landing.assets.${key}.body`)}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </section>
 
         {/* Features */}

@@ -63,6 +63,7 @@
     "goToApp": "Ir para o app",
     "navFeatures": "Produto",
     "navHow": "Como funciona",
+    "navAssets": "Ativos",
     "navPricing": "Planos",
     "navContact": "Contato",
     "problemTitle": "A produção trava na aprovação.",
@@ -72,6 +73,34 @@
       "1": { "title": "Defina a marca", "body": "Briefing guiado por IA e kit visual (cores, fontes, voz)." },
       "2": { "title": "Produza com aceleração", "body": "Copy, roteiros e artes alinhados ao projeto e ao calendário." },
       "3": { "title": "Aprove no preview", "body": "Cliente comenta e aprova no feed estilo Instagram, com histórico de versões." }
+    },
+    "assetsTitle": "Todos os formatos que você já produz — em um só fluxo.",
+    "assetsSubtitle": "Do post estático ao vídeo gravado: organize, revise e aprove cada ativo com o cliente.",
+    "assets": {
+      "feed": {
+        "title": "Posts de feed",
+        "body": "Artes estáticas 1:1 ou 4:5 para o grid do Instagram."
+      },
+      "carousel": {
+        "title": "Carrosséis",
+        "body": "Sequências com roteiro por slide e preview navegável."
+      },
+      "reels": {
+        "title": "Reels",
+        "body": "Vídeos verticais com legenda, CTA e status de aprovação."
+      },
+      "stories": {
+        "title": "Stories",
+        "body": "Peças efêmeras alinhadas à campanha e ao calendário."
+      },
+      "video": {
+        "title": "Vídeos gravados",
+        "body": "Conteúdo filmado pela marca ou equipe, com locução e briefing."
+      },
+      "art": {
+        "title": "Artes e ilustrações",
+        "body": "Peças gráficas em geral."
+      }
     },
     "featuresTitle": "Feito para quem vive de conteúdo.",
     "featuresSubtitle": "Tudo que um gestor ou agência precisa para operar várias marcas sem perder o ritmo.",
