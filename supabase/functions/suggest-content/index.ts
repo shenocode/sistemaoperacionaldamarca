@@ -20,6 +20,8 @@ type SuggestRequest = {
   prompt: string;
   references?: string;
   youtubeUrls?: string[];
+  instagramUrls?: string[];
+  transcription?: string;
   format?: ContentFormat;
   locale?: string;
 };
@@ -34,7 +36,7 @@ type ContentSuggestion = {
   roteiro: string;
 };
 
-type YoutubeMeta = {
+type VideoMeta = {
   url: string;
   title: string;
   description: string;
@@ -68,9 +70,9 @@ function extractYoutubeId(raw: string): string | null {
   return null;
 }
 
-async function fetchYoutubeMeta(url: string): Promise<YoutubeMeta> {
+async function fetchYoutubeMeta(url: string): Promise<VideoMeta> {
   const id = extractYoutubeId(url);
-  const fallback: YoutubeMeta = { url, title: "", description: "" };
+  const fallback: VideoMeta = { url, title: "", description: "" };
   if (!id) return fallback;
 
   try {
@@ -86,6 +88,42 @@ async function fetchYoutubeMeta(url: string): Promise<YoutubeMeta> {
   } catch {
     return fallback;
   }
+}
+
+function isInstagramUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw.trim());
+    const host = url.hostname.replace(/^www\./, "");
+    return host === "instagram.com" || host === "instagr.am";
+  } catch {
+    return false;
+  }
+}
+
+async function fetchInstagramMeta(url: string): Promise<VideoMeta> {
+  const fallback: VideoMeta = { url, title: "", description: "" };
+  if (!isInstagramUrl(url)) return fallback;
+
+  try {
+    const oembedUrl = `https://graph.facebook.com/v25.0/instagram_oembed?url=${encodeURIComponent(url.trim())}`;
+    const res = await fetch(oembedUrl);
+    if (!res.ok) return fallback;
+    const data = (await res.json()) as { title?: string; author_name?: string };
+    return {
+      url,
+      title: data.title?.trim() || "",
+      description: data.author_name ? `Autor: ${data.author_name}` : "",
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function formatVideoMetasBlock(label: string, metas: VideoMeta[]): string | null {
+  if (!metas.length) return null;
+  return `${label}\n${metas
+    .map((v, i) => `${i + 1}. ${v.url}\n   Título: ${v.title || "(indisponível)"}\n   ${v.description || ""}`)
+    .join("\n")}`;
 }
 
 function languageInstruction(locale?: string): string {
@@ -272,7 +310,15 @@ Deno.serve(async (req) => {
       .map((u) => u.trim())
       .filter(Boolean)
       .slice(0, 5);
-    const youtubeMetas = await Promise.all(youtubeUrls.map((url) => fetchYoutubeMeta(url)));
+    const instagramUrls = (body.instagramUrls ?? [])
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    const transcription = (body.transcription ?? "").trim().slice(0, 12000);
+    const [youtubeMetas, instagramMetas] = await Promise.all([
+      Promise.all(youtubeUrls.map((url) => fetchYoutubeMeta(url))),
+      Promise.all(instagramUrls.map((url) => fetchInstagramMeta(url))),
+    ]);
 
     const needsLocucao = format === "reels" || format === "recorded_video";
     const needsRoteiro = format === "carousel";
@@ -299,7 +345,7 @@ Deno.serve(async (req) => {
       needsRoteiro
         ? "- roteiro: texto por slide no formato 'Slide 1: ...\\nSlide 2: ...' (mínimo 3 slides)."
         : "- roteiro: string vazia.",
-      "Não invente fatos que não estejam no Guia de marca, prompt, referências ou vídeos.",
+      "Não invente fatos que não estejam no Guia de marca, prompt, referências, metadados dos vídeos ou na transcrição fornecida.",
     ].join("\n");
 
     const userPrompt = [
@@ -314,11 +360,9 @@ Deno.serve(async (req) => {
       `Hashtags disponíveis: ${(project.hashtag_presets ?? []).join(" | ") || "(nenhuma)"}`,
       `Prompt do admin:\n${prompt}`,
       body.references?.trim() ? `Referências:\n${body.references.trim()}` : null,
-      youtubeMetas.length
-        ? `Vídeos do YouTube (metadados):\n${youtubeMetas
-            .map((v, i) => `${i + 1}. ${v.url}\n   Título: ${v.title || "(indisponível)"}\n   ${v.description || ""}`)
-            .join("\n")}`
-        : null,
+      formatVideoMetasBlock("Vídeos do YouTube (metadados):", youtubeMetas),
+      formatVideoMetasBlock("Vídeos do Instagram (metadados):", instagramMetas),
+      transcription ? `Transcrição fornecida pelo usuário:\n${transcription}` : null,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -367,7 +411,7 @@ Deno.serve(async (req) => {
     }
 
     const suggestion = sanitizeSuggestion(parsed, format);
-    return jsonResponse({ suggestion, youtube: youtubeMetas });
+    return jsonResponse({ suggestion, youtube: youtubeMetas, instagram: instagramMetas });
   } catch (error) {
     console.error(error);
     return jsonResponse(

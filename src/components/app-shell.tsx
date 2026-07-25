@@ -51,7 +51,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const closeMobileNav = () => setMobileNavOpen(false);
-  const homeTo = isAdmin ? "/dashboard" : "/home";
 
   const navClass =
     "flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent";
@@ -60,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const brandLogo = (
     <Link
-      to={homeTo}
+      to="/"
       onClick={closeMobileNav}
       className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
@@ -177,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Menu className="h-5 w-5" />
         </Button>
         <Link
-          to={homeTo}
+          to="/"
           className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="truncate text-sm font-semibold tracking-tight">{t("app.name")}</div>
@@ -193,7 +192,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SheetHeader className="border-b px-6 py-4 text-left">
             <SheetTitle className="p-0 text-sidebar-foreground">
               <Link
-                to={homeTo}
+                to="/"
                 onClick={closeMobileNav}
                 className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >

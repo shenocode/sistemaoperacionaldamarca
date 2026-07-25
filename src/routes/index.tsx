@@ -1,22 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute } from "@tanstack/react-router";
 import { LandingPage } from "@/components/landing-page";
-import { resolvePostLoginPath } from "@/lib/api";
 
 const FONT_STYLESHEET =
   "https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400..700;1,400..700&family=Syne:wght@500;600;700&display=swap";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      const dest = await resolvePostLoginPath();
-      if (dest.to === "/clients/$clientId/projects/$projectId/feed") {
-        throw redirect({ to: dest.to, params: dest.params, search: dest.search });
-      }
-      throw redirect({ to: dest.to });
-    }
-  },
   head: () => ({
     meta: [
       { title: "SOM — Sistema Operacional da Marca" },

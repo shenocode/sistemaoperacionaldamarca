@@ -1583,6 +1583,8 @@ export async function suggestContent(input: {
   prompt: string;
   references?: string;
   youtubeUrls?: string[];
+  instagramUrls?: string[];
+  transcription?: string;
   format: ContentFormat;
   locale?: string;
 }): Promise<ContentSuggestion> {
@@ -1597,6 +1599,8 @@ export async function suggestContent(input: {
       prompt,
       references: input.references?.trim() || undefined,
       youtubeUrls: (input.youtubeUrls ?? []).map((u) => u.trim()).filter(Boolean),
+      instagramUrls: (input.instagramUrls ?? []).map((u) => u.trim()).filter(Boolean),
+      transcription: input.transcription?.trim() || undefined,
       format: input.format,
       locale: input.locale,
     },

@@ -32,7 +32,7 @@ type ContentAiAssistantProps = {
   onApply: (suggestion: ContentAiAssistantApply) => void | Promise<void>;
 };
 
-function parseYoutubeUrls(raw: string): string[] {
+function parseVideoUrls(raw: string): string[] {
   return raw
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -50,6 +50,8 @@ export function ContentAiAssistant({
   const [prompt, setPrompt] = useState("");
   const [references, setReferences] = useState("");
   const [youtubeUrls, setYoutubeUrls] = useState("");
+  const [instagramUrls, setInstagramUrls] = useState("");
+  const [transcription, setTranscription] = useState("");
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
 
   const needsLocucao = format === "reels" || format === "recorded_video";
@@ -63,7 +65,9 @@ export function ContentAiAssistant({
         clientId,
         prompt,
         references,
-        youtubeUrls: parseYoutubeUrls(youtubeUrls),
+        youtubeUrls: parseVideoUrls(youtubeUrls),
+        instagramUrls: parseVideoUrls(instagramUrls),
+        transcription,
         format,
         locale: i18n.resolvedLanguage ?? i18n.language,
       }),
@@ -141,7 +145,32 @@ export function ContentAiAssistant({
             onChange={(e) => setYoutubeUrls(e.target.value)}
             placeholder={t("project.detail.assistant.youtubePlaceholder")}
           />
-          <p className="text-xs text-muted-foreground">{t("project.detail.assistant.youtubeHint")}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ai-instagram" variant="highlight">
+            {t("project.detail.assistant.instagram")}
+          </Label>
+          <Textarea
+            id="ai-instagram"
+            rows={2}
+            value={instagramUrls}
+            onChange={(e) => setInstagramUrls(e.target.value)}
+            placeholder={t("project.detail.assistant.instagramPlaceholder")}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">{t("project.detail.assistant.videoLinksHint")}</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="ai-transcription" variant="highlight">
+            {t("project.detail.assistant.transcription")}
+          </Label>
+          <Textarea
+            id="ai-transcription"
+            rows={5}
+            value={transcription}
+            onChange={(e) => setTranscription(e.target.value)}
+            placeholder={t("project.detail.assistant.transcriptionPlaceholder")}
+          />
+          <p className="text-xs text-muted-foreground">{t("project.detail.assistant.transcriptionHint")}</p>
         </div>
 
         <Button
