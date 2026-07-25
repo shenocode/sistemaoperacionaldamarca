@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.manage-admin-ai-keys]
 verify_jwt = true
+
+[functions.translate-text]
+verify_jwt = true
