@@ -3,6 +3,9 @@ project_id = "swhjyntcyxdgfcwbwcyi"
 [functions.suggest-content]
 verify_jwt = true
 
+[functions.translate-text]
+verify_jwt = true
+
 [functions.briefing-coach]
 verify_jwt = true
 
