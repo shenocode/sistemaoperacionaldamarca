@@ -303,6 +303,26 @@ export function buildWhatsAppNotifyUrl(whatsapp: string | null | undefined, mess
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
+/** Open a blank tab in the user-gesture turn so async invite can navigate it later. */
+export function openWhatsAppInvitePlaceholder(): Window | null {
+  if (typeof window === "undefined") return null;
+  return window.open("about:blank", "_blank");
+}
+
+/** Navigate a pre-opened tab to WhatsApp, or fall back to a new window / same-tab link. */
+export function navigateWhatsAppInvite(tab: Window | null, url: string | null) {
+  if (!url) {
+    tab?.close();
+    return false;
+  }
+  if (tab && !tab.closed) {
+    tab.location.href = url;
+    return true;
+  }
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  return Boolean(opened);
+}
+
 const AUTH_NEXT_STORAGE_KEY = "som_auth_next";
 
 /** Only allow in-app relative paths (blocks open redirects). */
@@ -719,6 +739,7 @@ export async function provisionGestorAccess(input: {
   email: string;
   password: string;
   fullName?: string;
+  whatsapp?: string;
   plan?: import("./plan-entitlements").AssignablePlan;
 }) {
   const { provisionGestorAccessFn } = await import("./provision-gestor-access.functions");
@@ -727,6 +748,7 @@ export async function provisionGestorAccess(input: {
       email: input.email,
       password: input.password,
       fullName: input.fullName,
+      whatsapp: input.whatsapp,
       plan: input.plan ?? "courtesy",
     },
   });
@@ -767,6 +789,7 @@ export async function provisionTeamMember(input: {
   email: string;
   password: string;
   fullName?: string;
+  whatsapp?: string;
 }) {
   const { provisionTeamMemberFn } = await import("./team-access.functions");
   return provisionTeamMemberFn({
@@ -774,6 +797,7 @@ export async function provisionTeamMember(input: {
       email: input.email,
       password: input.password,
       fullName: input.fullName,
+      whatsapp: input.whatsapp,
     },
   });
 }

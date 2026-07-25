@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -13,11 +13,16 @@ import {
   resolvePostLoginPath,
   setAssinanteStatus,
   setGestorPlan,
+  buildWhatsAppNotifyUrl,
+  openWhatsAppInvitePlaceholder,
+  navigateWhatsAppInvite,
 } from "@/lib/api";
 import type { AssinanteListItem } from "@/lib/provision-gestor-access.functions";
+import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,10 +80,12 @@ function AssinantesPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [plan, setPlan] = useState<AssignablePlan>("courtesy");
   const [settingsAssinante, setSettingsAssinante] = useState<AssinanteListItem | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [expandedClients, setExpandedClients] = useState<string | null>(null);
+  const inviteTabRef = useRef<Window | null>(null);
 
   const assinantesQuery = useQuery({
     queryKey: ["assinantes"],
@@ -90,25 +97,56 @@ function AssinantesPage() {
     queryClient.invalidateQueries({ queryKey: ["gestores"] });
   };
 
+  function buildInviteUrl(input: {
+    whatsapp: string;
+    email: string;
+    password: string;
+  }) {
+    const link = `${window.location.origin}/auth`;
+    const message = t("subscribers.inviteWhatsAppMessage", {
+      link,
+      email: input.email,
+      password: input.password,
+    });
+    return buildWhatsAppNotifyUrl(input.whatsapp, message);
+  }
+
   const provisionMutation = useMutation({
     mutationFn: () =>
       provisionGestorAccess({
         email: email.trim(),
         password: password.trim(),
         fullName: fullName.trim() || undefined,
+        whatsapp: whatsapp.replace(/\D/g, ""),
         plan,
       }),
     onSuccess: (result) => {
+      const inviteEmail = email.trim();
+      const invitePassword = password.trim();
+      const inviteWhatsapp = whatsapp.replace(/\D/g, "");
+      const url = buildInviteUrl({
+        whatsapp: inviteWhatsapp,
+        email: inviteEmail,
+        password: invitePassword,
+      });
+      const opened = navigateWhatsAppInvite(inviteTabRef.current, url);
+      inviteTabRef.current = null;
       invalidate();
       setFullName("");
       setEmail("");
       setPassword("");
+      setWhatsapp("");
       setPlan("courtesy");
       toast.success(
         result.created ? t("subscribers.created") : t("subscribers.updated"),
       );
+      if (!opened) toast.message(t("subscribers.whatsappBlocked"));
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      inviteTabRef.current?.close();
+      inviteTabRef.current = null;
+      toast.error(err.message);
+    },
   });
 
   const resetMutation = useMutation({
@@ -175,6 +213,8 @@ function AssinantesPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!email.trim() || password.trim().length < 6) return;
+              if (!isValidWhatsAppLocal(splitWhatsAppDigits(whatsapp).local)) return;
+              inviteTabRef.current = openWhatsAppInvitePlaceholder();
               provisionMutation.mutate();
             }}
           >
@@ -215,7 +255,16 @@ function AssinantesPage() {
                 />
                 <p className="text-xs text-muted-foreground">{t("subscribers.passwordHint")}</p>
               </div>
-              <div className="space-y-1.5">
+              <WhatsAppPhoneField
+                idPrefix="assinante"
+                value={whatsapp}
+                onChange={setWhatsapp}
+                label={t("subscribers.whatsapp")}
+                countryLabel={t("subscribers.whatsappCountry")}
+                hint={t("subscribers.whatsappHint")}
+                required
+              />
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="assinante-plan">{t("subscribers.plan")}</Label>
                 <Select value={plan} onValueChange={(value) => setPlan(value as AssignablePlan)}>
                   <SelectTrigger id="assinante-plan">
@@ -237,7 +286,8 @@ function AssinantesPage() {
               disabled={
                 provisionMutation.isPending ||
                 !email.trim() ||
-                password.trim().length < 6
+                password.trim().length < 6 ||
+                !isValidWhatsAppLocal(splitWhatsAppDigits(whatsapp).local)
               }
             >
               {t("subscribers.submit")}

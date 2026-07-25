@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -12,10 +12,15 @@ import {
   resetTeamMemberPassword,
   resolvePostLoginPath,
   setTeamMemberClients,
+  buildWhatsAppNotifyUrl,
+  openWhatsAppInvitePlaceholder,
+  navigateWhatsAppInvite,
 } from "@/lib/api";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
+import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,9 +61,11 @@ function TeamPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [draftClients, setDraftClients] = useState<Record<string, string[]>>({});
+  const inviteTabRef = useRef<Window | null>(null);
 
   const canManage = entitlements.canManageTeam;
 
@@ -89,21 +96,52 @@ function TeamPage() {
     setDraftClients((prev) => ({ ...prev, [memberId]: [...current] }));
   }
 
+  function buildInviteUrl(input: {
+    whatsapp: string;
+    email: string;
+    password: string;
+  }) {
+    const link = `${window.location.origin}/auth`;
+    const message = t("team.inviteWhatsAppMessage", {
+      link,
+      email: input.email,
+      password: input.password,
+    });
+    return buildWhatsAppNotifyUrl(input.whatsapp, message);
+  }
+
   const provisionMutation = useMutation({
     mutationFn: () =>
       provisionTeamMember({
         email: email.trim(),
         password: password.trim(),
         fullName: fullName.trim() || undefined,
+        whatsapp: whatsapp.replace(/\D/g, ""),
       }),
     onSuccess: (result) => {
+      const inviteEmail = email.trim();
+      const invitePassword = password.trim();
+      const inviteWhatsapp = whatsapp.replace(/\D/g, "");
+      const url = buildInviteUrl({
+        whatsapp: inviteWhatsapp,
+        email: inviteEmail,
+        password: invitePassword,
+      });
+      const opened = navigateWhatsAppInvite(inviteTabRef.current, url);
+      inviteTabRef.current = null;
       queryClient.invalidateQueries({ queryKey: ["team", "me"] });
       setFullName("");
       setEmail("");
       setPassword("");
+      setWhatsapp("");
       toast.success(result.created ? t("team.created") : t("team.updated"));
+      if (!opened) toast.message(t("team.whatsappBlocked"));
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      inviteTabRef.current?.close();
+      inviteTabRef.current = null;
+      toast.error(err.message);
+    },
   });
 
   const resetMutation = useMutation({
@@ -181,6 +219,8 @@ function TeamPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!email.trim() || password.trim().length < 6) return;
+              if (!isValidWhatsAppLocal(splitWhatsAppDigits(whatsapp).local)) return;
+              inviteTabRef.current = openWhatsAppInvitePlaceholder();
               provisionMutation.mutate();
             }}
           >
@@ -206,6 +246,15 @@ function TeamPage() {
                 placeholder="usuario@email.com"
               />
             </div>
+            <WhatsAppPhoneField
+              idPrefix="team"
+              value={whatsapp}
+              onChange={setWhatsapp}
+              label={t("team.whatsapp")}
+              countryLabel={t("team.whatsappCountry")}
+              hint={t("team.whatsappHint")}
+              required
+            />
             <div className="space-y-1.5">
               <Label htmlFor="team-password">{t("team.password")}</Label>
               <Input
@@ -225,7 +274,8 @@ function TeamPage() {
               disabled={
                 provisionMutation.isPending ||
                 !email.trim() ||
-                password.trim().length < 6
+                password.trim().length < 6 ||
+                !isValidWhatsAppLocal(splitWhatsAppDigits(whatsapp).local)
               }
             >
               {t("team.submit")}

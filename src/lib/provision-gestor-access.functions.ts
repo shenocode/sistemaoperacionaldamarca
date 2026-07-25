@@ -18,6 +18,11 @@ const provisionInput = z.object({
   email: z.string().trim().email(),
   password: z.string().min(6),
   fullName: z.string().trim().optional(),
+  whatsapp: z
+    .string()
+    .trim()
+    .regex(/^\d{8,20}$/, "WhatsApp inválido")
+    .optional(),
   plan: z.enum(ASSIGNABLE_PLANS).default("courtesy"),
 });
 
@@ -434,10 +439,12 @@ export const provisionGestorAccessFn = createServerFn({ method: "POST" })
     }
 
     const displayName = data.fullName?.trim() || email.split("@")[0] || null;
-    if (displayName) {
+    const whatsapp = data.whatsapp?.replace(/\D/g, "") || null;
+    if (displayName || whatsapp) {
       const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
         id: userId,
-        full_name: displayName,
+        ...(displayName ? { full_name: displayName } : {}),
+        ...(whatsapp ? { whatsapp } : {}),
       });
       if (profileError) throw new Error(profileError.message);
     }
