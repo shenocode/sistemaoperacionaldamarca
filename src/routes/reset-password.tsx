@@ -12,6 +12,17 @@ export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
       { title: "Redefinir senha — SOM" },
+      {
+        name: "description",
+        content:
+          "Defina uma nova senha para sua conta SOM e volte a acessar seus clientes, conteúdos e aprovações com segurança.",
+      },
+      { property: "og:title", content: "Redefinir senha — SOM" },
+      {
+        property: "og:description",
+        content: "Crie uma nova senha para recuperar o acesso à sua conta no SOM.",
+      },
+      { property: "og:type", content: "website" },
       { name: "robots", content: "noindex" },
     ],
   }),
