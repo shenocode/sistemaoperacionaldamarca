@@ -1,18 +1,10 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_OG_IMAGE } from "@/lib/og";
+import { getSharePreviewFn, type SharePreview } from "@/lib/share-preview.functions";
 
 export type ShareSearch = {
   access?: string;
-};
-
-type SharePreview = {
-  client_id: string;
-  client_name: string;
-  logo_url: string | null;
-  project_id: string;
-  project_name: string;
 };
 
 function validateShareSearch(search: Record<string, unknown>): ShareSearch {
@@ -39,28 +31,19 @@ async function loadSharePreview(input: {
     return null;
   }
 
-  const { data, error } = await supabase.rpc("get_share_preview", {
-    _access_token: input.access,
-    _client_id: input.clientId,
-    _project_id: input.projectId,
-  });
-
-  if (error) {
-    console.error("[share] get_share_preview failed", error.message);
+  try {
+    return await getSharePreviewFn({
+      data: {
+        access: input.access,
+        clientId: input.clientId,
+        projectId: input.projectId,
+      },
+    });
+  } catch {
     return null;
   }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row?.client_id || !row?.project_id) return null;
-
-  return {
-    client_id: row.client_id,
-    client_name: row.client_name,
-    logo_url: row.logo_url ?? null,
-    project_id: row.project_id,
-    project_name: row.project_name,
-  };
 }
+
 
 export const Route = createFileRoute("/share/$clientId/$projectId")({
   validateSearch: validateShareSearch,
