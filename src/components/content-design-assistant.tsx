@@ -96,8 +96,8 @@ export function ContentDesignAssistant({
   const isCarousel = format === "carousel";
 
   const templatesQuery = useQuery({
-    queryKey: ["design-templates", projectId, format],
-    queryFn: () => listDesignTemplates(projectId, format),
+    queryKey: ["design-templates", clientId, format],
+    queryFn: () => listDesignTemplates(clientId, format),
   });
   const templates = templatesQuery.data ?? [];
 
@@ -171,12 +171,12 @@ export function ContentDesignAssistant({
   async function persistGeneratedArt(imageUrl: string, label: string) {
     try {
       await saveGeneratedArtToLibrary({
-        projectId,
+        clientId,
         imageUrl,
         name: label,
         notes: `Gerada no conteúdo ${contentId}`,
       });
-      void queryClient.invalidateQueries({ queryKey: ["library", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["library", clientId] });
     } catch (err) {
       console.error(err);
       toast.error(

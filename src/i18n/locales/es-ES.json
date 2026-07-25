@@ -543,6 +543,7 @@
       "upload": "Añadir archivos",
       "empty": "No hay archivos en esta categoría.",
       "emptyAll": "No hay archivos en la biblioteca.",
+      "sharedHint": "Compartida entre todos los proyectos de esta marca: kit, plantillas y archivos.",
       "added": "Archivos añadidos.",
       "addedOne": "Archivo añadido.",
       "name": "Nombre",
@@ -554,6 +555,12 @@
       "sourceFile": "Subir",
       "sourceUrl": "URL",
       "open": "Abrir",
+      "brandKit": {
+        "title": "Kit de marca",
+        "hint": "Colores, tipografías y plantillas usadas por el asistente de diseño.",
+        "save": "Guardar kit de marca",
+        "saved": "Kit de marca guardado."
+      },
       "briefing": {
         "title": "Briefing",
         "description": "Formulario de la marca que alimenta la Guía de marca.",

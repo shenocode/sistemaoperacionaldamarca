@@ -7,9 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BrandKitFields } from "@/components/brand-kit-fields";
 import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
-import { Separator } from "@/components/ui/separator";
 import {
   CLIENT_LOGO_ACCEPT,
   uploadClientLogo,
@@ -33,11 +31,8 @@ export function contactFormFromClient(
     instagram?: string | null;
     logo_url?: string | null;
     i18n?: unknown;
-    brand_colors?: unknown;
-    brand_fonts?: unknown;
   },
   locale: string,
-  brandKit: Pick<ClientContactInput, "brand_colors" | "brand_fonts">,
 ): ClientContactInput {
   const i18n = parseRowI18n(client.i18n);
   return {
@@ -48,7 +43,6 @@ export function contactFormFromClient(
     whatsapp: client.whatsapp ?? "",
     instagram: client.instagram ?? "",
     logo_url: client.logo_url ?? "",
-    ...brandKit,
     i18n,
   };
 }
@@ -253,23 +247,6 @@ export function ClientContactFields({
           }}
         />
       </div>
-
-      <Separator />
-
-      <BrandKitFields
-        idPrefix={`${idPrefix}-brand`}
-        value={{
-          brand_colors: form.brand_colors ?? [],
-          brand_fonts: form.brand_fonts ?? {},
-        }}
-        onChange={(kit) =>
-          onChange({
-            ...form,
-            brand_colors: kit.brand_colors,
-            brand_fonts: kit.brand_fonts,
-          })
-        }
-      />
     </div>
   );
 }

@@ -27,7 +27,6 @@ import {
   listClients,
   updateClient,
   updateOwnPassword,
-  brandKitFromClient,
   type ClientContactInput,
 } from "@/lib/api";
 import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
@@ -40,8 +39,6 @@ const emptyForm: ClientContactInput = {
   whatsapp: "",
   instagram: "",
   logo_url: "",
-  brand_colors: [],
-  brand_fonts: {},
   i18n: {},
 };
 
@@ -118,7 +115,7 @@ function ClientSettingsPage() {
       setIgnoreUnsavedChanges(false);
       return;
     }
-    const nextForm = contactFormFromClient(client, uiLocale, brandKitFromClient(client));
+    const nextForm = contactFormFromClient(client, uiLocale);
     setForm(nextForm);
     setFormBaseline(serializeClientForm(nextForm));
     setIgnoreUnsavedChanges(false);

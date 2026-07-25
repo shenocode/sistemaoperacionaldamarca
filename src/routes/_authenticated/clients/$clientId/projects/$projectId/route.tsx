@@ -17,13 +17,13 @@ const TAB_PATHS: Record<
   | "/clients/$clientId/projects/$projectId/feed"
   | "/clients/$clientId/projects/$projectId/calendar"
   | "/clients/$clientId/projects/$projectId/content"
-  | "/clients/$clientId/projects/$projectId/library"
+  | "/clients/$clientId/library"
   | "/clients/$clientId/projects/$projectId/settings"
 > = {
   feed: "/clients/$clientId/projects/$projectId/feed",
   calendar: "/clients/$clientId/projects/$projectId/calendar",
   content: "/clients/$clientId/projects/$projectId/content",
-  library: "/clients/$clientId/projects/$projectId/library",
+  library: "/clients/$clientId/library",
   settings: "/clients/$clientId/projects/$projectId/settings",
 };
 
@@ -118,9 +118,13 @@ function ProjectLayout() {
       >
         {tabs.map((tab) => (
           <Link
-            key={tab.to}
+            key={tab.id}
             to={tab.to}
-            params={{ clientId, projectId }}
+            params={
+              tab.id === "library"
+                ? { clientId }
+                : { clientId, projectId }
+            }
             {...(tab.to === "/clients/$clientId/projects/$projectId/content"
               ? { search: {} }
               : {})}

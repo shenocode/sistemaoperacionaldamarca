@@ -17,10 +17,12 @@ export function BrandKitFields({
   value,
   onChange,
   idPrefix = "brand-kit",
+  showHeader = true,
 }: {
   value: BrandKitValue;
   onChange: (next: BrandKitValue) => void;
   idPrefix?: string;
+  showHeader?: boolean;
 }) {
   const { t } = useTranslation();
   const colors = value.brand_colors ?? [];
@@ -40,10 +42,12 @@ export function BrandKitFields({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{t("clients.brandKit.title")}</p>
-        <p className="text-xs text-muted-foreground">{t("clients.brandKit.hint")}</p>
-      </div>
+      {showHeader ? (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{t("clients.brandKit.title")}</p>
+          <p className="text-xs text-muted-foreground">{t("clients.brandKit.hint")}</p>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">

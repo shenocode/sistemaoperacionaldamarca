@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, FolderKanban, Plus } from "lucide-react";
+import { ChevronLeft, FolderKanban, Library, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -28,6 +28,8 @@ import {
   projectDefaultRoute,
   type ProjectCategory,
 } from "@/lib/api";
+import { useAppRole } from "@/hooks/use-app-role";
+import { useEntitlements } from "@/hooks/use-entitlements";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/")({
   head: () => ({
@@ -40,6 +42,9 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { isClient } = useAppRole();
+  const { entitlements } = useEntitlements();
+  const libraryAllowed = isClient || entitlements.library;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -95,11 +100,23 @@ function ClientDetailPage() {
         title={client?.name ?? t("common.loading")}
         description={t("clients.projects")}
         actions={
-          canManage ? (
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t("clients.newProject")}
-            </Button>
+          libraryAllowed || canManage ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {libraryAllowed ? (
+                <Button asChild variant="outline">
+                  <Link to="/clients/$clientId/library" params={{ clientId }}>
+                    <Library className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t("project.tabs.library")}
+                  </Link>
+                </Button>
+              ) : null}
+              {canManage ? (
+                <Button onClick={() => setOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {t("clients.newProject")}
+                </Button>
+              ) : null}
+            </div>
           ) : undefined
         }
       />

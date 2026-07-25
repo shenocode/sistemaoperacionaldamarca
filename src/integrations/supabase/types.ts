@@ -508,6 +508,7 @@ export type Database = {
       }
       design_templates: {
         Row: {
+          client_id: string
           created_at: string
           created_by: string | null
           file_size: number | null
@@ -516,10 +517,10 @@ export type Database = {
           id: string
           mime_type: string | null
           name: string
-          project_id: string
           storage_path: string | null
         }
         Insert: {
+          client_id: string
           created_at?: string
           created_by?: string | null
           file_size?: number | null
@@ -528,10 +529,10 @@ export type Database = {
           id?: string
           mime_type?: string | null
           name: string
-          project_id: string
           storage_path?: string | null
         }
         Update: {
+          client_id?: string
           created_at?: string
           created_by?: string | null
           file_size?: number | null
@@ -540,15 +541,14 @@ export type Database = {
           id?: string
           mime_type?: string | null
           name?: string
-          project_id?: string
           storage_path?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "design_templates_project_id_fkey"
-            columns: ["project_id"]
+            foreignKeyName: "design_templates_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -556,6 +556,7 @@ export type Database = {
       library_assets: {
         Row: {
           category: Database["public"]["Enums"]["library_category"]
+          client_id: string
           created_at: string
           created_by: string | null
           file_name: string | null
@@ -566,11 +567,11 @@ export type Database = {
           mime_type: string | null
           name: string
           notes: string | null
-          project_id: string
           storage_path: string | null
         }
         Insert: {
           category?: Database["public"]["Enums"]["library_category"]
+          client_id: string
           created_at?: string
           created_by?: string | null
           file_name?: string | null
@@ -581,11 +582,11 @@ export type Database = {
           mime_type?: string | null
           name: string
           notes?: string | null
-          project_id: string
           storage_path?: string | null
         }
         Update: {
           category?: Database["public"]["Enums"]["library_category"]
+          client_id?: string
           created_at?: string
           created_by?: string | null
           file_name?: string | null
@@ -596,15 +597,14 @@ export type Database = {
           mime_type?: string | null
           name?: string
           notes?: string | null
-          project_id?: string
           storage_path?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "library_assets_project_id_fkey"
-            columns: ["project_id"]
+            foreignKeyName: "library_assets_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "projects"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]

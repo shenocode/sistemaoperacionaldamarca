@@ -33,7 +33,6 @@ import {
   provisionClientAccess,
   reassignClientGestor,
   updateClient,
-  brandKitFromClient,
   type ClientContactInput,
   type ClientWithProjects,
 } from "@/lib/api";
@@ -47,8 +46,6 @@ const emptyContactForm: ClientContactInput = {
   whatsapp: "",
   instagram: "",
   logo_url: "",
-  brand_colors: [],
-  brand_fonts: {},
   i18n: {},
 };
 
@@ -62,7 +59,7 @@ export function useClientSettingsDialog() {
   async function openSettings(client: ClientWithProjects) {
     const locale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
     setSettingsClient(client);
-    setSettingsForm(contactFormFromClient(client, locale, brandKitFromClient(client)));
+    setSettingsForm(contactFormFromClient(client, locale));
     setLoginPassword("");
     setLoginEmail(client.email ?? "");
     try {

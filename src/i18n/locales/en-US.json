@@ -543,6 +543,7 @@
       "upload": "Add files",
       "empty": "No files in this category.",
       "emptyAll": "No files in the library.",
+      "sharedHint": "Shared across all projects for this brand: kit, templates, and files.",
       "added": "Files added.",
       "addedOne": "File added.",
       "name": "Name",
@@ -554,6 +555,12 @@
       "sourceFile": "Upload",
       "sourceUrl": "URL",
       "open": "Open",
+      "brandKit": {
+        "title": "Brand kit",
+        "hint": "Colors, fonts, and templates used by the design assistant.",
+        "save": "Save brand kit",
+        "saved": "Brand kit saved."
+      },
       "briefing": {
         "title": "Briefing",
         "description": "Brand form that feeds the Brand guide.",

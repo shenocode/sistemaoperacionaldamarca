@@ -8,14 +8,7 @@ import { ensureBrandBriefing, getClient } from "@/lib/api";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
-type BriefingSearch = {
-  projectId?: string;
-};
-
 export const Route = createFileRoute("/_authenticated/clients/$clientId/briefing")({
-  validateSearch: (search: Record<string, unknown>): BriefingSearch => ({
-    projectId: typeof search.projectId === "string" ? search.projectId : undefined,
-  }),
   head: () => ({
     meta: [{ title: "Briefing — SOM" }, { name: "robots", content: "noindex" }],
   }),
@@ -24,7 +17,6 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/briefing
 
 function BrandBriefingPage() {
   const { clientId } = Route.useParams();
-  const { projectId } = Route.useSearch();
   const { t } = useTranslation();
   const { isClient } = useAppRole();
   const { entitlements, loading: entitlementsLoading } = useEntitlements();
@@ -41,25 +33,15 @@ function BrandBriefingPage() {
     enabled: briefingAllowed,
   });
 
-  const backTo =
-    projectId != null
-      ? ({
-          to: "/clients/$clientId/projects/$projectId/library" as const,
-          params: { clientId, projectId },
-        } as const)
-      : ({
-          to: "/clients/$clientId" as const,
-          params: { clientId },
-        } as const);
-
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <Link
-        {...backTo}
+        to="/clients/$clientId/library"
+        params={{ clientId }}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        {projectId ? t("project.tabs.library") : t("nav.clients")}
+        {t("project.tabs.library")}
       </Link>
 
       <PageHeader

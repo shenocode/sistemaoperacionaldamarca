@@ -38,8 +38,6 @@ const emptyContactForm: ClientContactInput = {
   whatsapp: "",
   instagram: "",
   logo_url: "",
-  brand_colors: [],
-  brand_fonts: {},
   i18n: {},
 };
 

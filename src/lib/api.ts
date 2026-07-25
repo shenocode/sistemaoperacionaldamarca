@@ -499,9 +499,9 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         id,
         name,
         updated_at,
-        content_items ( updated_at ),
-        library_assets ( created_at )
-      )
+        content_items ( updated_at )
+      ),
+      library_assets ( created_at )
     `,
     )
     .order("name", { ascending: true });
@@ -519,19 +519,22 @@ export async function listClients(): Promise<ClientWithProjects[]> {
   const data = clientsRes.data;
 
   return (data ?? []).map((client) => {
+    const libraryAssetDates = (
+      (client as { library_assets?: Array<{ created_at: string }> | null }).library_assets ?? []
+    ).map((asset) => asset.created_at);
+
     const projects: ClientProjectSummary[] = (client.projects ?? []).map(
       (project: {
         id: string;
         name: string;
         updated_at: string;
         content_items?: Array<{ updated_at: string }> | null;
-        library_assets?: Array<{ created_at: string }> | null;
       }) => {
         const last_update_at =
           maxIsoDate([
             project.updated_at,
             ...(project.content_items ?? []).map((item) => item.updated_at),
-            ...(project.library_assets ?? []).map((asset) => asset.created_at),
+            ...libraryAssetDates,
           ]) ?? project.updated_at;
         return {
           id: project.id,
@@ -545,9 +548,12 @@ export async function listClients(): Promise<ClientWithProjects[]> {
     const last_update_at = maxIsoDate([
       client.updated_at,
       ...projects.map((project) => project.last_update_at),
+      ...libraryAssetDates,
     ]);
 
-    const { projects: _projects, ...rest } = client;
+    const { projects: _projects, library_assets: _libraryAssets, ...rest } = client as typeof client & {
+      library_assets?: unknown;
+    };
     return {
       ...(rest as Client),
       projects,
@@ -688,8 +694,11 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 export async function updateClient(clientId: string, input: ClientContactInput): Promise<Client> {
   // RPC allows client members to review/update contact fields (not only owners/admins).
   // Empty string clears logo_url; omit logo_url from input to leave unchanged (RPC null).
-  const brandColors = parseBrandColors(input.brand_colors ?? []);
-  const brandFonts = parseBrandFonts(input.brand_fonts ?? {});
+  // Omit brand_colors / brand_fonts to leave the kit unchanged (e.g. contact-only edits).
+  const brandColors =
+    input.brand_colors !== undefined ? parseBrandColors(input.brand_colors) : null;
+  const brandFonts =
+    input.brand_fonts !== undefined ? parseBrandFonts(input.brand_fonts) : null;
   const i18n = parseRowI18n(input.i18n);
   const name = getCanonicalText(i18n, "name", input.name).trim();
   const notes = normalizeOptionalText(getCanonicalText(i18n, "notes", input.notes));
@@ -740,16 +749,17 @@ export async function updateClient(clientId: string, input: ClientContactInput):
         logo_url?: string | null;
         brand_colors?: Json;
         brand_fonts?: Json;
-      } = {
-        brand_colors: brandColors as unknown as Json,
-        brand_fonts: brandFonts as unknown as Json,
-      };
+      } = {};
+      if (brandColors !== null) patch.brand_colors = brandColors as unknown as Json;
+      if (brandFonts !== null) patch.brand_fonts = brandFonts as unknown as Json;
       if (input.logo_url !== undefined) {
         patch.logo_url = normalizeOptionalText(input.logo_url ?? undefined);
       }
-      const { error: kitError } = await supabase.from("clients").update(patch).eq("id", clientId);
-      if (kitError && !/row-level security|violates row-level|column .* does not exist/i.test(kitError.message)) {
-        // Ignore when migration/RLS not applied yet for client members.
+      if (Object.keys(patch).length > 0) {
+        const { error: kitError } = await supabase.from("clients").update(patch).eq("id", clientId);
+        if (kitError && !/row-level security|violates row-level|column .* does not exist/i.test(kitError.message)) {
+          // Ignore when migration/RLS not applied yet for client members.
+        }
       }
     }
   }
@@ -2269,19 +2279,19 @@ export function guessLibraryCategory(file: File): LibraryCategory {
   return "references";
 }
 
-export async function listLibraryAssets(projectId: string) {
+export async function listLibraryAssets(clientId: string) {
   const { data, error } = await supabase
     .from("library_assets")
     .select("*")
-    .eq("project_id", projectId)
+    .eq("client_id", clientId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
 
-async function uploadLibraryFile(projectId: string, file: File) {
+async function uploadLibraryFile(clientId: string, file: File) {
   const safeName = sanitizeFileName(file.name || "arquivo");
-  const storagePath = `${projectId}/${crypto.randomUUID()}-${safeName}`;
+  const storagePath = `${clientId}/${crypto.randomUUID()}-${safeName}`;
   const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
     cacheControl: "3600",
     contentType: file.type || undefined,
@@ -2300,7 +2310,7 @@ async function uploadLibraryFile(projectId: string, file: File) {
 }
 
 export async function createLibraryAsset(input: {
-  projectId: string;
+  clientId: string;
   name: string;
   category: LibraryCategory;
   fileUrl?: string;
@@ -2320,13 +2330,13 @@ export async function createLibraryAsset(input: {
     | undefined;
 
   if (input.file) {
-    uploaded = await uploadLibraryFile(input.projectId, input.file);
+    uploaded = await uploadLibraryFile(input.clientId, input.file);
   }
 
   const { data, error } = await supabase
     .from("library_assets")
     .insert({
-      project_id: input.projectId,
+      client_id: input.clientId,
       name: input.name.trim(),
       category: input.category,
       file_url: uploaded?.fileUrl ?? (input.fileUrl?.trim() || null),
@@ -2352,7 +2362,7 @@ export async function createLibraryAsset(input: {
 }
 
 export async function saveGeneratedArtToLibrary(input: {
-  projectId: string;
+  clientId: string;
   imageUrl: string;
   name: string;
   notes?: string;
@@ -2361,7 +2371,7 @@ export async function saveGeneratedArtToLibrary(input: {
   if (!url) throw new Error("URL da arte inválida");
   const name = input.name.trim() || "Arte gerada";
   return createLibraryAsset({
-    projectId: input.projectId,
+    clientId: input.clientId,
     name,
     category: "generated_arts",
     fileUrl: url,
@@ -2371,7 +2381,7 @@ export async function saveGeneratedArtToLibrary(input: {
 
 export async function createLibraryAssets(
   inputs: Array<{
-    projectId: string;
+    clientId: string;
     name: string;
     category: LibraryCategory;
     fileUrl?: string;
@@ -2409,13 +2419,13 @@ export const DESIGN_TEMPLATE_FORMATS: DesignTemplateFormat[] = ["static_feed", "
 const DESIGN_TEMPLATE_MAX_BYTES = 20 * 1024 * 1024;
 
 export async function listDesignTemplates(
-  projectId: string,
+  clientId: string,
   format?: DesignTemplateFormat,
 ): Promise<DesignTemplate[]> {
   let query = supabase
     .from("design_templates")
     .select("*")
-    .eq("project_id", projectId)
+    .eq("client_id", clientId)
     .order("created_at", { ascending: false });
   if (format) query = query.eq("format", format);
   const { data, error } = await query;
@@ -2423,7 +2433,7 @@ export async function listDesignTemplates(
   return data ?? [];
 }
 
-async function uploadDesignTemplateFile(projectId: string, file: File) {
+async function uploadDesignTemplateFile(clientId: string, file: File) {
   if (file.size > DESIGN_TEMPLATE_MAX_BYTES) {
     throw new Error("Template deve ter no máximo 20 MB.");
   }
@@ -2432,7 +2442,7 @@ async function uploadDesignTemplateFile(projectId: string, file: File) {
     throw new Error("Use JPG ou PNG para templates de arte.");
   }
   const safeName = sanitizeFileName(file.name || "template.png");
-  const storagePath = `${projectId}/templates/${crypto.randomUUID()}-${safeName}`;
+  const storagePath = `${clientId}/templates/${crypto.randomUUID()}-${safeName}`;
   const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
     cacheControl: "3600",
     contentType: mime,
@@ -2449,17 +2459,17 @@ async function uploadDesignTemplateFile(projectId: string, file: File) {
 }
 
 export async function createDesignTemplate(input: {
-  projectId: string;
+  clientId: string;
   name: string;
   format: DesignTemplateFormat;
   file: File;
 }): Promise<DesignTemplate> {
   const userId = await requireUserId();
-  const uploaded = await uploadDesignTemplateFile(input.projectId, input.file);
+  const uploaded = await uploadDesignTemplateFile(input.clientId, input.file);
   const { data, error } = await supabase
     .from("design_templates")
     .insert({
-      project_id: input.projectId,
+      client_id: input.clientId,
       name: input.name.trim() || fileTitleFallback(input.file.name),
       format: input.format,
       file_url: uploaded.fileUrl,
