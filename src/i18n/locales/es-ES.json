@@ -139,6 +139,8 @@
     "contactName": "Nombre",
     "contactEmail": "Correo",
     "contactWhatsapp": "WhatsApp",
+    "contactCountry": "País / prefijo",
+    "contactWhatsappHint": "Elige el país e indica el número sin el código de país.",
     "contactMessage": "Mensaje",
     "contactSubmit": "Enviar por WhatsApp",
     "contactWhatsAppBody": "¡Hola! Quisiera pedir acceso a la plataforma SOM y conocer los planes de suscripción.\n\nNombre: {{name}}\nCorreo: {{email}}\nWhatsApp: {{whatsapp}}\n\nMensaje:\n{{message}}"

@@ -139,6 +139,8 @@
     "contactName": "Nome",
     "contactEmail": "E-mail",
     "contactWhatsapp": "WhatsApp",
+    "contactCountry": "País / DDI",
+    "contactWhatsappHint": "Escolha o país e informe o número com DDD, sem o DDI.",
     "contactMessage": "Mensagem",
     "contactSubmit": "Enviar no WhatsApp",
     "contactWhatsAppBody": "Olá! Gostaria de pedir acesso à plataforma SOM e conhecer os planos de assinatura.\n\nNome: {{name}}\nE-mail: {{email}}\nWhatsApp: {{whatsapp}}\n\nMensagem:\n{{message}}"

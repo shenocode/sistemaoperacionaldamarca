@@ -13,6 +13,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { buildWhatsAppNotifyUrl } from "@/lib/api";
@@ -40,6 +47,31 @@ const PLAN_KEYS = ["solo", "studio", "agency"] as const;
 
 /** Commercial contact for access / subscription requests. */
 const CONTACT_WHATSAPP = "5511993397398";
+
+const WHATSAPP_COUNTRIES = [
+  { iso: "BR", dial: "55", placeholder: "11999999999" },
+  { iso: "US", dial: "1", placeholder: "2015550123" },
+  { iso: "PT", dial: "351", placeholder: "912345678" },
+  { iso: "ES", dial: "34", placeholder: "612345678" },
+  { iso: "AR", dial: "54", placeholder: "91123456789" },
+  { iso: "MX", dial: "52", placeholder: "5512345678" },
+  { iso: "CO", dial: "57", placeholder: "3001234567" },
+  { iso: "CL", dial: "56", placeholder: "912345678" },
+  { iso: "PY", dial: "595", placeholder: "981123456" },
+  { iso: "UY", dial: "598", placeholder: "99123456" },
+] as const;
+
+type WhatsAppDial = (typeof WHATSAPP_COUNTRIES)[number]["dial"];
+
+function defaultDialByLanguage(language: string): WhatsAppDial {
+  if (language.startsWith("pt")) return "55";
+  if (language.startsWith("es")) return "34";
+  return "1";
+}
+
+function findCountry(dial: string) {
+  return WHATSAPP_COUNTRIES.find((c) => c.dial === dial) ?? WHATSAPP_COUNTRIES[0];
+}
 
 function ProductMockup({
   status,
@@ -96,18 +128,31 @@ function ProductMockup({
 }
 
 function ContactForm() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [countryDial, setCountryDial] = useState<WhatsAppDial>(() =>
+    defaultDialByLanguage(i18n.language),
+  );
   const [whatsapp, setWhatsapp] = useState("");
   const [message, setMessage] = useState("");
 
+  useEffect(() => {
+    if (whatsapp.trim()) return;
+    setCountryDial(defaultDialByLanguage(i18n.language));
+  }, [i18n.language, whatsapp]);
+
+  const selectedCountry = findCountry(countryDial);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const localDigits = whatsapp.replace(/\D/g, "");
+    if (localDigits.length < 6) return;
+    const fullWhatsapp = `${countryDial}${localDigits}`;
     const body = t("landing.contactWhatsAppBody", {
       name: name.trim(),
       email: email.trim(),
-      whatsapp: whatsapp.trim(),
+      whatsapp: fullWhatsapp,
       message: message.trim(),
     });
     const url = buildWhatsAppNotifyUrl(CONTACT_WHATSAPP, body);
@@ -142,15 +187,38 @@ function ContactForm() {
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="contact-whatsapp">{t("landing.contactWhatsapp")}</Label>
-        <Input
-          id="contact-whatsapp"
-          value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
-          required
-          className="bg-white/80"
-          placeholder="11999999999"
-          autoComplete="tel"
-        />
+        <div className="flex gap-2">
+          <Select
+            value={countryDial}
+            onValueChange={(value) => setCountryDial(value as WhatsAppDial)}
+          >
+            <SelectTrigger
+              aria-label={t("landing.contactCountry")}
+              className="w-[7.5rem] shrink-0 bg-white/80"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WHATSAPP_COUNTRIES.map((country) => (
+                <SelectItem key={country.iso} value={country.dial}>
+                  {country.iso} +{country.dial}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            id="contact-whatsapp"
+            type="tel"
+            inputMode="numeric"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            required
+            className="min-w-0 flex-1 bg-white/80"
+            placeholder={selectedCountry.placeholder}
+            autoComplete="tel-national"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">{t("landing.contactWhatsappHint")}</p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="contact-message">{t("landing.contactMessage")}</Label>

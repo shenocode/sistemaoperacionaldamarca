@@ -139,6 +139,8 @@
     "contactName": "Name",
     "contactEmail": "Email",
     "contactWhatsapp": "WhatsApp",
+    "contactCountry": "Country / dial code",
+    "contactWhatsappHint": "Select your country and enter the number without the country code.",
     "contactMessage": "Message",
     "contactSubmit": "Send on WhatsApp",
     "contactWhatsAppBody": "Hi! I'd like to request access to the SOM platform and learn about subscription plans.\n\nName: {{name}}\nEmail: {{email}}\nWhatsApp: {{whatsapp}}\n\nMessage:\n{{message}}"
