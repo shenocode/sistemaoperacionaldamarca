@@ -42,6 +42,11 @@ function fromDatetimeLocalValue(value: string): string | null {
   return d.toISOString();
 }
 
+/** Compare at minute precision — datetime-local and Postgres ISO strings often differ. */
+function scheduledAtEqual(a: string | null, b: string | null) {
+  return toDatetimeLocalValue(a) === toDatetimeLocalValue(b);
+}
+
 function topicsEqual(a: MeetingAgendaTopic[], b: MeetingAgendaTopic[]) {
   if (a.length !== b.length) return false;
   return a.every((topic, index) => {
@@ -111,7 +116,7 @@ function MeetingDetailPage() {
   const scheduledAt = fromDatetimeLocalValue(scheduledLocal);
   const hasChanges =
     initialized &&
-    (scheduledAt !== serverScheduledAt || !topicsEqual(topics, serverTopics));
+    (!scheduledAtEqual(scheduledAt, serverScheduledAt) || !topicsEqual(topics, serverTopics));
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -123,10 +128,11 @@ function MeetingDetailPage() {
         topics,
       }),
     onSuccess: (row) => {
-      queryClient.setQueryData(["meeting-agendas", "detail", agendaId], row);
-      queryClient.invalidateQueries({ queryKey: ["meeting-agendas", projectId] });
+      // Sync local state before cache so hasChanges clears before any re-render from setQueryData.
       setScheduledLocal(toDatetimeLocalValue(row.scheduled_at));
       setTopics(parseMeetingAgendaTopics(row.topics));
+      queryClient.setQueryData(["meeting-agendas", "detail", agendaId], row);
+      queryClient.invalidateQueries({ queryKey: ["meeting-agendas", projectId] });
       toast.success(t("project.meeting.saved"));
     },
     onError: (err: Error) => toast.error(err.message),
