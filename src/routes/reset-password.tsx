@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+type ResetSearch = {
+  code?: string;
+  error?: string;
+  error_description?: string;
+};
+
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): ResetSearch => {
+    const result: ResetSearch = {};
+    if (typeof search.code === "string" && search.code.length > 0) result.code = search.code;
+    if (typeof search.error === "string" && search.error.length > 0) result.error = search.error;
+    if (typeof search.error_description === "string" && search.error_description.length > 0) {
+      result.error_description = search.error_description;
+    }
+    return result;
+  },
   head: () => ({
     meta: [
       { title: "Redefinir senha — SOM" },
@@ -32,8 +47,45 @@ export const Route = createFileRoute("/reset-password")({
 function ResetPasswordPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const search = Route.useSearch();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (search.error) {
+        toast.error(search.error_description || search.error);
+        setReady(true);
+        return;
+      }
+
+      if (search.code) {
+        const { data: existing } = await supabase.auth.getSession();
+        if (!existing.session) {
+          const { error } = await supabase.auth.exchangeCodeForSession(search.code);
+          if (cancelled) return;
+          if (error) {
+            toast.error(error.message);
+            setReady(true);
+            return;
+          }
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete("code");
+        url.searchParams.delete("state");
+        window.history.replaceState(window.history.state, "", `${url.pathname}${url.hash}`);
+      }
+
+      if (!cancelled) setReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [search.code, search.error, search.error_description]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,9 +115,10 @@ function ResetPasswordPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
+            disabled={!ready}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={busy}>
+        <Button type="submit" className="w-full" disabled={busy || !ready}>
           {t("auth.resetPassword")}
         </Button>
       </form>

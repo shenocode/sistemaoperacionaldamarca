@@ -193,14 +193,18 @@ function AuthPage() {
       // Complete Google/Supabase PKCE callback when returning to /auth?code=...
       if (search.code) {
         setBusy(true);
-        const { error } = await supabase.auth.exchangeCodeForSession(search.code);
-        if (cancelled) return;
-        if (error) {
-          // detectSessionInUrl may have already consumed the code — continue if session exists.
-          const { data } = await supabase.auth.getSession();
-          if (!data.session) {
+        const { data: existing } = await supabase.auth.getSession();
+        if (!existing.session) {
+          const { error } = await supabase.auth.exchangeCodeForSession(search.code);
+          if (cancelled) return;
+          if (error) {
             setBusy(false);
-            toast.error(error.message);
+            const pkceMissing = /pkce|code verifier/i.test(error.message);
+            toast.error(
+              pkceMissing
+                ? "Login Google incompleto. Clique em «Entrar com Google» de novo neste mesmo site (não alterne entre Netlify e Lovable)."
+                : error.message,
+            );
             stripOAuthParamsFromUrl();
             return;
           }

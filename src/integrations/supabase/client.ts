@@ -52,6 +52,9 @@ function createSupabaseClient() {
       persistSession: true,
       autoRefreshToken: true,
       flowType: 'pkce',
+      // Root layout and /auth both touch the client on OAuth return. Auto-detect
+      // would consume the PKCE verifier before /auth can exchange the code.
+      detectSessionInUrl: false,
     }
   });
 }
