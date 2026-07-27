@@ -488,14 +488,25 @@ export const setGestorPlanFn = createServerFn({ method: "POST" })
     return { userId: data.userId, plan: data.plan };
   });
 
+function emailFromClaims(claims: Record<string, unknown>): string | null {
+  if (typeof claims.email === "string" && claims.email.trim()) {
+    return claims.email.trim().toLowerCase();
+  }
+  const meta = claims.user_metadata;
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    const nested = (meta as { email?: unknown }).email;
+    if (typeof nested === "string" && nested.trim()) return nested.trim().toLowerCase();
+  }
+  return null;
+}
+
 export const getMyEntitlementsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PlanEntitlements> => {
-    const { supabase, userId } = context;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabase, userId, claims } = context;
 
-    const user = await findUserById(supabaseAdmin, userId);
-    if (isAdminMasterEmail(user?.email)) {
+    // Prefer JWT claims so client login works without SUPABASE_SERVICE_ROLE_KEY locally.
+    if (isAdminMasterEmail(emailFromClaims(claims as Record<string, unknown>))) {
       return entitlementsForPlan(null, { isMaster: true });
     }
 
@@ -504,6 +515,8 @@ export const getMyEntitlementsFn = createServerFn({ method: "GET" })
     if (!isAdmin) {
       return entitlementsForPlan(null);
     }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: rows, error } = await supabaseAdmin
       .from("subscriptions")
