@@ -231,8 +231,60 @@
     "finalCta": "See plans",
     "footerTag": "BOS - Brand Operating System",
     "footerWhatsapp": "WhatsApp {{number}}",
-    "mockStatus": "Awaiting approval",
-    "mockCaption": "New campaign live — brand tone, CTA, and art aligned.",
+    "mockCalendar": {
+      "blockTitle": "July — Jul 20 to Aug 20",
+      "blockHint": "{{count}} posts in this period",
+      "posts": {
+        "campaign": {
+          "title": "New campaign is live",
+          "day": "Monday",
+          "datetime": "07/21/2026 10:00",
+          "theme": "Presence"
+        },
+        "reelsHook": {
+          "title": "Reels hook — behind the scenes",
+          "day": "Tuesday",
+          "datetime": "07/22/2026 18:30",
+          "theme": "Behind the scenes"
+        },
+        "carouselTips": {
+          "title": "Carousel: 5 brand tips",
+          "day": "Wednesday",
+          "datetime": "07/23/2026 12:00",
+          "theme": "Educational"
+        },
+        "storiesPromo": {
+          "title": "Stories — weekly promo",
+          "day": "Thursday",
+          "datetime": "07/24/2026 09:00",
+          "theme": "Offer"
+        },
+        "feedQuote": {
+          "title": "Founder's quote",
+          "day": "Friday",
+          "datetime": "07/25/2026 11:00",
+          "theme": "True Self"
+        },
+        "reelsBts": {
+          "title": "Reels — shoot making of",
+          "day": "Saturday",
+          "datetime": "07/26/2026 16:00",
+          "theme": "Behind the scenes"
+        },
+        "carouselLaunch": {
+          "title": "Launch carousel",
+          "day": "Monday",
+          "datetime": "07/28/2026 10:00",
+          "theme": "Launch"
+        },
+        "storiesPoll": {
+          "title": "Stories — audience poll",
+          "day": "Tuesday",
+          "datetime": "07/29/2026 19:00",
+          "theme": "Engagement"
+        }
+      }
+    },
     "contactTitle": "Contact us",
     "contactSubtitle": "Questions about plans or onboarding? Choose how to start and send on WhatsApp.",
     "contactName": "Name",

@@ -231,8 +231,60 @@
     "finalCta": "Ver planos",
     "footerTag": "Sistema Operacional da Marca",
     "footerWhatsapp": "WhatsApp {{number}}",
-    "mockStatus": "Aguardando aprovação",
-    "mockCaption": "Nova campanha no ar — tom da marca, CTA e artes alinhados.",
+    "mockCalendar": {
+      "blockTitle": "Julho — 20/07 a 20/08",
+      "blockHint": "{{count}} publicações neste período",
+      "posts": {
+        "campaign": {
+          "title": "Nova campanha no ar",
+          "day": "segunda-feira",
+          "datetime": "21/07/2026 10:00",
+          "theme": "Presença"
+        },
+        "reelsHook": {
+          "title": "Hook do Reels — bastidores",
+          "day": "terça-feira",
+          "datetime": "22/07/2026 18:30",
+          "theme": "Bastidores"
+        },
+        "carouselTips": {
+          "title": "Carrossel: 5 dicas da marca",
+          "day": "quarta-feira",
+          "datetime": "23/07/2026 12:00",
+          "theme": "Educativo"
+        },
+        "storiesPromo": {
+          "title": "Stories — promoção da semana",
+          "day": "quinta-feira",
+          "datetime": "24/07/2026 09:00",
+          "theme": "Oferta"
+        },
+        "feedQuote": {
+          "title": "Citação da fundadora",
+          "day": "sexta-feira",
+          "datetime": "25/07/2026 11:00",
+          "theme": "Verdadeiro Self"
+        },
+        "reelsBts": {
+          "title": "Reels — making of do shoot",
+          "day": "sábado",
+          "datetime": "26/07/2026 16:00",
+          "theme": "Bastidores"
+        },
+        "carouselLaunch": {
+          "title": "Lançamento em carrossel",
+          "day": "segunda-feira",
+          "datetime": "28/07/2026 10:00",
+          "theme": "Lançamento"
+        },
+        "storiesPoll": {
+          "title": "Stories — enquete com a base",
+          "day": "terça-feira",
+          "datetime": "29/07/2026 19:00",
+          "theme": "Engajamento"
+        }
+      }
+    },
     "contactTitle": "Fale conosco",
     "contactSubtitle": "Dúvidas sobre planos ou onboarding? Escolha como começar e envie no WhatsApp.",
     "contactName": "Nome",

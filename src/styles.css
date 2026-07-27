@@ -204,6 +204,15 @@
   }
 }
 
+@keyframes landing-phone-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
 .landing-rise {
   animation: landing-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -228,10 +237,28 @@
   animation: landing-drift 14s ease-in-out infinite;
 }
 
+.landing-phone-scroll-viewport {
+  height: 420px;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 12px,
+    #000 calc(100% - 16px),
+    transparent 100%
+  );
+}
+
+.landing-phone-scroll-track {
+  animation: landing-phone-scroll 22s linear infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-rise,
   .landing-float,
-  .landing-drift {
+  .landing-drift,
+  .landing-phone-scroll-track {
     animation: none;
   }
 }

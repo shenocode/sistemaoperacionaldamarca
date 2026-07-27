@@ -18,6 +18,15 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
+import { PhoneChrome } from "@/components/content-media-preview";
+import {
+  contentFormatRowStyles,
+  contentFormatStyles,
+} from "@/components/content-format-styles";
+import {
+  contentStatusStyles,
+  type ContentStatus,
+} from "@/components/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +41,7 @@ import {
   submitContactLead,
   type ContactLeadIntent,
   type ContactLeadNiche,
+  type ContentFormat,
   type SubscriptionPlanKey,
 } from "@/lib/api";
 import { CONTACT_WHATSAPP } from "@/lib/company";
@@ -109,56 +119,144 @@ const ASSET_ICONS = {
 
 const PLAN_KEYS = ["solo", "studio", "agency"] as const satisfies readonly SubscriptionPlanKey[];
 
-function ProductMockup({
-  status,
-  caption,
-  brandName,
-}: {
-  status: string;
-  caption: string;
-  brandName: string;
-}) {
+const MOCK_FORMAT_CHIPS = [
+  "static_feed",
+  "carousel",
+  "reels",
+  "stories",
+] as const satisfies readonly ContentFormat[];
+
+const MOCK_CALENDAR_POSTS = [
+  { key: "campaign", format: "static_feed", status: "review" },
+  { key: "reelsHook", format: "reels", status: "approved" },
+  { key: "carouselTips", format: "carousel", status: "draft" },
+  { key: "storiesPromo", format: "stories", status: "changes" },
+  { key: "feedQuote", format: "static_feed", status: "published" },
+  { key: "reelsBts", format: "reels", status: "waiting_material" },
+  { key: "carouselLaunch", format: "carousel", status: "review" },
+  { key: "storiesPoll", format: "stories", status: "draft" },
+] as const satisfies readonly {
+  key: string;
+  format: ContentFormat;
+  status: ContentStatus;
+}[];
+
+function CalendarMockList({ idPrefix }: { idPrefix: string }) {
+  const { t } = useTranslation();
+
   return (
-    <div className="landing-float relative mx-auto w-full max-w-md">
-      <div className="absolute -inset-8 landing-drift rounded-[40%] bg-primary/15 blur-3xl" aria-hidden />
-      <div className="relative grid gap-4 sm:grid-cols-[1fr_0.85fr] sm:items-end">
-        <div className="rounded-[1.75rem] border border-black/8 bg-white p-3 shadow-[0_24px_60px_-28px_oklch(0.35_0.04_220/0.45)]">
-          <div className="mb-3 flex items-center justify-between px-1">
-            <span className="font-display text-xs font-semibold tracking-wide text-neutral-800">
-              @marca.demo
-            </span>
-            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-900">
-              {status}
-            </span>
-          </div>
-          <div className="aspect-square overflow-hidden rounded-2xl bg-gradient-to-br from-teal-200 via-sky-100 to-emerald-100">
-            <div className="flex h-full flex-col justify-between p-5">
-              <p className="font-display text-2xl font-semibold leading-tight text-teal-950/90">
-                {brandName}
-              </p>
-              <p className="max-w-[14ch] text-sm leading-snug text-teal-950/85">{caption}</p>
-            </div>
-          </div>
-          <p className="mt-3 line-clamp-2 px-1 text-xs leading-relaxed text-neutral-600">
-            {caption}
-          </p>
-        </div>
-        <div className="space-y-2 rounded-2xl border border-black/8 bg-white/90 p-3 backdrop-blur-sm">
-          {["Seg", "Qua", "Sex"].map((day, i) => (
-            <div
-              key={day}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs",
-                i === 1 ? "bg-primary/15 text-teal-950" : "bg-neutral-50 text-neutral-700",
-              )}
-            >
-              <span className="w-8 font-medium">{day}</span>
-              <span className="h-1.5 flex-1 rounded-full bg-current/20" />
-              <span className="font-medium opacity-80">{i === 1 ? "Reels" : "Feed"}</span>
-            </div>
-          ))}
-        </div>
+    <div className="space-y-2.5 px-2.5 pb-4 pt-2">
+      <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 shadow-sm">
+        <p className="text-[11px] font-semibold text-neutral-900">
+          {t("landing.mockCalendar.blockTitle")}
+        </p>
+        <p className="mt-0.5 text-[10px] text-neutral-500">
+          {t("landing.mockCalendar.blockHint", {
+            count: MOCK_CALENDAR_POSTS.length,
+          })}
+        </p>
       </div>
+
+      {MOCK_CALENDAR_POSTS.map((post, index) => (
+        <div
+          key={`${idPrefix}-${post.key}`}
+          className={cn(
+            contentFormatRowStyles[post.format],
+            "space-y-2 rounded-lg border border-black/6 p-2.5",
+          )}
+        >
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-[10px] text-neutral-400">{index + 1}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-neutral-900">
+                {t(`landing.mockCalendar.posts.${post.key}.title`)}
+              </p>
+              <p className="mt-0.5 text-[10px] capitalize text-neutral-500">
+                {t(`landing.mockCalendar.posts.${post.key}.day`)}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] uppercase tracking-wide text-neutral-400">
+                {t("project.calendar.columns.datetime")}
+              </span>
+              <span className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] text-neutral-700">
+                {t(`landing.mockCalendar.posts.${post.key}.datetime`)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] uppercase tracking-wide text-neutral-400">
+                {t("project.calendar.columns.status")}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex max-w-[60%] truncate rounded-md border px-2 py-0.5 text-[9px] font-medium",
+                  contentStatusStyles[post.status],
+                )}
+              >
+                {t(`project.content.status.${post.status}`)}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span
+                className={cn(
+                  "rounded-md border px-1.5 py-0.5 text-[9px] font-medium",
+                  contentFormatStyles[post.format],
+                )}
+              >
+                {t(`project.detail.formats.${post.format}`)}
+              </span>
+              <span className="rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[9px] text-neutral-600">
+                {t(`landing.mockCalendar.posts.${post.key}.theme`)}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProductMockup() {
+  const { t } = useTranslation();
+
+  return (
+    <div className="landing-float relative mx-auto w-full max-w-[320px]">
+      <div
+        className="absolute -inset-8 landing-drift rounded-[40%] bg-primary/15 blur-3xl"
+        aria-hidden
+      />
+      <PhoneChrome className="relative">
+        <div className="flex flex-col bg-neutral-50">
+          <div className="shrink-0 border-b border-neutral-200 bg-white px-3 pb-2.5 pt-1">
+            <p className="text-[13px] font-semibold text-neutral-900">
+              {t("project.calendar.title")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {MOCK_FORMAT_CHIPS.map((format) => (
+                <span
+                  key={format}
+                  className={cn(
+                    "rounded-md border px-1.5 py-0.5 text-[9px] font-medium",
+                    contentFormatStyles[format],
+                  )}
+                >
+                  {t(`project.detail.formats.${format}`)}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="landing-phone-scroll-viewport" aria-hidden>
+            <div className="landing-phone-scroll-track">
+              <CalendarMockList idPrefix="a" />
+              <CalendarMockList idPrefix="b" />
+            </div>
+          </div>
+        </div>
+      </PhoneChrome>
     </div>
   );
 }
@@ -414,7 +512,7 @@ export function LandingPage() {
               </Link>
             </Button>
           ) : (
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Button asChild variant="ghost" size="sm" className="inline-flex px-2 sm:px-3">
               <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
             </Button>
           )}
@@ -450,11 +548,7 @@ export function LandingPage() {
             </div>
           </div>
           <div className="landing-rise landing-rise-delay-2">
-            <ProductMockup
-              status={t("landing.mockStatus")}
-              caption={t("landing.mockCaption")}
-              brandName={t("app.name")}
-            />
+            <ProductMockup />
           </div>
         </section>
 

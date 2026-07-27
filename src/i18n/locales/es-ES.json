@@ -231,8 +231,60 @@
     "finalCta": "Ver planes",
     "footerTag": "Sistema Operativo de la Marca",
     "footerWhatsapp": "WhatsApp {{number}}",
-    "mockStatus": "Esperando aprobación",
-    "mockCaption": "Nueva campaña al aire — tono de marca, CTA y artes alineados.",
+    "mockCalendar": {
+      "blockTitle": "Julio — 20/07 a 20/08",
+      "blockHint": "{{count}} publicaciones en este periodo",
+      "posts": {
+        "campaign": {
+          "title": "Nueva campaña al aire",
+          "day": "lunes",
+          "datetime": "21/07/2026 10:00",
+          "theme": "Presencia"
+        },
+        "reelsHook": {
+          "title": "Hook del Reels — bastidores",
+          "day": "martes",
+          "datetime": "22/07/2026 18:30",
+          "theme": "Bastidores"
+        },
+        "carouselTips": {
+          "title": "Carrusel: 5 tips de marca",
+          "day": "miércoles",
+          "datetime": "23/07/2026 12:00",
+          "theme": "Educativo"
+        },
+        "storiesPromo": {
+          "title": "Stories — promo de la semana",
+          "day": "jueves",
+          "datetime": "24/07/2026 09:00",
+          "theme": "Oferta"
+        },
+        "feedQuote": {
+          "title": "Cita de la fundadora",
+          "day": "viernes",
+          "datetime": "25/07/2026 11:00",
+          "theme": "Verdadero Self"
+        },
+        "reelsBts": {
+          "title": "Reels — making of del shoot",
+          "day": "sábado",
+          "datetime": "26/07/2026 16:00",
+          "theme": "Bastidores"
+        },
+        "carouselLaunch": {
+          "title": "Lanzamiento en carrusel",
+          "day": "lunes",
+          "datetime": "28/07/2026 10:00",
+          "theme": "Lanzamiento"
+        },
+        "storiesPoll": {
+          "title": "Stories — encuesta con la base",
+          "day": "martes",
+          "datetime": "29/07/2026 19:00",
+          "theme": "Engagement"
+        }
+      }
+    },
     "contactTitle": "Contáctanos",
     "contactSubtitle": "¿Dudas sobre planes u onboarding? Elige cómo empezar y envía por WhatsApp.",
     "contactName": "Nombre",
