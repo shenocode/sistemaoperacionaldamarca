@@ -893,6 +893,7 @@ function ContentDetailPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="border-transparent bg-[oklch(0.62_0.11_175)] text-[oklch(0.98_0.01_175)] shadow-sm hover:bg-[oklch(0.56_0.11_175)] hover:text-[oklch(0.98_0.01_175)]"
                       onClick={() => {
                         const el = document.getElementById("locucao");
                         const live =
