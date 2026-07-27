@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   CalendarDays,
   Check,
+  ChevronLeft,
   Clapperboard,
   Film,
   Image,
@@ -11,8 +12,10 @@ import {
   LayoutGrid,
   MessageSquareText,
   Palette,
+  Play,
   Share2,
   Sparkles,
+  SquareStack,
   UserRound,
   Wand2,
 } from "lucide-react";
@@ -141,11 +144,137 @@ const MOCK_CALENDAR_POSTS = [
   status: ContentStatus;
 }[];
 
-function CalendarMockList({ idPrefix }: { idPrefix: string }) {
+const MOCK_FEED_TILES = [
+  {
+    key: "campaign",
+    format: "static_feed" as const,
+    gradient: "from-teal-300 via-sky-200 to-emerald-200",
+    tapTarget: true,
+  },
+  {
+    key: "reelsHook",
+    format: "reels" as const,
+    gradient: "from-fuchsia-300 via-pink-200 to-violet-200",
+    tapTarget: false,
+  },
+  {
+    key: "carouselTips",
+    format: "carousel" as const,
+    gradient: "from-violet-300 via-purple-200 to-indigo-200",
+    tapTarget: false,
+  },
+  {
+    key: "storiesPromo",
+    format: "stories" as const,
+    gradient: "from-teal-200 via-cyan-100 to-sky-200",
+    tapTarget: false,
+  },
+  {
+    key: "feedQuote",
+    format: "static_feed" as const,
+    gradient: "from-amber-200 via-orange-100 to-rose-200",
+    tapTarget: false,
+  },
+  {
+    key: "reelsBts",
+    format: "reels" as const,
+    gradient: "from-rose-300 via-fuchsia-200 to-pink-200",
+    tapTarget: false,
+  },
+  {
+    key: "carouselLaunch",
+    format: "carousel" as const,
+    gradient: "from-indigo-300 via-sky-200 to-teal-200",
+    tapTarget: false,
+  },
+  {
+    key: "storiesPoll",
+    format: "stories" as const,
+    gradient: "from-lime-200 via-emerald-100 to-teal-200",
+    tapTarget: false,
+  },
+  {
+    key: "campaignAlt",
+    format: "static_feed" as const,
+    gradient: "from-sky-300 via-teal-100 to-cyan-200",
+    tapTarget: false,
+  },
+] as const;
+
+const DETAIL_POST = MOCK_CALENDAR_POSTS[0];
+
+type MockScene = "calendar" | "feed" | "detail";
+
+const TIMING = {
+  calendarScrollMs: 7000,
+  feedPauseMs: 500,
+  tapMs: 1100,
+  detailEnterMs: 450,
+  detailScrollMs: 4500,
+  detailHoldMs: 1800,
+} as const;
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function wait(ms: number, signal: { cancelled: boolean }) {
+  return new Promise<void>((resolve) => {
+    if (signal.cancelled || ms <= 0) {
+      resolve();
+      return;
+    }
+    const start = performance.now();
+    const tick = (now: number) => {
+      if (signal.cancelled || now - start >= ms) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function animateScrollTop(
+  el: HTMLElement,
+  to: number,
+  durationMs: number,
+  signal: { cancelled: boolean },
+) {
+  return new Promise<void>((resolve) => {
+    const from = el.scrollTop;
+    const delta = to - from;
+    if (durationMs <= 0 || Math.abs(delta) < 1) {
+      el.scrollTop = to;
+      resolve();
+      return;
+    }
+    const start = performance.now();
+    const step = (now: number) => {
+      if (signal.cancelled) {
+        resolve();
+        return;
+      }
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      el.scrollTop = from + delta * eased;
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        resolve();
+      }
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+function CalendarMockList() {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-2.5 px-2.5 pb-4 pt-2">
+    <div className="space-y-2.5 px-2.5 pb-3 pt-2">
       <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 shadow-sm">
         <p className="text-[11px] font-semibold text-neutral-900">
           {t("landing.mockCalendar.blockTitle")}
@@ -159,7 +288,7 @@ function CalendarMockList({ idPrefix }: { idPrefix: string }) {
 
       {MOCK_CALENDAR_POSTS.map((post, index) => (
         <div
-          key={`${idPrefix}-${post.key}`}
+          key={post.key}
           className={cn(
             contentFormatRowStyles[post.format],
             "space-y-2 rounded-lg border border-black/6 p-2.5",
@@ -219,8 +348,233 @@ function CalendarMockList({ idPrefix }: { idPrefix: string }) {
   );
 }
 
+function FeedMockSection({
+  sectionRef,
+  tapping,
+}: {
+  sectionRef: RefObject<HTMLDivElement | null>;
+  tapping: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div ref={sectionRef} className="border-t border-neutral-200 bg-white px-2.5 pb-5 pt-3">
+      <p className="mb-2 text-center text-[10px] font-medium text-neutral-500">
+        {t("landing.mockFeed.title")}
+      </p>
+      <div className="overflow-hidden rounded-xl border border-neutral-200">
+        <div className="flex items-center justify-center border-b border-neutral-100 px-3 py-1.5">
+          <p className="text-[11px] font-semibold text-neutral-900">@marca.demo</p>
+        </div>
+        <div className="grid grid-cols-3 gap-px bg-neutral-200">
+          {MOCK_FEED_TILES.map((tile) => (
+            <div
+              key={tile.key}
+              className={cn(
+                "relative aspect-[4/5] bg-gradient-to-br",
+                tile.gradient,
+                tile.tapTarget && tapping && "landing-mock-tap",
+              )}
+            >
+              {tile.format === "carousel" ? (
+                <SquareStack className="absolute right-1 top-1 h-3 w-3 text-white drop-shadow" />
+              ) : null}
+              {tile.format === "reels" ? (
+                <Play className="absolute right-1 top-1 h-3 w-3 fill-white text-white drop-shadow" />
+              ) : null}
+              {tile.tapTarget ? (
+                <span className="absolute inset-x-1 bottom-1 truncate rounded bg-black/45 px-1 py-0.5 text-center text-[8px] font-medium text-white">
+                  {t("landing.mockCalendar.posts.campaign.title")}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailMockScreen() {
+  const { t } = useTranslation();
+  const post = DETAIL_POST;
+
+  return (
+    <div className="space-y-3 px-2.5 pb-6 pt-2">
+      <div className="overflow-hidden rounded-xl bg-gradient-to-br from-teal-300 via-sky-200 to-emerald-200">
+        <div className="flex aspect-square flex-col justify-between p-4">
+          <p className="font-display text-lg font-semibold text-teal-950/90">
+            {t("app.name")}
+          </p>
+          <p className="max-w-[16ch] text-[11px] leading-snug text-teal-950/85">
+            {t("landing.mockDetail.caption")}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-xl border border-neutral-200 bg-white p-2.5">
+        <div className="space-y-1">
+          <p className="text-[9px] uppercase tracking-wide text-neutral-400">
+            {t("project.calendar.columns.title")}
+          </p>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[11px] font-medium text-neutral-900">
+            {t(`landing.mockCalendar.posts.${post.key}.title`)}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <p className="text-[9px] uppercase tracking-wide text-neutral-400">
+              {t("project.calendar.columns.format")}
+            </p>
+            <span
+              className={cn(
+                "inline-flex rounded-md border px-1.5 py-1 text-[9px] font-medium",
+                contentFormatStyles[post.format],
+              )}
+            >
+              {t(`project.detail.formats.${post.format}`)}
+            </span>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[9px] uppercase tracking-wide text-neutral-400">
+              {t("project.calendar.columns.theme")}
+            </p>
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px] text-neutral-700">
+              {t(`landing.mockCalendar.posts.${post.key}.theme`)}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-[9px] uppercase tracking-wide text-neutral-400">
+            {t("landing.mockDetail.captionLabel")}
+          </p>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[10px] leading-relaxed text-neutral-700">
+            {t("landing.mockDetail.caption")}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-[9px] uppercase tracking-wide text-neutral-400">
+            {t("landing.mockDetail.ctaLabel")}
+          </p>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[10px] text-neutral-700">
+            {t("landing.mockDetail.cta")}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-[9px] uppercase tracking-wide text-neutral-400">
+            {t("landing.mockDetail.hashtagsLabel")}
+          </p>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[10px] text-neutral-600">
+            {t("landing.mockDetail.hashtags")}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1 rounded-md bg-neutral-900 py-2 text-center text-[10px] font-medium text-white">
+          {t("landing.mockDetail.save")}
+        </div>
+        <div
+          className={cn(
+            "flex-1 rounded-md border py-2 text-center text-[10px] font-medium",
+            contentStatusStyles[post.status],
+          )}
+        >
+          {t(`project.content.status.${post.status}`)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductMockup() {
   const { t } = useTranslation();
+  const [scene, setScene] = useState<MockScene>("calendar");
+  const [tapping, setTapping] = useState(false);
+  const calendarViewportRef = useRef<HTMLDivElement>(null);
+  const feedSectionRef = useRef<HTMLDivElement>(null);
+  const detailViewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+
+    const signal = { cancelled: false };
+
+    const runLoop = async () => {
+      while (!signal.cancelled) {
+        setScene("calendar");
+        setTapping(false);
+
+        for (let i = 0; i < 30 && !signal.cancelled; i += 1) {
+          if (calendarViewportRef.current && feedSectionRef.current) break;
+          await wait(16, signal);
+        }
+        if (signal.cancelled) break;
+
+        const calendarViewport = calendarViewportRef.current;
+        const feedSection = feedSectionRef.current;
+        if (calendarViewport && feedSection) {
+          calendarViewport.scrollTop = 0;
+          const target =
+            feedSection.offsetTop - calendarViewport.clientHeight * 0.12;
+          await animateScrollTop(
+            calendarViewport,
+            Math.max(0, target),
+            TIMING.calendarScrollMs,
+            signal,
+          );
+        } else {
+          await wait(TIMING.calendarScrollMs, signal);
+        }
+        if (signal.cancelled) break;
+
+        setScene("feed");
+        await wait(TIMING.feedPauseMs, signal);
+        if (signal.cancelled) break;
+
+        setTapping(true);
+        await wait(TIMING.tapMs, signal);
+        if (signal.cancelled) break;
+        setTapping(false);
+
+        setScene("detail");
+
+        for (let i = 0; i < 30 && !signal.cancelled; i += 1) {
+          if (detailViewportRef.current) break;
+          await wait(16, signal);
+        }
+        if (signal.cancelled) break;
+
+        await wait(TIMING.detailEnterMs, signal);
+        if (signal.cancelled) break;
+
+        const detailViewport = detailViewportRef.current;
+        if (detailViewport) {
+          detailViewport.scrollTop = 0;
+          const maxScroll = Math.max(
+            0,
+            detailViewport.scrollHeight - detailViewport.clientHeight,
+          );
+          await animateScrollTop(
+            detailViewport,
+            maxScroll * 0.85,
+            TIMING.detailScrollMs,
+            signal,
+          );
+        } else {
+          await wait(TIMING.detailScrollMs, signal);
+        }
+        if (signal.cancelled) break;
+
+        await wait(TIMING.detailHoldMs, signal);
+      }
+    };
+
+    void runLoop();
+    return () => {
+      signal.cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="landing-float relative mx-auto w-full max-w-[320px]">
@@ -229,32 +583,59 @@ function ProductMockup() {
         aria-hidden
       />
       <PhoneChrome className="relative">
-        <div className="flex flex-col bg-neutral-50">
-          <div className="shrink-0 border-b border-neutral-200 bg-white px-3 pb-2.5 pt-1">
-            <p className="text-[13px] font-semibold text-neutral-900">
-              {t("project.calendar.title")}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {MOCK_FORMAT_CHIPS.map((format) => (
+        <div className="flex flex-col bg-neutral-50" aria-hidden>
+          {scene === "detail" ? (
+            <>
+              <div className="flex shrink-0 items-center gap-1.5 border-b border-neutral-200 bg-white px-2 py-2">
+                <ChevronLeft className="h-4 w-4 text-neutral-700" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-semibold text-neutral-900">
+                    {t(`landing.mockCalendar.posts.${DETAIL_POST.key}.title`)}
+                  </p>
+                </div>
                 <span
-                  key={format}
                   className={cn(
-                    "rounded-md border px-1.5 py-0.5 text-[9px] font-medium",
-                    contentFormatStyles[format],
+                    "shrink-0 rounded-md border px-1.5 py-0.5 text-[8px] font-medium",
+                    contentStatusStyles[DETAIL_POST.status],
                   )}
                 >
-                  {t(`project.detail.formats.${format}`)}
+                  {t(`project.content.status.${DETAIL_POST.status}`)}
                 </span>
-              ))}
-            </div>
-          </div>
+              </div>
+              <div
+                ref={detailViewportRef}
+                className="landing-mock-viewport landing-mock-scene-enter"
+              >
+                <DetailMockScreen />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="shrink-0 border-b border-neutral-200 bg-white px-3 pb-2.5 pt-1">
+                <p className="text-[13px] font-semibold text-neutral-900">
+                  {t("project.calendar.title")}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {MOCK_FORMAT_CHIPS.map((format) => (
+                    <span
+                      key={format}
+                      className={cn(
+                        "rounded-md border px-1.5 py-0.5 text-[9px] font-medium",
+                        contentFormatStyles[format],
+                      )}
+                    >
+                      {t(`project.detail.formats.${format}`)}
+                    </span>
+                  ))}
+                </div>
+              </div>
 
-          <div className="landing-phone-scroll-viewport" aria-hidden>
-            <div className="landing-phone-scroll-track">
-              <CalendarMockList idPrefix="a" />
-              <CalendarMockList idPrefix="b" />
-            </div>
-          </div>
+              <div ref={calendarViewportRef} className="landing-mock-viewport">
+                <CalendarMockList />
+                <FeedMockSection sectionRef={feedSectionRef} tapping={tapping} />
+              </div>
+            </>
+          )}
         </div>
       </PhoneChrome>
     </div>

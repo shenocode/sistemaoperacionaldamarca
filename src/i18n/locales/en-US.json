@@ -285,6 +285,18 @@
         }
       }
     },
+    "mockFeed": {
+      "title": "Feed preview"
+    },
+    "mockDetail": {
+      "captionLabel": "Caption",
+      "caption": "New campaign live — brand tone, CTA, and art aligned.",
+      "ctaLabel": "CTA",
+      "cta": "Learn more",
+      "hashtagsLabel": "Hashtags",
+      "hashtags": "#brand #campaign #bos",
+      "save": "Save"
+    },
     "contactTitle": "Contact us",
     "contactSubtitle": "Questions about plans or onboarding? Choose how to start and send on WhatsApp.",
     "contactName": "Name",

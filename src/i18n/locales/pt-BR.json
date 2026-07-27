@@ -285,6 +285,18 @@
         }
       }
     },
+    "mockFeed": {
+      "title": "Prévia do feed"
+    },
+    "mockDetail": {
+      "captionLabel": "Legenda",
+      "caption": "Nova campanha no ar — tom da marca, CTA e artes alinhados.",
+      "ctaLabel": "CTA",
+      "cta": "Saiba mais",
+      "hashtagsLabel": "Hashtags",
+      "hashtags": "#marca #campanha #som",
+      "save": "Salvar"
+    },
     "contactTitle": "Fale conosco",
     "contactSubtitle": "Dúvidas sobre planos ou onboarding? Escolha como começar e envie no WhatsApp.",
     "contactName": "Nome",

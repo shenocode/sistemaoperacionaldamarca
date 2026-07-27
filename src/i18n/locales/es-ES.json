@@ -285,6 +285,18 @@
         }
       }
     },
+    "mockFeed": {
+      "title": "Vista previa del feed"
+    },
+    "mockDetail": {
+      "captionLabel": "Leyenda",
+      "caption": "Nueva campaña al aire — tono de marca, CTA y artes alineados.",
+      "ctaLabel": "CTA",
+      "cta": "Saber más",
+      "hashtagsLabel": "Hashtags",
+      "hashtags": "#marca #campaña #som",
+      "save": "Guardar"
+    },
     "contactTitle": "Contáctanos",
     "contactSubtitle": "¿Dudas sobre planes u onboarding? Elige cómo empezar y envía por WhatsApp.",
     "contactName": "Nombre",
