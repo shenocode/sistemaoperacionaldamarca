@@ -190,44 +190,6 @@ export type Database = {
           },
         ]
       }
-      meeting_agendas: {
-        Row: {
-          created_at: string
-          id: string
-          notes: string | null
-          project_id: string
-          scheduled_at: string | null
-          topics: Json
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          project_id: string
-          scheduled_at?: string | null
-          topics?: Json
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          project_id?: string
-          scheduled_at?: string | null
-          topics?: Json
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meeting_agendas_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       client_members: {
         Row: {
           client_id: string
@@ -607,6 +569,41 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_agendas: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          scheduled_at: string | null
+          topics: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          scheduled_at?: string | null
+          topics?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          scheduled_at?: string | null
+          topics?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_agendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
