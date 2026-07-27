@@ -311,42 +311,6 @@ export type Database = {
         }
         Relationships: []
       }
-      contact_leads: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          intent: Database["public"]["Enums"]["contact_lead_intent"]
-          locale: string | null
-          name: string
-          niche: Database["public"]["Enums"]["contact_lead_niche"]
-          source: string
-          whatsapp: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          intent: Database["public"]["Enums"]["contact_lead_intent"]
-          locale?: string | null
-          name: string
-          niche: Database["public"]["Enums"]["contact_lead_niche"]
-          source?: string
-          whatsapp: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          intent?: Database["public"]["Enums"]["contact_lead_intent"]
-          locale?: string | null
-          name?: string
-          niche?: Database["public"]["Enums"]["contact_lead_niche"]
-          source?: string
-          whatsapp?: string
-        }
-        Relationships: []
-      }
       content_comments: {
         Row: {
           body: string
@@ -653,7 +617,6 @@ export type Database = {
           id: string
           locale: string
           updated_at: string
-          whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -663,7 +626,6 @@ export type Database = {
           id: string
           locale?: string
           updated_at?: string
-          whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -673,13 +635,11 @@ export type Database = {
           id?: string
           locale?: string
           updated_at?: string
-          whatsapp?: string | null
         }
         Relationships: []
       }
       projects: {
         Row: {
-          categories: string[]
           client_id: string
           created_at: string
           created_by: string | null
@@ -694,7 +654,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          categories?: string[]
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -709,7 +668,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          categories?: string[]
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -828,11 +786,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      active_subscription_plan: {
+        Args: { _user_id?: string }
+        Returns: Database["public"]["Enums"]["subscription_plan"]
+      }
       can_access_client: { Args: { _client_id: string }; Returns: boolean }
       can_access_content: { Args: { _content_id: string }; Returns: boolean }
+      can_access_library_storage: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       can_access_project: { Args: { _project_id: string }; Returns: boolean }
       can_manage_client: { Args: { _client_id: string }; Returns: boolean }
       can_manage_content: { Args: { _content_id: string }; Returns: boolean }
+      can_manage_library_storage: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       can_manage_project: { Args: { _project_id: string }; Returns: boolean }
       claim_client_access: { Args: { _access_token: string }; Returns: string }
       client_logo_storage_client_id: {
@@ -857,6 +827,7 @@ export type Database = {
           project_name: string
         }[]
       }
+      get_team_owner_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -869,8 +840,11 @@ export type Database = {
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
       is_team_owner: { Args: never; Returns: boolean }
-      get_team_owner_id: { Args: never; Returns: string }
       library_storage_project_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
+      library_storage_scope_id: {
         Args: { object_name: string }
         Returns: string
       }
@@ -967,9 +941,6 @@ export type Database = {
         | "meeting_agenda_deleted"
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
-      contact_lead_intent: "trial" | "human"
-      contact_lead_niche: "agency" | "social_media" | "brand_owner"
-      subscription_plan: "solo" | "studio" | "agency" | "courtesy"
       client_member_role: "owner" | "member"
       content_format:
         | "static_feed"
@@ -994,6 +965,7 @@ export type Database = {
         | "documents"
         | "spreadsheets"
         | "generated_arts"
+      subscription_plan: "solo" | "studio" | "agency" | "courtesy"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1138,9 +1110,6 @@ export const Constants = {
       ],
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
-      contact_lead_intent: ["trial", "human"],
-      contact_lead_niche: ["agency", "social_media", "brand_owner"],
-      subscription_plan: ["solo", "studio", "agency", "courtesy"],
       client_member_role: ["owner", "member"],
       content_format: [
         "static_feed",
@@ -1168,6 +1137,7 @@ export const Constants = {
         "spreadsheets",
         "generated_arts",
       ],
+      subscription_plan: ["solo", "studio", "agency", "courtesy"],
     },
   },
 } as const
