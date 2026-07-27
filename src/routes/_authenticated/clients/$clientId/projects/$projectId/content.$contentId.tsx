@@ -891,9 +891,8 @@ function ContentDetailPage() {
                     </Label>
                     <Button
                       type="button"
-                      variant="outline"
                       size="sm"
-                      className="border-transparent bg-[oklch(0.62_0.11_175)] text-[oklch(0.98_0.01_175)] shadow-sm hover:bg-[oklch(0.56_0.11_175)] hover:text-[oklch(0.98_0.01_175)]"
+                      className="bg-brand-mint text-brand-mint-foreground shadow-sm hover:bg-brand-mint/90 hover:text-brand-mint-foreground"
                       onClick={() => {
                         const el = document.getElementById("locucao");
                         const live =
