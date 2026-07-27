@@ -99,6 +99,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
+import { LocucaoTeleprompterDialog } from "@/components/locucao-teleprompter-dialog";
 import { cn } from "@/lib/utils";
 import { validateContentSearch } from "./content";
 
@@ -200,6 +201,8 @@ function ContentDetailPage() {
   const [comment, setComment] = useState("");
   const [versionNote, setVersionNote] = useState("");
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [teleprompterOpen, setTeleprompterOpen] = useState(false);
+  const [teleprompterText, setTeleprompterText] = useState("");
   const [newTheme, setNewTheme] = useState("");
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -461,6 +464,7 @@ function ContentDetailPage() {
           caption: payload.caption,
           cta: payload.cta,
           hashtags: payload.hashtags,
+          locucao: payload.locucao,
           format: formatType,
           theme: payload.theme,
           changeNote: noteCanonical,
@@ -873,25 +877,49 @@ function ContentDetailPage() {
                   field="caption"
                   i18n={rowI18n}
                   fallback={caption}
-                  rows={4}
+                  rows={8}
+                  autoResize
+                  className="min-h-[12rem]"
                   onI18nCommit={onFieldI18nCommit}
                 />
               </div>
               {needsLocucao ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="locucao" variant="highlight">
-                    {t("project.detail.locucao")}
-                  </Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label htmlFor="locucao" variant="highlight">
+                      {t("project.detail.locucao")}
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const el = document.getElementById("locucao");
+                        const live =
+                          el instanceof HTMLTextAreaElement ? el.value : locucao;
+                        setTeleprompterText(live);
+                        setTeleprompterOpen(true);
+                      }}
+                    >
+                      {t("project.detail.teleprompter")}
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">{t("project.detail.locucaoHint")}</p>
                   <LocalizedTextarea
                     id="locucao"
                     field="locucao"
                     i18n={rowI18n}
                     fallback={locucao}
-                    rows={5}
-                    disabled={!isAdmin}
+                    rows={10}
+                    autoResize
+                    className="min-h-[15rem]"
                     placeholder={t("project.detail.locucaoPlaceholder")}
                     onI18nCommit={onFieldI18nCommit}
+                  />
+                  <LocucaoTeleprompterDialog
+                    open={teleprompterOpen}
+                    onOpenChange={setTeleprompterOpen}
+                    text={teleprompterText}
                   />
                 </div>
               ) : null}

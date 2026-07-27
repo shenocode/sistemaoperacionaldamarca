@@ -143,8 +143,9 @@ export function LocalizedTextarea({
   id,
   placeholder,
   rows,
+  autoResize,
   onI18nCommit,
-}: SharedProps & { rows?: number }) {
+}: SharedProps & { rows?: number; autoResize?: boolean }) {
   const { draft, setDraft, commit, translating, translatingLabel } = useLocalizedDraft({
     field,
     i18n,
@@ -155,13 +156,23 @@ export function LocalizedTextarea({
     placeholder,
     onI18nCommit,
   });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!autoResize) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [autoResize, draft]);
 
   return (
     <div className="relative">
       <Textarea
+        ref={textareaRef}
         id={id}
         rows={rows}
-        className={cn(className)}
+        className={cn(autoResize && "resize-none overflow-hidden", className)}
         value={draft}
         disabled={disabled || translating}
         placeholder={placeholder}

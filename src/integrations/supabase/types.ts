@@ -857,7 +857,11 @@ export type Database = {
           _change_note?: string
           _content_id: string
           _cta: string
+          _format?: Database["public"]["Enums"]["content_format"]
           _hashtags: string
+          _locucao?: string
+          _theme?: string
+          _title?: string
         }
         Returns: {
           calendar_block_id: string | null

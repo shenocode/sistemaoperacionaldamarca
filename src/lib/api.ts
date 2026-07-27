@@ -2915,6 +2915,8 @@ export async function saveClientContentVersion(input: {
   format?: ContentFormat;
   /** `null` or `""` clears theme; omit to leave unchanged. */
   theme?: string | null;
+  /** Omit to leave unchanged. */
+  locucao?: string;
   changeNote?: string;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
@@ -2927,6 +2929,7 @@ export async function saveClientContentVersion(input: {
     ...(input.title !== undefined ? { _title: input.title } : {}),
     ...(input.format !== undefined ? { _format: input.format } : {}),
     ...(input.theme !== undefined ? { _theme: input.theme?.trim() ?? "" } : {}),
+    ...(input.locucao !== undefined ? { _locucao: input.locucao } : {}),
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");
