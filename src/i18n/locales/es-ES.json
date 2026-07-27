@@ -466,7 +466,7 @@
   },
   "project": {
     "back": "Volver",
-    "tabs": { "feed": "Feed", "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "settings": "Ajustes" },
+    "tabs": { "feed": "Feed", "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "meeting": "Pauta", "settings": "Ajustes" },
     "categoryExperiencePending": "La experiencia completa de esta categoría (pestañas y mockups) aún está en construcción. Por ahora puedes organizar contenidos, calendario y biblioteca.",
     "calendarPlaceholder": "Próximamente.",
     "calendar": {
@@ -608,6 +608,29 @@
         "downloadError": "No se pudieron descargar las imágenes.",
         "downloadEmpty": "Ninguna imagen seleccionada para descargar."
       }
+    },
+    "meeting": {
+      "hint": "Crea y organiza la pauta de cada reunión con el cliente.",
+      "new": "Nueva pauta",
+      "empty": "No hay pautas creadas.",
+      "noDate": "Sin fecha definida",
+      "topicCount": "{{count}} tema(s)",
+      "created": "Pauta creada.",
+      "saved": "Pauta guardada.",
+      "deleted": "Pauta eliminada.",
+      "delete": "Eliminar",
+      "deleteTitle": "¿Eliminar pauta?",
+      "deleteDescription": "Esta acción no se puede deshacer. La pauta se eliminará permanentemente.",
+      "back": "Volver a la lista",
+      "detailTitle": "Pauta de la reunión",
+      "dateLabel": "Fecha y hora de la reunión",
+      "topicsLabel": "Temas",
+      "topicsEmpty": "No hay temas agregados.",
+      "topicLabel": "Tema {{number}}",
+      "topicTitlePlaceholder": "Título del tema",
+      "topicDescriptionPlaceholder": "Descripción (opcional)",
+      "addTopic": "Agregar tema",
+      "removeTopic": "Eliminar tema"
     },
     "content": {
       "new": "Nuevo contenido",

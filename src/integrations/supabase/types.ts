@@ -190,6 +190,41 @@ export type Database = {
           },
         ]
       }
+      meeting_agendas: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          scheduled_at: string | null
+          topics: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          scheduled_at?: string | null
+          topics?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          scheduled_at?: string | null
+          topics?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_agendas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_members: {
         Row: {
           client_id: string
@@ -927,6 +962,9 @@ export type Database = {
         | "changes_requested"
         | "published"
         | "comment_added"
+        | "meeting_agenda_created"
+        | "meeting_agenda_updated"
+        | "meeting_agenda_deleted"
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
       contact_lead_intent: "trial" | "human"
@@ -1094,6 +1132,9 @@ export const Constants = {
         "changes_requested",
         "published",
         "comment_added",
+        "meeting_agenda_created",
+        "meeting_agenda_updated",
+        "meeting_agenda_deleted",
       ],
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],

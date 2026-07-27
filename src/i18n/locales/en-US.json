@@ -466,7 +466,7 @@
   },
   "project": {
     "back": "Back",
-    "tabs": { "feed": "Feed", "library": "Library", "content": "Content", "calendar": "Calendar", "settings": "Settings" },
+    "tabs": { "feed": "Feed", "library": "Library", "content": "Content", "calendar": "Calendar", "meeting": "Agenda", "settings": "Settings" },
     "categoryExperiencePending": "The full experience for this category (tabs and mockups) is still being built. For now you can organize content, calendar, and library.",
     "calendarPlaceholder": "Coming soon.",
     "calendar": {
@@ -608,6 +608,29 @@
         "downloadError": "Could not download the images.",
         "downloadEmpty": "No images selected to download."
       }
+    },
+    "meeting": {
+      "hint": "Create and organize the agenda for each client meeting.",
+      "new": "New agenda",
+      "empty": "No meeting agendas yet.",
+      "noDate": "No date set",
+      "topicCount": "{{count}} topic(s)",
+      "created": "Agenda created.",
+      "saved": "Agenda saved.",
+      "deleted": "Agenda removed.",
+      "delete": "Remove",
+      "deleteTitle": "Remove agenda?",
+      "deleteDescription": "This action cannot be undone. The agenda will be permanently removed.",
+      "back": "Back to list",
+      "detailTitle": "Meeting agenda",
+      "dateLabel": "Meeting date and time",
+      "topicsLabel": "Topics",
+      "topicsEmpty": "No topics added.",
+      "topicLabel": "Topic {{number}}",
+      "topicTitlePlaceholder": "Topic title",
+      "topicDescriptionPlaceholder": "Description (optional)",
+      "addTopic": "Add topic",
+      "removeTopic": "Remove topic"
     },
     "content": {
       "new": "New content",

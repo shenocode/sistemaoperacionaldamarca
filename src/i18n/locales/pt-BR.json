@@ -471,6 +471,7 @@
       "library": "Biblioteca",
       "content": "Conteúdo",
       "calendar": "Calendário",
+      "meeting": "Pauta",
       "settings": "Configurações"
     },
     "categoryExperiencePending": "A experiência completa desta categoria (abas e mockups) ainda está em construção. Por enquanto você pode organizar conteúdos, calendário e biblioteca.",
@@ -614,6 +615,29 @@
         "downloadError": "Não foi possível baixar as imagens.",
         "downloadEmpty": "Nenhuma imagem selecionada para baixar."
       }
+    },
+    "meeting": {
+      "hint": "Crie e organize a pauta de cada reunião com o cliente.",
+      "new": "Nova pauta",
+      "empty": "Nenhuma pauta criada.",
+      "noDate": "Sem data definida",
+      "topicCount": "{{count}} tópico(s)",
+      "created": "Pauta criada.",
+      "saved": "Pauta salva.",
+      "deleted": "Pauta removida.",
+      "delete": "Remover",
+      "deleteTitle": "Remover pauta?",
+      "deleteDescription": "Esta ação não pode ser desfeita. A pauta será removida permanentemente.",
+      "back": "Voltar à lista",
+      "detailTitle": "Pauta da reunião",
+      "dateLabel": "Data e horário da reunião",
+      "topicsLabel": "Tópicos",
+      "topicsEmpty": "Nenhum tópico adicionado.",
+      "topicLabel": "Tópico {{number}}",
+      "topicTitlePlaceholder": "Título do tópico",
+      "topicDescriptionPlaceholder": "Descrição (opcional)",
+      "addTopic": "Adicionar tópico",
+      "removeTopic": "Remover tópico"
     },
     "content": {
       "new": "Novo conteúdo",

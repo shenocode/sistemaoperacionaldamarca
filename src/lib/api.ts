@@ -32,6 +32,7 @@ function toI18nJson(i18n: RowI18n | null | undefined): Json {
 export type Client = Tables<"clients">;
 export type Project = Tables<"projects">;
 export type CalendarBlock = Tables<"calendar_blocks">;
+export type MeetingAgenda = Tables<"meeting_agendas">;
 export type ContentItem = Tables<"content_items">;
 export type ContentVersion = Tables<"content_versions">;
 export type ContentComment = Tables<"content_comments">;
@@ -70,7 +71,7 @@ export const CONTENT_FORMATS: ContentFormat[] = [
 export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos"] as const;
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
 
-export type ProjectTabId = "feed" | "calendar" | "content" | "library" | "settings";
+export type ProjectTabId = "feed" | "calendar" | "content" | "library" | "settings" | "meeting";
 
 export type ProjectCategoryConfig = {
   formats: ContentFormat[];
@@ -84,20 +85,20 @@ export type ProjectCategoryConfig = {
 export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryConfig> = {
   instagram: {
     formats: ["static_feed", "reels", "stories", "carousel"],
-    tabs: ["feed", "calendar", "content", "library", "settings"],
+    tabs: ["feed", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "feed",
     experienceReady: true,
   },
   graphic_arts: {
     // Formatos específicos (banner, cartaz…) entram depois; por ora peça estática.
     formats: ["static_feed"],
-    tabs: ["calendar", "content", "library", "settings"],
+    tabs: ["calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
     experienceReady: false,
   },
   videos: {
     formats: ["recorded_video"],
-    tabs: ["calendar", "content", "library", "settings"],
+    tabs: ["calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
     experienceReady: false,
   },
@@ -1713,6 +1714,146 @@ export async function deleteCalendarBlock(input: {
     .eq("id", input.blockId)
     .eq("project_id", input.projectId);
   if (blockError) throw new Error(blockError.message);
+}
+
+// —— Meeting agendas ——
+
+export type MeetingAgendaTopic = {
+  title: string;
+  description?: string | null;
+};
+
+export function parseMeetingAgendaTopics(value: Json | null | undefined): MeetingAgendaTopic[] {
+  if (!value || !Array.isArray(value)) return [];
+  const topics: MeetingAgendaTopic[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const title = typeof item.title === "string" ? item.title : "";
+    const description =
+      item.description == null
+        ? null
+        : typeof item.description === "string"
+          ? item.description
+          : null;
+    topics.push({ title, description });
+  }
+  return topics;
+}
+
+function meetingAgendaTopicsToJson(topics: MeetingAgendaTopic[]): Json {
+  return topics.map((topic) => ({
+    title: topic.title.trim(),
+    description: topic.description?.trim() || null,
+  })) as Json;
+}
+
+function isMissingMeetingAgendasTable(message: string) {
+  return /meeting_agendas/i.test(message) && /(does not exist|not find)/i.test(message);
+}
+
+export async function listMeetingAgendas(projectId: string): Promise<MeetingAgenda[]> {
+  const { data, error } = await supabase
+    .from("meeting_agendas")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("scheduled_at", { ascending: false, nullsFirst: false });
+  if (!error) return data ?? [];
+  if (isMissingMeetingAgendasTable(error.message)) return [];
+  throw new Error(error.message);
+}
+
+export async function getMeetingAgenda(agendaId: string): Promise<MeetingAgenda> {
+  const { data, error } = await supabase
+    .from("meeting_agendas")
+    .select("*")
+    .eq("id", agendaId)
+    .single();
+  return ensureData(data, error);
+}
+
+export async function createMeetingAgenda(input: {
+  projectId: string;
+  clientId: string;
+  scheduledAt?: string | null;
+  topics?: MeetingAgendaTopic[];
+}): Promise<MeetingAgenda> {
+  const topics = input.topics ?? [];
+  const { data, error } = await supabase
+    .from("meeting_agendas")
+    .insert({
+      project_id: input.projectId,
+      scheduled_at: input.scheduledAt ?? null,
+      topics: meetingAgendaTopicsToJson(topics),
+    })
+    .select("*")
+    .single();
+  const agenda = ensureData(data, error);
+
+  await logActivity({
+    type: "meeting_agenda_created",
+    summary: "Pauta de reunião criada",
+    clientId: input.clientId,
+    projectId: input.projectId,
+  });
+
+  return agenda;
+}
+
+export async function updateMeetingAgenda(input: {
+  agendaId: string;
+  clientId: string;
+  projectId: string;
+  scheduledAt?: string | null;
+  topics?: MeetingAgendaTopic[];
+}): Promise<MeetingAgenda> {
+  const patch: {
+    scheduled_at?: string | null;
+    topics?: Json;
+  } = {};
+  if (input.scheduledAt !== undefined) {
+    patch.scheduled_at = input.scheduledAt;
+  }
+  if (input.topics !== undefined) {
+    patch.topics = meetingAgendaTopicsToJson(input.topics);
+  }
+
+  const { data, error } = await supabase
+    .from("meeting_agendas")
+    .update(patch)
+    .eq("id", input.agendaId)
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  const agenda = ensureData(data, error);
+
+  await logActivity({
+    type: "meeting_agenda_updated",
+    summary: "Pauta de reunião atualizada",
+    clientId: input.clientId,
+    projectId: input.projectId,
+  });
+
+  return agenda;
+}
+
+export async function deleteMeetingAgenda(input: {
+  agendaId: string;
+  clientId: string;
+  projectId: string;
+}): Promise<void> {
+  const { error } = await supabase
+    .from("meeting_agendas")
+    .delete()
+    .eq("id", input.agendaId)
+    .eq("project_id", input.projectId);
+  if (error) throw new Error(error.message);
+
+  await logActivity({
+    type: "meeting_agenda_deleted",
+    summary: "Pauta de reunião removida",
+    clientId: input.clientId,
+    projectId: input.projectId,
+  });
 }
 
 function sortContentByManualOrder(a: ContentItem, b: ContentItem) {
