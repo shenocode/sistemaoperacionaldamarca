@@ -168,6 +168,8 @@ function AuthPage() {
 
     // Netlify (and any custom domain) must use Supabase Google OAuth.
     // Lovable's /~oauth broker only allows *.lovable.app as redirect_uri.
+    // If Supabase Site URL is still the Lovable host, OAuth may bounce there after login —
+    // set Site URL to the Netlify origin and keep both hosts in Redirect URLs.
     if (!onLovableHost) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -176,8 +178,9 @@ function AuthPage() {
       if (error) {
         toast.error(
           error.message.toLowerCase().includes("provider") ||
-            error.message.toLowerCase().includes("oauth")
-            ? "Google ainda não está configurado neste ambiente. No Supabase (Authentication → Providers → Google), ative o provedor e adicione a URL da Netlify em Redirect URLs."
+            error.message.toLowerCase().includes("oauth") ||
+            error.message.toLowerCase().includes("redirect")
+            ? "Google: no Supabase → Authentication → URL Configuration, defina Site URL como https://som-sistemaoperacionaldamarca.netlify.app e inclua essa URL em Redirect URLs."
             : error.message,
         );
       }

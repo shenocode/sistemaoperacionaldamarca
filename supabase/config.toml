@@ -1,5 +1,15 @@
 project_id = "swhjyntcyxdgfcwbwcyi"
 
+# Production host is Netlify. Keep Lovable + localhost as allowed OAuth return URLs.
+[auth]
+site_url = "https://som-sistemaoperacionaldamarca.netlify.app"
+additional_redirect_urls = [
+  "https://som-sistemaoperacionaldamarca.netlify.app/**",
+  "https://sistemaoperacionaldamarca.lovable.app/**",
+  "http://localhost:8080/**",
+  "http://127.0.0.1:8080/**",
+]
+
 [functions.suggest-content]
 verify_jwt = true
 

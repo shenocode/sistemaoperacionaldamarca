@@ -4,4 +4,4 @@ Disallow: /auth
 Disallow: /reset-password
 Disallow: /share/
 
-Sitemap: https://sistemaoperacionaldamarca.lovable.app/sitemap.xml
+Sitemap: https://som-sistemaoperacionaldamarca.netlify.app/sitemap.xml
