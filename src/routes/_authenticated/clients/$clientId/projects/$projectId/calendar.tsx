@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Copy,
   ExternalLink,
   GripVertical,
@@ -44,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ApprovalsSummaryDialog } from "@/components/approvals-summary-dialog";
 import { ContentStatusSelect } from "@/components/content-status-select";
 import {
   contentFormatRowStyles,
@@ -88,6 +90,7 @@ import {
   readCollapsedCalendarBlockIds,
   writeCollapsedCalendarBlockIds,
 } from "@/lib/calendar-block-collapsed";
+import { isApprovedContentStatus } from "@/lib/publish-caption";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
 
@@ -290,6 +293,7 @@ function ProjectCalendarPage() {
   const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(() =>
     readCollapsedCalendarBlockIds(projectId),
   );
+  const [approvalsSummaryBlockId, setApprovalsSummaryBlockId] = useState<string | null>(null);
 
   useEffect(() => {
     setCollapsedBlockIds(readCollapsedCalendarBlockIds(projectId));
@@ -915,6 +919,7 @@ function ProjectCalendarPage() {
 
   const renderBlockCard = (block: CalendarBlock) => {
     const blockRows = itemsByBlock.map.get(block.id) ?? [];
+    const approvedRows = blockRows.filter((row) => isApprovedContentStatus(row.status));
     const isCollapsed = collapsedBlockIds.has(block.id);
     return (
       <Card key={block.id} className="overflow-hidden rounded-xl">
@@ -955,6 +960,26 @@ function ProjectCalendarPage() {
               {isCollapsed
                 ? t("project.calendar.expandBlock")
                 : t("project.calendar.collapseBlock")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={approvedRows.length === 0}
+              title={
+                approvedRows.length === 0
+                  ? t("project.calendar.approvalsSummary.emptyHint")
+                  : t("project.calendar.approvalsSummary.hint")
+              }
+              onClick={() => setApprovalsSummaryBlockId(block.id)}
+            >
+              <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              {t("project.calendar.approvalsSummary.button")}
+              {approvedRows.length > 0 ? (
+                <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  {approvedRows.length}
+                </span>
+              ) : null}
             </Button>
             {canEdit ? (
               <>
@@ -999,6 +1024,23 @@ function ProjectCalendarPage() {
       </Card>
     );
   };
+
+  const approvalsSummaryBlock = approvalsSummaryBlockId
+    ? blocks.find((block) => block.id === approvalsSummaryBlockId) ?? null
+    : null;
+  const approvalsSummaryItems = approvalsSummaryBlockId
+    ? (itemsByBlock.map.get(approvalsSummaryBlockId) ?? []).filter((row) =>
+        isApprovedContentStatus(row.status),
+      )
+    : [];
+  const approvalsSummaryTitle = approvalsSummaryBlock
+    ? getLocalizedText(
+        parseRowI18n(approvalsSummaryBlock.i18n),
+        "title",
+        approvalsSummaryBlock.title,
+        normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language),
+      )
+    : "";
 
   const loading =
     contentQuery.isLoading || projectQuery.isLoading || (Boolean(contentQuery.data) && blocksQuery.isLoading);
@@ -1210,6 +1252,15 @@ function ProjectCalendarPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ApprovalsSummaryDialog
+        open={Boolean(approvalsSummaryBlockId)}
+        onOpenChange={(open) => {
+          if (!open) setApprovalsSummaryBlockId(null);
+        }}
+        blockTitle={approvalsSummaryTitle}
+        items={approvalsSummaryItems}
+      />
     </div>
   );
 }
