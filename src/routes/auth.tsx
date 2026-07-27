@@ -20,13 +20,30 @@ import {
   toClientProjectFeedPath,
 } from "@/lib/api";
 
+type AuthSearch = {
+  next?: string;
+  /** Supabase PKCE OAuth callback — must not be stripped by validateSearch. */
+  code?: string;
+  state?: string;
+  error?: string;
+  error_description?: string;
+};
+
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  validateSearch: (search: Record<string, unknown>): { next?: string } => {
+  validateSearch: (search: Record<string, unknown>): AuthSearch => {
+    const result: AuthSearch = {};
     if (typeof search.next === "string" && isSafeAppPath(search.next)) {
-      return { next: search.next };
+      result.next = search.next;
     }
-    return {};
+    // Keep OAuth callback params so exchangeCodeForSession can complete after Google login.
+    if (typeof search.code === "string" && search.code.length > 0) result.code = search.code;
+    if (typeof search.state === "string" && search.state.length > 0) result.state = search.state;
+    if (typeof search.error === "string" && search.error.length > 0) result.error = search.error;
+    if (typeof search.error_description === "string" && search.error_description.length > 0) {
+      result.error_description = search.error_description;
+    }
+    return result;
   },
   head: () => ({
     meta: [
@@ -63,7 +80,8 @@ function isUnauthorizedLoginError(message: string): boolean {
 function AuthPage() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { next: nextFromSearch } = Route.useSearch();
+  const search = Route.useSearch();
+  const nextFromSearch = search.next;
   const [mode, setMode] = useState<"signin" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -123,10 +141,60 @@ function AuthPage() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) await goAfterLogin();
+    let cancelled = false;
+    let finished = false;
+
+    const finish = async () => {
+      if (cancelled || finished) return;
+      finished = true;
+      try {
+        await goAfterLogin();
+      } catch (err) {
+        finished = false;
+        toast.error(err instanceof Error ? err.message : String(err));
+      }
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) void finish();
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+
+    void (async () => {
+      if (search.error) {
+        toast.error(search.error_description || search.error);
+        return;
+      }
+
+      // Complete Google/Supabase PKCE callback when returning to /auth?code=...
+      if (search.code) {
+        setBusy(true);
+        const { error } = await supabase.auth.exchangeCodeForSession(search.code);
+        if (cancelled) return;
+        if (error) {
+          setBusy(false);
+          toast.error(error.message);
+          return;
+        }
+        // Drop OAuth params from the URL; keep optional deep-link next.
+        await router.navigate({
+          to: "/auth",
+          search: search.next ? { next: search.next } : {},
+          replace: true,
+        });
+        await finish();
+        if (!cancelled) setBusy(false);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!cancelled && data.session) await finish();
+    })();
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount / OAuth return
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,7 +230,9 @@ function AuthPage() {
   const handleGoogle = async () => {
     setAccessDenied(false);
     rememberAuthNext(nextPath);
-    const redirectTo = `${window.location.origin}/auth${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
+    // Keep redirectTo free of extra query params so Supabase can append ?code=&state= cleanly.
+    // Deep-link `next` is restored from sessionStorage after login.
+    const redirectTo = `${window.location.origin}/auth`;
     const host = window.location.hostname;
     const onLovableHost = host.endsWith(".lovable.app") || host.endsWith(".lovable.dev");
 
@@ -180,7 +250,7 @@ function AuthPage() {
           error.message.toLowerCase().includes("provider") ||
             error.message.toLowerCase().includes("oauth") ||
             error.message.toLowerCase().includes("redirect")
-            ? "Google: no Supabase → Authentication → URL Configuration, defina Site URL como https://som-sistemaoperacionaldamarca.netlify.app e inclua essa URL em Redirect URLs."
+            ? "Google: no Lovable Cloud → Users → Auth settings → Advanced, defina Site URL como https://som-sistemaoperacionaldamarca.netlify.app e inclua essa URL em Redirect URLs."
             : error.message,
         );
       }
