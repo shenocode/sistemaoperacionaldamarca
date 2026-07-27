@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { LanguageCode } from "@/i18n";
 import {
   buildMeetingAgendaUrl,
@@ -42,19 +43,20 @@ function fromDatetimeLocalValue(value: string): string | null {
   return d.toISOString();
 }
 
-/** Compare at minute precision — datetime-local and Postgres ISO strings often differ. */
-function scheduledAtEqual(a: string | null, b: string | null) {
-  return toDatetimeLocalValue(a) === toDatetimeLocalValue(b);
-}
-
-function topicsEqual(a: MeetingAgendaTopic[], b: MeetingAgendaTopic[]) {
-  if (a.length !== b.length) return false;
-  return a.every((topic, index) => {
-    const other = b[index];
-    return (
-      topic.title.trim() === other.title.trim() &&
-      (topic.description?.trim() || "") === (other.description?.trim() || "")
-    );
+/** Snapshot of editable fields — used as dirty baseline so server ISO/JSON quirks never stick the form as dirty. */
+function buildMeetingFormSnapshot(
+  scheduledLocal: string,
+  topics: MeetingAgendaTopic[],
+  notes: string,
+) {
+  return JSON.stringify({
+    scheduledLocal,
+    topics: topics.map((topic) => ({
+      title: topic.title.trim(),
+      description: topic.description?.trim() || "",
+      needsAction: Boolean(topic.needsAction),
+    })),
+    notes: notes.trim(),
   });
 }
 
@@ -92,31 +94,36 @@ function MeetingDetailPage() {
 
   const canSendWhatsApp = Boolean(manageQuery.data);
 
-  const serverScheduledAt = agendaQuery.data?.scheduled_at ?? null;
-  const serverTopics = useMemo(
-    () => parseMeetingAgendaTopics(agendaQuery.data?.topics),
-    [agendaQuery.data?.topics],
-  );
-
   const [scheduledLocal, setScheduledLocal] = useState("");
   const [topics, setTopics] = useState<MeetingAgendaTopic[]>([]);
+  const [notes, setNotes] = useState("");
+  const [formBaseline, setFormBaseline] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (!agendaQuery.data || initialized) return;
-    setScheduledLocal(toDatetimeLocalValue(agendaQuery.data.scheduled_at));
-    setTopics(parseMeetingAgendaTopics(agendaQuery.data.topics));
+    const nextScheduled = toDatetimeLocalValue(agendaQuery.data.scheduled_at);
+    const nextTopics = parseMeetingAgendaTopics(agendaQuery.data.topics);
+    const nextNotes = agendaQuery.data.notes ?? "";
+    setScheduledLocal(nextScheduled);
+    setTopics(nextTopics);
+    setNotes(nextNotes);
+    setFormBaseline(buildMeetingFormSnapshot(nextScheduled, nextTopics, nextNotes));
     setInitialized(true);
   }, [agendaQuery.data, initialized]);
 
   useEffect(() => {
     setInitialized(false);
+    setFormBaseline(null);
   }, [agendaId]);
 
   const scheduledAt = fromDatetimeLocalValue(scheduledLocal);
-  const hasChanges =
-    initialized &&
-    (!scheduledAtEqual(scheduledAt, serverScheduledAt) || !topicsEqual(topics, serverTopics));
+  const notesNormalized = notes.trim() || null;
+  const formSnapshot = useMemo(
+    () => buildMeetingFormSnapshot(scheduledLocal, topics, notes),
+    [scheduledLocal, topics, notes],
+  );
+  const hasChanges = formBaseline !== null && formSnapshot !== formBaseline;
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -126,11 +133,17 @@ function MeetingDetailPage() {
         projectId,
         scheduledAt,
         topics,
+        notes: notesNormalized,
       }),
     onSuccess: (row) => {
-      // Sync local state before cache so hasChanges clears before any re-render from setQueryData.
-      setScheduledLocal(toDatetimeLocalValue(row.scheduled_at));
-      setTopics(parseMeetingAgendaTopics(row.topics));
+      const nextScheduled = toDatetimeLocalValue(row.scheduled_at);
+      const nextTopics = parseMeetingAgendaTopics(row.topics);
+      // Keep local notes if the DB column is not deployed yet (row has no `notes` key).
+      const nextNotes = "notes" in row ? (row.notes ?? "") : (notesNormalized ?? "");
+      setScheduledLocal(nextScheduled);
+      setTopics(nextTopics);
+      setNotes(nextNotes);
+      setFormBaseline(buildMeetingFormSnapshot(nextScheduled, nextTopics, nextNotes));
       queryClient.setQueryData(["meeting-agendas", "detail", agendaId], row);
       queryClient.invalidateQueries({ queryKey: ["meeting-agendas", projectId] });
       toast.success(t("project.meeting.saved"));
@@ -145,12 +158,7 @@ function MeetingDetailPage() {
     return format(date, "PPp", { locale });
   }
 
-  function handleSendWhatsApp() {
-    if (hasChanges) {
-      toast.error(t("project.meeting.saveBeforeSend"));
-      return;
-    }
-
+  function openWhatsAppWithCurrentForm() {
     const client = clientQuery.data;
     const project = projectQuery.data;
     if (!client || !project) return;
@@ -185,6 +193,18 @@ function MeetingDetailPage() {
 
     window.open(url, "_blank", "noopener,noreferrer");
     toast.success(t("clients.whatsappOpened"));
+  }
+
+  async function handleSendWhatsApp() {
+    // Persist first when dirty so the shared link reflects the latest agenda.
+    if (hasChanges) {
+      try {
+        await saveMutation.mutateAsync();
+      } catch {
+        return;
+      }
+    }
+    openWhatsAppWithCurrentForm();
   }
 
   if (agendaQuery.isLoading) {
@@ -257,6 +277,18 @@ function MeetingDetailPage() {
               topics={topics}
               disabled={saveMutation.isPending}
               onChange={setTopics}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="meeting-notes">{t("project.meeting.notesLabel")}</Label>
+            <Textarea
+              id="meeting-notes"
+              value={notes}
+              disabled={saveMutation.isPending}
+              placeholder={t("project.meeting.notesPlaceholder")}
+              rows={4}
+              onChange={(e) => setNotes(e.target.value)}
             />
           </div>
         </CardContent>

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
   CalendarDays,
   Check,
@@ -12,9 +13,12 @@ import {
   Palette,
   Share2,
   Sparkles,
+  UserRound,
   Wand2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/use-auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +38,38 @@ import { CONTACT_WHATSAPP } from "@/lib/company";
 import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+function getAuthDisplayName(user: User): string {
+  const meta = user.user_metadata ?? {};
+  const full =
+    (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+    (typeof meta.name === "string" && meta.name.trim()) ||
+    "";
+  if (full) return full.split(/\s+/)[0] ?? full;
+  return user.email?.split("@")[0] ?? "";
+}
+
+function getAuthInitials(user: User): string {
+  const meta = user.user_metadata ?? {};
+  const full =
+    (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+    (typeof meta.name === "string" && meta.name.trim()) ||
+    "";
+  if (full) {
+    const parts = full.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]![0]!}${parts[1]![0]!}`.toUpperCase();
+    }
+    return full.slice(0, 2).toUpperCase();
+  }
+  return (user.email?.[0] ?? "?").toUpperCase();
+}
+
+function getAuthAvatarUrl(user: User): string | null {
+  const meta = user.user_metadata ?? {};
+  const url = meta.avatar_url ?? meta.picture;
+  return typeof url === "string" && url.trim() ? url : null;
+}
 
 const FEATURE_KEYS = [
   "calendar",
@@ -303,7 +339,12 @@ function ContactForm() {
 
 export function LandingPage() {
   const { t } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanKey | null>(null);
+  const displayName = user ? getAuthDisplayName(user) : "";
+  const avatarUrl = user ? getAuthAvatarUrl(user) : null;
+  const initials = user ? getAuthInitials(user) : "";
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -352,9 +393,31 @@ export function LandingPage() {
         </nav>
         <div className="flex items-center gap-2 sm:gap-3">
           <LanguageSwitcher />
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-            <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
-          </Button>
+          {authLoading ? (
+            <span className="inline-block h-8 w-8 sm:w-20" aria-hidden />
+          ) : user ? (
+            <Button asChild variant="ghost" size="sm" className="gap-2 px-1.5 sm:px-2">
+              <Link
+                to="/home"
+                aria-label={t("landing.goToApp")}
+                title={t("landing.goToApp")}
+              >
+                <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
+                  {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+                  <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
+                    {initials || <UserRound className="h-3.5 w-3.5" />}
+                  </AvatarFallback>
+                </Avatar>
+                {displayName ? (
+                  <span className="hidden max-w-[7rem] truncate sm:inline">{displayName}</span>
+                ) : null}
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
+            </Button>
+          )}
           <Button asChild size="sm">
             <a href="#contato">{t("landing.cta")}</a>
           </Button>

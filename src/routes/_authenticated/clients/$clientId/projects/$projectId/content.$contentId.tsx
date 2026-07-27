@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import {
   ChevronLeft,
+  Eye,
   GripVertical,
   Plus,
   Send,
@@ -92,6 +93,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -204,6 +206,7 @@ function ContentDetailPage() {
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [formBaseline, setFormBaseline] = useState<string | null>(null);
   const [ignoreUnsavedChanges, setIgnoreUnsavedChanges] = useState(false);
+  const [viewingVersion, setViewingVersion] = useState<ContentVersion | null>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
   const contentQuery = useQuery({
@@ -569,12 +572,31 @@ function ContentDetailPage() {
     mutationFn: (version: ContentVersion) =>
       restoreVersion({ contentId, clientId, projectId, version }),
     onSuccess: () => {
+      setViewingVersion(null);
       setIgnoreUnsavedChanges(true);
       invalidateAll();
       toast.success(t("project.detail.restored"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const versionPreview = useMemo(() => {
+    if (!viewingVersion || !content) return null;
+    const versionI18n = parseRowI18n(viewingVersion.i18n);
+    const format = viewingVersion.format;
+    return {
+      title: getLocalizedText(versionI18n, "title", content.title, uiLocale),
+      caption: getLocalizedText(versionI18n, "caption", viewingVersion.caption, uiLocale),
+      cta: getLocalizedText(versionI18n, "cta", viewingVersion.cta, uiLocale),
+      hashtags: getLocalizedText(versionI18n, "hashtags", viewingVersion.hashtags, uiLocale),
+      locucao: getLocalizedText(versionI18n, "locucao", viewingVersion.locucao ?? "", uiLocale),
+      roteiro: getLocalizedText(versionI18n, "roteiro", viewingVersion.roteiro ?? "", uiLocale),
+      format,
+      previewItems: resolveContentMediaUrls(viewingVersion).map((url) => ({ url })),
+      needsLocucao: format === "reels" || format === "recorded_video",
+      isCarousel: format === "carousel",
+    };
+  }, [viewingVersion, content, uiLocale]);
 
   const addUrl = () => {
     const next = urlDraft.trim();
@@ -673,12 +695,9 @@ function ContentDetailPage() {
   }
 
   // Same form for admin and client. Clients edit title/format/theme/copy; media stays admin-only.
-  const canClientSetStatus = !isAdmin && status === "review";
-  const statusButtons = isAdmin
-    ? CONTENT_STATUSES
-    : canClientSetStatus
-      ? CLIENT_REVIEW_STATUSES
-      : [];
+  // Clients always get approve / production-adjustment actions on content they can open
+  // (draft is already redirected away above).
+  const statusButtons = isAdmin ? CONTENT_STATUSES : CLIENT_REVIEW_STATUSES;
   const saving = saveMutation.isPending || versionMutation.isPending;
 
   return (
@@ -1191,42 +1210,183 @@ function ContentDetailPage() {
           </CardHeader>
           <CardContent>
             <ol className="space-y-3">
-              {(versionsQuery.data ?? []).map((v) => (
-                <li key={v.id} className="space-y-2 rounded-md border p-3 text-sm">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                    <span className="min-w-0 font-medium">
-                      {t("project.detail.version")} {v.version_number}
-                      {v.version_number === content.current_version ? (
-                        <span className="ml-2 text-xs text-primary">
-                          ({t("project.detail.current")})
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {format(new Date(v.created_at), "dd MMM yyyy HH:mm", { locale })}
-                    </span>
-                  </div>
-                  {v.change_note ? (
-                    <p className="text-xs text-muted-foreground">{v.change_note}</p>
-                  ) : null}
-                  {isAdmin && v.version_number !== content.current_version ? (
-                    <Button
+              {(versionsQuery.data ?? []).map((v) => {
+                const isCurrent = v.version_number === content.current_version;
+                const isViewing = viewingVersion?.id === v.id;
+                return (
+                  <li
+                    key={v.id}
+                    className={cn(
+                      "overflow-hidden rounded-md border text-sm transition-colors",
+                      isViewing && "border-primary bg-muted/30",
+                    )}
+                  >
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2"
-                      disabled={restoreMutation.isPending}
-                      onClick={() => restoreMutation.mutate(v)}
+                      aria-label={t("project.detail.viewVersionAria", {
+                        number: v.version_number,
+                      })}
+                      className="w-full space-y-2 p-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                      onClick={() => setViewingVersion(v)}
                     >
-                      {t("project.detail.restore")}
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                        <span className="min-w-0 font-medium">
+                          {t("project.detail.version")} {v.version_number}
+                          {isCurrent ? (
+                            <span className="ml-2 text-xs text-primary">
+                              ({t("project.detail.current")})
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {format(new Date(v.created_at), "dd MMM yyyy HH:mm", { locale })}
+                        </span>
+                      </div>
+                      {v.change_note ? (
+                        <p className="text-xs text-muted-foreground">{v.change_note}</p>
+                      ) : null}
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                        {t("project.detail.viewVersion")}
+                      </span>
+                    </button>
+                    {isAdmin && !isCurrent ? (
+                      <div className="border-t px-3 py-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
+                          disabled={restoreMutation.isPending}
+                          onClick={() => restoreMutation.mutate(v)}
+                        >
+                          {t("project.detail.restore")}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={Boolean(viewingVersion)}
+        onOpenChange={(open) => {
+          if (!open) setViewingVersion(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          {viewingVersion && versionPreview ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {t("project.detail.version")} {viewingVersion.version_number}
+                  {viewingVersion.version_number === content.current_version ? (
+                    <span className="ml-2 text-sm font-normal text-primary">
+                      ({t("project.detail.current")})
+                    </span>
+                  ) : null}
+                </DialogTitle>
+                <DialogDescription>
+                  {format(new Date(viewingVersion.created_at), "dd MMM yyyy HH:mm", { locale })}
+                  {viewingVersion.change_note
+                    ? ` · ${viewingVersion.change_note}`
+                    : null}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <ContentMediaPreview
+                  items={versionPreview.previewItems}
+                  format={versionPreview.format}
+                  title={versionPreview.title}
+                  caption={versionPreview.caption}
+                  hashtags={versionPreview.hashtags}
+                  cta={versionPreview.cta}
+                  username={client?.name ?? versionPreview.title}
+                  avatarUrl={client?.logo_url}
+                />
+
+                <div className="space-y-3 rounded-md border p-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {t("project.content.title")}
+                    </p>
+                    <p className="text-sm">{versionPreview.title}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {t("project.detail.format")}
+                    </p>
+                    <p className="text-sm">
+                      {t(`project.detail.formats.${versionPreview.format}`)}
+                    </p>
+                  </div>
+                  {versionPreview.caption.trim() ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.detail.caption")}
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm">{versionPreview.caption}</p>
+                    </div>
+                  ) : null}
+                  {versionPreview.needsLocucao && versionPreview.locucao.trim() ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.detail.locucao")}
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm">{versionPreview.locucao}</p>
+                    </div>
+                  ) : null}
+                  {versionPreview.isCarousel && versionPreview.roteiro.trim() ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.detail.roteiro")}
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm">{versionPreview.roteiro}</p>
+                    </div>
+                  ) : null}
+                  {versionPreview.cta.trim() ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.detail.cta")}
+                      </p>
+                      <p className="text-sm">{versionPreview.cta}</p>
+                    </div>
+                  ) : null}
+                  {versionPreview.hashtags.trim() ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.detail.hashtags")}
+                      </p>
+                      <p className="text-sm">{versionPreview.hashtags}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setViewingVersion(null)}>
+                  {t("project.detail.closePreview")}
+                </Button>
+                {isAdmin &&
+                viewingVersion.version_number !== content.current_version ? (
+                  <Button
+                    type="button"
+                    disabled={restoreMutation.isPending}
+                    onClick={() => restoreMutation.mutate(viewingVersion)}
+                  >
+                    {t("project.detail.restore")}
+                  </Button>
+                ) : null}
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={themeDialogOpen}

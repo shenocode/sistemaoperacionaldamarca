@@ -1652,15 +1652,9 @@ export async function duplicateCalendarBlock(input: {
 
   const advanceDays = calendarPeriodAdvanceDays(sourceItems);
 
-  // Empurra blocos existentes para baixo para o novo ficar no topo.
-  await Promise.all(
-    blocks.map((block) =>
-      supabase
-        .from("calendar_blocks")
-        .update({ sort_order: block.sort_order + 1 })
-        .eq("id", block.id),
-    ),
-  );
+  // Novo bloco abaixo dos existentes.
+  const nextSortOrder =
+    blocks.reduce((max, block) => Math.max(max, block.sort_order ?? 0), -1) + 1;
 
   const placeholderTitle = source.title.trim() || suggestCalendarBlockTitle(sourceItems, input.locale);
   const { data: blockData, error: blockError } = await supabase
@@ -1668,7 +1662,7 @@ export async function duplicateCalendarBlock(input: {
     .insert({
       project_id: input.projectId,
       title: placeholderTitle,
-      sort_order: 0,
+      sort_order: nextSortOrder,
     })
     .select("*")
     .single();
@@ -1737,6 +1731,8 @@ export async function deleteCalendarBlock(input: {
 export type MeetingAgendaTopic = {
   title: string;
   description?: string | null;
+  /** Marked for follow-up / "providenciar" — highlighted in the agenda list. */
+  needsAction?: boolean;
 };
 
 export function parseMeetingAgendaTopics(value: Json | null | undefined): MeetingAgendaTopic[] {
@@ -1751,7 +1747,8 @@ export function parseMeetingAgendaTopics(value: Json | null | undefined): Meetin
         : typeof item.description === "string"
           ? item.description
           : null;
-    topics.push({ title, description });
+    const needsAction = item.needsAction === true || item.needs_action === true;
+    topics.push({ title, description, needsAction });
   }
   return topics;
 }
@@ -1760,6 +1757,7 @@ function meetingAgendaTopicsToJson(topics: MeetingAgendaTopic[]): Json {
   return topics.map((topic) => ({
     title: topic.title.trim(),
     description: topic.description?.trim() || null,
+    needsAction: topic.needsAction === true,
   })) as Json;
 }
 
@@ -1815,16 +1813,26 @@ export async function createMeetingAgenda(input: {
   return agenda;
 }
 
+function isMissingMeetingAgendaNotesColumn(message: string) {
+  return (
+    /meeting_agendas/i.test(message) &&
+    /\bnotes\b/i.test(message) &&
+    /(does not exist|schema cache|could not find)/i.test(message)
+  );
+}
+
 export async function updateMeetingAgenda(input: {
   agendaId: string;
   clientId: string;
   projectId: string;
   scheduledAt?: string | null;
   topics?: MeetingAgendaTopic[];
+  notes?: string | null;
 }): Promise<MeetingAgenda> {
   const patch: {
     scheduled_at?: string | null;
     topics?: Json;
+    notes?: string | null;
   } = {};
   if (input.scheduledAt !== undefined) {
     patch.scheduled_at = input.scheduledAt;
@@ -1832,14 +1840,30 @@ export async function updateMeetingAgenda(input: {
   if (input.topics !== undefined) {
     patch.topics = meetingAgendaTopicsToJson(input.topics);
   }
+  if (input.notes !== undefined) {
+    patch.notes = input.notes?.trim() || null;
+  }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("meeting_agendas")
     .update(patch)
     .eq("id", input.agendaId)
     .eq("project_id", input.projectId)
     .select("*")
     .single();
+
+  // notes column ships in a later migration — retry without it until applied.
+  if (error && patch.notes !== undefined && isMissingMeetingAgendaNotesColumn(error.message)) {
+    const { notes: _ignored, ...patchWithoutNotes } = patch;
+    ({ data, error } = await supabase
+      .from("meeting_agendas")
+      .update(patchWithoutNotes)
+      .eq("id", input.agendaId)
+      .eq("project_id", input.projectId)
+      .select("*")
+      .single());
+  }
+
   const agenda = ensureData(data, error);
 
   await logActivity({
