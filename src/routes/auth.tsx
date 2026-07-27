@@ -162,8 +162,30 @@ function AuthPage() {
   const handleGoogle = async () => {
     setAccessDenied(false);
     rememberAuthNext(nextPath);
+    const redirectTo = `${window.location.origin}/auth${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
+    const host = window.location.hostname;
+    const onLovableHost = host.endsWith(".lovable.app") || host.endsWith(".lovable.dev");
+
+    // Netlify (and any custom domain) must use Supabase Google OAuth.
+    // Lovable's /~oauth broker only allows *.lovable.app as redirect_uri.
+    if (!onLovableHost) {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+      if (error) {
+        toast.error(
+          error.message.toLowerCase().includes("provider") ||
+            error.message.toLowerCase().includes("oauth")
+            ? "Google ainda não está configurado neste ambiente. No Supabase (Authentication → Providers → Google), ative o provedor e adicione a URL da Netlify em Redirect URLs."
+            : error.message,
+        );
+      }
+      return;
+    }
+
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/auth${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""}`,
+      redirect_uri: redirectTo,
     });
     if (result.error) {
       toast.error(result.error instanceof Error ? result.error.message : "Google sign-in failed");

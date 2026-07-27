@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
   const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const siteUrl = (Deno.env.get("SITE_URL") ?? "https://sistemaoperacionaldamarca.lovable.app").replace(
+  const siteUrl = (Deno.env.get("SITE_URL") ?? "https://som-sistemaoperacionaldamarca.netlify.app").replace(
     /\/$/,
     "",
   );

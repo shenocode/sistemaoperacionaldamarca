@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "preload", as: "style", href: FONT_STYLESHEET },
       { rel: "stylesheet", href: FONT_STYLESHEET },
-      { rel: "canonical", href: "https://sistemaoperacionaldamarca.lovable.app/" },
+      { rel: "canonical", href: "https://som-sistemaoperacionaldamarca.netlify.app/" },
     ],
     scripts: [
       {
@@ -36,13 +36,13 @@ export const Route = createFileRoute("/")({
             {
               "@type": "Organization",
               name: "SOM — Sistema Operacional da Marca",
-              url: "https://sistemaoperacionaldamarca.lovable.app/",
-              logo: "https://sistemaoperacionaldamarca.lovable.app/favicon.ico",
+              url: "https://som-sistemaoperacionaldamarca.netlify.app/",
+              logo: "https://som-sistemaoperacionaldamarca.netlify.app/favicon.ico",
             },
             {
               "@type": "WebSite",
               name: "SOM — Sistema Operacional da Marca",
-              url: "https://sistemaoperacionaldamarca.lovable.app/",
+              url: "https://som-sistemaoperacionaldamarca.netlify.app/",
               inLanguage: "pt-BR",
               description:
                 "Do briefing à aprovação: produção de conteúdo, calendário editorial e aprovações com clientes — em um só lugar.",
