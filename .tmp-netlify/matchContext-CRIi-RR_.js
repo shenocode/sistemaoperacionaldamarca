@@ -1,0 +1,1 @@
+import{i as e}from"./rolldown-runtime-aKtaBQYM.js";import{r as t}from"./shim-CRzfLSfF.js";var n=`__root__`,r=e(t(),1),i=r.createContext(void 0),a=r.createContext(void 0);export{i as n,n as r,a as t};
