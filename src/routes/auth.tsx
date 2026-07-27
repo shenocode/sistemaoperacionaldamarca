@@ -155,13 +155,38 @@ function AuthPage() {
       }
     };
 
+    // Never await Supabase auth/DB calls directly inside onAuthStateChange —
+    // it holds an auth lock and deadlocks getUser()/RPCs (Google OAuth looks like
+    // "signed in then bounced back to /auth").
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) void finish();
+      if (event === "SIGNED_IN" && session) {
+        window.setTimeout(() => {
+          void finish();
+        }, 0);
+      }
     });
+
+    const stripOAuthParamsFromUrl = () => {
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      let changed = false;
+      for (const key of ["code", "state", "error", "error_description"]) {
+        if (url.searchParams.has(key)) {
+          url.searchParams.delete(key);
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      const next = search.next && isSafeAppPath(search.next) ? search.next : null;
+      if (next) url.searchParams.set("next", next);
+      const qs = url.searchParams.toString();
+      window.history.replaceState(window.history.state, "", `${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`);
+    };
 
     void (async () => {
       if (search.error) {
         toast.error(search.error_description || search.error);
+        stripOAuthParamsFromUrl();
         return;
       }
 
@@ -171,16 +196,17 @@ function AuthPage() {
         const { error } = await supabase.auth.exchangeCodeForSession(search.code);
         if (cancelled) return;
         if (error) {
-          setBusy(false);
-          toast.error(error.message);
-          return;
+          // detectSessionInUrl may have already consumed the code — continue if session exists.
+          const { data } = await supabase.auth.getSession();
+          if (!data.session) {
+            setBusy(false);
+            toast.error(error.message);
+            stripOAuthParamsFromUrl();
+            return;
+          }
         }
-        // Drop OAuth params from the URL; keep optional deep-link next.
-        await router.navigate({
-          to: "/auth",
-          search: search.next ? { next: search.next } : {},
-          replace: true,
-        });
+        // Prefer history.replaceState so TanStack Router does not remount /auth and cancel finish().
+        stripOAuthParamsFromUrl();
         await finish();
         if (!cancelled) setBusy(false);
         return;
