@@ -637,7 +637,11 @@
       "topicTitlePlaceholder": "Título do tópico",
       "topicDescriptionPlaceholder": "Descrição (opcional)",
       "addTopic": "Adicionar tópico",
-      "removeTopic": "Remover tópico"
+      "removeTopic": "Remover tópico",
+      "sendWhatsApp": "Enviar pauta no WhatsApp",
+      "saveBeforeSend": "Salve a pauta antes de enviar.",
+      "dateRequiredForSend": "Defina a data e horário da reunião antes de enviar.",
+      "whatsappMessage": "Olá! Gostaria de agendar nossa reunião sobre o projeto \"{{project}}\" ({{client}}).\n\nData e horário: {{date}}\n\nA pauta da reunião está disponível no link abaixo. Acesse (entre ou crie sua conta) para ver os tópicos:\n{{link}}"
     },
     "content": {
       "new": "Novo conteúdo",

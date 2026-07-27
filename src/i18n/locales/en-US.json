@@ -630,7 +630,11 @@
       "topicTitlePlaceholder": "Topic title",
       "topicDescriptionPlaceholder": "Description (optional)",
       "addTopic": "Add topic",
-      "removeTopic": "Remove topic"
+      "removeTopic": "Remove topic",
+      "sendWhatsApp": "Send agenda on WhatsApp",
+      "saveBeforeSend": "Save the agenda before sending.",
+      "dateRequiredForSend": "Set the meeting date and time before sending.",
+      "whatsappMessage": "Hi! I'd like to schedule our meeting for project \"{{project}}\" ({{client}}).\n\nDate and time: {{date}}\n\nThe meeting agenda is available at the link below. Sign in or create your account to view the topics:\n{{link}}"
     },
     "content": {
       "new": "New content",

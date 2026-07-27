@@ -1,12 +1,16 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { ClientLibraryView } from "@/components/client-library-view";
 
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/library",
 )({
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: "/clients/$clientId/library",
-      params: { clientId: params.clientId },
-    });
-  },
+  head: () => ({
+    meta: [{ title: "Biblioteca — SOM" }, { name: "robots", content: "noindex" }],
+  }),
+  component: ProjectLibraryPage,
 });
+
+function ProjectLibraryPage() {
+  const { clientId } = Route.useParams();
+  return <ClientLibraryView clientId={clientId} variant="embedded" />;
+}

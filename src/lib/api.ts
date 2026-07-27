@@ -443,25 +443,41 @@ export function extractAccessTokenFromPath(path: string): string | null {
 }
 
 /**
- * Rewrites any client project deep link to the Feed tab, preserving ?access=.
- * Used so login / WhatsApp always land on Feed instead of the last visited tab.
+ * Rewrites client project deep links for post-login navigation, preserving ?access=.
+ * Feed review links land on Feed; meeting agenda links stay on the Pauta tab.
  */
 export function toClientProjectFeedPath(path: string | null | undefined): string | null {
   if (!isSafeAppPath(path)) return null;
   try {
     const url = new URL(path, "https://som.local");
-    const match = url.pathname.match(
-      /^\/clients\/([^/]+)\/projects\/([^/]+)(?:\/.*)?$/,
-    );
+    const match = url.pathname.match(/^\/clients\/([^/]+)\/projects\/([^/]+)(\/.*)?$/);
     if (!match) return null;
-    const [, clientId, projectId] = match;
+    const [, clientId, projectId, suffix = ""] = match;
     const access = url.searchParams.get("access")?.trim();
+    const accessQuery = access ? `?access=${encodeURIComponent(access)}` : "";
+
+    if (suffix.startsWith("/meeting")) {
+      return `${url.pathname}${accessQuery}`;
+    }
+
     const feedPath = `/clients/${clientId}/projects/${projectId}/feed`;
     if (!access) return feedPath;
     return `${feedPath}?access=${encodeURIComponent(access)}`;
   } catch {
     return null;
   }
+}
+
+/** Client access link to a specific meeting agenda (Pauta tab). */
+export function buildMeetingAgendaUrl(
+  clientId: string,
+  projectId: string,
+  agendaId: string,
+  accessToken: string,
+) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const params = new URLSearchParams({ access: accessToken });
+  return `${origin}/clients/${clientId}/projects/${projectId}/meeting/${agendaId}?${params.toString()}`;
 }
 
 /** Public share URL with SSR Open Graph (client logo). Redirects humans to the feed. */
