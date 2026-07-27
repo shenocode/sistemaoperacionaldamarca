@@ -891,8 +891,8 @@ function ContentDetailPage() {
                     </Label>
                     <Button
                       type="button"
+                      variant="mint"
                       size="sm"
-                      className="bg-brand-mint text-brand-mint-foreground shadow-sm hover:bg-brand-mint/90 hover:text-brand-mint-foreground"
                       onClick={() => {
                         const el = document.getElementById("locucao");
                         const live =
