@@ -21,8 +21,9 @@ export const CONTENT_STATUSES: ContentStatus[] = [
   "draft",
   "waiting_material",
   "review",
-  "approved",
   "changes",
+  "changes_done",
+  "approved",
   "published",
 ];
 
@@ -97,6 +98,8 @@ export function ContentStatusSelect({
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       if (next === "approved") toast.success(t("project.detail.approvedToast"));
       else if (next === "changes") toast.success(t("project.detail.changesToast"));
+      else if (next === "changes_done")
+        toast.success(t("project.detail.changesDoneToast"));
       else if (next === "review") toast.success(t("project.detail.submittedToast"));
       else if (next === "published") toast.success(t("project.detail.publishedToast"));
       else toast.success(t("project.content.statusUpdated"));

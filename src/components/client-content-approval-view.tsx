@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge, type ContentStatus } from "@/components/status-badge";
+import { StatusBadge, type ContentStatus, isClientActionableStatus } from "@/components/status-badge";
 import {
   ContentMediaPreview,
   type PreviewMediaItem,
@@ -192,7 +192,7 @@ export function ClientContentApprovalView({
     setChangesNote("");
   };
 
-  const canApprove = status === "review";
+  const canApprove = isClientActionableStatus(status);
   const busy = versionMutation.isPending || statusMutation.isPending;
 
   return (

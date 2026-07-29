@@ -11,7 +11,10 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ContentFormatSelect } from "@/components/content-format-select";
 import { ContentStatusSelect } from "@/components/content-status-select";
-import type { ContentStatus } from "@/components/status-badge";
+import {
+  isClientActionableStatus,
+  type ContentStatus,
+} from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -207,7 +210,10 @@ function ContentListPage() {
   const canManage = Boolean(manageQuery.data);
   // Clients must not see "Em produção" (draft) content.
   const visibleRows = canManage ? allRows : allRows.filter((r) => r.status !== "draft");
-  const rows = filter === "review" ? visibleRows.filter((r) => r.status === "review") : visibleRows;
+  const rows =
+    filter === "review"
+      ? visibleRows.filter((r) => isClientActionableStatus(r.status))
+      : visibleRows;
   const canReorder = canManage && filter !== "review" && rows.length > 1;
   const isBusy =
     duplicateMutation.isPending ||

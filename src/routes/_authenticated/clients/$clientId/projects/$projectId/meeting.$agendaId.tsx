@@ -220,7 +220,7 @@ function MeetingDetailPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       <Link
         to="/clients/$clientId/projects/$projectId/meeting"
         params={{ clientId, projectId }}
@@ -231,7 +231,7 @@ function MeetingDetailPage() {
       </Link>
 
       <Card className="rounded-xl">
-        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="sticky top-0 z-10 flex flex-col gap-3 space-y-0 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>{t("project.meeting.detailTitle")}</CardTitle>
           <div className="flex flex-wrap gap-2">
             {canSendWhatsApp ? (
@@ -259,7 +259,7 @@ function MeetingDetailPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           <div className="space-y-2">
             <Label htmlFor="meeting-scheduled-at">{t("project.meeting.dateLabel")}</Label>
             <Input
@@ -293,6 +293,22 @@ function MeetingDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {hasChanges ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/90">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-1 sm:px-2">
+            <p className="text-sm text-muted-foreground">{t("project.meeting.unsavedChanges")}</p>
+            <Button
+              type="button"
+              disabled={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+              {saveMutation.isPending ? t("common.loading") : t("common.save")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <UnsavedChangesGuard isDirty={hasChanges} />
     </div>

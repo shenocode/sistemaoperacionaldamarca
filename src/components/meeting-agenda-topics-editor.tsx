@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Flag, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 type MeetingAgendaTopicsEditorProps = {
   topics: MeetingAgendaTopic[];
-  onChange: (topics: MeetingAgendaTopic[]) => void;
+  onChange: Dispatch<SetStateAction<MeetingAgendaTopic[]>>;
   disabled?: boolean;
 };
 
@@ -39,13 +39,13 @@ export function MeetingAgendaTopicsEditor({
   }, [topics.length]);
 
   const updateTopic = (index: number, patch: Partial<MeetingAgendaTopic>) => {
-    onChange(
-      topics.map((topic, i) => (i === index ? { ...topic, ...patch } : topic)),
+    onChange((prev) =>
+      prev.map((topic, i) => (i === index ? { ...topic, ...patch } : topic)),
     );
   };
 
   const removeTopic = (index: number) => {
-    onChange(topics.filter((_, i) => i !== index));
+    onChange((prev) => prev.filter((_, i) => i !== index));
     setExpanded((prev) => {
       const next: Record<number, boolean> = {};
       for (const [key, value] of Object.entries(prev)) {
@@ -58,7 +58,7 @@ export function MeetingAgendaTopicsEditor({
   };
 
   const addTopic = () => {
-    onChange([...topics, { title: "", description: null, needsAction: false }]);
+    onChange((prev) => [...prev, { title: "", description: null, needsAction: false }]);
   };
 
   const setDescriptionOpen = (index: number, open: boolean) => {
@@ -101,7 +101,11 @@ export function MeetingAgendaTopicsEditor({
                       aria-pressed={topic.needsAction === true}
                       title={t("project.meeting.provideTopic")}
                       onClick={() =>
-                        updateTopic(index, { needsAction: !topic.needsAction })
+                        onChange((prev) =>
+                          prev.map((t, i) =>
+                            i === index ? { ...t, needsAction: !t.needsAction } : t,
+                          ),
+                        )
                       }
                     >
                       <Flag

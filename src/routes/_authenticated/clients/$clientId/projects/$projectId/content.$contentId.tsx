@@ -526,6 +526,8 @@ function ContentDetailPage() {
       invalidateAll();
       if (next === "approved") toast.success(t("project.detail.approvedToast"));
       else if (next === "changes") toast.success(t("project.detail.changesToast"));
+      else if (next === "changes_done")
+        toast.success(t("project.detail.changesDoneToast"));
       else if (next === "review") toast.success(t("project.detail.submittedToast"));
       else if (next === "published") toast.success(t("project.detail.publishedToast"));
       else toast.success(t("project.content.statusUpdated"));

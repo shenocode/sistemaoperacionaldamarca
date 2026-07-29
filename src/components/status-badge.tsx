@@ -7,11 +7,20 @@ export type ContentStatus =
   | "review"
   | "approved"
   | "changes"
+  | "changes_done"
   | "published";
+
+/** Statuses where the client can approve or request new adjustments. */
+export function isClientActionableStatus(
+  status: string | null | undefined,
+): boolean {
+  return status === "review" || status === "changes_done";
+}
 
 /**
  * Visual styles for content workflow status.
- * Color gradient (red → green): waiting_material → draft → review → changes → published.
+ * Color gradient (red → green): waiting_material → draft → review → changes →
+ * changes_done → approved → published.
  * Darker fills use white text for contrast; mid yellow/lime keep dark text.
  */
 export const contentStatusStyles: Record<ContentStatus, string> = {
@@ -23,6 +32,8 @@ export const contentStatusStyles: Record<ContentStatus, string> = {
     "border-amber-400 bg-amber-400 text-amber-950 hover:bg-amber-400/90",
   changes:
     "border-lime-500 bg-lime-500 text-lime-950 hover:bg-lime-500/90",
+  changes_done:
+    "border-sky-500 bg-sky-500 text-white hover:bg-sky-500/90",
   approved:
     "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500/90",
   published:

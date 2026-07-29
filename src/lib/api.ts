@@ -1341,7 +1341,10 @@ export async function saveContentAsNewVersion(input: {
 
   const nextVersion = current.current_version + 1;
   const nextStatus =
-    current.status === "approved" || current.status === "published" || current.status === "review"
+    current.status === "approved" ||
+    current.status === "published" ||
+    current.status === "review" ||
+    current.status === "changes_done"
       ? "draft"
       : current.status;
 
@@ -1912,6 +1915,7 @@ export async function setContentStatus(input: {
 }): Promise<ContentItem> {
   const activityMap: Partial<Record<ContentStatus, ActivityType>> = {
     review: "submitted_for_review",
+    changes_done: "submitted_for_review",
     approved: "approved",
     changes: "changes_requested",
     published: "published",
@@ -1919,6 +1923,7 @@ export async function setContentStatus(input: {
 
   const summaryMap: Partial<Record<ContentStatus, string>> = {
     review: `Enviado para revisão: ${input.title}`,
+    changes_done: `Ajustes concluídos: ${input.title}`,
     approved: `Aprovado: ${input.title}`,
     changes: `Mudanças solicitadas: ${input.title}`,
     published: `Publicado: ${input.title}`,
@@ -1956,7 +1961,7 @@ export async function listPendingApprovals(): Promise<PendingApproval[]> {
   const { data, error } = await supabase
     .from("content_items")
     .select("*, projects!inner(id, name, client_id, clients!inner(id, name))")
-    .eq("status", "review")
+    .in("status", ["review", "changes_done"])
     .order("updated_at", { ascending: false })
     .limit(20);
   if (error) throw new Error(error.message);

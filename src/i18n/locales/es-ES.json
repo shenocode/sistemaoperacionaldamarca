@@ -722,6 +722,7 @@
       "notesPlaceholder": "Registra decisiones, acuerdos y próximos pasos…",
       "sendWhatsApp": "Enviar pauta por WhatsApp",
       "saveBeforeSend": "Guarda la pauta antes de enviar.",
+      "unsavedChanges": "Hay cambios sin guardar en la pauta.",
       "dateRequiredForSend": "Define la fecha y hora de la reunión antes de enviar.",
       "whatsappMessage": "¡Hola! Quiero agendar nuestra reunión del proyecto \"{{project}}\" ({{client}}).\n\nFecha y hora: {{date}}\n\nLa pauta de la reunión está disponible en el enlace. Accede (inicia sesión o crea tu cuenta) para ver los temas:\n{{link}}"
     },
@@ -759,6 +760,7 @@
         "review": "Pendiente de revisión",
         "approved": "Aprobado por el cliente",
         "changes": "Ajustes de producción",
+        "changes_done": "Ajustes concluidos",
         "published": "Publicado"
       }
     },
@@ -913,6 +915,7 @@
       "changesNotePlaceholder": "Describe los cambios necesarios...",
       "approvedToast": "Contenido aprobado.",
       "changesToast": "Cambios solicitados.",
+      "changesDoneToast": "Ajustes concluidos — esperando nueva revisión del cliente.",
       "submittedToast": "Enviado a revisión.",
       "publishedToast": "Contenido publicado.",
       "notFound": "Contenido no encontrado.",

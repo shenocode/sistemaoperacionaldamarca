@@ -722,6 +722,7 @@
       "notesPlaceholder": "Record decisions, agreements, and next steps…",
       "sendWhatsApp": "Send agenda on WhatsApp",
       "saveBeforeSend": "Save the agenda before sending.",
+      "unsavedChanges": "You have unsaved changes on this agenda.",
       "dateRequiredForSend": "Set the meeting date and time before sending.",
       "whatsappMessage": "Hi! I'd like to schedule our meeting for project \"{{project}}\" ({{client}}).\n\nDate and time: {{date}}\n\nThe meeting agenda is available at the link below. Sign in or create your account to view the topics:\n{{link}}"
     },
@@ -759,6 +760,7 @@
         "review": "Pending review",
         "approved": "Approved by client",
         "changes": "Production adjustments",
+        "changes_done": "Adjustments completed",
         "published": "Published"
       }
     },
@@ -913,6 +915,7 @@
       "changesNotePlaceholder": "Describe the required changes...",
       "approvedToast": "Content approved.",
       "changesToast": "Changes requested.",
+      "changesDoneToast": "Adjustments completed — waiting for client to review again.",
       "submittedToast": "Submitted for review.",
       "publishedToast": "Content published.",
       "notFound": "Content not found.",

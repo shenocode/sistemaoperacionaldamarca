@@ -957,6 +957,7 @@ export type Database = {
         | "review"
         | "approved"
         | "changes"
+        | "changes_done"
         | "published"
         | "waiting_material"
       design_template_format: "static_feed" | "carousel"
@@ -1127,6 +1128,7 @@ export const Constants = {
         "review",
         "approved",
         "changes",
+        "changes_done",
         "published",
         "waiting_material",
       ],
