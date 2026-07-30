@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
-import { ChevronLeft, MessageCircle, Save } from "lucide-react";
+import { ChevronLeft, MessageCircle, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
-import { MeetingAgendaTopicsEditor } from "@/components/meeting-agenda-topics-editor";
+import {
+  MeetingAgendaTopicsEditor,
+  type MeetingAgendaTopicsEditorHandle,
+} from "@/components/meeting-agenda-topics-editor";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,10 +101,12 @@ function MeetingDetailPage() {
   const [topics, setTopics] = useState<MeetingAgendaTopic[]>([]);
   const [notes, setNotes] = useState("");
   const [formBaseline, setFormBaseline] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  /** Which agendaId the local form was hydrated for — avoids a mount race that cleared the baseline when cache was warm. */
+  const [hydratedAgendaId, setHydratedAgendaId] = useState<string | null>(null);
+  const topicsEditorRef = useRef<MeetingAgendaTopicsEditorHandle>(null);
 
   useEffect(() => {
-    if (!agendaQuery.data || initialized) return;
+    if (!agendaQuery.data || hydratedAgendaId === agendaId) return;
     const nextScheduled = toDatetimeLocalValue(agendaQuery.data.scheduled_at);
     const nextTopics = parseMeetingAgendaTopics(agendaQuery.data.topics);
     const nextNotes = agendaQuery.data.notes ?? "";
@@ -109,13 +114,8 @@ function MeetingDetailPage() {
     setTopics(nextTopics);
     setNotes(nextNotes);
     setFormBaseline(buildMeetingFormSnapshot(nextScheduled, nextTopics, nextNotes));
-    setInitialized(true);
-  }, [agendaQuery.data, initialized]);
-
-  useEffect(() => {
-    setInitialized(false);
-    setFormBaseline(null);
-  }, [agendaId]);
+    setHydratedAgendaId(agendaId);
+  }, [agendaId, agendaQuery.data, hydratedAgendaId]);
 
   const scheduledAt = fromDatetimeLocalValue(scheduledLocal);
   const notesNormalized = notes.trim() || null;
@@ -234,6 +234,15 @@ function MeetingDetailPage() {
         <CardHeader className="sticky top-0 z-10 flex flex-col gap-3 space-y-0 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>{t("project.meeting.detailTitle")}</CardTitle>
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saveMutation.isPending}
+              onClick={() => topicsEditorRef.current?.addTopic()}
+            >
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t("project.meeting.addTopic")}
+            </Button>
             {canSendWhatsApp ? (
               <Button
                 type="button"
@@ -274,6 +283,7 @@ function MeetingDetailPage() {
           <div className="space-y-2">
             <Label>{t("project.meeting.topicsLabel")}</Label>
             <MeetingAgendaTopicsEditor
+              ref={topicsEditorRef}
               topics={topics}
               disabled={saveMutation.isPending}
               onChange={setTopics}

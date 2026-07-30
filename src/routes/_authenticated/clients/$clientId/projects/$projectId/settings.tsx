@@ -29,6 +29,7 @@ import { useEntitlements } from "@/hooks/use-entitlements";
 import { useAppRole } from "@/hooks/use-app-role";
 import {
   buildLocalizedFieldFromSource,
+  ensureFieldsTranslated,
   getCanonicalText,
   getLocalizedPresetList,
   getLocalizedText,
@@ -163,7 +164,6 @@ function ProjectSettingsPage() {
   const [category, setCategory] = useState<ProjectCategory | null>(null);
   const [ctaPresets, setCtaPresets] = useState<string[]>([]);
   const [hashtagPresets, setHashtagPresets] = useState<string[]>([]);
-  const [themePresets, setThemePresets] = useState<string[]>([]);
   const [formBaseline, setFormBaseline] = useState<string | null>(null);
   const [ignoreUnsavedChanges, setIgnoreUnsavedChanges] = useState(false);
 
@@ -208,12 +208,6 @@ function ProjectSettingsPage() {
       projectQuery.data.hashtag_presets ?? [],
       uiLocale,
     );
-    const nextThemes = getLocalizedPresetList(
-      nextI18n,
-      "theme_presets",
-      projectQuery.data.theme_presets ?? [],
-      uiLocale,
-    );
     setRowI18n(nextI18n);
     setName(nextName);
     setDescription(nextDescription);
@@ -221,7 +215,6 @@ function ProjectSettingsPage() {
     setCategory(nextCategory);
     setCtaPresets(nextCta);
     setHashtagPresets(nextHashtags);
-    setThemePresets(nextThemes);
     setFormBaseline(
       JSON.stringify({
         name: nextName,
@@ -230,7 +223,6 @@ function ProjectSettingsPage() {
         category: nextCategory,
         ctaPresets: nextCta,
         hashtagPresets: nextHashtags,
-        themePresets: nextThemes,
         i18n: nextI18n,
       }),
     );
@@ -244,7 +236,6 @@ function ProjectSettingsPage() {
     category,
     ctaPresets,
     hashtagPresets,
-    themePresets,
     i18n: rowI18n,
   });
   const isDirty = Boolean(formBaseline) && !ignoreUnsavedChanges && formSnapshot !== formBaseline;
@@ -252,18 +243,22 @@ function ProjectSettingsPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       let nextI18n = rowI18n;
+      if (canManage) {
+        nextI18n = await ensureFieldsTranslated(nextI18n, {
+          name,
+          description,
+        });
+      }
       const shouldSavePresets = presetsAllowed;
-      const [ctaBlocks, hashtagBlocks, themeBlocks] = shouldSavePresets
+      const [ctaBlocks, hashtagBlocks] = shouldSavePresets
         ? await Promise.all([
             translatePresetList(ctaPresets),
             translatePresetList(hashtagPresets),
-            translatePresetList(themePresets),
           ])
-        : [[], [], []];
+        : [[], []];
       if (shouldSavePresets) {
         nextI18n = setLocalizedPresetList(nextI18n, "cta_presets", ctaBlocks);
         nextI18n = setLocalizedPresetList(nextI18n, "hashtag_presets", hashtagBlocks);
-        nextI18n = setLocalizedPresetList(nextI18n, "theme_presets", themeBlocks);
       }
 
       const canonicalCta = ctaBlocks.map(
@@ -271,9 +266,6 @@ function ProjectSettingsPage() {
       );
       const canonicalHashtags = hashtagBlocks.map(
         (block, index) => block.values[block.source] ?? hashtagPresets[index] ?? "",
-      );
-      const canonicalThemes = themeBlocks.map(
-        (block, index) => block.values[block.source] ?? themePresets[index] ?? "",
       );
 
       return updateProject(projectId, {
@@ -290,7 +282,6 @@ function ProjectSettingsPage() {
           ? {
               ctaPresets: canonicalCta,
               hashtagPresets: canonicalHashtags,
-              themePresets: canonicalThemes,
             }
           : {}),
         i18n: nextI18n,
@@ -396,16 +387,6 @@ function ProjectSettingsPage() {
           emptyLabel={t("project.settings.noHashtagPresets")}
           items={hashtagPresets}
           onChange={setHashtagPresets}
-        />
-        <PresetListEditor
-          label={t("project.settings.themePresets")}
-          hint={t("project.settings.themePresetsHint")}
-          placeholder={t("project.settings.themePlaceholder")}
-          addLabel={t("project.settings.addPreset")}
-          removeLabel={t("project.settings.removePreset")}
-          emptyLabel={t("project.settings.noThemePresets")}
-          items={themePresets}
-          onChange={setThemePresets}
         />
       </div>
       ) : canManage ? (

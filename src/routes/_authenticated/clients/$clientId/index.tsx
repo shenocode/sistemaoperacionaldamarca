@@ -23,8 +23,10 @@ import {
   canManageClient,
   createProject,
   getClient,
+  getLocalizedText,
   getPrimaryProjectCategory,
   listProjects,
+  normalizeAppLocale,
   projectDefaultRoute,
   type ProjectCategory,
 } from "@/lib/api";
@@ -40,11 +42,12 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/")({
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { isClient } = useAppRole();
   const { entitlements } = useEntitlements();
   const libraryAllowed = isClient || entitlements.library;
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -97,7 +100,11 @@ function ClientDetailPage() {
         {t("nav.clients")}
       </Link>
       <PageHeader
-        title={client?.name ?? t("common.loading")}
+        title={
+          client
+            ? getLocalizedText(client.i18n, "name", client.name, uiLocale)
+            : t("common.loading")
+        }
         description={t("clients.projects")}
         actions={
           libraryAllowed || canManage ? (
@@ -130,6 +137,13 @@ function ClientDetailPage() {
           {projects.map((project) => {
             const primaryCategory = getPrimaryProjectCategory(project.categories);
             const defaultRoute = projectDefaultRoute(project.categories);
+            const projectName = getLocalizedText(project.i18n, "name", project.name, uiLocale);
+            const projectDescription = getLocalizedText(
+              project.i18n,
+              "description",
+              project.description ?? "",
+              uiLocale,
+            );
             return (
               <Link
                 key={project.id}
@@ -139,9 +153,9 @@ function ClientDetailPage() {
               >
                 <Card className="rounded-xl transition-colors hover:bg-muted/40">
                   <CardContent className="space-y-2 p-5">
-                    <p className="font-medium tracking-tight">{project.name}</p>
-                    {project.description ? (
-                      <p className="line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
+                    <p className="font-medium tracking-tight">{projectName}</p>
+                    {projectDescription ? (
+                      <p className="line-clamp-2 text-sm text-muted-foreground">{projectDescription}</p>
                     ) : null}
                     <p className="line-clamp-2 text-xs text-muted-foreground">
                       {t(`clients.categories.${primaryCategory}.label`)}

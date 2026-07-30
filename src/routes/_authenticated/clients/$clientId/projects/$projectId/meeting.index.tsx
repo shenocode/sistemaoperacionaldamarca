@@ -138,9 +138,11 @@ function MeetingListPage() {
                     className="min-w-0 flex-1 space-y-1 hover:underline"
                   >
                     <p className="font-medium">{dateLabel}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("project.meeting.topicCount", { count: topics.length })}
-                    </p>
+                    {topics.some((topic) => topic.needsAction) ? (
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                        {t("project.meeting.pendingActions")}
+                      </p>
+                    ) : null}
                     {preview ? (
                       <p className="text-sm text-muted-foreground line-clamp-2">{preview}</p>
                     ) : null}

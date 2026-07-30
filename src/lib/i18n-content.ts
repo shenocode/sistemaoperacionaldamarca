@@ -153,6 +153,64 @@ export async function translateManyFields(
   return result;
 }
 
+/** True when the field has no block, or is missing a value for `locale` (or any app locale). */
+export function localizedFieldNeedsTranslation(
+  block: LocalizedField | null | undefined,
+  locale?: AppLocale,
+): boolean {
+  if (!block) return true;
+  const locales = locale ? [locale] : [...APP_LOCALES];
+  return locales.some((loc) => {
+    const value = block.values[loc];
+    return typeof value !== "string" || value.length === 0;
+  });
+}
+
+/**
+ * Ensures each field has translations for all app locales.
+ * Reuses existing blocks that are already complete; otherwise calls AI translate.
+ */
+export async function ensureFieldsTranslated(
+  i18n: RowI18n | null | undefined,
+  fields: Record<string, string | null | undefined>,
+): Promise<RowI18n> {
+  const base = parseRowI18n(i18n);
+  const results = await Promise.all(
+    Object.entries(fields).map(async ([field, rawText]) => {
+      const existing = getLocalizedField(base, field);
+      const sourceText =
+        (existing?.values[existing.source] ?? "").trim() || (rawText ?? "").trim();
+      if (!sourceText) {
+        return [
+          field,
+          existing ?? buildLocalizedFieldFromSource("", "pt-BR"),
+        ] as const;
+      }
+      if (!localizedFieldNeedsTranslation(existing)) {
+        return [field, existing!] as const;
+      }
+      try {
+        const block = await translateTextField({
+          text: sourceText,
+          sourceLocale: existing?.source,
+        });
+        return [field, block] as const;
+      } catch {
+        return [
+          field,
+          existing ?? buildLocalizedFieldFromSource(sourceText, "pt-BR"),
+        ] as const;
+      }
+    }),
+  );
+
+  let next = base;
+  for (const [field, block] of results) {
+    next = setLocalizedField(next, field, block);
+  }
+  return next;
+}
+
 /** answers map: questionId → LocalizedField */
 export function getLocalizedAnswer(
   i18n: RowI18n | null | undefined | unknown,

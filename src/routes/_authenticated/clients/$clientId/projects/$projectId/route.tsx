@@ -1,9 +1,24 @@
+import { useEffect, useRef } from "react";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getClient, getProject, projectCategoryConfig, type ProjectTabId } from "@/lib/api";
+import {
+  canManageClient,
+  ensureFieldsTranslated,
+  getCanonicalText,
+  getClient,
+  getLocalizedField,
+  getLocalizedText,
+  getProject,
+  localizedFieldNeedsTranslation,
+  normalizeAppLocale,
+  parseRowI18n,
+  projectCategoryConfig,
+  updateProject,
+  type ProjectTabId,
+} from "@/lib/api";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
@@ -15,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/projects
 const TAB_PATHS: Record<
   ProjectTabId,
   | "/clients/$clientId/projects/$projectId/feed"
+  | "/clients/$clientId/projects/$projectId/themes"
   | "/clients/$clientId/projects/$projectId/calendar"
   | "/clients/$clientId/projects/$projectId/content"
   | "/clients/$clientId/projects/$projectId/meeting"
@@ -22,6 +38,7 @@ const TAB_PATHS: Record<
   | "/clients/$clientId/projects/$projectId/settings"
 > = {
   feed: "/clients/$clientId/projects/$projectId/feed",
+  themes: "/clients/$clientId/projects/$projectId/themes",
   calendar: "/clients/$clientId/projects/$projectId/calendar",
   content: "/clients/$clientId/projects/$projectId/content",
   meeting: "/clients/$clientId/projects/$projectId/meeting",
@@ -31,9 +48,12 @@ const TAB_PATHS: Record<
 
 function ProjectLayout() {
   const { clientId, projectId } = Route.useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
   const { isAdmin, isClient } = useAppRole();
   const { entitlements } = useEntitlements();
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const backfillKeyRef = useRef<string | null>(null);
 
   const projectQuery = useQuery({
     queryKey: ["projects", "detail", projectId],
@@ -45,7 +65,83 @@ function ProjectLayout() {
     queryFn: () => getClient(clientId),
   });
 
+  const manageQuery = useQuery({
+    queryKey: ["can-manage", clientId],
+    queryFn: () => canManageClient(clientId),
+  });
+
   const categoryConfig = projectCategoryConfig(projectQuery.data?.categories);
+  const project = projectQuery.data;
+  const client = clientQuery.data;
+  const projectI18n = parseRowI18n(project?.i18n);
+  const clientI18n = parseRowI18n(client?.i18n);
+  const displayProjectName = project
+    ? getLocalizedText(projectI18n, "name", project.name, uiLocale)
+    : t("common.loading");
+  const displayProjectDescription = project
+    ? getLocalizedText(projectI18n, "description", project.description ?? "", uiLocale)
+    : "";
+  const displayClientName = client
+    ? getLocalizedText(clientI18n, "name", client.name, uiLocale)
+    : t("project.back");
+
+  // Backfill missing locale translations for name/description so switching
+  // language shows localized content (not only the canonical Portuguese column).
+  useEffect(() => {
+    if (!project || !manageQuery.data) return;
+
+    const currentI18n = parseRowI18n(project.i18n);
+    const nameNeeds = localizedFieldNeedsTranslation(
+      getLocalizedField(currentI18n, "name"),
+      uiLocale,
+    );
+    const descriptionNeeds =
+      Boolean(project.description?.trim()) &&
+      localizedFieldNeedsTranslation(getLocalizedField(currentI18n, "description"), uiLocale);
+
+    if (!nameNeeds && !descriptionNeeds) return;
+
+    const key = `${project.id}:${uiLocale}:${project.updated_at}`;
+    if (backfillKeyRef.current === key) return;
+    backfillKeyRef.current = key;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const nextI18n = await ensureFieldsTranslated(currentI18n, {
+          name: project.name,
+          description: project.description,
+        });
+        if (cancelled) return;
+        if (JSON.stringify(nextI18n) === JSON.stringify(currentI18n)) return;
+
+        const nameImproved =
+          nameNeeds &&
+          !localizedFieldNeedsTranslation(getLocalizedField(nextI18n, "name"), uiLocale);
+        const descriptionImproved =
+          descriptionNeeds &&
+          !localizedFieldNeedsTranslation(getLocalizedField(nextI18n, "description"), uiLocale);
+
+        // Avoid rewrite/invalidate loops when AI translation is unavailable.
+        if (!nameImproved && !descriptionImproved) return;
+
+        await updateProject(projectId, {
+          name: getCanonicalText(nextI18n, "name", project.name),
+          description: getCanonicalText(nextI18n, "description", project.description ?? ""),
+          i18n: nextI18n,
+        });
+        if (cancelled) return;
+        void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      } catch {
+        // Keep canonical fallback if AI translation is unavailable.
+        backfillKeyRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [manageQuery.data, project, projectId, queryClient, uiLocale]);
 
   // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
   // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
@@ -77,7 +173,7 @@ function ProjectLayout() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          {clientQuery.data?.name ?? t("project.back")}
+          {displayClientName}
         </Link>
       ) : (
         <Link
@@ -89,20 +185,20 @@ function ProjectLayout() {
         </Link>
       )}
       <div className="mt-3 flex items-start gap-3">
-        {clientQuery.data?.logo_url ? (
+        {client?.logo_url ? (
           <img
-            src={clientQuery.data.logo_url}
+            src={client.logo_url}
             alt=""
             className="mt-0.5 h-14 w-14 shrink-0 rounded-full object-cover sm:h-20 sm:w-20 md:h-24 md:w-24"
           />
         ) : null}
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight break-words sm:text-2xl">
-            {projectQuery.data?.name ?? t("common.loading")}
+            {displayProjectName}
           </h1>
-          {projectQuery.data?.description ? (
+          {displayProjectDescription ? (
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground sm:line-clamp-none">
-              {projectQuery.data.description}
+              {displayProjectDescription}
             </p>
           ) : null}
         </div>

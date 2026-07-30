@@ -803,6 +803,19 @@ function ContentDetailPage() {
 
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
+              <div className="-mx-6 -mt-6 space-y-1.5 rounded-t-xl bg-primary/5 px-6 pb-4 pt-6">
+                <Label htmlFor="version-note" variant="highlight">
+                  {t("project.detail.versionNote")}
+                </Label>
+                <LocalizedTextInput
+                  id="version-note"
+                  field="versionNote"
+                  i18n={rowI18n}
+                  fallback={versionNote}
+                  placeholder={t("project.detail.versionNotePlaceholder")}
+                  onI18nCommit={onFieldI18nCommit}
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" variant="highlight">
                   {t("project.content.title")}
@@ -1167,19 +1180,6 @@ function ContentDetailPage() {
 
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="version-note" variant="highlight">
-                  {t("project.detail.versionNote")}
-                </Label>
-                <LocalizedTextInput
-                  id="version-note"
-                  field="versionNote"
-                  i18n={rowI18n}
-                  fallback={versionNote}
-                  placeholder={t("project.detail.versionNotePlaceholder")}
-                  onI18nCommit={onFieldI18nCommit}
-                />
-              </div>
               <div className="flex flex-wrap gap-2">
                 {isAdmin ? (
                   <Button

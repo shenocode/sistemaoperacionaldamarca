@@ -36,6 +36,7 @@ import { Route as AuthenticatedClientsClientIdProjectsProjectIdFeedRouteImport }
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/library'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/meeting'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/settings'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdThemesRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/themes'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.index'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.$contentId'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdMeetingIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/meeting.index'
@@ -194,6 +195,13 @@ const AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdThemesRoute =
+  AuthenticatedClientsClientIdProjectsProjectIdThemesRouteImport.update({
+    id: '/themes',
+    path: '/themes',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
 const AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute =
   AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport.update({
     id: '/',
@@ -253,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/clients/$clientId/projects/$projectId/meeting': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren
   '/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
+  '/clients/$clientId/projects/$projectId/themes': typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   '/clients/$clientId/projects/$projectId/': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
   '/clients/$clientId/projects/$projectId/content/$contentId': typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
   '/clients/$clientId/projects/$projectId/meeting/$agendaId': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingAgendaIdRoute
@@ -282,6 +291,7 @@ export interface FileRoutesByTo {
   '/clients/$clientId/projects/$projectId/feed': typeof AuthenticatedClientsClientIdProjectsProjectIdFeedRoute
   '/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
+  '/clients/$clientId/projects/$projectId/themes': typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   '/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
   '/clients/$clientId/projects/$projectId/content/$contentId': typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
   '/clients/$clientId/projects/$projectId/meeting/$agendaId': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingAgendaIdRoute
@@ -316,6 +326,7 @@ export interface FileRoutesById {
   '/_authenticated/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/_authenticated/clients/$clientId/projects/$projectId/meeting': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren
   '/_authenticated/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/themes': typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   '/_authenticated/clients/$clientId/projects/$projectId/': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
   '/_authenticated/clients/$clientId/projects/$projectId/content/$contentId': typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
   '/_authenticated/clients/$clientId/projects/$projectId/meeting/$agendaId': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingAgendaIdRoute
@@ -350,6 +361,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId/projects/$projectId/library'
     | '/clients/$clientId/projects/$projectId/meeting'
     | '/clients/$clientId/projects/$projectId/settings'
+    | '/clients/$clientId/projects/$projectId/themes'
     | '/clients/$clientId/projects/$projectId/'
     | '/clients/$clientId/projects/$projectId/content/$contentId'
     | '/clients/$clientId/projects/$projectId/meeting/$agendaId'
@@ -379,6 +391,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId/projects/$projectId/feed'
     | '/clients/$clientId/projects/$projectId/library'
     | '/clients/$clientId/projects/$projectId/settings'
+    | '/clients/$clientId/projects/$projectId/themes'
     | '/clients/$clientId/projects/$projectId'
     | '/clients/$clientId/projects/$projectId/content/$contentId'
     | '/clients/$clientId/projects/$projectId/meeting/$agendaId'
@@ -412,6 +425,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clients/$clientId/projects/$projectId/library'
     | '/_authenticated/clients/$clientId/projects/$projectId/meeting'
     | '/_authenticated/clients/$clientId/projects/$projectId/settings'
+    | '/_authenticated/clients/$clientId/projects/$projectId/themes'
     | '/_authenticated/clients/$clientId/projects/$projectId/'
     | '/_authenticated/clients/$clientId/projects/$projectId/content/$contentId'
     | '/_authenticated/clients/$clientId/projects/$projectId/meeting/$agendaId'
@@ -621,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
+    '/_authenticated/clients/$clientId/projects/$projectId/themes': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/themes'
+      path: '/themes'
+      fullPath: '/clients/$clientId/projects/$projectId/themes'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
     '/_authenticated/clients/$clientId/projects/$projectId/content/': {
       id: '/_authenticated/clients/$clientId/projects/$projectId/content/'
       path: '/'
@@ -695,6 +716,7 @@ interface AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren {
   AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   AuthenticatedClientsClientIdProjectsProjectIdMeetingRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren
   AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
+  AuthenticatedClientsClientIdProjectsProjectIdThemesRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   AuthenticatedClientsClientIdProjectsProjectIdIndexRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
 }
 
@@ -712,6 +734,8 @@ const AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren: Authentic
       AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren,
     AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute:
       AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute,
+    AuthenticatedClientsClientIdProjectsProjectIdThemesRoute:
+      AuthenticatedClientsClientIdProjectsProjectIdThemesRoute,
     AuthenticatedClientsClientIdProjectsProjectIdIndexRoute:
       AuthenticatedClientsClientIdProjectsProjectIdIndexRoute,
   }

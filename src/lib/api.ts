@@ -10,7 +10,11 @@ import {
   type BriefingTemplate,
 } from "@/lib/brand-briefing-template";
 import type { RowI18n } from "@/lib/i18n-content";
-import { getCanonicalText, parseRowI18n } from "@/lib/i18n-content";
+import {
+  ensureFieldsTranslated,
+  getCanonicalText,
+  parseRowI18n,
+} from "@/lib/i18n-content";
 
 export type { RowI18n, LocalizedField, AppLocale } from "@/lib/i18n-content";
 export {
@@ -20,6 +24,8 @@ export {
   getCanonicalText,
   translateTextField,
   translateManyFields,
+  ensureFieldsTranslated,
+  localizedFieldNeedsTranslation,
   setLocalizedField,
   mergeRowI18n,
   buildLocalizedFieldFromSource,
@@ -33,6 +39,7 @@ export type Client = Tables<"clients">;
 export type Project = Tables<"projects">;
 export type CalendarBlock = Tables<"calendar_blocks">;
 export type MeetingAgenda = Tables<"meeting_agendas">;
+export type ThemeReference = Tables<"theme_references">;
 export type ContentItem = Tables<"content_items">;
 export type ContentVersion = Tables<"content_versions">;
 export type ContentComment = Tables<"content_comments">;
@@ -71,7 +78,14 @@ export const CONTENT_FORMATS: ContentFormat[] = [
 export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos"] as const;
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
 
-export type ProjectTabId = "feed" | "calendar" | "content" | "library" | "settings" | "meeting";
+export type ProjectTabId =
+  | "feed"
+  | "themes"
+  | "calendar"
+  | "content"
+  | "library"
+  | "settings"
+  | "meeting";
 
 export type ProjectCategoryConfig = {
   formats: ContentFormat[];
@@ -85,20 +99,20 @@ export type ProjectCategoryConfig = {
 export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryConfig> = {
   instagram: {
     formats: ["static_feed", "reels", "stories", "carousel"],
-    tabs: ["feed", "calendar", "content", "meeting", "library", "settings"],
+    tabs: ["feed", "themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "feed",
     experienceReady: true,
   },
   graphic_arts: {
     // Formatos específicos (banner, cartaz…) entram depois; por ora peça estática.
     formats: ["static_feed"],
-    tabs: ["calendar", "content", "meeting", "library", "settings"],
+    tabs: ["themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
     experienceReady: false,
   },
   videos: {
     formats: ["recorded_video"],
-    tabs: ["calendar", "content", "meeting", "library", "settings"],
+    tabs: ["themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
     experienceReady: false,
   },
@@ -982,19 +996,28 @@ export async function createProject(input: {
   name: string;
   description?: string;
   categories?: ProjectCategory[];
+  i18n?: RowI18n;
 }): Promise<Project> {
   const userId = await requireUserId();
   const categories = normalizeProjectCategories(input.categories);
   if (categories.length === 0) {
     throw new Error("Selecione o tipo do projeto.");
   }
+  const i18n = await ensureFieldsTranslated(input.i18n, {
+    name: input.name,
+    description: input.description,
+  });
+  const name = getCanonicalText(i18n, "name", input.name).trim();
+  const description =
+    getCanonicalText(i18n, "description", input.description)?.trim() || null;
   const { data, error } = await supabase
     .from("projects")
     .insert({
       client_id: input.clientId,
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
+      name,
+      description,
       categories,
+      i18n: toI18nJson(i18n),
       created_by: userId,
     })
     .select("*")
@@ -1897,6 +1920,127 @@ export async function deleteMeetingAgenda(input: {
     clientId: input.clientId,
     projectId: input.projectId,
   });
+}
+
+function isMissingThemeReferencesTable(message: string) {
+  return /theme_references/i.test(message) && /(does not exist|not find)/i.test(message);
+}
+
+function normalizeLinkList(links: string[] | null | undefined): string[] {
+  return (links ?? []).map((link) => link.trim()).filter(Boolean);
+}
+
+async function nextThemeReferenceSortOrder(projectId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("theme_references")
+    .select("sort_order")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (isMissingThemeReferencesTable(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return (data?.sort_order ?? 0) - 1;
+}
+
+export async function listThemeReferences(projectId: string): Promise<ThemeReference[]> {
+  const { data, error } = await supabase
+    .from("theme_references")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  if (!error) return data ?? [];
+  if (isMissingThemeReferencesTable(error.message)) return [];
+  throw new Error(error.message);
+}
+
+export async function createThemeReference(input: {
+  projectId: string;
+  theme?: string;
+  recommendations?: string;
+  youtubeLinks?: string[];
+  instagramLinks?: string[];
+}): Promise<ThemeReference> {
+  const sortOrder = await nextThemeReferenceSortOrder(input.projectId);
+  const { data, error } = await supabase
+    .from("theme_references")
+    .insert({
+      project_id: input.projectId,
+      theme: input.theme?.trim() ?? "",
+      recommendations: input.recommendations ?? "",
+      youtube_links: normalizeLinkList(input.youtubeLinks),
+      instagram_links: normalizeLinkList(input.instagramLinks),
+      sort_order: sortOrder,
+    })
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function updateThemeReference(input: {
+  id: string;
+  projectId: string;
+  theme?: string;
+  recommendations?: string;
+  youtubeLinks?: string[];
+  instagramLinks?: string[];
+}): Promise<ThemeReference> {
+  const patch: {
+    theme?: string;
+    recommendations?: string;
+    youtube_links?: string[];
+    instagram_links?: string[];
+  } = {};
+  if (input.theme !== undefined) patch.theme = input.theme.trim();
+  if (input.recommendations !== undefined) patch.recommendations = input.recommendations;
+  if (input.youtubeLinks !== undefined) patch.youtube_links = normalizeLinkList(input.youtubeLinks);
+  if (input.instagramLinks !== undefined) {
+    patch.instagram_links = normalizeLinkList(input.instagramLinks);
+  }
+
+  const { data, error } = await supabase
+    .from("theme_references")
+    .update(patch)
+    .eq("id", input.id)
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function duplicateThemeReference(input: {
+  id: string;
+  projectId: string;
+}): Promise<ThemeReference> {
+  const { data: source, error: loadError } = await supabase
+    .from("theme_references")
+    .select("*")
+    .eq("id", input.id)
+    .eq("project_id", input.projectId)
+    .single();
+  const row = ensureData(source, loadError);
+  return createThemeReference({
+    projectId: input.projectId,
+    theme: row.theme,
+    recommendations: row.recommendations,
+    youtubeLinks: row.youtube_links ?? [],
+    instagramLinks: row.instagram_links ?? [],
+  });
+}
+
+export async function deleteThemeReference(input: {
+  id: string;
+  projectId: string;
+}): Promise<void> {
+  const { error } = await supabase
+    .from("theme_references")
+    .delete()
+    .eq("id", input.id)
+    .eq("project_id", input.projectId);
+  if (error) throw new Error(error.message);
 }
 
 function sortContentByManualOrder(a: ContentItem, b: ContentItem) {

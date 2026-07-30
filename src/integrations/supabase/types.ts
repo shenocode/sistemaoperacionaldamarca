@@ -608,6 +608,50 @@ export type Database = {
           },
         ]
       }
+      theme_references: {
+        Row: {
+          created_at: string
+          id: string
+          instagram_links: string[]
+          project_id: string
+          recommendations: string
+          sort_order: number
+          theme: string
+          updated_at: string
+          youtube_links: string[]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instagram_links?: string[]
+          project_id: string
+          recommendations?: string
+          sort_order?: number
+          theme?: string
+          updated_at?: string
+          youtube_links?: string[]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instagram_links?: string[]
+          project_id?: string
+          recommendations?: string
+          sort_order?: number
+          theme?: string
+          updated_at?: string
+          youtube_links?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_references_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
