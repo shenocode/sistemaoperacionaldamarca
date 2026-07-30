@@ -19,6 +19,7 @@ import {
 export type { RowI18n, LocalizedField, AppLocale } from "@/lib/i18n-content";
 export {
   getLocalizedText,
+  getLocalizedField,
   parseRowI18n,
   normalizeAppLocale,
   getCanonicalText,
