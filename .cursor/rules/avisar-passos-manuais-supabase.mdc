@@ -1,0 +1,16 @@
+---
+description: Avisar passos manuais (Supabase/Lovable) com SQL/código pronto, sem depender de redeploy Netlify
+alwaysApply: true
+---
+
+# Passos manuais (Supabase / Lovable)
+
+Sempre que a mudança exigir algo **fora do código** (migration SQL, schema, storage, secrets, painel Lovable, etc.):
+
+1. **Avise explicitamente** na resposta — não espere o usuário descobrir no erro.
+2. **Entregue o código pronto para colar** (SQL completo, passos clicáveis, etc.).
+3. Deixe claro o **onde** rodar (ex.: Supabase → SQL Editor; Lovable → …).
+4. Inclua `notify pgrst, 'reload schema';` quando alterar colunas/tabelas usadas pela API.
+5. Não diga só “aplique a migration” sem o script; o usuário evita redeploys no Netlify só para schema.
+
+Migrations em `supabase/migrations/` continuam no repo, mas o aviso + SQL colável é obrigatório na conversa.
