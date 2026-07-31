@@ -32,6 +32,7 @@ import {
   listComments,
   saveClientContentVersion,
   setContentStatus,
+  type CommentWithAuthor,
   type ContentFormat,
 } from "@/lib/api";
 import {
@@ -168,8 +169,14 @@ export function ClientContentApprovalView({
         i18n: payload.i18n,
       });
     },
-    onSuccess: () => {
+    onSuccess: (row) => {
       setComment("");
+      const next: CommentWithAuthor = { ...row, profiles: null };
+      queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) => {
+        const list = prev ?? [];
+        if (list.some((c) => c.id === row.id)) return list;
+        return [...list, next];
+      });
       invalidateAll();
     },
     onError: (err: Error) => toast.error(err.message),
@@ -178,13 +185,19 @@ export function ClientContentApprovalView({
   const requestChanges = async () => {
     if (changesNote.trim()) {
       const payload = await buildCommentI18n(changesNote.trim(), uiLocale);
-      await addComment({
+      const row = await addComment({
         contentId,
         clientId,
         projectId,
         body: payload.body,
         contentTitle: title,
         i18n: payload.i18n,
+      });
+      const next: CommentWithAuthor = { ...row, profiles: null };
+      queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) => {
+        const list = prev ?? [];
+        if (list.some((c) => c.id === row.id)) return list;
+        return [...list, next];
       });
     }
     statusMutation.mutate("changes");
@@ -298,9 +311,14 @@ export function ClientContentApprovalView({
 
           {commentsOpen ? (
             <div className="space-y-4 rounded-xl border bg-card p-4">
-              {(commentsQuery.data ?? []).length === 0 ? (
+              {commentsQuery.isError ? (
+                <p className="text-sm text-destructive">
+                  {(commentsQuery.error as Error)?.message || t("project.detail.commentsLoadError")}
+                </p>
+              ) : null}
+              {(commentsQuery.data ?? []).length === 0 && !commentsQuery.isError ? (
                 <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
-              ) : (
+              ) : (commentsQuery.data ?? []).length > 0 ? (
                 <ul className="space-y-3">
                   {(commentsQuery.data ?? []).map((c) => (
                     <li key={c.id} className="rounded-md border p-3 text-sm">
@@ -321,7 +339,7 @@ export function ClientContentApprovalView({
                     </li>
                   ))}
                 </ul>
-              )}
+              ) : null}
               <form
                 className="flex gap-2"
                 onSubmit={(e) => {

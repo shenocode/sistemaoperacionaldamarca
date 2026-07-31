@@ -2398,8 +2398,24 @@ export type CommentWithAuthor = ContentComment & {
 };
 
 export async function listComments(contentId: string): Promise<CommentWithAuthor[]> {
-  const { listCommentsFn } = await import("./list-comments.functions");
-  return listCommentsFn({ data: { contentId } });
+  // Client-side + RLS (same path as addComment). Avoids server-fn/service-role failures
+  // that made inserts succeed while the card stayed empty.
+  const { data, error } = await supabase
+    .from("content_comments")
+    .select("*, profiles!content_comments_user_id_fkey(full_name, avatar_url)")
+    .eq("content_id", contentId)
+    .order("created_at", { ascending: true });
+
+  if (!error) return (data ?? []) as CommentWithAuthor[];
+
+  // Nested profiles can fail under some RLS setups — still return the comments.
+  const { data: rows, error: fallbackError } = await supabase
+    .from("content_comments")
+    .select("*")
+    .eq("content_id", contentId)
+    .order("created_at", { ascending: true });
+  if (fallbackError) throw new Error(fallbackError.message || error.message);
+  return (rows ?? []).map((row) => ({ ...row, profiles: null }));
 }
 
 export async function addComment(input: {

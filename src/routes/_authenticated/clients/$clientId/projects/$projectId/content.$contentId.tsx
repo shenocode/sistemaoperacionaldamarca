@@ -85,6 +85,7 @@ import {
   buildLocalizedFieldFromSource,
   type ContentFormat,
   type ContentVersion,
+  type CommentWithAuthor,
   type RowI18n,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
@@ -576,8 +577,22 @@ function ContentDetailPage() {
         i18n: commentI18n,
       });
     },
-    onSuccess: () => {
+    onSuccess: (row) => {
       setComment("");
+      const authorName =
+        (user?.user_metadata?.full_name as string | undefined)?.trim() ||
+        (user?.user_metadata?.name as string | undefined)?.trim() ||
+        user?.email?.split("@")[0] ||
+        null;
+      const next: CommentWithAuthor = {
+        ...row,
+        profiles: { full_name: authorName, avatar_url: null },
+      };
+      queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) => {
+        const list = prev ?? [];
+        if (list.some((c) => c.id === row.id)) return list;
+        return [...list, next];
+      });
       invalidateAll();
       toast.success(t("project.detail.commentAdded"));
     },
@@ -828,9 +843,14 @@ function ContentDetailPage() {
               <CardTitle className="text-base">{t("project.detail.comments")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {(commentsQuery.data ?? []).length === 0 ? (
+              {commentsQuery.isError ? (
+                <p className="text-sm text-destructive">
+                  {(commentsQuery.error as Error)?.message || t("project.detail.commentsLoadError")}
+                </p>
+              ) : null}
+              {(commentsQuery.data ?? []).length === 0 && !commentsQuery.isError ? (
                 <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
-              ) : (
+              ) : (commentsQuery.data ?? []).length > 0 ? (
                 <ul className="space-y-3">
                   {(commentsQuery.data ?? []).map((c) => {
                     const canDeleteComment = canManage || c.user_id === user?.id;
@@ -869,7 +889,7 @@ function ContentDetailPage() {
                     );
                   })}
                 </ul>
-              )}
+              ) : null}
               <form
                 className="flex gap-2"
                 onSubmit={(e) => {

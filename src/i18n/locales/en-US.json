@@ -925,6 +925,7 @@
       "leaveComment": "Leave a comment...",
       "send": "Send",
       "noComments": "No comments yet.",
+      "commentsLoadError": "Could not load comments.",
       "deleteComment": "Delete comment",
       "deleteCommentConfirmTitle": "Delete comment?",
       "deleteCommentConfirmDescription": "This action cannot be undone. The comment will be permanently removed.",

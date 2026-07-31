@@ -933,6 +933,7 @@
       "leaveComment": "Deixe um comentário...",
       "send": "Enviar",
       "noComments": "Sem comentários ainda.",
+      "commentsLoadError": "Não foi possível carregar os comentários.",
       "deleteComment": "Excluir comentário",
       "deleteCommentConfirmTitle": "Excluir comentário?",
       "deleteCommentConfirmDescription": "Esta ação não pode ser desfeita. O comentário será removido permanentemente.",
