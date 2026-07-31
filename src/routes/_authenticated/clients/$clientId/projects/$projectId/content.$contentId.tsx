@@ -209,6 +209,8 @@ function ContentDetailPage() {
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [formBaseline, setFormBaseline] = useState<string | null>(null);
   const [ignoreUnsavedChanges, setIgnoreUnsavedChanges] = useState(false);
+  /** Which content+locale the local form was hydrated for — avoids refetch after save wiping in-progress edits. */
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
   const [viewingVersion, setViewingVersion] = useState<ContentVersion | null>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -273,19 +275,18 @@ function ContentDetailPage() {
 
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
 
-  useEffect(() => {
-    if (!content) return;
-    const nextI18n = parseRowI18n(content.i18n);
-    const nextTitle = getLocalizedText(nextI18n, "title", content.title, uiLocale);
-    const nextCaption = getLocalizedText(nextI18n, "caption", content.caption, uiLocale);
-    const nextLocucao = getLocalizedText(nextI18n, "locucao", content.locucao ?? "", uiLocale);
-    const nextRoteiro = getLocalizedText(nextI18n, "roteiro", content.roteiro ?? "", uiLocale);
-    const nextCta = getLocalizedText(nextI18n, "cta", content.cta, uiLocale);
-    const nextHashtags = getLocalizedText(nextI18n, "hashtags", content.hashtags, uiLocale);
-    const nextTheme = getLocalizedText(nextI18n, "theme", content.theme ?? "", uiLocale);
+  const applyContentToForm = (row: NonNullable<typeof content>) => {
+    const nextI18n = parseRowI18n(row.i18n);
+    const nextTitle = getLocalizedText(nextI18n, "title", row.title, uiLocale);
+    const nextCaption = getLocalizedText(nextI18n, "caption", row.caption, uiLocale);
+    const nextLocucao = getLocalizedText(nextI18n, "locucao", row.locucao ?? "", uiLocale);
+    const nextRoteiro = getLocalizedText(nextI18n, "roteiro", row.roteiro ?? "", uiLocale);
+    const nextCta = getLocalizedText(nextI18n, "cta", row.cta, uiLocale);
+    const nextHashtags = getLocalizedText(nextI18n, "hashtags", row.hashtags, uiLocale);
+    const nextTheme = getLocalizedText(nextI18n, "theme", row.theme ?? "", uiLocale);
     const nextFormat =
-      content.format ?? defaultContentFormatForProject(projectQuery.data?.categories);
-    const nextMedia = mediaEntriesFromUrls(resolveContentMediaUrls(content));
+      row.format ?? defaultContentFormatForProject(projectQuery.data?.categories);
+    const nextMedia = mediaEntriesFromUrls(resolveContentMediaUrls(row));
     setRowI18n(nextI18n);
     setTitle(nextTitle);
     setCaption(nextCaption);
@@ -314,7 +315,18 @@ function ContentDetailPage() {
       }),
     );
     setIgnoreUnsavedChanges(false);
-  }, [content, uiLocale, projectQuery.data?.categories]);
+  };
+
+  const formHydrateKey = `${contentId}::${uiLocale}`;
+
+  useEffect(() => {
+    if (!content) return;
+    if (hydratedKey === formHydrateKey) return;
+    applyContentToForm(content);
+    setHydratedKey(formHydrateKey);
+    // Intentionally omit applyContentToForm from deps — hydrate once per content+locale (and after forced reset).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see meeting.$agendaId.tsx for the same pattern
+  }, [content, formHydrateKey, hydratedKey, projectQuery.data?.categories]);
 
   const formSnapshot = buildContentFormSnapshot({
     title,
@@ -363,7 +375,8 @@ function ContentDetailPage() {
   };
 
   const buildSavePayload = () => {
-    const i18nPayload = rowI18n;
+    // versionNote is only for change_note on new versions — never persist on content.i18n
+    const { versionNote: _omitVersionNote, ...i18nPayload } = rowI18n;
     return {
       title: getCanonicalText(i18nPayload, "title", title),
       caption: getCanonicalText(i18nPayload, "caption", caption),
@@ -442,8 +455,10 @@ function ContentDetailPage() {
         i18n: payload.i18n,
       });
     },
-    onSuccess: () => {
-      setIgnoreUnsavedChanges(true);
+    onSuccess: (row) => {
+      queryClient.setQueryData(["content", "detail", contentId], row);
+      applyContentToForm(row);
+      setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("common.saved"));
     },
@@ -489,9 +504,15 @@ function ContentDetailPage() {
         i18n: payload.i18n,
       });
     },
-    onSuccess: () => {
+    onSuccess: (row) => {
       setVersionNote("");
-      setIgnoreUnsavedChanges(true);
+      const nextI18n = parseRowI18n(row.i18n);
+      const { versionNote: _omit, ...cleanI18n } = nextI18n as RowI18n & {
+        versionNote?: unknown;
+      };
+      queryClient.setQueryData(["content", "detail", contentId], row);
+      applyContentToForm({ ...row, i18n: cleanI18n as typeof row.i18n });
+      setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
     },
@@ -522,7 +543,8 @@ function ContentDetailPage() {
         status: next,
         title: content?.title ?? title,
       }),
-    onSuccess: (_row, next) => {
+    onSuccess: (row, next) => {
+      queryClient.setQueryData(["content", "detail", contentId], row);
       invalidateAll();
       if (next === "approved") toast.success(t("project.detail.approvedToast"));
       else if (next === "changes") toast.success(t("project.detail.changesToast"));
@@ -544,10 +566,7 @@ function ContentDetailPage() {
       } catch {
         commentI18n = { body: buildLocalizedFieldFromSource(comment, uiLocale) };
       }
-      const bodyCanonical =
-        (commentI18n.body as { values?: Record<string, string>; source?: string })?.values?.[
-          (commentI18n.body as { source?: string })?.source ?? "pt-BR"
-        ] ?? comment;
+      const bodyCanonical = getCanonicalText(commentI18n, "body", comment);
       return addComment({
         contentId,
         clientId,
@@ -560,6 +579,7 @@ function ContentDetailPage() {
     onSuccess: () => {
       setComment("");
       invalidateAll();
+      toast.success(t("project.detail.commentAdded"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -577,9 +597,11 @@ function ContentDetailPage() {
   const restoreMutation = useMutation({
     mutationFn: (version: ContentVersion) =>
       restoreVersion({ contentId, clientId, projectId, version }),
-    onSuccess: () => {
+    onSuccess: (row) => {
       setViewingVersion(null);
-      setIgnoreUnsavedChanges(true);
+      queryClient.setQueryData(["content", "detail", contentId], row);
+      applyContentToForm(row);
+      setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("project.detail.restored"));
     },
@@ -801,24 +823,86 @@ function ContentDetailPage() {
             />
           ) : null}
 
+          <Card className="rounded-xl border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-base">{t("project.detail.comments")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(commentsQuery.data ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {(commentsQuery.data ?? []).map((c) => {
+                    const canDeleteComment = canManage || c.user_id === user?.id;
+                    return (
+                      <li key={c.id} className="rounded-md border border-primary/15 bg-background p-3 text-sm">
+                        <div className="mb-1 flex items-start justify-between gap-2">
+                          <span className="min-w-0 flex-1 truncate font-medium">
+                            {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(c.created_at), {
+                                addSuffix: true,
+                                locale,
+                              })}
+                            </span>
+                            {canDeleteComment ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                aria-label={t("project.detail.deleteComment")}
+                                disabled={deleteCommentMutation.isPending}
+                                onClick={() => setDeleteCommentId(c.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p className="whitespace-pre-wrap text-muted-foreground">
+                          {getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!comment.trim()) return;
+                  commentMutation.mutate();
+                }}
+              >
+                <Input
+                  className="min-w-0 flex-1 bg-background"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder={t("project.detail.leaveComment")}
+                  aria-label={t("project.detail.leaveComment")}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="shrink-0"
+                  aria-label={t("project.detail.send")}
+                  disabled={commentMutation.isPending || !comment.trim()}
+                >
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
-              <div className="-mx-6 -mt-6 space-y-1.5 rounded-t-xl bg-primary/5 px-6 pb-4 pt-6">
-                <Label htmlFor="version-note" variant="highlight">
-                  {t("project.detail.versionNote")}
-                </Label>
-                <LocalizedTextInput
-                  id="version-note"
-                  field="versionNote"
-                  i18n={rowI18n}
-                  fallback={versionNote}
-                  placeholder={t("project.detail.versionNotePlaceholder")}
-                  onI18nCommit={onFieldI18nCommit}
-                />
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" variant="highlight">
-                  {t("project.content.title")}
+                  {t("project.content.layoutText")}
                 </Label>
                 <LocalizedTextInput
                   id="title"
@@ -1104,82 +1188,20 @@ function ContentDetailPage() {
           </Card>
 
           <Card className="rounded-xl">
-            <CardHeader>
-              <CardTitle className="text-base">{t("project.detail.comments")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(commentsQuery.data ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
-              ) : (
-                <ul className="space-y-3">
-                  {(commentsQuery.data ?? []).map((c) => {
-                    const canDeleteComment = canManage || c.user_id === user?.id;
-                    return (
-                      <li key={c.id} className="rounded-md border p-3 text-sm">
-                        <div className="mb-1 flex items-start justify-between gap-2">
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
-                          </span>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(c.created_at), {
-                                addSuffix: true,
-                                locale,
-                              })}
-                            </span>
-                            {canDeleteComment ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                aria-label={t("project.detail.deleteComment")}
-                                disabled={deleteCommentMutation.isPending}
-                                onClick={() => setDeleteCommentId(c.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                        <p className="whitespace-pre-wrap text-muted-foreground">
-                          {getLocalizedText(c.i18n, "body", c.body, uiLocale)}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!comment.trim()) return;
-                  commentMutation.mutate();
-                }}
-              >
-                <Input
-                  className="min-w-0 flex-1"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder={t("project.detail.leaveComment")}
-                  aria-label={t("project.detail.leaveComment")}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="shrink-0"
-                  aria-label={t("project.detail.send")}
-                  disabled={commentMutation.isPending || !comment.trim()}
-                >
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="version-note" variant="highlight">
+                  {t("project.detail.versionNote")}
+                </Label>
+                <LocalizedTextInput
+                  id="version-note"
+                  field="versionNote"
+                  i18n={rowI18n}
+                  fallback={versionNote}
+                  placeholder={t("project.detail.versionNotePlaceholder")}
+                  onI18nCommit={onFieldI18nCommit}
+                />
+              </div>
               <div className="flex flex-wrap gap-2">
                 {isAdmin ? (
                   <Button

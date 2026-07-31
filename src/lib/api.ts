@@ -2080,6 +2080,15 @@ export async function setContentStatus(input: {
     .eq("id", input.contentId)
     .select("*")
     .single();
+  if (
+    error &&
+    input.status === "changes_done" &&
+    /invalid input value for enum content_status/i.test(error.message)
+  ) {
+    throw new Error(
+      'O status "Ajustes concluídos" ainda não está ativo no banco. Aplique a migration ensure_content_status_changes_done (ou rode no SQL Editor: alter type public.content_status add value if not exists \'changes_done\';).',
+    );
+  }
   const row = ensureData(data, error);
 
   const type = activityMap[input.status];

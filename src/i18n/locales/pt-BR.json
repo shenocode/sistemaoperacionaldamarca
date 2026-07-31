@@ -607,7 +607,7 @@
         "status": "Status",
         "theme": "Tema",
         "format": "Formato",
-        "title": "Título",
+        "title": "Texto no layout",
         "access": "Acesso"
       }
     },
@@ -768,9 +768,10 @@
       "emptyReview": "Nenhuma aprovação pendente.",
       "created": "Conteúdo criado.",
       "title": "Título",
+      "layoutText": "Texto no layout",
       "columns": {
         "thumbnail": "Prévia",
-        "title": "Título",
+        "title": "Texto no layout",
         "format": "Formato",
         "status": "Status",
         "version": "Versão",
@@ -936,6 +937,7 @@
       "deleteCommentConfirmTitle": "Excluir comentário?",
       "deleteCommentConfirmDescription": "Esta ação não pode ser desfeita. O comentário será removido permanentemente.",
       "commentDeleted": "Comentário excluído.",
+      "commentAdded": "Comentário salvo.",
       "version": "Versão",
       "current": "atual",
       "saveVersion": "Salvar nova versão",

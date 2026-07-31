@@ -599,7 +599,7 @@
         "status": "Status",
         "theme": "Theme",
         "format": "Format",
-        "title": "Title",
+        "title": "Text in layout",
         "access": "Access"
       }
     },
@@ -760,9 +760,10 @@
       "emptyReview": "No pending approvals.",
       "created": "Content created.",
       "title": "Title",
+      "layoutText": "Text in layout",
       "columns": {
         "thumbnail": "Preview",
-        "title": "Title",
+        "title": "Text in layout",
         "format": "Format",
         "status": "Status",
         "version": "Version",
@@ -928,6 +929,7 @@
       "deleteCommentConfirmTitle": "Delete comment?",
       "deleteCommentConfirmDescription": "This action cannot be undone. The comment will be permanently removed.",
       "commentDeleted": "Comment deleted.",
+      "commentAdded": "Comment saved.",
       "version": "Version",
       "current": "current",
       "saveVersion": "Save new version",
