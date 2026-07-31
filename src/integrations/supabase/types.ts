@@ -577,6 +577,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          notes: string | null
           project_id: string
           scheduled_at: string | null
           topics: Json
@@ -585,6 +586,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          notes?: string | null
           project_id: string
           scheduled_at?: string | null
           topics?: Json
@@ -593,6 +595,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          notes?: string | null
           project_id?: string
           scheduled_at?: string | null
           topics?: Json
@@ -760,6 +763,47 @@ export type Database = {
         }
         Relationships: []
       }
+      theme_references: {
+        Row: {
+          created_at: string
+          id: string
+          links: string[]
+          project_id: string
+          recommendations: string
+          sort_order: number
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          links?: string[]
+          project_id: string
+          recommendations?: string
+          sort_order?: number
+          theme?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          links?: string[]
+          project_id?: string
+          recommendations?: string
+          sort_order?: number
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_references_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -854,11 +898,7 @@ export type Database = {
           _change_note?: string
           _content_id: string
           _cta: string
-          _format?: Database["public"]["Enums"]["content_format"]
           _hashtags: string
-          _locucao?: string
-          _theme?: string
-          _title?: string
         }
         Returns: {
           calendar_block_id: string | null
@@ -959,6 +999,7 @@ export type Database = {
         | "changes"
         | "published"
         | "waiting_material"
+        | "changes_done"
       design_template_format: "static_feed" | "carousel"
       library_category:
         | "brand"
@@ -1129,6 +1170,7 @@ export const Constants = {
         "changes",
         "published",
         "waiting_material",
+        "changes_done",
       ],
       design_template_format: ["static_feed", "carousel"],
       library_category: [
