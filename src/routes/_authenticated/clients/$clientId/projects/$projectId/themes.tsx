@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Copy, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ import {
   updateThemeReference,
   type ThemeReference,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/themes",
@@ -66,6 +67,8 @@ function ThemeReferenceCard({
   row,
   themeOptions,
   disabled,
+  expanded,
+  onToggleExpanded,
   onRequestNewTheme,
   onSaved,
   onDuplicate,
@@ -74,6 +77,8 @@ function ThemeReferenceCard({
   row: ThemeReference;
   themeOptions: string[];
   disabled?: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onRequestNewTheme: () => void;
   onSaved: () => void;
   onDuplicate: () => void;
@@ -82,18 +87,12 @@ function ThemeReferenceCard({
   const { t } = useTranslation();
   const [theme, setTheme] = useState(row.theme);
   const [recommendations, setRecommendations] = useState(row.recommendations);
-  const [youtubeLinks, setYoutubeLinks] = useState(() =>
-    normalizeDraftLinks(row.youtube_links ?? []),
-  );
-  const [instagramLinks, setInstagramLinks] = useState(() =>
-    normalizeDraftLinks(row.instagram_links ?? []),
-  );
+  const [links, setLinks] = useState(() => normalizeDraftLinks(row.links ?? []));
 
   useEffect(() => {
     setTheme(row.theme);
     setRecommendations(row.recommendations);
-    setYoutubeLinks(normalizeDraftLinks(row.youtube_links ?? []));
-    setInstagramLinks(normalizeDraftLinks(row.instagram_links ?? []));
+    setLinks(normalizeDraftLinks(row.links ?? []));
   }, [row]);
 
   const saveMutation = useMutation({
@@ -103,8 +102,7 @@ function ThemeReferenceCard({
         projectId: row.project_id,
         theme,
         recommendations,
-        youtubeLinks,
-        instagramLinks,
+        links,
       }),
     onSuccess: () => {
       onSaved();
@@ -117,40 +115,73 @@ function ThemeReferenceCard({
   const options = Array.from(
     new Set([...themeOptions, ...(theme.trim() ? [theme] : [])]),
   ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  const themeLabel = theme.trim() || t("project.themes.themeEmpty");
 
   return (
-    <div className="space-y-4 rounded-lg border p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Label>{t("project.themes.themeLabel")}</Label>
-          <Select
-            value={selectValue}
-            disabled={disabled}
-            onValueChange={(value) => {
-              if (value === NEW_THEME_VALUE) {
-                onRequestNewTheme();
-                return;
-              }
-              setTheme(value === EMPTY_THEME_VALUE ? "" : value);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("project.themes.themePlaceholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EMPTY_THEME_VALUE}>
-                {t("project.themes.themeEmpty")}
-              </SelectItem>
-              {options.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+    <div className="rounded-lg border">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-2 px-4 py-3",
+          expanded && "border-b",
+        )}
+      >
+        {expanded ? (
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Label>{t("project.themes.themeLabel")}</Label>
+            <Select
+              value={selectValue}
+              disabled={disabled}
+              onValueChange={(value) => {
+                if (value === NEW_THEME_VALUE) {
+                  onRequestNewTheme();
+                  return;
+                }
+                setTheme(value === EMPTY_THEME_VALUE ? "" : value);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("project.themes.themePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={EMPTY_THEME_VALUE}>
+                  {t("project.themes.themeEmpty")}
                 </SelectItem>
-              ))}
-              <SelectItem value={NEW_THEME_VALUE}>{t("project.calendar.newTheme")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex shrink-0 gap-1">
+                {options.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+                <SelectItem value={NEW_THEME_VALUE}>{t("project.calendar.newTheme")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:text-foreground"
+            onClick={onToggleExpanded}
+          >
+            {themeLabel}
+          </button>
+        )}
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onToggleExpanded}
+            aria-expanded={expanded}
+            aria-label={
+              expanded ? t("project.themes.collapse") : t("project.themes.expand")
+            }
+            title={expanded ? t("project.themes.collapse") : t("project.themes.expand")}
+          >
+            {expanded ? (
+              <ChevronUp className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            )}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -176,45 +207,39 @@ function ThemeReferenceCard({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={`theme-recs-${row.id}`}>{t("project.themes.recommendations")}</Label>
-        <Textarea
-          id={`theme-recs-${row.id}`}
-          value={recommendations}
-          disabled={disabled}
-          rows={4}
-          placeholder={t("project.themes.recommendationsPlaceholder")}
-          onChange={(e) => setRecommendations(e.target.value)}
-        />
-      </div>
+      {expanded ? (
+        <div className="space-y-4 p-4">
+          <div className="space-y-1.5">
+            <Label htmlFor={`theme-recs-${row.id}`}>{t("project.themes.recommendations")}</Label>
+            <Textarea
+              id={`theme-recs-${row.id}`}
+              value={recommendations}
+              disabled={disabled}
+              rows={4}
+              placeholder={t("project.themes.recommendationsPlaceholder")}
+              onChange={(e) => setRecommendations(e.target.value)}
+            />
+          </div>
 
-      <LinkListEditor
-        label={t("project.themes.youtubeLinks")}
-        placeholder={t("project.themes.youtubePlaceholder")}
-        addLabel={t("project.themes.addLink")}
-        removeLabel={t("project.themes.removeLink")}
-        links={youtubeLinks}
-        disabled={disabled}
-        onChange={setYoutubeLinks}
-      />
+          <LinkListEditor
+            label={t("project.themes.links")}
+            placeholder={t("project.themes.linkPlaceholder")}
+            addLabel={t("project.themes.addLink")}
+            removeLabel={t("project.themes.removeLink")}
+            links={links}
+            disabled={disabled}
+            onChange={setLinks}
+          />
 
-      <LinkListEditor
-        label={t("project.themes.instagramLinks")}
-        placeholder={t("project.themes.instagramPlaceholder")}
-        addLabel={t("project.themes.addLink")}
-        removeLabel={t("project.themes.removeLink")}
-        links={instagramLinks}
-        disabled={disabled}
-        onChange={setInstagramLinks}
-      />
-
-      <Button
-        type="button"
-        disabled={disabled || saveMutation.isPending}
-        onClick={() => saveMutation.mutate()}
-      >
-        {t("common.save")}
-      </Button>
+          <Button
+            type="button"
+            disabled={disabled || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            {t("common.save")}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -288,6 +313,8 @@ function ProjectThemesPage() {
   const [newThemeDialogForId, setNewThemeDialogForId] = useState<string | null>(null);
   const [newTheme, setNewTheme] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ThemeReference | null>(null);
+  /** Ids with expanded form. Default collapsed; new/duplicated cards open for editing. */
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const accessQuery = useQuery({
     queryKey: ["can-access", clientId],
@@ -313,9 +340,14 @@ function ProjectThemesPage() {
     queryClient.invalidateQueries({ queryKey: ["projects", "detail", projectId] });
   };
 
+  const setExpanded = (id: string, open: boolean) => {
+    setExpandedIds((prev) => ({ ...prev, [id]: open }));
+  };
+
   const createMutation = useMutation({
     mutationFn: () => createThemeReference({ projectId }),
-    onSuccess: () => {
+    onSuccess: (row) => {
+      setExpanded(row.id, true);
       invalidate();
       toast.success(t("project.themes.created"));
     },
@@ -324,7 +356,8 @@ function ProjectThemesPage() {
 
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => duplicateThemeReference({ id, projectId }),
-    onSuccess: () => {
+    onSuccess: (row) => {
+      setExpanded(row.id, true);
       invalidate();
       toast.success(t("project.themes.duplicated"));
     },
@@ -333,8 +366,13 @@ function ProjectThemesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteThemeReference({ id, projectId }),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       setDeleteTarget(null);
+      setExpandedIds((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       invalidate();
       toast.success(t("project.themes.deleted"));
     },
@@ -401,11 +439,16 @@ function ProjectThemesPage() {
               row={row}
               themeOptions={themePresets}
               disabled={!canEdit}
+              expanded={expandedIds[row.id] === true}
+              onToggleExpanded={() => setExpanded(row.id, !expandedIds[row.id])}
               onRequestNewTheme={() => {
                 setNewTheme("");
                 setNewThemeDialogForId(row.id);
               }}
-              onSaved={invalidate}
+              onSaved={() => {
+                setExpanded(row.id, false);
+                invalidate();
+              }}
               onDuplicate={() => duplicateMutation.mutate(row.id)}
               onDelete={() => setDeleteTarget(row)}
             />

@@ -5,8 +5,7 @@ create table public.theme_references (
   project_id uuid not null references public.projects (id) on delete cascade,
   theme text not null default '',
   recommendations text not null default '',
-  youtube_links text[] not null default '{}',
-  instagram_links text[] not null default '{}',
+  links text[] not null default '{}',
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

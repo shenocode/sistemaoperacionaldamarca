@@ -1962,8 +1962,7 @@ export async function createThemeReference(input: {
   projectId: string;
   theme?: string;
   recommendations?: string;
-  youtubeLinks?: string[];
-  instagramLinks?: string[];
+  links?: string[];
 }): Promise<ThemeReference> {
   const sortOrder = await nextThemeReferenceSortOrder(input.projectId);
   const { data, error } = await supabase
@@ -1972,8 +1971,7 @@ export async function createThemeReference(input: {
       project_id: input.projectId,
       theme: input.theme?.trim() ?? "",
       recommendations: input.recommendations ?? "",
-      youtube_links: normalizeLinkList(input.youtubeLinks),
-      instagram_links: normalizeLinkList(input.instagramLinks),
+      links: normalizeLinkList(input.links),
       sort_order: sortOrder,
     })
     .select("*")
@@ -1986,21 +1984,16 @@ export async function updateThemeReference(input: {
   projectId: string;
   theme?: string;
   recommendations?: string;
-  youtubeLinks?: string[];
-  instagramLinks?: string[];
+  links?: string[];
 }): Promise<ThemeReference> {
   const patch: {
     theme?: string;
     recommendations?: string;
-    youtube_links?: string[];
-    instagram_links?: string[];
+    links?: string[];
   } = {};
   if (input.theme !== undefined) patch.theme = input.theme.trim();
   if (input.recommendations !== undefined) patch.recommendations = input.recommendations;
-  if (input.youtubeLinks !== undefined) patch.youtube_links = normalizeLinkList(input.youtubeLinks);
-  if (input.instagramLinks !== undefined) {
-    patch.instagram_links = normalizeLinkList(input.instagramLinks);
-  }
+  if (input.links !== undefined) patch.links = normalizeLinkList(input.links);
 
   const { data, error } = await supabase
     .from("theme_references")
@@ -2027,8 +2020,7 @@ export async function duplicateThemeReference(input: {
     projectId: input.projectId,
     theme: row.theme,
     recommendations: row.recommendations,
-    youtubeLinks: row.youtube_links ?? [],
-    instagramLinks: row.instagram_links ?? [],
+    links: row.links ?? [],
   });
 }
 

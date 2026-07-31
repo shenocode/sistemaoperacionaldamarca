@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Download, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, Download, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -93,6 +98,7 @@ export function ContentDesignAssistant({
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
   const isCarousel = format === "carousel";
 
   const templatesQuery = useQuery({
@@ -321,15 +327,32 @@ export function ContentDesignAssistant({
   }
 
   return (
-    <Card className="rounded-xl">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Palette className="size-4 text-primary" />
-          {t("project.detail.designAssistant.title")}
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">{t("project.detail.designAssistant.hint")}</p>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card className="rounded-xl">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className={`flex w-full flex-row items-center gap-3 px-6 pt-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl [&[data-state=open]_svg.design-assistant-chevron]:rotate-180 ${
+              open ? "pb-3" : "pb-6 rounded-b-xl"
+            }`}
+          >
+            <div className="min-w-0 flex-1">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Palette className="size-4 text-primary" />
+                {t("project.detail.designAssistant.title")}
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("project.detail.designAssistant.hint")}
+              </p>
+            </div>
+            <ChevronDown
+              className="design-assistant-chevron h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200"
+              aria-hidden="true"
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4 pt-0">
         <div className="space-y-1.5">
           <Label variant="highlight">{t("project.detail.designAssistant.provider")}</Label>
           <p className="text-xs text-muted-foreground">
@@ -850,7 +873,9 @@ export function ContentDesignAssistant({
             ) : null}
           </>
         )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

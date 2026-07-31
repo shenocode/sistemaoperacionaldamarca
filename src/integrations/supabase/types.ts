@@ -612,35 +612,32 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          instagram_links: string[]
+          links: string[]
           project_id: string
           recommendations: string
           sort_order: number
           theme: string
           updated_at: string
-          youtube_links: string[]
         }
         Insert: {
           created_at?: string
           id?: string
-          instagram_links?: string[]
+          links?: string[]
           project_id: string
           recommendations?: string
           sort_order?: number
           theme?: string
           updated_at?: string
-          youtube_links?: string[]
         }
         Update: {
           created_at?: string
           id?: string
-          instagram_links?: string[]
+          links?: string[]
           project_id?: string
           recommendations?: string
           sort_order?: number
           theme?: string
           updated_at?: string
-          youtube_links?: string[]
         }
         Relationships: [
           {
