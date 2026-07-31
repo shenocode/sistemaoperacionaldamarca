@@ -24,7 +24,6 @@ import {
   createMeetingAgenda,
   deleteMeetingAgenda,
   listMeetingAgendas,
-  parseMeetingAgendaTopics,
   type MeetingAgenda,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
@@ -121,8 +120,6 @@ function MeetingListPage() {
       ) : (
         <div className="space-y-3">
           {rows.map((row) => {
-            const topics = parseMeetingAgendaTopics(row.topics);
-            const preview = topics.find((topic) => topic.title.trim())?.title.trim();
             const dateLabel = formatAgendaDate(
               row.scheduled_at,
               locale,
@@ -131,21 +128,13 @@ function MeetingListPage() {
 
             return (
               <Card key={row.id} className="rounded-xl p-4">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <Link
                     to="/clients/$clientId/projects/$projectId/meeting/$agendaId"
                     params={{ clientId, projectId, agendaId: row.id }}
-                    className="min-w-0 flex-1 space-y-1 hover:underline"
+                    className="min-w-0 flex-1 hover:underline"
                   >
                     <p className="font-medium">{dateLabel}</p>
-                    {topics.some((topic) => topic.needsAction) ? (
-                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                        {t("project.meeting.pendingActions")}
-                      </p>
-                    ) : null}
-                    {preview ? (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{preview}</p>
-                    ) : null}
                   </Link>
                   {canManage ? (
                     <Button
