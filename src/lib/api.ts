@@ -322,6 +322,14 @@ async function logActivity(input: {
   i18n?: RowI18n;
 }) {
   const actorId = await requireUserId();
+  let i18n = input.i18n;
+  if (!i18n) {
+    try {
+      i18n = await ensureFieldsTranslated({}, { summary: input.summary });
+    } catch {
+      i18n = undefined;
+    }
+  }
   await supabase.from("activity_events").insert({
     type: input.type,
     summary: input.summary,
@@ -329,7 +337,7 @@ async function logActivity(input: {
     project_id: input.projectId ?? null,
     content_id: input.contentId ?? null,
     actor_id: actorId,
-    ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
+    ...(i18n ? { i18n: toI18nJson(i18n) } : {}),
   });
 }
 
@@ -346,6 +354,7 @@ export type ClientProjectSummary = {
   name: string;
   updated_at: string;
   last_update_at: string;
+  i18n?: unknown;
 };
 
 export type ClientWithProjects = Client & {
@@ -564,6 +573,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
       projects (
         id,
         name,
+        i18n,
         updated_at,
         content_items ( updated_at )
       )
@@ -594,6 +604,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         id: string;
         name: string;
         updated_at: string;
+        i18n?: unknown;
         content_items?: Array<{ updated_at: string }> | null;
       }) => {
         const last_update_at =
@@ -605,6 +616,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         return {
           id: project.id,
           name: project.name,
+          i18n: project.i18n,
           updated_at: project.updated_at,
           last_update_at,
         };
@@ -1066,7 +1078,9 @@ export async function updateProject(
     .from("projects")
     .update({
       name: input.name.trim(),
-      description: input.description?.trim() || null,
+      ...(input.description !== undefined
+        ? { description: input.description?.trim() || null }
+        : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(input.categories !== undefined
         ? { categories: normalizeProjectCategories(input.categories) }

@@ -399,6 +399,23 @@
     "viewAll": "Ver todos",
     "projects": "Proyectos"
   },
+  "activity": {
+    "comment_added": "Comentario en {{subject}}",
+    "approved": "Aprobado: {{subject}}",
+    "changes_requested": "Cambios solicitados: {{subject}}",
+    "changes_done": "Ajustes concluidos: {{subject}}",
+    "submitted_for_review": "Enviado a revisión: {{subject}}",
+    "published": "Publicado: {{subject}}",
+    "content_created": "Contenido creado: {{subject}}",
+    "content_duplicated": "Contenido duplicado: {{subject}}",
+    "client_created": "Cliente creado: {{subject}}",
+    "project_created": "Proyecto creado: {{subject}}",
+    "calendar_duplicated": "Calendario duplicado: {{subject}}",
+    "version_created": "{{subject}} — v{{version}}",
+    "meeting_agenda_created": "Agenda de reunión creada",
+    "meeting_agenda_updated": "Agenda de reunión actualizada",
+    "meeting_agenda_deleted": "Agenda de reunión eliminada"
+  },
   "clientHome": {
     "title": "Mis proyectos",
     "subtitle": "Accede a los contenidos disponibles para revisión.",

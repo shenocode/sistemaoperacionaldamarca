@@ -1,5 +1,5 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import {
   countProjects,
+  ensureFieldsTranslated,
+  getCanonicalText,
   isAdmin,
   listClients,
   listPendingApprovals,
@@ -26,8 +28,17 @@ import {
   resolvePostLoginPath,
   updateActivityEventI18n,
   updateContentI18n,
+  updateProject,
+  type ClientWithProjects,
+  type PendingApproval,
 } from "@/lib/api";
-import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
+import {
+  fieldsNeedLocaleBackfill,
+  getLocalizedText,
+  normalizeAppLocale,
+  parseRowI18n,
+} from "@/lib/i18n-content";
+import { formatActivitySummary } from "@/lib/activity-i18n";
 import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import type { LanguageCode } from "@/i18n";
 
@@ -79,6 +90,53 @@ function DashboardPage() {
   const pending = pendingQuery.data ?? [];
   const activity = activityQuery.data ?? [];
 
+  const pendingIdsKey = useMemo(() => pending.map((p) => p.id).join(","), [pending]);
+  const activityIdsKey = useMemo(() => activity.map((a) => a.id).join(","), [activity]);
+  const projectBackfillKey = useMemo(
+    () =>
+      clients
+        .flatMap((c) => c.projects.map((p) => `${p.id}:${p.updated_at}`))
+        .join("|"),
+    [clients],
+  );
+
+  // Backfill project names shown on client cards + pending subtitles.
+  useEffect(() => {
+    if (!clients.length) return;
+    let cancelled = false;
+    void (async () => {
+      let improved = 0;
+      for (const client of clients) {
+        for (const project of client.projects) {
+          if (!fieldsNeedLocaleBackfill(project.i18n, { name: project.name }, uiLocale)) {
+            continue;
+          }
+          try {
+            const nextI18n = await ensureFieldsTranslated(parseRowI18n(project.i18n), {
+              name: project.name,
+            });
+            if (!fieldsNeedLocaleBackfill(nextI18n, { name: project.name }, uiLocale)) {
+              await updateProject(project.id, {
+                name: getCanonicalText(nextI18n, "name", project.name),
+                i18n: nextI18n,
+              });
+              improved += 1;
+            }
+          } catch {
+            // Skip; AI or RLS may be unavailable.
+          }
+        }
+      }
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["clients"] });
+        void queryClient.invalidateQueries({ queryKey: ["dashboard", "pending"] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectBackfillKey, queryClient, uiLocale, clients]);
+
   useEffect(() => {
     if (!pending.length) return;
     let cancelled = false;
@@ -89,7 +147,15 @@ function DashboardPage() {
         getKey: (r) => r.id,
         getI18n: (r) => r.i18n,
         getFields: (r) => ({ title: r.title }),
-        persist: (r, nextI18n) => updateContentI18n(r.id, nextI18n).then(() => undefined),
+        persist: async (r, nextI18n) => {
+          const row = await updateContentI18n(r.id, nextI18n);
+          if (cancelled) return;
+          queryClient.setQueryData<PendingApproval[]>(["dashboard", "pending"], (prev) =>
+            (prev ?? []).map((item) =>
+              item.id === row.id ? { ...item, ...row, projects: item.projects } : item,
+            ),
+          );
+        },
         concurrency: 2,
       });
       if (!cancelled && improved > 0) {
@@ -99,7 +165,8 @@ function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [pending, queryClient, uiLocale]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingIdsKey gates retries
+  }, [pendingIdsKey, queryClient, uiLocale]);
 
   useEffect(() => {
     if (!activity.length) return;
@@ -121,7 +188,8 @@ function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [activity, queryClient, uiLocale]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activityIdsKey gates retries
+  }, [activityIdsKey, queryClient, uiLocale]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
@@ -161,7 +229,7 @@ function DashboardPage() {
               <ClientCard
                 key={client.id}
                 client={client}
-                onOpenSettings={(c) => void settingsDialog.openSettings(c)}
+                onOpenSettings={(c: ClientWithProjects) => void settingsDialog.openSettings(c)}
               />
             ))}
           </div>
@@ -181,41 +249,41 @@ function DashboardPage() {
             ) : (
               <ul className="space-y-3">
                 {pending.map((item) => (
-                    <li key={item.id}>
-                      <Link
-                        to="/clients/$clientId/projects/$projectId/content/$contentId"
-                        params={{
-                          clientId: item.projects.client_id,
-                          projectId: item.projects.id,
-                          contentId: item.id,
-                        }}
-                        search={{}}
-                        className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/40"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {getLocalizedText(item.i18n, "title", item.title, uiLocale)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {getLocalizedText(
-                              item.projects.clients.i18n,
-                              "name",
-                              item.projects.clients.name,
-                              uiLocale,
-                            )}{" "}
-                            ·{" "}
-                            {getLocalizedText(
-                              item.projects.i18n,
-                              "name",
-                              item.projects.name,
-                              uiLocale,
-                            )}
-                          </p>
-                        </div>
-                        <StatusBadge status={item.status as ContentStatus} />
-                      </Link>
-                    </li>
-                  ))}
+                  <li key={item.id}>
+                    <Link
+                      to="/clients/$clientId/projects/$projectId/content/$contentId"
+                      params={{
+                        clientId: item.projects.client_id,
+                        projectId: item.projects.id,
+                        contentId: item.id,
+                      }}
+                      search={{}}
+                      className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/40"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {getLocalizedText(item.i18n, "title", item.title, uiLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {getLocalizedText(
+                            item.projects.clients.i18n,
+                            "name",
+                            item.projects.clients.name,
+                            uiLocale,
+                          )}{" "}
+                          ·{" "}
+                          {getLocalizedText(
+                            item.projects.i18n,
+                            "name",
+                            item.projects.name,
+                            uiLocale,
+                          )}
+                        </p>
+                      </div>
+                      <StatusBadge status={item.status as ContentStatus} />
+                    </Link>
+                  </li>
+                ))}
               </ul>
             )}
           </CardContent>
@@ -231,7 +299,7 @@ function DashboardPage() {
               <ul className="space-y-3">
                 {activity.map((event) => (
                   <li key={event.id} className="flex items-start justify-between gap-3 text-sm">
-                    <p>{getLocalizedText(event.i18n, "summary", event.summary, uiLocale)}</p>
+                    <p>{formatActivitySummary(event, uiLocale, t)}</p>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(event.created_at), {
                         addSuffix: true,

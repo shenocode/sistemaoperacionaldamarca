@@ -101,7 +101,9 @@ export function ClientCard({
                   key={project.id}
                   className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
                 >
-                  <span className="truncate text-sm">{project.name}</span>
+                  <span className="truncate text-sm">
+                    {getLocalizedText(project.i18n, "name", project.name, uiLocale)}
+                  </span>
                   <Button asChild size="sm" variant="secondary" className="shrink-0">
                     <Link
                       to="/clients/$clientId/projects/$projectId/calendar"

@@ -399,6 +399,23 @@
     "viewAll": "View all",
     "projects": "Projects"
   },
+  "activity": {
+    "comment_added": "Comment on {{subject}}",
+    "approved": "Approved: {{subject}}",
+    "changes_requested": "Changes requested: {{subject}}",
+    "changes_done": "Adjustments completed: {{subject}}",
+    "submitted_for_review": "Submitted for review: {{subject}}",
+    "published": "Published: {{subject}}",
+    "content_created": "Content created: {{subject}}",
+    "content_duplicated": "Content duplicated: {{subject}}",
+    "client_created": "Client created: {{subject}}",
+    "project_created": "Project created: {{subject}}",
+    "calendar_duplicated": "Calendar duplicated: {{subject}}",
+    "version_created": "{{subject}} — v{{version}}",
+    "meeting_agenda_created": "Meeting agenda created",
+    "meeting_agenda_updated": "Meeting agenda updated",
+    "meeting_agenda_deleted": "Meeting agenda deleted"
+  },
   "clientHome": {
     "title": "My projects",
     "subtitle": "Access content available for review.",
