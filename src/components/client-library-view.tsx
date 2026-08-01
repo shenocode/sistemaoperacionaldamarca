@@ -882,7 +882,7 @@ export function ClientLibraryView({
                     i18n={rowI18n}
                     fallback={name}
                     onI18nCommit={(payload) => {
-                      setRowI18n(payload.i18n);
+                      setRowI18n((prev) => setLocalizedField(prev, payload.field, payload.block));
                       setName(payload.display);
                     }}
                   />

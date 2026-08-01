@@ -35,6 +35,7 @@ import {
   getLocalizedText,
   normalizeAppLocale,
   parseRowI18n,
+  setLocalizedField,
   setLocalizedPresetList,
   translateTextField,
   type LocalizedField,
@@ -327,7 +328,7 @@ function ProjectSettingsPage() {
               i18n={rowI18n}
               fallback={name}
               onI18nCommit={(payload) => {
-                setRowI18n(payload.i18n);
+                setRowI18n((prev) => setLocalizedField(prev, payload.field, payload.block));
                 setName(payload.display);
               }}
             />
@@ -341,7 +342,7 @@ function ProjectSettingsPage() {
               fallback={description}
               rows={4}
               onI18nCommit={(payload) => {
-                setRowI18n(payload.i18n);
+                setRowI18n((prev) => setLocalizedField(prev, payload.field, payload.block));
                 setDescription(payload.display);
               }}
             />

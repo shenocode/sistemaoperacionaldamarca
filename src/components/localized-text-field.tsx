@@ -40,6 +40,11 @@ function useLocalizedDraft(props: SharedProps) {
   const [translating, setTranslating] = useState(false);
   const lastCommitted = useRef(displayFromStore);
   const localeRef = useRef(locale);
+  const i18nRef = useRef(props.i18n);
+  const onCommitRef = useRef(props.onI18nCommit);
+
+  i18nRef.current = props.i18n;
+  onCommitRef.current = props.onI18nCommit;
 
   useEffect(() => {
     if (localeRef.current !== locale) {
@@ -56,23 +61,57 @@ function useLocalizedDraft(props: SharedProps) {
     }
   }, [locale, displayFromStore, props.i18n, props.field, props.fallback, draft]);
 
+  function pushToParent(next: string, block: LocalizedField) {
+    const merged = setLocalizedField(i18nRef.current, props.field, block);
+    i18nRef.current = merged;
+    const display = getLocalizedText(merged, props.field, next, locale);
+    const canonical = block.values[block.source] ?? next;
+    void onCommitRef.current({
+      field: props.field,
+      display,
+      canonical,
+      block,
+      i18n: merged,
+    });
+    return { display, canonical, merged };
+  }
+
+  /** Keep parent form state in sync while typing (save/dirty must not wait for blur). */
+  function syncDraft(next: string) {
+    setDraft(next);
+    const block = buildLocalizedFieldFromSource(next, locale);
+    pushToParent(next, block);
+  }
+
   async function commit() {
     const next = draft.trimEnd();
-    if (next === lastCommitted.current) return;
+    if (next === lastCommitted.current) {
+      if (next !== draft) setDraft(next);
+      return;
+    }
+
+    // Push provisional value synchronously before any await so submit-after-blur
+    // (or click Save while focused) never races past an in-flight translation.
+    const provisional = buildLocalizedFieldFromSource(next, locale);
+    const pushed = pushToParent(next, provisional);
+    lastCommitted.current = pushed.display;
+    setDraft(pushed.display);
+
     setTranslating(true);
     try {
       let block: LocalizedField;
       try {
         block = await translateTextField({ text: next });
       } catch {
-        block = buildLocalizedFieldFromSource(next, locale);
+        block = provisional;
       }
-      const merged = setLocalizedField(props.i18n, props.field, block);
+      const merged = setLocalizedField(i18nRef.current, props.field, block);
+      i18nRef.current = merged;
       const display = getLocalizedText(merged, props.field, next, locale);
       const canonical = block.values[block.source] ?? next;
       lastCommitted.current = display;
       setDraft(display);
-      await props.onI18nCommit({
+      await onCommitRef.current({
         field: props.field,
         display,
         canonical,
@@ -86,7 +125,7 @@ function useLocalizedDraft(props: SharedProps) {
 
   return {
     draft,
-    setDraft,
+    syncDraft,
     commit,
     translating,
     translatingLabel: t("common.translating"),
@@ -103,7 +142,7 @@ export function LocalizedTextInput({
   placeholder,
   onI18nCommit,
 }: SharedProps) {
-  const { draft, setDraft, commit, translating, translatingLabel } = useLocalizedDraft({
+  const { draft, syncDraft, commit, translating, translatingLabel } = useLocalizedDraft({
     field,
     i18n,
     fallback,
@@ -122,7 +161,7 @@ export function LocalizedTextInput({
         value={draft}
         disabled={disabled || translating}
         placeholder={placeholder}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => syncDraft(e.target.value)}
         onBlur={() => void commit()}
       />
       {translating ? (
@@ -146,7 +185,7 @@ export function LocalizedTextarea({
   autoResize,
   onI18nCommit,
 }: SharedProps & { rows?: number; autoResize?: boolean }) {
-  const { draft, setDraft, commit, translating, translatingLabel } = useLocalizedDraft({
+  const { draft, syncDraft, commit, translating, translatingLabel } = useLocalizedDraft({
     field,
     i18n,
     fallback,
@@ -176,7 +215,7 @@ export function LocalizedTextarea({
         value={draft}
         disabled={disabled || translating}
         placeholder={placeholder}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => syncDraft(e.target.value)}
         onBlur={() => void commit()}
       />
       {translating ? (

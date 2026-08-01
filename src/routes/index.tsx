@@ -37,7 +37,7 @@ export const Route = createFileRoute("/")({
               "@type": "Organization",
               name: "SOM — Sistema Operacional da Marca",
               url: "https://som-sistemaoperacionaldamarca.netlify.app/",
-              logo: "https://som-sistemaoperacionaldamarca.netlify.app/favicon.ico",
+              logo: "https://som-sistemaoperacionaldamarca.netlify.app/brand/som-logo.png",
             },
             {
               "@type": "WebSite",

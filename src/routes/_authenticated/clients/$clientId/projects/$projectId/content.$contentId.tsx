@@ -86,6 +86,7 @@ import {
   type ContentFormat,
   type ContentVersion,
   type CommentWithAuthor,
+  type LocalizedField,
   type RowI18n,
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
@@ -347,9 +348,10 @@ function ContentDetailPage() {
     field: string;
     display: string;
     canonical: string;
+    block: LocalizedField;
     i18n: RowI18n;
   }) => {
-    setRowI18n(payload.i18n);
+    setRowI18n((prev) => setLocalizedField(prev, payload.field, payload.block));
     if (payload.field === "title") setTitle(payload.display);
     if (payload.field === "caption") setCaption(payload.display);
     if (payload.field === "locucao") setLocucao(payload.display);

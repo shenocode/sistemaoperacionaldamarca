@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { SomLogo } from "@/components/som-logo";
 import { toast } from "sonner";
 import {
   claimClientAccess,
@@ -305,8 +306,11 @@ function AuthPage() {
           <LanguageSwitcher />
         </div>
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">{t("app.name")}</h1>
-          <p className="text-sm text-muted-foreground">{t("app.tagline")}</p>
+          <SomLogo
+            size="lg"
+            title={t("app.fullName")}
+            className="mx-auto h-14"
+          />
           {nextPath ? (
             <p className="mt-2 text-sm text-muted-foreground">{t("auth.reviewInviteHint")}</p>
           ) : null}

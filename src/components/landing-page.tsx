@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SiteFooter } from "@/components/site-footer";
+import { SomLogo, SomMark } from "@/components/som-logo";
 import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import {
   buildWhatsAppNotifyUrl,
@@ -403,9 +404,7 @@ function DetailMockScreen() {
     <div className="space-y-3 px-2.5 pb-6 pt-2">
       <div className="overflow-hidden rounded-xl bg-gradient-to-br from-teal-300 via-sky-200 to-emerald-200">
         <div className="flex aspect-square flex-col justify-between p-4">
-          <p className="font-display text-lg font-semibold text-teal-950/90">
-            {t("app.name")}
-          </p>
+          <SomMark className="size-8 drop-shadow-sm" title={t("app.fullName")} />
           <p className="max-w-[16ch] text-[11px] leading-snug text-teal-950/85">
             {t("landing.mockDetail.caption")}
           </p>
@@ -850,8 +849,8 @@ export function LandingPage() {
       <div className="landing-grid pointer-events-none absolute inset-x-0 top-0 h-[70vh]" aria-hidden />
 
       <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <a href="#topo" className="font-display text-2xl font-semibold tracking-tight">
-          {t("app.name")}
+        <a href="#topo" className="inline-flex items-center" aria-label={t("app.fullName")}>
+          <SomMark className="size-9" title={t("app.fullName")} />
         </a>
         <nav className="hidden items-center gap-7 text-sm text-neutral-600 md:flex">
           <a href="#produto" className="transition-colors hover:text-neutral-900">
@@ -907,12 +906,9 @@ export function LandingPage() {
         {/* Hero — one composition */}
         <section className="relative mx-auto grid max-w-6xl gap-12 px-6 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-16">
           <div>
-            <p className="landing-rise font-display text-5xl font-semibold tracking-tight text-neutral-900 sm:text-6xl lg:text-7xl">
-              {t("app.name")}
-            </p>
-            <p className="landing-rise landing-rise-delay-1 mt-2 font-display text-base font-medium tracking-wide text-neutral-600 sm:text-lg">
-              {t("app.tagline")}
-            </p>
+            <div className="landing-rise">
+              <SomLogo size="hero" priority title={t("app.fullName")} />
+            </div>
             <h1 className="landing-rise landing-rise-delay-2 mt-5 max-w-xl font-display text-2xl font-medium leading-snug tracking-tight text-neutral-800 sm:text-3xl">
               {t("landing.heroTitle")}
             </h1>
@@ -939,7 +935,7 @@ export function LandingPage() {
             <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.problemTitle")}
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-neutral-600 sm:text-lg">
+            <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-neutral-600 sm:text-lg">
               {t("landing.problemBody")}
             </p>
           </div>

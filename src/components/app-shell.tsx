@@ -18,6 +18,7 @@ import { clearAuthNext, getProject } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { LanguageSwitcher } from "./language-switcher";
 import { SiteFooter } from "./site-footer";
+import { SomLogo } from "./som-logo";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { Button } from "./ui/button";
@@ -67,9 +68,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       to="/"
       onClick={closeMobileNav}
       className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={t("app.fullName")}
     >
-      <div className="text-lg font-semibold tracking-tight">{t("app.name")}</div>
-      <div className="text-xs text-muted-foreground">{t("app.tagline")}</div>
+      <SomLogo size="md" title={t("app.fullName")} className="h-11 w-auto max-w-full" />
     </Link>
   );
 
@@ -203,10 +204,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Button>
           <Link
             to="/"
-            className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={t("app.fullName")}
           >
-            <div className="truncate text-sm font-semibold tracking-tight">{t("app.name")}</div>
-            <div className="truncate text-[11px] text-muted-foreground">{t("app.tagline")}</div>
+            <SomLogo size="sm" title={t("app.fullName")} className="h-8 max-w-[9.5rem]" />
           </Link>
         </header>
 
@@ -221,13 +222,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   to="/"
                   onClick={closeMobileNav}
                   className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={t("app.fullName")}
                 >
-                  <span className="text-lg font-semibold tracking-tight">{t("app.name")}</span>
+                  <SomLogo size="md" title={t("app.fullName")} className="h-10 max-w-full" />
                 </Link>
               </SheetTitle>
-              <SheetDescription className="text-xs text-muted-foreground">
-                {t("app.tagline")}
-              </SheetDescription>
+              <SheetDescription className="sr-only">{t("app.fullName")}</SheetDescription>
               <LanguageSwitcher className="mt-3 w-full" />
             </SheetHeader>
             <nav className="flex-1 space-y-1 overflow-y-auto p-3">{navLinks}</nav>

@@ -18,6 +18,7 @@ import {
   getLocalizedText,
   normalizeAppLocale,
   parseRowI18n,
+  setLocalizedField,
   type RowI18n,
 } from "@/lib/i18n-content";
 
@@ -174,7 +175,7 @@ export function ClientContactFields({
             onChange({
               ...form,
               name: payload.display,
-              i18n: payload.i18n,
+              i18n: setLocalizedField(form.i18n, payload.field, payload.block),
             });
           }}
         />
@@ -242,7 +243,7 @@ export function ClientContactFields({
             onChange({
               ...form,
               notes: payload.display,
-              i18n: payload.i18n,
+              i18n: setLocalizedField(form.i18n, payload.field, payload.block),
             });
           }}
         />

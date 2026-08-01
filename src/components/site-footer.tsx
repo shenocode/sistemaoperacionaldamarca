@@ -5,6 +5,7 @@ import {
   CONTACT_WHATSAPP,
   CONTACT_WHATSAPP_DISPLAY,
 } from "@/lib/company";
+import { SomLogo, SomMark } from "@/components/som-logo";
 import { cn } from "@/lib/utils";
 
 type SiteFooterProps = {
@@ -37,14 +38,15 @@ export function SiteFooter({ variant = "landing", className }: SiteFooterProps) 
             href={COMPANY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground underline-offset-4 hover:underline"
           >
+            <SomMark className="size-5" title={t("app.fullName")} aria-hidden />
             {COMPANY_NAME}
           </a>
         ) : (
           <div>
-            <p className="font-display text-lg font-semibold">{t("app.name")}</p>
-            <p className="text-sm text-neutral-600">{t("landing.footerTag")}</p>
+            <SomLogo size="sm" title={t("app.fullName")} className="h-10" />
+            <p className="mt-2 text-sm text-neutral-600">{t("landing.footerTag")}</p>
           </div>
         )}
         <div

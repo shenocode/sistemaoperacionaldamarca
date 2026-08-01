@@ -134,13 +134,13 @@
     "navAssets": "Ativos",
     "navPricing": "Planos",
     "navContact": "Contato",
-    "problemTitle": "A produção trava na aprovação.",
-    "problemBody": "Legendas no Docs, artes no Drive, feedbacks no WhatsApp, prazos no Notion. O cliente perde o contexto — e você perde tempo.",
+    "problemTitle": "Por que usar SOM - Sistema Operacional da Marca?",
+    "problemBody": "Para a produção não travar na aprovação.\nO cliente ganha contexto — e você ganha tempo.",
     "howTitle": "Um fluxo só, do briefing ao post.",
     "howSteps": {
       "1": { "title": "Defina a marca", "body": "Briefing guiado por IA e kit visual (cores, fontes, voz)." },
       "2": { "title": "Produza com aceleração", "body": "Copy, roteiros e artes alinhados ao projeto e ao calendário." },
-      "3": { "title": "Aprove no preview", "body": "Cliente comenta e aprova no feed estilo Instagram, com histórico de versões." }
+      "3": { "title": "Aprove no preview", "body": "Cliente comenta e aprova com base no mockup (por exemplo simulação do feed do instagram)" }
     },
     "assetsTitle": "Todos os formatos que você já produz — em um só fluxo.",
     "assetsSubtitle": "Do post estático ao vídeo gravado: organize, revise e aprove cada ativo com o cliente.",

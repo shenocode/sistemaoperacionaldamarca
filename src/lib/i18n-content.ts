@@ -169,6 +169,7 @@ export function localizedFieldNeedsTranslation(
 /**
  * Ensures each field has translations for all app locales.
  * Reuses existing blocks that are already complete; otherwise calls AI translate.
+ * If `fields` provides text that differs from the stored source, retranslates.
  */
 export async function ensureFieldsTranslated(
   i18n: RowI18n | null | undefined,
@@ -178,27 +179,29 @@ export async function ensureFieldsTranslated(
   const results = await Promise.all(
     Object.entries(fields).map(async ([field, rawText]) => {
       const existing = getLocalizedField(base, field);
-      const sourceText =
-        (existing?.values[existing.source] ?? "").trim() || (rawText ?? "").trim();
+      const raw = (rawText ?? "").trim();
+      const existingSource = (existing?.values[existing.source] ?? "").trim();
+      const textChanged = raw.length > 0 && raw !== existingSource;
+      const sourceText = textChanged ? raw : existingSource || raw;
       if (!sourceText) {
         return [
           field,
           existing ?? buildLocalizedFieldFromSource("", "pt-BR"),
         ] as const;
       }
-      if (!localizedFieldNeedsTranslation(existing)) {
+      if (!textChanged && !localizedFieldNeedsTranslation(existing)) {
         return [field, existing!] as const;
       }
       try {
         const block = await translateTextField({
           text: sourceText,
-          sourceLocale: existing?.source,
+          sourceLocale: textChanged ? undefined : existing?.source,
         });
         return [field, block] as const;
       } catch {
         return [
           field,
-          existing ?? buildLocalizedFieldFromSource(sourceText, "pt-BR"),
+          buildLocalizedFieldFromSource(sourceText, existing?.source ?? "pt-BR"),
         ] as const;
       }
     }),
