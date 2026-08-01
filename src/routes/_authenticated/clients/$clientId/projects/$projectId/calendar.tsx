@@ -68,10 +68,15 @@ import {
   getClient,
   listContent,
   getProject,
+  getLocalizedText,
+  getLocalizedPresetList,
+  normalizeAppLocale,
+  parseRowI18n,
   projectCategoryConfig,
   reorderContentItems,
   updateCalendarBlockTitle,
   updateContentCalendar,
+  updateContentI18n,
   type CalendarBlock,
   type ContentFormat,
   type ContentItem,
@@ -79,13 +84,11 @@ import {
 import {
   buildLocalizedFieldFromSource,
   getCanonicalText,
-  getLocalizedText,
-  normalizeAppLocale,
-  parseRowI18n,
   setLocalizedField,
   translateTextField,
   type RowI18n,
 } from "@/lib/i18n-content";
+import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import {
   readCollapsedCalendarBlockIds,
   writeCollapsedCalendarBlockIds,
@@ -132,42 +135,64 @@ function sortByManualOrder(a: ContentItem, b: ContentItem) {
 
 function CalendarTitleCell({
   title,
+  i18n,
   disabled,
   onSave,
 }: {
   title: string;
+  i18n?: unknown;
   disabled: boolean;
-  onSave: (title: string) => void;
+  onSave: (title: string, rowI18n: RowI18n) => void;
 }) {
-  const [value, setValue] = useState(title);
+  const { i18n: i18next } = useTranslation();
+  const uiLocale = normalizeAppLocale(i18next.resolvedLanguage ?? i18next.language);
+  const rowI18n = parseRowI18n(i18n);
+  const displayTitle = getLocalizedText(rowI18n, "title", title, uiLocale);
+  const [value, setValue] = useState(displayTitle);
+  const [translating, setTranslating] = useState(false);
 
   useEffect(() => {
-    setValue(title);
-  }, [title]);
+    setValue(displayTitle);
+  }, [displayTitle]);
 
-  function commit() {
+  async function commit() {
     const next = value.trim();
-    if (!next || next === title) {
-      setValue(title);
+    if (!next || next === displayTitle) {
+      setValue(displayTitle);
       return;
     }
-    onSave(next);
+    setTranslating(true);
+    try {
+      let block;
+      try {
+        block = await translateTextField({ text: next });
+      } catch {
+        block = buildLocalizedFieldFromSource(next, uiLocale);
+      }
+      const merged = setLocalizedField(rowI18n, "title", block);
+      const canonical = getCanonicalText(merged, "title", next);
+      const display = getLocalizedText(merged, "title", next, uiLocale);
+      setValue(display);
+      onSave(canonical, merged);
+    } finally {
+      setTranslating(false);
+    }
   }
 
   return (
     <Input
       className="h-8 w-full min-w-0 font-medium md:min-w-[12rem]"
       value={value}
-      disabled={disabled}
+      disabled={disabled || translating}
       onChange={(e) => setValue(e.target.value)}
-      onBlur={commit}
+      onBlur={() => void commit()}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           e.currentTarget.blur();
         }
         if (e.key === "Escape") {
-          setValue(title);
+          setValue(displayTitle);
           e.currentTarget.blur();
         }
       }}
@@ -328,7 +353,16 @@ function ProjectCalendarPage() {
   });
 
   const canEdit = Boolean(manageQuery.data);
-  const themePresets = projectQuery.data?.theme_presets ?? [];
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const projectI18n = parseRowI18n(projectQuery.data?.i18n);
+  const themePresets = getLocalizedPresetList(
+    projectI18n,
+    "theme_presets",
+    projectQuery.data?.theme_presets ?? [],
+    uiLocale,
+  );
+  const localizedTitle = (item: ContentItem) =>
+    getLocalizedText(item.i18n, "title", item.title, uiLocale);
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
   const showInstagramMockup = projectCategoryConfig(projectQuery.data?.categories).tabs.includes(
     "feed",
@@ -365,6 +399,56 @@ function ProjectCalendarPage() {
     setLocalRows(null);
   }, [contentQuery.dataUpdatedAt]);
 
+  useEffect(() => {
+    if (!serverRows.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: serverRows,
+        locale: uiLocale,
+        getKey: (r) => r.id,
+        getI18n: (r) => r.i18n,
+        getFields: (r) => ({ title: r.title, theme: r.theme }),
+        persist: (r, nextI18n) => updateContentI18n(r.id, nextI18n).then(() => undefined),
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, queryClient, serverRows, uiLocale]);
+
+  useEffect(() => {
+    if (!blocks.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: blocks,
+        locale: uiLocale,
+        getKey: (b) => b.id,
+        getI18n: (b) => b.i18n,
+        getFields: (b) => ({ title: b.title }),
+        persist: async (b, nextI18n) => {
+          await updateCalendarBlockTitle(
+            b.id,
+            getCanonicalText(nextI18n, "title", b.title),
+            nextI18n,
+          );
+        },
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [blocks, projectId, queryClient, uiLocale]);
+
   function handleSendUpdates() {
     const client = clientQuery.data;
     const project = projectQuery.data;
@@ -377,8 +461,8 @@ function ProjectCalendarPage() {
 
     const link = buildProjectReviewUrl(client.id, project.id, client.access_token);
     const message = t("clients.whatsappMessage", {
-      client: client.name,
-      project: project.name,
+      client: getLocalizedText(client.i18n, "name", client.name, uiLocale),
+      project: getLocalizedText(project.i18n, "name", project.name, uiLocale),
       link,
     });
     const url = buildWhatsAppNotifyUrl(client.whatsapp, message);
@@ -561,11 +645,13 @@ function ProjectCalendarPage() {
   });
 
   const themeOptions = useMemo(() => {
-    const fromRows = rows.map((r) => r.theme?.trim()).filter(Boolean) as string[];
+    const fromRows = rows
+      .map((r) => getLocalizedText(r.i18n, "theme", r.theme ?? "", uiLocale).trim())
+      .filter(Boolean);
     return Array.from(new Set([...themePresets, ...fromRows])).sort((a, b) =>
       a.localeCompare(b, i18n.language),
     );
-  }, [themePresets, rows, i18n.language]);
+  }, [themePresets, rows, i18n.language, uiLocale]);
 
   const isBusy =
     updateMutation.isPending ||
@@ -695,7 +781,7 @@ function ProjectCalendarPage() {
             disabled={isBusy}
             className="text-destructive hover:text-destructive"
             title={t("project.calendar.deleteHint")}
-            onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
+            onClick={() => setDeleteTarget({ id: row.id, title: localizedTitle(row) })}
           >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
             {t("project.calendar.delete")}
@@ -755,12 +841,14 @@ function ProjectCalendarPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <CalendarTitleCell
-                      title={row.title}
+                      title={localizedTitle(row)}
+                      i18n={row.i18n}
                       disabled={!canEdit || isBusy}
-                      onSave={(nextTitle) => {
+                      onSave={(nextTitle, nextI18n) => {
                         updateMutation.mutate({
                           contentId: row.id,
                           title: nextTitle,
+                          i18n: nextI18n,
                         });
                       }}
                     />
@@ -784,7 +872,7 @@ function ProjectCalendarPage() {
                       contentId={row.id}
                       clientId={clientId}
                       projectId={projectId}
-                      title={row.title}
+                      title={localizedTitle(row)}
                       disabled={!canEdit || isBusy}
                       className="w-full max-w-none"
                     />
@@ -877,7 +965,7 @@ function ProjectCalendarPage() {
                         contentId={row.id}
                         clientId={clientId}
                         projectId={projectId}
-                        title={row.title}
+                        title={localizedTitle(row)}
                         disabled={!canEdit || isBusy}
                         className="w-[13.5rem] max-w-[13.5rem]"
                       />
@@ -886,12 +974,14 @@ function ProjectCalendarPage() {
                     <td className="px-3 py-2.5">{renderThemeField(row, "w-[10.5rem]")}</td>
                     <td className="px-3 py-2.5">
                       <CalendarTitleCell
-                        title={row.title}
+                        title={localizedTitle(row)}
+                        i18n={row.i18n}
                         disabled={!canEdit || isBusy}
-                        onSave={(nextTitle) => {
+                        onSave={(nextTitle, nextI18n) => {
                           updateMutation.mutate({
                             contentId: row.id,
                             title: nextTitle,
+                            i18n: nextI18n,
                           });
                         }}
                       />

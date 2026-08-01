@@ -44,10 +44,7 @@ export function SiteFooter({ variant = "landing", className }: SiteFooterProps) 
             {COMPANY_NAME}
           </a>
         ) : (
-          <div>
-            <SomLogo size="sm" title={t("app.fullName")} className="h-10" />
-            <p className="mt-2 text-sm text-neutral-600">{t("landing.footerTag")}</p>
-          </div>
+          <SomLogo size="md" title={t("app.fullName")} className="h-14 sm:h-16" />
         )}
         <div
           className={cn(

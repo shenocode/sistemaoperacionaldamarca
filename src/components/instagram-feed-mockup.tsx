@@ -22,6 +22,8 @@ import {
 import {
   isVideoUrl,
   resolveContentMediaUrls,
+  getLocalizedText,
+  normalizeAppLocale,
   type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
@@ -121,7 +123,9 @@ function GridTile({
   onDrop: (event: DragEvent<HTMLAnchorElement>) => void;
   onDragEnd: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const displayTitle = getLocalizedText(item.i18n, "title", item.title, uiLocale);
   const cover = coverUrl(item);
   const badge = formatBadge(item.format, cover);
   const status = item.status as ContentStatus;
@@ -158,7 +162,7 @@ function GridTile({
           event.preventDefault();
         }
       }}
-      aria-label={`${item.title} — ${statusLabel}`}
+      aria-label={`${displayTitle} — ${statusLabel}`}
       className={cn(
         "group relative aspect-[4/5] bg-neutral-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/50",
         canReorder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
@@ -167,7 +171,7 @@ function GridTile({
       )}
     >
       {cover ? (
-        <CoverMedia url={cover} title={item.title} />
+        <CoverMedia url={cover} title={displayTitle} />
       ) : (
         <div className="flex h-full items-center justify-center px-1 text-center text-[8px] leading-tight text-neutral-400">
           {t("project.detail.noPreview")}

@@ -124,7 +124,7 @@
   },
   "landing": {
     "heroTitle": "Do briefing à aprovação, sem planilha e sem WhatsApp eterno.",
-    "heroSubtitle": "O sistema operacional para gestores de conteúdo que produzem, alinham e aprovam posts com clientes — em um só lugar.",
+    "heroSubtitle": "O sistema operacional para gestores de conteúdo que desejam planejar, criar e produzir, tudo em um só lugar.",
     "cta": "Começar agora",
     "ctaSecondary": "Ver planos",
     "signIn": "Entrar",
@@ -136,7 +136,7 @@
     "navContact": "Contato",
     "problemTitle": "Por que usar SOM - Sistema Operacional da Marca?",
     "problemBody": "Para a produção não travar na aprovação.\nO cliente ganha contexto — e você ganha tempo.",
-    "howTitle": "Um fluxo só, do briefing ao post.",
+    "howTitle": "Um fluxo só, do briefing a produção",
     "howSteps": {
       "1": { "title": "Defina a marca", "body": "Briefing guiado por IA e kit visual (cores, fontes, voz)." },
       "2": { "title": "Produza com aceleração", "body": "Copy, roteiros e artes alinhados ao projeto e ao calendário." },
@@ -162,8 +162,8 @@
         "body": "Peças efêmeras alinhadas à campanha e ao calendário."
       },
       "video": {
-        "title": "Vídeos gravados",
-        "body": "Conteúdo filmado pela marca ou equipe, com locução e briefing."
+        "title": "Vídeos",
+        "body": "Conteúdo para Youtube e outros streamings."
       },
       "art": {
         "title": "Artes e ilustrações",
@@ -226,9 +226,9 @@
         ]
       }
     },
-    "finalTitle": "Coloque sua operação de conteúdo no piloto certo.",
+    "finalTitle": "Coloque a sua operação de conteúdo no SOM e amplifique o seu negócio.",
     "finalSubtitle": "Escolha um plano, pague com segurança no Stripe e receba o acesso por e-mail.",
-    "finalCta": "Ver planos",
+    "finalCta": "Quer testar? Entre em contato conosco.",
     "footerTag": "Sistema Operacional da Marca",
     "footerWhatsapp": "WhatsApp {{number}}",
     "mockCalendar": {

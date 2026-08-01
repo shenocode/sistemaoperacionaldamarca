@@ -26,10 +26,20 @@ export {
   translateTextField,
   translateManyFields,
   ensureFieldsTranslated,
+  ensureAnswersTranslated,
+  ensurePresetListTranslated,
   localizedFieldNeedsTranslation,
+  fieldsNeedLocaleBackfill,
+  i18nBackfillImproved,
+  answersNeedLocaleBackfill,
+  presetListNeedsLocaleBackfill,
   setLocalizedField,
   mergeRowI18n,
   buildLocalizedFieldFromSource,
+  getLocalizedAnswer,
+  setLocalizedAnswer,
+  getLocalizedPresetList,
+  setLocalizedPresetList,
 } from "@/lib/i18n-content";
 
 function toI18nJson(i18n: RowI18n | null | undefined): Json {
@@ -1160,6 +1170,7 @@ export async function createContent(input: {
   hashtags?: string;
   mediaUrl?: string;
   format?: ContentFormat;
+  i18n?: RowI18n;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const sortOrder = await nextContentSortOrder(input.projectId);
@@ -1179,14 +1190,21 @@ export async function createContent(input: {
       format = "static_feed";
     }
   }
+  const i18n = await ensureFieldsTranslated(input.i18n, {
+    title: input.title,
+    caption: input.caption,
+    cta: input.cta,
+    hashtags: input.hashtags,
+  });
   const baseInsert = {
     project_id: input.projectId,
-    title: input.title.trim(),
-    caption: input.caption?.trim() || "",
-    cta: input.cta?.trim() || "",
-    hashtags: input.hashtags?.trim() || "",
+    title: getCanonicalText(i18n, "title", input.title).trim(),
+    caption: getCanonicalText(i18n, "caption", input.caption)?.trim() || "",
+    cta: getCanonicalText(i18n, "cta", input.cta)?.trim() || "",
+    hashtags: getCanonicalText(i18n, "hashtags", input.hashtags)?.trim() || "",
     media_url: input.mediaUrl?.trim() || null,
     format,
+    i18n: toI18nJson(i18n),
     created_by: userId,
     status: "draft" as const,
     ...(calendarBlockId ? { calendar_block_id: calendarBlockId } : {}),
@@ -1479,12 +1497,14 @@ export async function updateContentCalendar(input: {
   theme?: string | null;
   format?: ContentFormat;
   title?: string;
+  i18n?: RowI18n;
 }): Promise<ContentItem> {
   const patch: {
     scheduled_at?: string | null;
     theme?: string | null;
     format?: ContentFormat;
     title?: string;
+    i18n?: Json;
   } = {};
   if (input.scheduledAt !== undefined) {
     patch.scheduled_at = input.scheduledAt;
@@ -1499,6 +1519,9 @@ export async function updateContentCalendar(input: {
     const nextTitle = input.title.trim();
     if (!nextTitle) throw new Error("Título inválido");
     patch.title = nextTitle;
+  }
+  if (input.i18n) {
+    patch.i18n = toI18nJson(input.i18n);
   }
 
   const { data, error } = await supabase
@@ -2098,15 +2121,15 @@ export async function setContentStatus(input: {
 }
 
 export type PendingApproval = ContentItem & {
-  projects: Pick<Project, "id" | "name" | "client_id"> & {
-    clients: Pick<Client, "id" | "name">;
+  projects: Pick<Project, "id" | "name" | "client_id" | "i18n"> & {
+    clients: Pick<Client, "id" | "name" | "i18n">;
   };
 };
 
 export async function listPendingApprovals(): Promise<PendingApproval[]> {
   const { data, error } = await supabase
     .from("content_items")
-    .select("*, projects!inner(id, name, client_id, clients!inner(id, name))")
+    .select("*, projects!inner(id, name, i18n, client_id, clients!inner(id, name, i18n))")
     .in("status", ["review", "changes_done"])
     .order("updated_at", { ascending: false })
     .limit(20);
@@ -2442,6 +2465,57 @@ export async function addComment(input: {
 
 export async function deleteComment(commentId: string): Promise<void> {
   const { error } = await supabase.from("content_comments").delete().eq("id", commentId);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateCommentI18n(
+  commentId: string,
+  i18n: RowI18n,
+): Promise<ContentComment> {
+  const { data, error } = await supabase
+    .from("content_comments")
+    .update({ i18n: toI18nJson(i18n) })
+    .eq("id", commentId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+/** Persist i18n only (canonical text columns unchanged). Used by locale backfill. */
+export async function updateContentI18n(
+  contentId: string,
+  i18n: RowI18n,
+): Promise<ContentItem> {
+  const { data, error } = await supabase
+    .from("content_items")
+    .update({ i18n: toI18nJson(i18n) })
+    .eq("id", contentId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function updateLibraryAssetI18n(
+  assetId: string,
+  i18n: RowI18n,
+): Promise<LibraryAsset> {
+  const { data, error } = await supabase
+    .from("library_assets")
+    .update({ i18n: toI18nJson(i18n) })
+    .eq("id", assetId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function updateActivityEventI18n(
+  eventId: string,
+  i18n: RowI18n,
+): Promise<void> {
+  const { error } = await supabase
+    .from("activity_events")
+    .update({ i18n: toI18nJson(i18n) })
+    .eq("id", eventId);
   if (error) throw new Error(error.message);
 }
 

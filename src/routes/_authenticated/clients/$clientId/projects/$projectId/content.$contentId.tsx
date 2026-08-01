@@ -73,9 +73,12 @@ import {
   saveContentAsNewVersion,
   setContentStatus,
   updateContentFields,
+  updateContentI18n,
+  updateCommentI18n,
   uploadContentMediaFiles,
   getLocalizedText,
   getCanonicalText,
+  getLocalizedPresetList,
   parseRowI18n,
   normalizeAppLocale,
   setLocalizedField,
@@ -92,6 +95,7 @@ import {
 import type { LanguageCode } from "@/i18n";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useAuth } from "@/hooks/use-auth";
+import { backfillRowsForLocale, useI18nBackfill } from "@/hooks/use-i18n-backfill";
 import {
   Dialog,
   DialogContent,
@@ -248,9 +252,26 @@ function ContentDetailPage() {
 
   const content = contentQuery.data;
   const client = clientQuery.data;
-  const ctaPresets = projectQuery.data?.cta_presets ?? [];
-  const hashtagPresets = projectQuery.data?.hashtag_presets ?? [];
-  const themePresets = projectQuery.data?.theme_presets ?? [];
+  const projectI18n = parseRowI18n(projectQuery.data?.i18n);
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const ctaPresets = getLocalizedPresetList(
+    projectI18n,
+    "cta_presets",
+    projectQuery.data?.cta_presets ?? [],
+    uiLocale,
+  );
+  const hashtagPresets = getLocalizedPresetList(
+    projectI18n,
+    "hashtag_presets",
+    projectQuery.data?.hashtag_presets ?? [],
+    uiLocale,
+  );
+  const themePresets = getLocalizedPresetList(
+    projectI18n,
+    "theme_presets",
+    projectQuery.data?.theme_presets ?? [],
+    uiLocale,
+  );
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
@@ -274,8 +295,6 @@ function ContentDetailPage() {
       };
     })
     .filter((item) => item.url);
-
-  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
 
   const applyContentToForm = (row: NonNullable<typeof content>) => {
     const nextI18n = parseRowI18n(row.i18n);
@@ -343,6 +362,72 @@ function ContentDetailPage() {
     rowI18n,
   });
   const isDirty = Boolean(formBaseline) && !ignoreUnsavedChanges && formSnapshot !== formBaseline;
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+
+  const contentBackfillFields = useMemo(
+    () =>
+      content
+        ? {
+            title: content.title,
+            caption: content.caption,
+            locucao: content.locucao,
+            roteiro: content.roteiro,
+            cta: content.cta,
+            hashtags: content.hashtags,
+            theme: content.theme,
+          }
+        : {},
+    [content],
+  );
+
+  useI18nBackfill({
+    enabled: Boolean(content) && !isDirty,
+    entityKey: content ? `content:${content.id}:${content.updated_at}` : "content:none",
+    locale: uiLocale,
+    i18n: content?.i18n,
+    fields: contentBackfillFields,
+    onPersist: async (nextI18n) => {
+      if (!content) return;
+      const row = await updateContentI18n(contentId, nextI18n);
+      queryClient.setQueryData(["content", "detail", contentId], row);
+    },
+    onApplied: (nextI18n) => {
+      if (!content || isDirtyRef.current) return;
+      applyContentToForm({ ...content, i18n: nextI18n as typeof content.i18n });
+    },
+  });
+
+  useEffect(() => {
+    const comments = commentsQuery.data;
+    if (!comments?.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: comments,
+        locale: uiLocale,
+        getKey: (c) => c.id,
+        getI18n: (c) => c.i18n,
+        getFields: (c) => ({ body: c.body }),
+        persist: async (c, nextI18n) => {
+          const row = await updateCommentI18n(c.id, nextI18n);
+          if (cancelled) return;
+          queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
+            (prev ?? []).map((item) =>
+              item.id === row.id ? { ...item, ...row, profiles: item.profiles } : item,
+            ),
+          );
+        },
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["comments", contentId] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commentsQuery.data, contentId, queryClient, uiLocale]);
 
   const onFieldI18nCommit = (payload: {
     field: string;

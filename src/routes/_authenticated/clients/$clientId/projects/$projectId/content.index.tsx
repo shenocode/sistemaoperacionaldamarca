@@ -60,11 +60,15 @@ import {
   reorderContentItems,
   resolveContentMediaUrls,
   updateContentCalendar,
+  updateContentI18n,
+  getLocalizedText,
+  normalizeAppLocale,
   type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
+import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import { validateContentSearch } from "./content";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -107,15 +111,6 @@ function ContentListPage() {
     items: PreviewMediaItem[];
     title: string;
   } | null>(null);
-
-  const openMediaLightbox = (item: ContentItem) => {
-    const items: PreviewMediaItem[] = resolveContentMediaUrls(item).map((url) => ({
-      url,
-      kind: isVideoUrl(url) ? "video" : "image",
-    }));
-    if (items.length === 0) return;
-    setLightbox({ items, title: item.title });
-  };
 
   const contentQuery = useQuery({
     queryKey: ["content", projectId],
@@ -207,6 +202,9 @@ function ContentListPage() {
   );
   const allRows = localRows ?? serverRows;
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const localizedTitle = (item: ContentItem) =>
+    getLocalizedText(item.i18n, "title", item.title, uiLocale);
   const canManage = Boolean(manageQuery.data);
   // Clients must not see "Em produção" (draft) content.
   const visibleRows = canManage ? allRows : allRows.filter((r) => r.status !== "draft");
@@ -224,6 +222,41 @@ function ContentListPage() {
   useEffect(() => {
     setLocalRows(null);
   }, [contentQuery.dataUpdatedAt]);
+
+  useEffect(() => {
+    if (!serverRows.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: serverRows,
+        locale: uiLocale,
+        getKey: (r) => r.id,
+        getI18n: (r) => r.i18n,
+        getFields: (r) => ({
+          title: r.title,
+          caption: r.caption,
+          theme: r.theme,
+        }),
+        persist: (r, nextI18n) => updateContentI18n(r.id, nextI18n).then(() => undefined),
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, queryClient, serverRows, uiLocale]);
+
+  const openMediaLightbox = (item: ContentItem) => {
+    const items: PreviewMediaItem[] = resolveContentMediaUrls(item).map((url) => ({
+      url,
+      kind: isVideoUrl(url) ? "video" : "image",
+    }));
+    if (items.length === 0) return;
+    setLightbox({ items, title: localizedTitle(item) });
+  };
 
   const applyReorder = (next: ContentItem[]) => {
     if (next === rows) return;
@@ -355,7 +388,7 @@ function ContentListPage() {
                         search={{}}
                         className="block truncate font-medium hover:underline"
                       >
-                        {r.title}
+                        {localizedTitle(r)}
                       </Link>
                       <p className="text-xs text-muted-foreground">
                         v{r.current_version}
@@ -395,7 +428,7 @@ function ContentListPage() {
                         contentId={r.id}
                         clientId={clientId}
                         projectId={projectId}
-                        title={r.title}
+                        title={localizedTitle(r)}
                         disabled={!canManage || isBusy}
                         className="w-full max-w-none"
                       />
@@ -430,7 +463,7 @@ function ContentListPage() {
                           size="sm"
                           disabled={isBusy}
                           className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget({ id: r.id, title: r.title })}
+                          onClick={() => setDeleteTarget({ id: r.id, title: localizedTitle(r) })}
                         >
                           <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                           {t("project.content.delete")}
@@ -516,7 +549,7 @@ function ContentListPage() {
                           search={{}}
                           className="block truncate hover:underline"
                         >
-                          {r.title}
+                          {localizedTitle(r)}
                         </Link>
                       </td>
                       <td className="px-4 py-3">
@@ -539,7 +572,7 @@ function ContentListPage() {
                           contentId={r.id}
                           clientId={clientId}
                           projectId={projectId}
-                          title={r.title}
+                          title={localizedTitle(r)}
                           disabled={!canManage || isBusy}
                           className="w-[13.5rem] max-w-[13.5rem]"
                         />
@@ -577,7 +610,7 @@ function ContentListPage() {
                                 size="sm"
                                 disabled={isBusy}
                                 className="text-destructive hover:text-destructive"
-                                onClick={() => setDeleteTarget({ id: r.id, title: r.title })}
+                                onClick={() => setDeleteTarget({ id: r.id, title: localizedTitle(r) })}
                               >
                                 <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                                 {t("project.content.delete")}

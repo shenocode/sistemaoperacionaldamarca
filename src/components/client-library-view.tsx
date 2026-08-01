@@ -66,6 +66,7 @@ import {
   listDesignTemplates,
   listLibraryAssets,
   updateClient,
+  updateLibraryAssetI18n,
   type DesignTemplateFormat,
   type LibraryAsset,
   type LibraryCategory,
@@ -80,6 +81,7 @@ import {
   translateTextField,
   type RowI18n,
 } from "@/lib/i18n-content";
+import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { cn } from "@/lib/utils";
@@ -306,6 +308,29 @@ export function ClientLibraryView({
 
   const assets = assetsQuery.data ?? [];
   const templates = templatesQuery.data ?? [];
+
+  useEffect(() => {
+    if (!assets.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: assets,
+        locale: uiLocale,
+        getKey: (a) => a.id,
+        getI18n: (a) => a.i18n,
+        getFields: (a) => ({ name: a.name }),
+        persist: (a, nextI18n) => updateLibraryAssetI18n(a.id, nextI18n).then(() => undefined),
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["library", clientId] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [assets, clientId, queryClient, uiLocale]);
+
   const generatedArts = useMemo(
     () => assets.filter((asset) => asset.category === "generated_arts"),
     [assets],

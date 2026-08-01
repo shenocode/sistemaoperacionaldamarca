@@ -17,7 +17,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "O sistema operacional para gestores de conteúdo que produzem, alinham e aprovam posts com clientes.",
+          "O sistema operacional para gestores de conteúdo que desejam planejar, criar e produzir, tudo em um só lugar.",
       },
     ],
     links: [

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   canManageClient,
   ensureFieldsTranslated,
+  ensurePresetListTranslated,
   getCanonicalText,
   getClient,
   getLocalizedField,
@@ -15,12 +16,15 @@ import {
   localizedFieldNeedsTranslation,
   normalizeAppLocale,
   parseRowI18n,
+  presetListNeedsLocaleBackfill,
   projectCategoryConfig,
+  updateClient,
   updateProject,
   type ProjectTabId,
 } from "@/lib/api";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
+import { useI18nBackfill } from "@/hooks/use-i18n-backfill";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId")({
   head: () => ({ meta: [{ title: "Projeto — SOM" }, { name: "robots", content: "noindex" }] }),
@@ -98,8 +102,26 @@ function ProjectLayout() {
     const descriptionNeeds =
       Boolean(project.description?.trim()) &&
       localizedFieldNeedsTranslation(getLocalizedField(currentI18n, "description"), uiLocale);
+    const ctaNeeds = presetListNeedsLocaleBackfill(
+      currentI18n,
+      "cta_presets",
+      project.cta_presets ?? [],
+      uiLocale,
+    );
+    const hashtagNeeds = presetListNeedsLocaleBackfill(
+      currentI18n,
+      "hashtag_presets",
+      project.hashtag_presets ?? [],
+      uiLocale,
+    );
+    const themeNeeds = presetListNeedsLocaleBackfill(
+      currentI18n,
+      "theme_presets",
+      project.theme_presets ?? [],
+      uiLocale,
+    );
 
-    if (!nameNeeds && !descriptionNeeds) return;
+    if (!nameNeeds && !descriptionNeeds && !ctaNeeds && !hashtagNeeds && !themeNeeds) return;
 
     const key = `${project.id}:${uiLocale}:${project.updated_at}`;
     if (backfillKeyRef.current === key) return;
@@ -108,10 +130,23 @@ function ProjectLayout() {
     let cancelled = false;
     void (async () => {
       try {
-        const nextI18n = await ensureFieldsTranslated(currentI18n, {
+        let nextI18n = await ensureFieldsTranslated(currentI18n, {
           name: project.name,
           description: project.description,
         });
+        if (ctaNeeds) {
+          nextI18n = (await ensurePresetListTranslated(nextI18n, "cta_presets", project.cta_presets ?? [])).i18n;
+        }
+        if (hashtagNeeds) {
+          nextI18n = (
+            await ensurePresetListTranslated(nextI18n, "hashtag_presets", project.hashtag_presets ?? [])
+          ).i18n;
+        }
+        if (themeNeeds) {
+          nextI18n = (
+            await ensurePresetListTranslated(nextI18n, "theme_presets", project.theme_presets ?? [])
+          ).i18n;
+        }
         if (cancelled) return;
         if (JSON.stringify(nextI18n) === JSON.stringify(currentI18n)) return;
 
@@ -121,9 +156,21 @@ function ProjectLayout() {
         const descriptionImproved =
           descriptionNeeds &&
           !localizedFieldNeedsTranslation(getLocalizedField(nextI18n, "description"), uiLocale);
+        const presetsImproved =
+          (ctaNeeds &&
+            !presetListNeedsLocaleBackfill(nextI18n, "cta_presets", project.cta_presets ?? [], uiLocale)) ||
+          (hashtagNeeds &&
+            !presetListNeedsLocaleBackfill(
+              nextI18n,
+              "hashtag_presets",
+              project.hashtag_presets ?? [],
+              uiLocale,
+            )) ||
+          (themeNeeds &&
+            !presetListNeedsLocaleBackfill(nextI18n, "theme_presets", project.theme_presets ?? [], uiLocale));
 
         // Avoid rewrite/invalidate loops when AI translation is unavailable.
-        if (!nameImproved && !descriptionImproved) return;
+        if (!nameImproved && !descriptionImproved && !presetsImproved) return;
 
         await updateProject(projectId, {
           name: getCanonicalText(nextI18n, "name", project.name),
@@ -142,6 +189,30 @@ function ProjectLayout() {
       cancelled = true;
     };
   }, [manageQuery.data, project, projectId, queryClient, uiLocale]);
+
+  useI18nBackfill({
+    enabled: Boolean(client) && Boolean(manageQuery.data),
+    entityKey: client ? `client:${client.id}:${client.updated_at}` : "client:none",
+    locale: uiLocale,
+    i18n: client?.i18n,
+    fields: {
+      name: client?.name,
+      notes: client?.notes,
+    },
+    onPersist: async (nextI18n) => {
+      if (!client) return;
+      await updateClient(clientId, {
+        name: getCanonicalText(nextI18n, "name", client.name),
+        notes: getCanonicalText(nextI18n, "notes", client.notes ?? "") || undefined,
+        email: client.email ?? undefined,
+        phone: client.phone ?? undefined,
+        whatsapp: client.whatsapp ?? undefined,
+        instagram: client.instagram ?? undefined,
+        i18n: nextI18n,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
 
   // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
   // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).

@@ -1117,6 +1117,24 @@ export function LandingPage() {
           <p className="mt-6 text-center text-xs text-neutral-600">{t("landing.pricingNote")}</p>
         </section>
 
+        {/* Final CTA */}
+        <section className="border-t border-neutral-900/8 bg-neutral-900 text-white">
+          <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-16 sm:flex-row sm:items-center sm:justify-between sm:py-20">
+            <div className="max-w-xl">
+              <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                {t("landing.finalTitle")}
+              </h2>
+            </div>
+            <Button
+              asChild
+              size="lg"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <a href="#contato">{t("landing.finalCta")}</a>
+            </Button>
+          </div>
+        </section>
+
         {/* Contact */}
         <section id="contato" className="border-y border-neutral-900/8 bg-white/50">
           <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
@@ -1127,25 +1145,6 @@ export function LandingPage() {
               {t("landing.contactSubtitle")}
             </p>
             <ContactForm />
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="border-t border-neutral-900/8 bg-neutral-900 text-white">
-          <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-16 sm:flex-row sm:items-center sm:justify-between sm:py-20">
-            <div className="max-w-xl">
-              <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-                {t("landing.finalTitle")}
-              </h2>
-              <p className="mt-3 text-base text-white/90">{t("landing.finalSubtitle")}</p>
-            </div>
-            <Button
-              asChild
-              size="lg"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <a href="#planos">{t("landing.finalCta")}</a>
-            </Button>
           </div>
         </section>
       </main>

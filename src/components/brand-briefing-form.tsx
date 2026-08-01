@@ -22,6 +22,8 @@ import {
 } from "@/lib/api";
 import {
   buildLocalizedFieldFromSource,
+  ensureAnswersTranslated,
+  answersNeedLocaleBackfill,
   getCanonicalText,
   getLocalizedAnswer,
   getLocalizedText,
@@ -85,6 +87,35 @@ export function BrandBriefingForm({ clientId, briefing }: BrandBriefingFormProps
     setRowI18n(nextI18n);
     setAnswers(localizedAnswersFromI18n(briefing.answersParsed, nextI18n, uiLocale));
   }, [briefing.id, briefing.updated_at, briefing.i18n, briefing.answersParsed, uiLocale]);
+
+  useEffect(() => {
+    if (!answersNeedLocaleBackfill(briefing.i18n, briefing.answersParsed, uiLocale)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const current = parseRowI18n(briefing.i18n);
+        const nextI18n = await ensureAnswersTranslated(current, briefing.answersParsed);
+        if (cancelled) return;
+        if (answersNeedLocaleBackfill(nextI18n, briefing.answersParsed, uiLocale)) return;
+        if (JSON.stringify(nextI18n) === JSON.stringify(current)) return;
+        const display = localizedAnswersFromI18n(briefing.answersParsed, nextI18n, uiLocale);
+        setRowI18n(nextI18n);
+        setAnswers(display);
+        await upsertBrandBriefingAnswers({
+          clientId,
+          answers: canonicalAnswersFromI18n(display, nextI18n),
+          i18n: nextI18n,
+        });
+        if (cancelled) return;
+        void queryClient.invalidateQueries({ queryKey: ["brand-briefing", clientId] });
+      } catch {
+        // Keep canonical answers if translation is unavailable.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [briefing.id, briefing.updated_at, briefing.i18n, briefing.answersParsed, uiLocale, clientId, queryClient]);
 
   const answeredCount = useMemo(() => {
     let count = 0;

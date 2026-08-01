@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -32,6 +32,7 @@ import {
   listComments,
   saveClientContentVersion,
   setContentStatus,
+  updateCommentI18n,
   type CommentWithAuthor,
   type ContentFormat,
 } from "@/lib/api";
@@ -43,6 +44,7 @@ import {
   translateTextField,
   type RowI18n,
 } from "@/lib/i18n-content";
+import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -113,6 +115,37 @@ export function ClientContentApprovalView({
     queryKey: ["comments", contentId],
     queryFn: () => listComments(contentId),
   });
+
+  useEffect(() => {
+    const comments = commentsQuery.data;
+    if (!comments?.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: comments,
+        locale: uiLocale,
+        getKey: (c) => c.id,
+        getI18n: (c) => c.i18n,
+        getFields: (c) => ({ body: c.body }),
+        persist: async (c, nextI18n) => {
+          const row = await updateCommentI18n(c.id, nextI18n);
+          if (cancelled) return;
+          queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
+            (prev ?? []).map((item) =>
+              item.id === row.id ? { ...item, ...row, profiles: item.profiles } : item,
+            ),
+          );
+        },
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["comments", contentId] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commentsQuery.data, contentId, queryClient, uiLocale]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["content"] });

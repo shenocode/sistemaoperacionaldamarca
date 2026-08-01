@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
@@ -23,8 +24,11 @@ import {
   listPendingApprovals,
   listRecentActivity,
   resolvePostLoginPath,
+  updateActivityEventI18n,
+  updateContentI18n,
 } from "@/lib/api";
 import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
+import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -52,6 +56,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function DashboardPage() {
   const { t, i18n } = useTranslation();
   const { user } = AuthLayout.useRouteContext();
+  const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const settingsDialog = useClientSettingsDialog();
@@ -73,6 +78,50 @@ function DashboardPage() {
   const clients = clientsQuery.data ?? [];
   const pending = pendingQuery.data ?? [];
   const activity = activityQuery.data ?? [];
+
+  useEffect(() => {
+    if (!pending.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: pending,
+        locale: uiLocale,
+        getKey: (r) => r.id,
+        getI18n: (r) => r.i18n,
+        getFields: (r) => ({ title: r.title }),
+        persist: (r, nextI18n) => updateContentI18n(r.id, nextI18n).then(() => undefined),
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["dashboard", "pending"] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pending, queryClient, uiLocale]);
+
+  useEffect(() => {
+    if (!activity.length) return;
+    let cancelled = false;
+    void (async () => {
+      const improved = await backfillRowsForLocale({
+        rows: activity,
+        locale: uiLocale,
+        getKey: (r) => r.id,
+        getI18n: (r) => r.i18n,
+        getFields: (r) => ({ summary: r.summary }),
+        persist: (r, nextI18n) => updateActivityEventI18n(r.id, nextI18n),
+        concurrency: 2,
+      });
+      if (!cancelled && improved > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["dashboard", "activity"] });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activity, queryClient, uiLocale]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
@@ -144,9 +193,23 @@ function DashboardPage() {
                         className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/40"
                       >
                         <div>
-                          <p className="font-medium">{item.title}</p>
+                          <p className="font-medium">
+                            {getLocalizedText(item.i18n, "title", item.title, uiLocale)}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {item.projects.clients.name} · {item.projects.name}
+                            {getLocalizedText(
+                              item.projects.clients.i18n,
+                              "name",
+                              item.projects.clients.name,
+                              uiLocale,
+                            )}{" "}
+                            ·{" "}
+                            {getLocalizedText(
+                              item.projects.i18n,
+                              "name",
+                              item.projects.name,
+                              uiLocale,
+                            )}
                           </p>
                         </div>
                         <StatusBadge status={item.status as ContentStatus} />
