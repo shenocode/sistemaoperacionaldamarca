@@ -39,3 +39,9 @@ verify_jwt = false
 
 [functions.submit-contact-lead]
 verify_jwt = false
+
+[functions.admin-team]
+verify_jwt = true
+
+[functions.admin-assinantes]
+verify_jwt = true
