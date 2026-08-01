@@ -276,6 +276,42 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          intent: Database["public"]["Enums"]["contact_lead_intent"]
+          locale: string | null
+          name: string
+          niche: Database["public"]["Enums"]["contact_lead_niche"]
+          source: string
+          whatsapp: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          intent: Database["public"]["Enums"]["contact_lead_intent"]
+          locale?: string | null
+          name: string
+          niche?: Database["public"]["Enums"]["contact_lead_niche"]
+          source?: string
+          whatsapp: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          intent?: Database["public"]["Enums"]["contact_lead_intent"]
+          locale?: string | null
+          name?: string
+          niche?: Database["public"]["Enums"]["contact_lead_niche"]
+          source?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
       content_comments: {
         Row: {
           body: string
@@ -620,6 +656,7 @@ export type Database = {
           id: string
           locale: string
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -629,6 +666,7 @@ export type Database = {
           id: string
           locale?: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -638,11 +676,13 @@ export type Database = {
           id?: string
           locale?: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
       projects: {
         Row: {
+          categories: string[]
           client_id: string
           created_at: string
           created_by: string | null
@@ -657,6 +697,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          categories?: string[]
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -671,6 +712,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          categories?: string[]
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -986,6 +1028,8 @@ export type Database = {
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
       client_member_role: "owner" | "member"
+      contact_lead_intent: "trial" | "human"
+      contact_lead_niche: "agency" | "social_media" | "brand_owner"
       content_format:
         | "static_feed"
         | "reels"
@@ -1156,6 +1200,8 @@ export const Constants = {
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
       client_member_role: ["owner", "member"],
+      contact_lead_intent: ["trial", "human"],
+      contact_lead_niche: ["agency", "social_media", "brand_owner"],
       content_format: [
         "static_feed",
         "reels",
