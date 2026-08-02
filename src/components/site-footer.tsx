@@ -23,14 +23,14 @@ export function SiteFooter({ variant = "landing", className }: SiteFooterProps) 
         "border-t",
         isApp
           ? "mt-auto border-border bg-background px-4 py-4 md:px-6"
-          : "border-neutral-900/8 bg-white/60 px-6 py-8",
+          : "border-neutral-900/10 bg-white px-6 py-12",
         className,
       )}
     >
       <div
         className={cn(
           "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
-          !isApp && "mx-auto max-w-6xl gap-4",
+          !isApp && "mx-auto max-w-6xl gap-8",
         )}
       >
         {isApp ? (
@@ -40,16 +40,16 @@ export function SiteFooter({ variant = "landing", className }: SiteFooterProps) 
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm font-medium text-foreground underline-offset-4 hover:underline"
           >
-            <SomMark className="size-5" title={t("app.fullName")} aria-hidden />
+            <SomMark className="h-6 w-auto" title={t("app.fullName")} aria-hidden />
             {COMPANY_NAME}
           </a>
         ) : (
-          <SomLogo size="md" title={t("app.fullName")} className="h-14 sm:h-16" />
+          <SomLogo size="md" title={t("app.fullName")} className="h-28 sm:h-32" />
         )}
         <div
           className={cn(
             "flex flex-col gap-1 sm:items-end sm:text-right",
-            isApp ? "text-xs text-muted-foreground" : "text-sm text-neutral-600",
+            isApp ? "text-xs text-muted-foreground" : "text-sm text-neutral-500",
           )}
         >
           {!isApp ? (
@@ -57,7 +57,7 @@ export function SiteFooter({ variant = "landing", className }: SiteFooterProps) 
               href={COMPANY_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-neutral-800 underline-offset-4 hover:underline"
+              className="font-medium tracking-wide text-neutral-900 underline-offset-4 hover:underline"
             >
               {COMPANY_NAME}
             </a>

@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/empty-state";
 import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -243,9 +244,8 @@ function AssinantesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="assinante-password">{t("subscribers.password")}</Label>
-                <Input
+                <PasswordInput
                   id="assinante-password"
-                  type="password"
                   required
                   minLength={6}
                   value={password}
@@ -530,9 +530,8 @@ function AssinantesPage() {
                         <Label htmlFor="settings-reset-password">
                           {t("subscribers.newPassword")}
                         </Label>
-                        <Input
+                        <PasswordInput
                           id="settings-reset-password"
-                          type="password"
                           required
                           minLength={6}
                           value={resetPassword}

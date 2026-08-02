@@ -34,6 +34,9 @@
     "reviewInviteHint": "Entra con el correo y la contraseña liberados por el equipo para revisar los contenidos.",
     "accessDenied": "Sin acceso a la plataforma. Suscríbete a un plan o contáctanos.",
     "accessDeniedCta": "Ver planes",
+    "invalidCredentials": "Correo o contraseña inválidos. Revisa los datos o pide una nueva contraseña al equipo.",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
     "requestAccess": "Pedir acceso"
   },
   "accessRelease": {
@@ -124,7 +127,7 @@
   },
   "landing": {
     "heroTitle": "Del briefing a la aprobación, sin planillas eternas.",
-    "heroSubtitle": "El sistema operativo para gestores de contenido que producen, alinean y aprueban posts con clientes — en un solo lugar.",
+    "heroSubtitle": "Materiales de comunicación de marca, alineados con el cliente — para resonar alto y claro.",
     "cta": "Empezar ahora",
     "ctaSecondary": "Ver planes",
     "signIn": "Entrar",
@@ -135,7 +138,7 @@
     "navPricing": "Planes",
     "navContact": "Contacto",
     "problemTitle": "¿Por qué usar SOM - Sistema Operacional da Marca?",
-    "problemBody": "Para que la producción no se trabe en la aprobación.\nEl cliente gana contexto — y tú ganas tiempo.",
+    "problemBody": "Para que la producción no se trabe en la aprobación.\nEl cliente gana contexto — y tú ganas tiempo.\n\nEl sistema operativo para gestores de contenido que producen, alinean y aprueban posts con clientes — en un solo lugar.",
     "howTitle": "Un solo flujo, del briefing al post.",
     "howSteps": {
       "1": { "title": "Define la marca", "body": "Briefing guiado por IA y kit visual (colores, tipografías, voz)." },
@@ -236,10 +239,10 @@
       "blockHint": "{{count}} publicaciones en este periodo",
       "posts": {
         "campaign": {
-          "title": "Nueva campaña al aire",
+          "title": "¿Ya oíste hablar de Awareness?",
           "day": "lunes",
           "datetime": "21/07/2026 10:00",
-          "theme": "Presencia"
+          "theme": "Awareness"
         },
         "reelsHook": {
           "title": "Hook del Reels — bastidores",
@@ -290,12 +293,8 @@
     },
     "mockDetail": {
       "captionLabel": "Leyenda",
-      "caption": "Nueva campaña al aire — tono de marca, CTA y artes alineados.",
-      "ctaLabel": "CTA",
-      "cta": "Saber más",
-      "hashtagsLabel": "Hashtags",
-      "hashtags": "#marca #campaña #som",
-      "save": "Guardar"
+      "caption": "Muchas veces vivimos en automático y solo percibimos lo que sentimos después de haber reaccionado.",
+      "mediaFile": "awareness-marina.jpg"
     },
     "contactTitle": "Contáctanos",
     "contactSubtitle": "¿Dudas sobre planes u onboarding? Elige cómo empezar y envía por WhatsApp.",
@@ -397,7 +396,19 @@
     "noPending": "Sin aprobaciones pendientes.",
     "noActivity": "Sin actividad reciente.",
     "viewAll": "Ver todos",
-    "projects": "Proyectos"
+    "projects": "Proyectos",
+    "activeSubscribers": "Suscriptores activos",
+    "estimatedMrr": "MRR estimado",
+    "leadsThisMonth": "Leads del mes",
+    "mrrHint": "MRR estimado según precios de los planes (Solo, Studio y Agencia). No incluye cortesía ni facturación real de Stripe.",
+    "growthChart": "Crecimiento mensual",
+    "growthChartHint": "Nuevos suscriptores y leads en los últimos 6 meses.",
+    "planMix": "Mix de planes",
+    "planMixHint": "Suscriptores activos por plan.",
+    "planCourtesy": "Cortesía",
+    "chartSubscribers": "Suscriptores",
+    "chartLeads": "Leads",
+    "chartCount": "Cantidad"
   },
   "activity": {
     "comment_added": "Comentario en {{subject}}",
@@ -556,7 +567,7 @@
       "hintReorder": "Arrastra el icono ⋮⋮ para reordenar.",
       "sendUpdates": "Enviar actualizaciones",
       "openStatus": "Abrir contenido y ver estado",
-      "empty": "No hay contenido para programar. Crea contenidos en la pestaña Contenido.",
+      "empty": "No hay contenido para programar. Crea un nuevo contenido en el calendario.",
       "access": "Abrir",
       "duplicate": "Duplicar",
       "duplicateHint": "Crea una copia con la fecha +7 días, en borrador y con el historial de versiones reiniciado.",
@@ -941,6 +952,14 @@
       "publish": "Publicar",
       "leaveComment": "Deja un comentario...",
       "send": "Enviar",
+      "recordComment": "Grabar comentario de audio",
+      "stopRecording": "Detener grabación",
+      "discardRecording": "Descartar audio",
+      "recording": "Grabando {{time}}",
+      "audioComment": "Comentario de audio",
+      "micPermissionDenied": "Permite el acceso al micrófono para grabar.",
+      "recordingUnsupported": "Tu navegador no permite grabar audio aquí.",
+      "recordingFailed": "No se pudo grabar el audio. Inténtalo de nuevo.",
       "noComments": "Aún no hay comentarios.",
       "commentsLoadError": "No se pudieron cargar los comentarios.",
       "deleteComment": "Eliminar comentario",

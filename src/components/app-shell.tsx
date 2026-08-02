@@ -18,7 +18,7 @@ import { clearAuthNext, getProject } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { LanguageSwitcher } from "./language-switcher";
 import { SiteFooter } from "./site-footer";
-import { SomLogo } from "./som-logo";
+import { SomMark } from "./som-logo";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { Button } from "./ui/button";
@@ -70,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={t("app.fullName")}
     >
-      <SomLogo size="md" title={t("app.fullName")} className="h-11 w-auto max-w-full" />
+      <SomMark title={t("app.fullName")} className="h-11 w-auto" />
     </Link>
   );
 
@@ -207,7 +207,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("app.fullName")}
           >
-            <SomLogo size="sm" title={t("app.fullName")} className="h-8 max-w-[9.5rem]" />
+            <SomMark title={t("app.fullName")} className="h-8 w-auto" />
           </Link>
         </header>
 
@@ -224,7 +224,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={t("app.fullName")}
                 >
-                  <SomLogo size="md" title={t("app.fullName")} className="h-10 max-w-full" />
+                  <SomMark title={t("app.fullName")} className="h-10 w-auto" />
                 </Link>
               </SheetTitle>
               <SheetDescription className="sr-only">{t("app.fullName")}</SheetDescription>

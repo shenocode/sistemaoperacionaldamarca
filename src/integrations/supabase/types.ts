@@ -278,6 +278,8 @@ export type Database = {
       }
       content_comments: {
         Row: {
+          audio_storage_path: string | null
+          audio_url: string | null
           body: string
           content_id: string
           created_at: string
@@ -287,7 +289,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          body: string
+          audio_storage_path?: string | null
+          audio_url?: string | null
+          body?: string
           content_id: string
           created_at?: string
           i18n?: Json
@@ -296,6 +300,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          audio_storage_path?: string | null
+          audio_url?: string | null
           body?: string
           content_id?: string
           created_at?: string

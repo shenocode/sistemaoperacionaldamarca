@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SomLogo } from "@/components/som-logo";
@@ -88,6 +89,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [invalidCredentials, setInvalidCredentials] = useState(false);
 
   const nextPath = nextFromSearch ?? readAuthNext() ?? undefined;
 
@@ -97,6 +99,7 @@ function AuthPage() {
 
   const denyAccess = async () => {
     await supabase.auth.signOut();
+    setInvalidCredentials(false);
     setAccessDenied(true);
   };
 
@@ -122,6 +125,7 @@ function AuthPage() {
 
     clearAuthNext();
     setAccessDenied(false);
+    setInvalidCredentials(false);
 
     if (destination) {
       router.history.push(destination);
@@ -232,12 +236,13 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     setAccessDenied(false);
+    setInvalidCredentials(false);
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           if (isUnauthorizedLoginError(error.message)) {
-            setAccessDenied(true);
+            setInvalidCredentials(true);
             return;
           }
           throw error;
@@ -260,6 +265,7 @@ function AuthPage() {
 
   const handleGoogle = async () => {
     setAccessDenied(false);
+    setInvalidCredentials(false);
     rememberAuthNext(nextPath);
     // Keep redirectTo free of extra query params so Supabase can append ?code=&state= cleanly.
     // Deep-link `next` is restored from sessionStorage after login.
@@ -330,13 +336,13 @@ function AuthPage() {
             {mode !== "forgot" && (
               <div className="space-y-1.5">
                 <Label htmlFor="password">{t("auth.password")}</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
+                  autoComplete="current-password"
                 />
               </div>
             )}
@@ -345,6 +351,12 @@ function AuthPage() {
               {mode === "forgot" && t("auth.sendResetLink")}
             </Button>
           </form>
+
+          {invalidCredentials ? (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+              <p>{t("auth.invalidCredentials")}</p>
+            </div>
+          ) : null}
 
           {accessDenied ? (
             <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
@@ -380,6 +392,7 @@ function AuthPage() {
                   className="text-muted-foreground hover:underline"
                   onClick={() => {
                     setAccessDenied(false);
+                    setInvalidCredentials(false);
                     setMode("forgot");
                   }}
                 >

@@ -61,14 +61,12 @@ export function ContentFormatSelect({
       <SelectContent>
         {options.map((formatKey) => (
           <SelectItem key={formatKey} value={formatKey}>
-            <span className="inline-flex items-center gap-2">
-              <span
-                className={cn(
-                  "h-2.5 w-2.5 shrink-0 rounded-full border",
-                  contentFormatStyles[formatKey],
-                )}
-                aria-hidden="true"
-              />
+            <span
+              className={cn(
+                "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium",
+                contentFormatStyles[formatKey],
+              )}
+            >
               {t(`project.detail.formats.${formatKey}`)}
             </span>
           </SelectItem>

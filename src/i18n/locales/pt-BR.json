@@ -34,6 +34,9 @@
     "reviewInviteHint": "Entre com o e-mail e a senha liberados pela equipe para revisar os conteúdos.",
     "accessDenied": "Sem acesso à plataforma. Assine um plano ou fale conosco.",
     "accessDeniedCta": "Ver planos",
+    "invalidCredentials": "E-mail ou senha inválidos. Confira os dados ou peça uma nova senha à equipe.",
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha",
     "requestAccess": "Peça acesso"
   },
   "accessRelease": {
@@ -124,7 +127,7 @@
   },
   "landing": {
     "heroTitle": "Do briefing à aprovação, sem planilha e sem WhatsApp eterno.",
-    "heroSubtitle": "O sistema operacional para gestores de conteúdo que desejam planejar, criar e produzir, tudo em um só lugar.",
+    "heroSubtitle": "Materiais de comunicação da marca, alinhados com o cliente — para reverberar em alto e bom som.",
     "cta": "Começar agora",
     "ctaSecondary": "Ver planos",
     "signIn": "Entrar",
@@ -135,7 +138,7 @@
     "navPricing": "Planos",
     "navContact": "Contato",
     "problemTitle": "Por que usar SOM - Sistema Operacional da Marca?",
-    "problemBody": "Para a produção não travar na aprovação.\nO cliente ganha contexto — e você ganha tempo.",
+    "problemBody": "Para a produção não travar na aprovação.\nO cliente ganha contexto — e você ganha tempo.\n\nO sistema operacional para gestores de conteúdo que desejam planejar, criar e produzir, tudo em um só lugar.",
     "howTitle": "Um fluxo só, do briefing a produção",
     "howSteps": {
       "1": { "title": "Defina a marca", "body": "Briefing guiado por IA e kit visual (cores, fontes, voz)." },
@@ -236,10 +239,10 @@
       "blockHint": "{{count}} publicações neste período",
       "posts": {
         "campaign": {
-          "title": "Nova campanha no ar",
+          "title": "Já ouviu falar em Awareness?",
           "day": "segunda-feira",
           "datetime": "21/07/2026 10:00",
-          "theme": "Presença"
+          "theme": "Awareness"
         },
         "reelsHook": {
           "title": "Hook do Reels — bastidores",
@@ -290,12 +293,8 @@
     },
     "mockDetail": {
       "captionLabel": "Legenda",
-      "caption": "Nova campanha no ar — tom da marca, CTA e artes alinhados.",
-      "ctaLabel": "CTA",
-      "cta": "Saiba mais",
-      "hashtagsLabel": "Hashtags",
-      "hashtags": "#marca #campanha #som",
-      "save": "Salvar"
+      "caption": "Muitas vezes a gente vive no automático e só percebe o que sentiu depois que já reagiu.",
+      "mediaFile": "awareness-marina.jpg"
     },
     "contactTitle": "Fale conosco",
     "contactSubtitle": "Dúvidas sobre planos ou onboarding? Escolha como começar e envie no WhatsApp.",
@@ -397,7 +396,19 @@
     "noPending": "Nenhuma aprovação pendente.",
     "noActivity": "Sem atividade recente.",
     "viewAll": "Ver todos",
-    "projects": "Projetos"
+    "projects": "Projetos",
+    "activeSubscribers": "Assinantes ativos",
+    "estimatedMrr": "MRR estimado",
+    "leadsThisMonth": "Leads no mês",
+    "mrrHint": "MRR estimado pelos preços dos planos (Solo, Studio e Agência). Não inclui cortesia nem faturamento real do Stripe.",
+    "growthChart": "Crescimento mensal",
+    "growthChartHint": "Novos assinantes e leads nos últimos 6 meses.",
+    "planMix": "Mix de planos",
+    "planMixHint": "Assinantes ativos por plano.",
+    "planCourtesy": "Cortesia",
+    "chartSubscribers": "Assinantes",
+    "chartLeads": "Leads",
+    "chartCount": "Quantidade"
   },
   "activity": {
     "comment_added": "Comentário em {{subject}}",
@@ -564,7 +575,7 @@
       "hintReorder": "Arraste pelo ícone ⋮⋮ para reorganizar a ordem.",
       "sendUpdates": "Enviar atualizações",
       "openStatus": "Abrir conteúdo e ver status",
-      "empty": "Nenhum conteúdo para agendar. Crie conteúdos na aba Conteúdo.",
+      "empty": "Nenhum conteúdo para agendar. Crie um novo conteúdo no calendário.",
       "access": "Acessar",
       "duplicate": "Duplicar",
       "duplicateHint": "Cria uma cópia com a data +7 dias, em rascunho e histórico de versões zerado.",
@@ -949,6 +960,14 @@
       "publish": "Publicar",
       "leaveComment": "Deixe um comentário...",
       "send": "Enviar",
+      "recordComment": "Gravar comentário em áudio",
+      "stopRecording": "Parar gravação",
+      "discardRecording": "Descartar áudio",
+      "recording": "Gravando {{time}}",
+      "audioComment": "Comentário em áudio",
+      "micPermissionDenied": "Permita o acesso ao microfone para gravar.",
+      "recordingUnsupported": "Seu navegador não permite gravar áudio aqui.",
+      "recordingFailed": "Não foi possível gravar o áudio. Tente novamente.",
       "noComments": "Sem comentários ainda.",
       "commentsLoadError": "Não foi possível carregar os comentários.",
       "deleteComment": "Excluir comentário",

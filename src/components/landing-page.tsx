@@ -7,17 +7,20 @@ import {
   ChevronLeft,
   Clapperboard,
   Film,
+  History,
   Image,
   Images,
   LayoutGrid,
   MessageSquareText,
   Palette,
   Play,
+  Save,
   Share2,
   Sparkles,
   SquareStack,
   UserRound,
   Wand2,
+  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,6 +29,7 @@ import {
   contentFormatRowStyles,
   contentFormatStyles,
 } from "@/components/content-format-styles";
+import { CONTENT_STATUSES } from "@/components/content-status-select";
 import {
   contentStatusStyles,
   type ContentStatus,
@@ -145,74 +149,93 @@ const MOCK_CALENDAR_POSTS = [
   status: ContentStatus;
 }[];
 
+const MARINA_ASSETS = {
+  logo: "/landing/marina/logo.png",
+  handle: "marinamazon",
+  post: "/landing/marina/post-awareness.jpg",
+  tiles: [
+    "/landing/marina/tile-01-atendimento.jpg",
+    "/landing/marina/tile-02-paixoes.jpg",
+    "/landing/marina/tile-03-quem-e.jpg",
+    "/landing/marina/tile-04-amadurecer.jpg",
+    "/landing/marina/tile-05-jung.jpg",
+    "/landing/marina/tile-06-solidao.jpg",
+    "/landing/marina/tile-07-depoimento.jpg",
+    "/landing/marina/tile-08-neuro.jpg",
+  ],
+} as const;
+
 const MOCK_FEED_TILES = [
   {
     key: "campaign",
     format: "static_feed" as const,
-    gradient: "from-teal-300 via-sky-200 to-emerald-200",
+    image: MARINA_ASSETS.post,
     tapTarget: true,
   },
   {
     key: "reelsHook",
     format: "reels" as const,
-    gradient: "from-fuchsia-300 via-pink-200 to-violet-200",
+    image: MARINA_ASSETS.tiles[0],
     tapTarget: false,
   },
   {
     key: "carouselTips",
     format: "carousel" as const,
-    gradient: "from-violet-300 via-purple-200 to-indigo-200",
+    image: MARINA_ASSETS.tiles[1],
     tapTarget: false,
   },
   {
     key: "storiesPromo",
     format: "stories" as const,
-    gradient: "from-teal-200 via-cyan-100 to-sky-200",
+    image: MARINA_ASSETS.tiles[2],
     tapTarget: false,
   },
   {
     key: "feedQuote",
     format: "static_feed" as const,
-    gradient: "from-amber-200 via-orange-100 to-rose-200",
+    image: MARINA_ASSETS.tiles[3],
     tapTarget: false,
   },
   {
     key: "reelsBts",
     format: "reels" as const,
-    gradient: "from-rose-300 via-fuchsia-200 to-pink-200",
+    image: MARINA_ASSETS.tiles[4],
     tapTarget: false,
   },
   {
     key: "carouselLaunch",
     format: "carousel" as const,
-    gradient: "from-indigo-300 via-sky-200 to-teal-200",
+    image: MARINA_ASSETS.tiles[5],
     tapTarget: false,
   },
   {
     key: "storiesPoll",
     format: "stories" as const,
-    gradient: "from-lime-200 via-emerald-100 to-teal-200",
+    image: MARINA_ASSETS.tiles[6],
     tapTarget: false,
   },
   {
     key: "campaignAlt",
     format: "static_feed" as const,
-    gradient: "from-sky-300 via-teal-100 to-cyan-200",
+    image: MARINA_ASSETS.tiles[7],
     tapTarget: false,
   },
 ] as const;
 
 const DETAIL_POST = MOCK_CALENDAR_POSTS[0];
 
-type MockScene = "calendar" | "feed" | "detail";
+type MockScene = "detail" | "calendar" | "feed";
 
 const TIMING = {
-  calendarScrollMs: 7000,
-  feedPauseMs: 500,
-  tapMs: 1100,
-  detailEnterMs: 450,
-  detailScrollMs: 4500,
-  detailHoldMs: 1800,
+  detailHoldTopMs: 1400,
+  detailScrollMs: 6000,
+  statusPauseMs: 500,
+  statusTapMs: 1100,
+  approvedHoldMs: 2400,
+  calendarScrollMs: 5500,
+  feedPauseMs: 400,
+  tapMs: 1000,
+  detailEnterMs: 400,
 } as const;
 
 function prefersReducedMotion() {
@@ -359,34 +382,36 @@ function FeedMockSection({
   const { t } = useTranslation();
 
   return (
-    <div ref={sectionRef} className="border-t border-neutral-200 bg-white px-2.5 pb-5 pt-3">
-      <p className="mb-2 text-center text-[10px] font-medium text-neutral-500">
+    <div ref={sectionRef} className="bg-white pb-4 pt-3">
+      <p className="mb-2 px-3 text-center text-[10px] font-medium text-neutral-500">
         {t("landing.mockFeed.title")}
       </p>
-      <div className="overflow-hidden rounded-xl border border-neutral-200">
+      <div className="overflow-hidden border-y border-neutral-200">
         <div className="flex items-center justify-center border-b border-neutral-100 px-3 py-1.5">
-          <p className="text-[11px] font-semibold text-neutral-900">@marca.demo</p>
+          <p className="text-[11px] font-semibold text-neutral-900">
+            @{MARINA_ASSETS.handle}
+          </p>
         </div>
         <div className="grid grid-cols-3 gap-px bg-neutral-200">
           {MOCK_FEED_TILES.map((tile) => (
             <div
               key={tile.key}
               className={cn(
-                "relative aspect-[4/5] bg-gradient-to-br",
-                tile.gradient,
+                "relative aspect-square overflow-hidden bg-neutral-100",
                 tile.tapTarget && tapping && "landing-mock-tap",
               )}
             >
+              <img
+                src={tile.image}
+                alt=""
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
               {tile.format === "carousel" ? (
                 <SquareStack className="absolute right-1 top-1 h-3 w-3 text-white drop-shadow" />
               ) : null}
               {tile.format === "reels" ? (
                 <Play className="absolute right-1 top-1 h-3 w-3 fill-white text-white drop-shadow" />
-              ) : null}
-              {tile.tapTarget ? (
-                <span className="absolute inset-x-1 bottom-1 truncate rounded bg-black/45 px-1 py-0.5 text-center text-[8px] font-medium text-white">
-                  {t("landing.mockCalendar.posts.campaign.title")}
-                </span>
               ) : null}
             </div>
           ))}
@@ -396,16 +421,57 @@ function FeedMockSection({
   );
 }
 
-function DetailMockScreen() {
+function DetailMockScreen({
+  statusSectionRef,
+  approvedButtonRef,
+  currentStatus,
+  tappingApproved,
+}: {
+  statusSectionRef: RefObject<HTMLDivElement | null>;
+  approvedButtonRef: RefObject<HTMLButtonElement | null>;
+  currentStatus: ContentStatus;
+  tappingApproved: boolean;
+}) {
   const { t } = useTranslation();
-  const post = DETAIL_POST;
+  const post = DETAIL_POST!;
 
   return (
     <div className="space-y-3 px-2.5 pb-6 pt-2">
-      <div className="overflow-hidden rounded-xl bg-gradient-to-br from-teal-300 via-sky-200 to-emerald-200">
-        <div className="flex aspect-square flex-col justify-between p-4">
-          <SomMark className="size-8 drop-shadow-sm" title={t("app.fullName")} />
-          <p className="max-w-[16ch] text-[11px] leading-snug text-teal-950/85">
+      <div className="rounded-xl border border-neutral-200 bg-white p-2.5 shadow-sm">
+        <p className="mb-2 text-[11px] font-semibold text-neutral-900">
+          {t("project.detail.preview")}
+        </p>
+        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+          <div className="flex items-center gap-2 border-b border-neutral-100 px-2.5 py-2">
+            <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full bg-[#710000]">
+              <img
+                src={MARINA_ASSETS.logo}
+                alt=""
+                className="h-full w-full scale-110 object-cover"
+                draggable={false}
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[10px] font-semibold text-neutral-900">
+                @{MARINA_ASSETS.handle}
+              </p>
+              <p className="text-[8px] text-neutral-500">
+                {t(`project.detail.formats.${post.format}`)}
+              </p>
+            </div>
+          </div>
+          <div className="relative aspect-square overflow-hidden bg-neutral-100">
+            <img
+              src={MARINA_ASSETS.post}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-center"
+              draggable={false}
+            />
+          </div>
+          <p className="px-2.5 py-2 text-[9px] leading-relaxed text-neutral-600">
+            <span className="font-semibold text-neutral-900">
+              {MARINA_ASSETS.handle}{" "}
+            </span>
             {t("landing.mockDetail.caption")}
           </p>
         </div>
@@ -451,35 +517,81 @@ function DetailMockScreen() {
             {t("landing.mockDetail.caption")}
           </div>
         </div>
-        <div className="space-y-1">
-          <p className="text-[9px] uppercase tracking-wide text-neutral-400">
-            {t("landing.mockDetail.ctaLabel")}
-          </p>
-          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[10px] text-neutral-700">
-            {t("landing.mockDetail.cta")}
-          </div>
+      </div>
+
+      <div className="space-y-2 rounded-xl border border-neutral-200 bg-white p-2.5">
+        <span className="inline-flex rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+          {t("project.detail.media")}
+        </span>
+        <div className="flex gap-1">
+          <span className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-[9px] font-medium text-neutral-900">
+            {t("project.detail.sourceFile")}
+          </span>
+          <span className="rounded-md bg-neutral-100 px-2 py-1 text-[9px] text-neutral-500">
+            {t("project.detail.sourceUrl")}
+          </span>
         </div>
-        <div className="space-y-1">
-          <p className="text-[9px] uppercase tracking-wide text-neutral-400">
-            {t("landing.mockDetail.hashtagsLabel")}
+        <p className="text-[8px] leading-snug text-neutral-500">
+          {t("project.detail.mediaHint")}
+        </p>
+        <div className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5">
+          <p className="min-w-0 flex-1 truncate text-[8px] text-neutral-600">
+            {t("landing.mockDetail.mediaFile")}
           </p>
-          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-[10px] text-neutral-600">
-            {t("landing.mockDetail.hashtags")}
-          </div>
+          <X className="h-3 w-3 shrink-0 text-neutral-400" aria-hidden />
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex-1 rounded-md bg-neutral-900 py-2 text-center text-[10px] font-medium text-white">
-          {t("landing.mockDetail.save")}
+      <div className="space-y-2.5 rounded-xl border border-neutral-200 bg-white p-2.5">
+        <div className="space-y-1.5">
+          <span className="inline-flex rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+            {t("project.detail.versionNote")}
+          </span>
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2 text-[10px] text-neutral-400">
+            {t("project.detail.versionNotePlaceholder")}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-[9px] font-medium text-neutral-800">
+              <Save className="h-3 w-3" aria-hidden />
+              {t("common.save")}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1.5 text-[9px] font-medium text-primary-foreground">
+              <History className="h-3 w-3" aria-hidden />
+              {t("project.detail.saveVersion")}
+            </span>
+          </div>
         </div>
+
         <div
-          className={cn(
-            "flex-1 rounded-md border py-2 text-center text-[10px] font-medium",
-            contentStatusStyles[post.status],
-          )}
+          ref={statusSectionRef}
+          className="space-y-2 border-t border-neutral-100 pt-2.5"
         >
-          {t(`project.content.status.${post.status}`)}
+          <span className="inline-flex rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+            {t("project.content.columns.status")}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {CONTENT_STATUSES.map((value) => {
+              const isCurrent = value === currentStatus;
+              const isApprovedTarget = value === "approved";
+              return (
+                <button
+                  key={value}
+                  ref={isApprovedTarget ? approvedButtonRef : undefined}
+                  type="button"
+                  tabIndex={-1}
+                  className={cn(
+                    "rounded-md border px-2 py-1 text-[8px] font-medium shadow-sm",
+                    isCurrent
+                      ? contentStatusStyles[value]
+                      : "border-neutral-200 bg-white text-neutral-700",
+                    isApprovedTarget && tappingApproved && "landing-mock-tap",
+                  )}
+                >
+                  {t(`project.content.status.${value}`)}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -488,11 +600,15 @@ function DetailMockScreen() {
 
 function ProductMockup() {
   const { t } = useTranslation();
-  const [scene, setScene] = useState<MockScene>("calendar");
+  const [scene, setScene] = useState<MockScene>("detail");
   const [tapping, setTapping] = useState(false);
+  const [tappingApproved, setTappingApproved] = useState(false);
+  const [detailStatus, setDetailStatus] = useState<ContentStatus>("review");
   const calendarViewportRef = useRef<HTMLDivElement>(null);
   const feedSectionRef = useRef<HTMLDivElement>(null);
   const detailViewportRef = useRef<HTMLDivElement>(null);
+  const statusSectionRef = useRef<HTMLDivElement>(null);
+  const approvedButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
@@ -501,8 +617,52 @@ function ProductMockup() {
 
     const runLoop = async () => {
       while (!signal.cancelled) {
-        setScene("calendar");
+        setScene("detail");
         setTapping(false);
+        setTappingApproved(false);
+        setDetailStatus("review");
+
+        for (let i = 0; i < 30 && !signal.cancelled; i += 1) {
+          if (detailViewportRef.current && statusSectionRef.current) break;
+          await wait(16, signal);
+        }
+        if (signal.cancelled) break;
+
+        const detailViewport = detailViewportRef.current;
+        const statusSection = statusSectionRef.current;
+        if (detailViewport) detailViewport.scrollTop = 0;
+
+        await wait(TIMING.detailHoldTopMs, signal);
+        if (signal.cancelled) break;
+
+        if (detailViewport && statusSection) {
+          const target =
+            statusSection.offsetTop - detailViewport.clientHeight * 0.28;
+          await animateScrollTop(
+            detailViewport,
+            Math.max(0, target),
+            TIMING.detailScrollMs,
+            signal,
+          );
+        } else {
+          await wait(TIMING.detailScrollMs, signal);
+        }
+        if (signal.cancelled) break;
+
+        await wait(TIMING.statusPauseMs, signal);
+        if (signal.cancelled) break;
+
+        setTappingApproved(true);
+        await wait(TIMING.statusTapMs, signal);
+        if (signal.cancelled) break;
+        setTappingApproved(false);
+        setDetailStatus("approved");
+
+        await wait(TIMING.approvedHoldMs, signal);
+        if (signal.cancelled) break;
+
+        setScene("calendar");
+        setDetailStatus("review");
 
         for (let i = 0; i < 30 && !signal.cancelled; i += 1) {
           if (calendarViewportRef.current && feedSectionRef.current) break;
@@ -536,36 +696,7 @@ function ProductMockup() {
         if (signal.cancelled) break;
         setTapping(false);
 
-        setScene("detail");
-
-        for (let i = 0; i < 30 && !signal.cancelled; i += 1) {
-          if (detailViewportRef.current) break;
-          await wait(16, signal);
-        }
-        if (signal.cancelled) break;
-
         await wait(TIMING.detailEnterMs, signal);
-        if (signal.cancelled) break;
-
-        const detailViewport = detailViewportRef.current;
-        if (detailViewport) {
-          detailViewport.scrollTop = 0;
-          const maxScroll = Math.max(
-            0,
-            detailViewport.scrollHeight - detailViewport.clientHeight,
-          );
-          await animateScrollTop(
-            detailViewport,
-            maxScroll * 0.85,
-            TIMING.detailScrollMs,
-            signal,
-          );
-        } else {
-          await wait(TIMING.detailScrollMs, signal);
-        }
-        if (signal.cancelled) break;
-
-        await wait(TIMING.detailHoldMs, signal);
       }
     };
 
@@ -589,23 +720,28 @@ function ProductMockup() {
                 <ChevronLeft className="h-4 w-4 text-neutral-700" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12px] font-semibold text-neutral-900">
-                    {t(`landing.mockCalendar.posts.${DETAIL_POST.key}.title`)}
+                    {t(`landing.mockCalendar.posts.${DETAIL_POST!.key}.title`)}
                   </p>
                 </div>
                 <span
                   className={cn(
                     "shrink-0 rounded-md border px-1.5 py-0.5 text-[8px] font-medium",
-                    contentStatusStyles[DETAIL_POST.status],
+                    contentStatusStyles[detailStatus],
                   )}
                 >
-                  {t(`project.content.status.${DETAIL_POST.status}`)}
+                  {t(`project.content.status.${detailStatus}`)}
                 </span>
               </div>
               <div
                 ref={detailViewportRef}
                 className="landing-mock-viewport landing-mock-scene-enter"
               >
-                <DetailMockScreen />
+                <DetailMockScreen
+                  statusSectionRef={statusSectionRef}
+                  approvedButtonRef={approvedButtonRef}
+                  currentStatus={detailStatus}
+                  tappingApproved={tappingApproved}
+                />
               </div>
             </>
           ) : (
@@ -845,81 +981,88 @@ export function LandingPage() {
   };
 
   return (
-    <div className="theme-mint landing-atmosphere relative min-h-screen overflow-x-hidden">
-      <div className="landing-grid pointer-events-none absolute inset-x-0 top-0 h-[70vh]" aria-hidden />
-
-      <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <a href="#topo" className="inline-flex items-center" aria-label={t("app.fullName")}>
-          <SomMark className="size-9" title={t("app.fullName")} />
-        </a>
-        <nav className="hidden items-center gap-7 text-sm text-neutral-600 md:flex">
-          <a href="#produto" className="transition-colors hover:text-neutral-900">
-            {t("landing.navFeatures")}
+    <div className="theme-mono landing-atmosphere relative min-h-screen overflow-x-hidden">
+      <div id="topo" className="landing-hero-plane">
+        <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <a href="#topo" className="inline-flex items-center" aria-label={t("app.fullName")}>
+            <SomMark className="h-9 w-auto" title={t("app.fullName")} />
           </a>
-          <a href="#ativos" className="transition-colors hover:text-neutral-900">
-            {t("landing.navAssets")}
-          </a>
-          <a href="#como" className="transition-colors hover:text-neutral-900">
-            {t("landing.navHow")}
-          </a>
-          <a href="#planos" className="transition-colors hover:text-neutral-900">
-            {t("landing.navPricing")}
-          </a>
-          <a href="#contato" className="transition-colors hover:text-neutral-900">
-            {t("landing.navContact")}
-          </a>
-        </nav>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <LanguageSwitcher />
-          {authLoading ? (
-            <span className="inline-block h-8 w-8 sm:w-20" aria-hidden />
-          ) : user ? (
-            <Button asChild variant="ghost" size="sm" className="gap-2 px-1.5 sm:px-2">
-              <Link
-                to="/home"
-                aria-label={t("landing.goToApp")}
-                title={t("landing.goToApp")}
-              >
-                <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
-                  {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
-                  <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">
-                    {initials || <UserRound className="h-3.5 w-3.5" />}
-                  </AvatarFallback>
-                </Avatar>
-                {displayName ? (
-                  <span className="hidden max-w-[7rem] truncate sm:inline">{displayName}</span>
-                ) : null}
-              </Link>
+          <nav className="hidden items-center gap-7 text-sm text-neutral-500 md:flex">
+            <a href="#produto" className="transition-colors hover:text-neutral-900">
+              {t("landing.navFeatures")}
+            </a>
+            <a href="#ativos" className="transition-colors hover:text-neutral-900">
+              {t("landing.navAssets")}
+            </a>
+            <a href="#como" className="transition-colors hover:text-neutral-900">
+              {t("landing.navHow")}
+            </a>
+            <a href="#planos" className="transition-colors hover:text-neutral-900">
+              {t("landing.navPricing")}
+            </a>
+            <a href="#contato" className="transition-colors hover:text-neutral-900">
+              {t("landing.navContact")}
+            </a>
+          </nav>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher />
+            {authLoading ? (
+              <span className="inline-block h-8 w-8 sm:w-20" aria-hidden />
+            ) : user ? (
+              <Button asChild variant="ghost" size="sm" className="gap-2 px-1.5 sm:px-2">
+                <Link
+                  to="/home"
+                  aria-label={t("landing.goToApp")}
+                  title={t("landing.goToApp")}
+                >
+                  <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
+                    {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+                    <AvatarFallback className="bg-neutral-100 text-[11px] font-semibold text-neutral-800">
+                      {initials || <UserRound className="h-3.5 w-3.5" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  {displayName ? (
+                    <span className="hidden max-w-[7rem] truncate sm:inline">{displayName}</span>
+                  ) : null}
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="ghost" size="sm" className="inline-flex px-2 sm:px-3">
+                <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
+              </Button>
+            )}
+            <Button asChild size="sm" className="bg-neutral-900 text-white hover:bg-neutral-800">
+              <a href="#contato">{t("landing.cta")}</a>
             </Button>
-          ) : (
-            <Button asChild variant="ghost" size="sm" className="inline-flex px-2 sm:px-3">
-              <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
-            </Button>
-          )}
-          <Button asChild size="sm">
-            <a href="#contato">{t("landing.cta")}</a>
-          </Button>
-        </div>
-      </header>
+          </div>
+        </header>
 
-      <main id="topo">
-        {/* Hero — one composition */}
-        <section className="relative mx-auto grid max-w-6xl gap-12 px-6 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-16">
+        {/* Hero — brand + mockup */}
+        <section className="relative mx-auto grid max-w-6xl gap-12 px-6 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-14">
           <div>
-            <div className="landing-rise">
+            <div className="landing-rise max-w-xl">
               <SomLogo size="hero" priority title={t("app.fullName")} />
             </div>
-            <h1 className="landing-rise landing-rise-delay-2 mt-5 max-w-xl font-display text-2xl font-medium leading-snug tracking-tight text-neutral-800 sm:text-3xl">
+            <h1 className="landing-rise landing-rise-delay-2 mt-8 max-w-xl font-display text-2xl font-medium leading-snug tracking-tight text-neutral-900 sm:text-3xl">
               {t("landing.heroTitle")}
             </h1>
             <p className="landing-rise landing-rise-delay-2 mt-4 max-w-lg text-base leading-relaxed text-neutral-600 sm:text-lg">
               {t("landing.heroSubtitle")}
             </p>
             <div className="landing-rise landing-rise-delay-3 mt-8 flex flex-wrap items-center gap-3">
-              <Button asChild size="lg" className="px-7">
+              <Button
+                asChild
+                size="lg"
+                className="bg-neutral-900 px-7 text-white hover:bg-neutral-800"
+              >
                 <a href="#contato">{t("landing.cta")}</a>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-neutral-300 bg-white/60 backdrop-blur-sm">
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-neutral-300 bg-white/70 text-neutral-900 hover:bg-white"
+              >
                 <a href="#planos">{t("landing.ctaSecondary")}</a>
               </Button>
             </div>
@@ -928,14 +1071,17 @@ export function LandingPage() {
             <ProductMockup />
           </div>
         </section>
+        <div className="landing-hairline h-px w-full" aria-hidden />
+      </div>
 
+      <main>
         {/* Problem */}
-        <section className="border-y border-neutral-900/8 bg-white/50">
+        <section className="landing-wave-ink border-b border-white/10">
           <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:py-20">
             <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.problemTitle")}
             </h2>
-            <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-neutral-600 sm:text-lg">
+            <p className="landing-wave-mute mt-4 whitespace-pre-line text-base leading-relaxed sm:text-lg">
               {t("landing.problemBody")}
             </p>
           </div>
@@ -948,8 +1094,8 @@ export function LandingPage() {
           </h2>
           <ol className="mt-12 grid gap-10 sm:grid-cols-3 sm:gap-8">
             {(["1", "2", "3"] as const).map((step) => (
-              <li key={step} className="relative">
-                <span className="font-display text-5xl font-semibold text-primary/35">{step}</span>
+              <li key={step} className="landing-wave-card relative border p-5">
+                <span className="font-display text-5xl font-semibold text-neutral-300">{step}</span>
                 <h3 className="mt-2 font-display text-xl font-semibold tracking-tight">
                   {t(`landing.howSteps.${step}.title`)}
                 </h3>
@@ -962,7 +1108,7 @@ export function LandingPage() {
         </section>
 
         {/* Content assets */}
-        <section id="ativos" className="border-y border-neutral-900/8 bg-white/50">
+        <section id="ativos" className="landing-wave-mist border-y border-neutral-900/10">
           <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
             <h2 className="max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.assetsTitle")}
@@ -976,10 +1122,10 @@ export function LandingPage() {
                 return (
                   <li
                     key={key}
-                    className="flex gap-3 rounded-xl border border-neutral-200/80 bg-white/70 p-3.5"
+                    className="landing-wave-card flex gap-3 border p-3.5"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} aria-hidden />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-neutral-900/15 bg-white/50">
+                      <Icon className="h-4 w-4 text-neutral-900" strokeWidth={1.75} aria-hidden />
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-display text-sm font-semibold tracking-tight">
@@ -997,7 +1143,7 @@ export function LandingPage() {
         </section>
 
         {/* Features */}
-        <section id="produto" className="border-y border-neutral-900/8 bg-white/40">
+        <section id="produto" className="border-b border-neutral-900/10 bg-white">
           <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
             <h2 className="max-w-xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.featuresTitle")}
@@ -1010,7 +1156,7 @@ export function LandingPage() {
                 const Icon = FEATURE_ICONS[key];
                 return (
                   <li key={key}>
-                    <Icon className="mb-3 h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden />
+                    <Icon className="mb-3 h-5 w-5 text-neutral-900" strokeWidth={1.75} aria-hidden />
                     <h3 className="font-display text-lg font-semibold tracking-tight">
                       {t(`landing.features.${key}.title`)}
                     </h3>
@@ -1025,100 +1171,102 @@ export function LandingPage() {
         </section>
 
         {/* Pricing — cards only for plan selection */}
-        <section id="planos" className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-          <div className="max-w-2xl">
-            <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-              {t("landing.pricingTitle")}
-            </h2>
-            <p className="mt-3 text-base text-neutral-600">{t("landing.pricingSubtitle")}</p>
-          </div>
+        <section id="planos" className="landing-wave-mist border-y border-neutral-900/10">
+          <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+            <div className="max-w-2xl">
+              <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                {t("landing.pricingTitle")}
+              </h2>
+              <p className="mt-3 text-base text-neutral-600">{t("landing.pricingSubtitle")}</p>
+            </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {PLAN_KEYS.map((plan) => {
-              const popular = plan === "studio";
-              const features = t(`landing.plans.${plan}.features`, {
-                returnObjects: true,
-              }) as string[];
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {PLAN_KEYS.map((plan) => {
+                const popular = plan === "studio";
+                const features = t(`landing.plans.${plan}.features`, {
+                  returnObjects: true,
+                }) as string[];
 
-              return (
-                <article
-                  key={plan}
-                  className={cn(
-                    "flex flex-col rounded-2xl border p-6 transition-colors",
-                    popular
-                      ? "border-primary bg-primary text-primary-foreground shadow-[0_20px_50px_-24px_oklch(0.45_0.08_175/0.55)]"
-                      : "border-neutral-200 bg-white/80",
-                  )}
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="font-display text-xl font-semibold">
-                      {t(`landing.plans.${plan}.name`)}
-                    </h3>
-                    {popular ? (
-                      <span className="rounded-md bg-white/20 px-2 py-0.5 text-[11px] font-medium">
-                        {t("landing.pricingPopular")}
-                      </span>
-                    ) : null}
-                  </div>
-                  <p
+                return (
+                  <article
+                    key={plan}
                     className={cn(
-                      "mt-2 text-sm leading-relaxed",
-                      popular ? "text-primary-foreground/80" : "text-neutral-600",
+                      "flex flex-col border p-6 transition-colors",
+                      popular
+                        ? "landing-wave-card-dark"
+                        : "landing-wave-card",
                     )}
                   >
-                    {t(`landing.plans.${plan}.desc`)}
-                  </p>
-                  <p className="mt-6 font-display text-4xl font-semibold tracking-tight">
-                    <span className="text-lg font-medium">R$</span>{" "}
-                    {t(`landing.plans.${plan}.price`)}
-                    <span
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3 className="font-display text-xl font-semibold">
+                        {t(`landing.plans.${plan}.name`)}
+                      </h3>
+                      {popular ? (
+                        <span className="border border-white/25 px-2 py-0.5 text-[11px] font-medium">
+                          {t("landing.pricingPopular")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p
                       className={cn(
-                        "ml-1 text-sm font-normal",
-                        popular ? "text-primary-foreground/90" : "text-neutral-600",
+                        "mt-2 text-sm leading-relaxed",
+                        popular ? "text-white/70" : "text-neutral-600",
                       )}
                     >
-                      {t("landing.pricingPeriod")}
-                    </span>
-                  </p>
-                  <ul className="mt-6 flex-1 space-y-2.5">
-                    {features.map((item) => (
-                      <li key={item} className="flex gap-2 text-sm leading-snug">
-                        <Check
-                          className={cn(
-                            "mt-0.5 h-4 w-4 shrink-0",
-                            popular ? "text-primary-foreground" : "text-primary",
-                          )}
-                          strokeWidth={2}
-                          aria-hidden
-                        />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    className={cn(
-                      "mt-8 w-full",
-                      popular
-                        ? "bg-white text-teal-900 hover:bg-white/90"
-                        : undefined,
-                    )}
-                    variant={popular ? "secondary" : "default"}
-                    disabled={checkoutPlan !== null}
-                    onClick={() => handleSubscribe(plan)}
-                  >
-                    {checkoutPlan === plan
-                      ? t("landing.pricingCtaLoading")
-                      : t("landing.pricingCta")}
-                  </Button>
-                </article>
-              );
-            })}
+                      {t(`landing.plans.${plan}.desc`)}
+                    </p>
+                    <p className="mt-6 font-display text-4xl font-semibold tracking-tight">
+                      <span className="text-lg font-medium">R$</span>{" "}
+                      {t(`landing.plans.${plan}.price`)}
+                      <span
+                        className={cn(
+                          "ml-1 text-sm font-normal",
+                          popular ? "text-white/70" : "text-neutral-600",
+                        )}
+                      >
+                        {t("landing.pricingPeriod")}
+                      </span>
+                    </p>
+                    <ul className="mt-6 flex-1 space-y-2.5">
+                      {features.map((item) => (
+                        <li key={item} className="flex gap-2 text-sm leading-snug">
+                          <Check
+                            className={cn(
+                              "mt-0.5 h-4 w-4 shrink-0",
+                              popular ? "text-white" : "text-neutral-900",
+                            )}
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      className={cn(
+                        "mt-8 w-full",
+                        popular
+                          ? "bg-white text-neutral-900 hover:bg-white/90"
+                          : "bg-neutral-900 text-white hover:bg-neutral-800",
+                      )}
+                      variant={popular ? "secondary" : "default"}
+                      disabled={checkoutPlan !== null}
+                      onClick={() => handleSubscribe(plan)}
+                    >
+                      {checkoutPlan === plan
+                        ? t("landing.pricingCtaLoading")
+                        : t("landing.pricingCta")}
+                    </Button>
+                  </article>
+                );
+              })}
+            </div>
+            <p className="mt-6 text-center text-xs text-neutral-600">{t("landing.pricingNote")}</p>
           </div>
-          <p className="mt-6 text-center text-xs text-neutral-600">{t("landing.pricingNote")}</p>
         </section>
 
         {/* Final CTA */}
-        <section className="border-t border-neutral-900/8 bg-neutral-900 text-white">
+        <section className="landing-wave-ink border-t border-white/10">
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-16 sm:flex-row sm:items-center sm:justify-between sm:py-20">
             <div className="max-w-xl">
               <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -1128,7 +1276,7 @@ export function LandingPage() {
             <Button
               asChild
               size="lg"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-white text-neutral-900 hover:bg-white/90"
             >
               <a href="#contato">{t("landing.finalCta")}</a>
             </Button>
@@ -1136,7 +1284,7 @@ export function LandingPage() {
         </section>
 
         {/* Contact */}
-        <section id="contato" className="border-y border-neutral-900/8 bg-white/50">
+        <section id="contato" className="landing-wave-mist border-y border-neutral-900/10">
           <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
             <h2 className="text-center font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.contactTitle")}

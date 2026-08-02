@@ -106,6 +106,12 @@ export type ProjectCategoryConfig = {
   experienceReady: boolean;
 };
 
+/**
+ * Aba "Conteúdo" ocultada temporariamente (lista quase igual ao Calendário).
+ * Para reexibir: altere para `true`.
+ */
+export const CONTENT_TAB_ENABLED = false;
+
 /** Capacidades por tipo de projeto. Instagram é o fluxo pronto (ex.: Marina Mazon). */
 export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryConfig> = {
   instagram: {
@@ -136,7 +142,13 @@ export function getPrimaryProjectCategory(values?: string[] | null): ProjectCate
 }
 
 export function projectCategoryConfig(values?: string[] | null): ProjectCategoryConfig {
-  return PROJECT_CATEGORY_CONFIG[getPrimaryProjectCategory(values)];
+  const config = PROJECT_CATEGORY_CONFIG[getPrimaryProjectCategory(values)];
+  if (CONTENT_TAB_ENABLED) return config;
+  return {
+    ...config,
+    tabs: config.tabs.filter((tab) => tab !== "content"),
+    defaultTab: config.defaultTab === "content" ? "calendar" : config.defaultTab,
+  };
 }
 
 export function contentFormatsForProject(values?: string[] | null): ContentFormat[] {
@@ -173,6 +185,7 @@ export function normalizeProjectCategories(values?: string[] | null): ProjectCat
 
 export const CONTENT_MEDIA_BUCKET = "content-media";
 export const CLIENT_LOGOS_BUCKET = "client-logos";
+export const COMMENT_AUDIO_BUCKET = "comment-audio";
 
 export const CLIENT_LOGO_ACCEPT = ".jpg,.jpeg,.png,.gif,.webp,.svg,image/jpeg,image/png,image/gif,image/webp,image/svg+xml";
 
@@ -2447,6 +2460,46 @@ export async function listComments(contentId: string): Promise<CommentWithAuthor
   return (rows ?? []).map((row) => ({ ...row, profiles: null }));
 }
 
+export async function uploadCommentAudio(input: {
+  projectId: string;
+  contentId: string;
+  blob: Blob;
+}): Promise<{ publicUrl: string; storagePath: string }> {
+  const userId = await requireUserId();
+  const mime = input.blob.type || "audio/webm";
+  const ext =
+    mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")
+      ? "m4a"
+      : mime.includes("ogg")
+        ? "ogg"
+        : mime.includes("mpeg") || mime.includes("mp3")
+          ? "mp3"
+          : mime.includes("wav")
+            ? "wav"
+            : "webm";
+  const storagePath = `${input.projectId}/${input.contentId}/${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(COMMENT_AUDIO_BUCKET).upload(storagePath, input.blob, {
+    cacheControl: "3600",
+    contentType: mime,
+    upsert: false,
+  });
+  if (error) {
+    if (/bucket not found/i.test(error.message)) {
+      throw new Error(
+        "Bucket de áudio de comentários ainda não existe. Aplique a migration comment-audio no Supabase e tente novamente.",
+      );
+    }
+    if (/row-level security|violates row-level/i.test(error.message)) {
+      throw new Error(
+        "Não foi possível enviar o áudio por falta de permissão. Aplique a migration de comentários em áudio no banco e tente novamente.",
+      );
+    }
+    throw new Error(error.message);
+  }
+  const { data } = supabase.storage.from(COMMENT_AUDIO_BUCKET).getPublicUrl(storagePath);
+  return { publicUrl: data.publicUrl, storagePath };
+}
+
 export async function addComment(input: {
   contentId: string;
   clientId: string;
@@ -2454,14 +2507,27 @@ export async function addComment(input: {
   body: string;
   contentTitle: string;
   i18n?: RowI18n;
+  audioUrl?: string | null;
+  audioStoragePath?: string | null;
 }): Promise<ContentComment> {
   const userId = await requireUserId();
+  const body = input.body.trim();
+  const audioUrl = input.audioUrl?.trim() || null;
+  if (!body && !audioUrl) {
+    throw new Error("Comentário vazio.");
+  }
   const { data, error } = await supabase
     .from("content_comments")
     .insert({
       content_id: input.contentId,
       user_id: userId,
-      body: input.body.trim(),
+      body,
+      ...(audioUrl
+        ? {
+            audio_url: audioUrl,
+            audio_storage_path: input.audioStoragePath?.trim() || null,
+          }
+        : {}),
       ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
     })
     .select("*")
@@ -2478,8 +2544,17 @@ export async function addComment(input: {
 }
 
 export async function deleteComment(commentId: string): Promise<void> {
+  const { data: row } = await supabase
+    .from("content_comments")
+    .select("audio_storage_path")
+    .eq("id", commentId)
+    .maybeSingle();
   const { error } = await supabase.from("content_comments").delete().eq("id", commentId);
   if (error) throw new Error(error.message);
+  const path = row?.audio_storage_path?.trim();
+  if (path) {
+    await supabase.storage.from(COMMENT_AUDIO_BUCKET).remove([path]);
+  }
 }
 
 export async function updateCommentI18n(
@@ -2997,9 +3072,21 @@ export async function isAdmin(): Promise<boolean> {
   return Boolean(data);
 }
 
-/** User was provisioned as gestor/admin or linked to at least one client. */
+/** User was provisioned as gestor/admin, has active plan/team seat, or linked to a client. */
 export async function hasPlatformAccess(): Promise<boolean> {
   if (await isAdmin()) return true;
+
+  // Active manual/Stripe subscription (gestor) — even with 0 clients yet.
+  const { data: plan, error: planError } = await supabase.rpc("active_subscription_plan");
+  if (planError) throw new Error(planError.message);
+  if (plan) return true;
+
+  // Team collaborator under a plan owner (or owner resolved via membership).
+  const { data: ownerId, error: ownerError } = await supabase.rpc("get_team_owner_id");
+  if (ownerError) throw new Error(ownerError.message);
+  if (ownerId) return true;
+
+  // Client platform login linked to at least one project.
   const projects = await listAccessibleProjects();
   return projects.length > 0;
 }
@@ -3091,6 +3178,42 @@ export async function listContactLeads(): Promise<ContactLead[]> {
     locale: row.locale,
     source: row.source,
   }));
+}
+
+export type { DashboardBusinessStats } from "@/lib/dashboard-metrics";
+
+/** Platform business metrics for admin master dashboard. */
+export async function getDashboardBusinessStats() {
+  const { computeDashboardBusinessStats } = await import("@/lib/dashboard-metrics");
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  sixMonthsAgo.setDate(1);
+  sixMonthsAgo.setHours(0, 0, 0, 0);
+  const sinceIso = sixMonthsAgo.toISOString();
+
+  const [assinantes, subscriptionsResult, leadsResult] = await Promise.all([
+    listAssinantes(),
+    supabase.from("subscriptions").select("created_at").gte("created_at", sinceIso),
+    supabase
+      .from("contact_leads" as "subscriptions")
+      .select("created_at")
+      .gte("created_at", sinceIso),
+  ]);
+
+  if (subscriptionsResult.error) throw new Error(subscriptionsResult.error.message);
+  if (leadsResult.error) throw new Error(leadsResult.error.message);
+
+  return computeDashboardBusinessStats({
+    assinantes: assinantes.map((a) => ({
+      isMaster: a.isMaster,
+      isActive: a.isActive,
+      plan: a.plan,
+      clientCount: a.clientCount,
+    })),
+    subscriptionCreatedAts: (subscriptionsResult.data ?? []).map((r) => r.created_at),
+    leadCreatedAts: (leadsResult.data ?? []).map((r) => r.created_at),
+  });
 }
 
 export type ClientHomeProject = {

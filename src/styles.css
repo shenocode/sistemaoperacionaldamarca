@@ -138,39 +138,103 @@
   --brand-mint-foreground: oklch(0.18 0.03 175);
 }
 
-/* Landing: mint primary + atmospheric surfaces (scoped) */
-.theme-mint {
-  --primary: oklch(0.62 0.11 175);
-  --primary-foreground: oklch(0.98 0.01 175);
-  --ring: oklch(0.62 0.11 175);
-  --landing-ink: oklch(0.22 0.03 220);
-  --landing-mist: oklch(0.97 0.012 175);
-  --landing-fog: oklch(0.93 0.02 180);
+/* Landing: monochrome contemporary (scoped) */
+.theme-mono {
+  --primary: oklch(0.14 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --ring: oklch(0.35 0 0);
+  --landing-ink: oklch(0.12 0 0);
+  --landing-paper: oklch(0.985 0 0);
+  --landing-mute: oklch(0.45 0 0);
+  --landing-line: oklch(0.12 0 0 / 0.12);
   --font-landing-display: "Syne", ui-sans-serif, system-ui, sans-serif;
   --font-landing-body: "Figtree", ui-sans-serif, system-ui, sans-serif;
   font-family: var(--font-landing-body);
   color: var(--landing-ink);
-  background-color: var(--landing-mist);
+  background-color: var(--landing-paper);
 }
 
-.theme-mint .font-display {
+.theme-mono .font-display {
   font-family: var(--font-landing-display);
 }
 
 .landing-atmosphere {
-  background:
-    radial-gradient(120% 80% at 12% -10%, oklch(0.9 0.06 175 / 0.7), transparent 55%),
-    radial-gradient(90% 70% at 92% 8%, oklch(0.88 0.05 210 / 0.55), transparent 50%),
-    radial-gradient(70% 50% at 50% 100%, oklch(0.92 0.04 160 / 0.45), transparent 45%),
-    linear-gradient(180deg, var(--landing-mist), oklch(0.98 0.008 200));
+  background: var(--landing-paper);
 }
 
-.landing-grid {
+.landing-hero-plane {
+  background-color: oklch(0.97 0 0);
   background-image:
-    linear-gradient(oklch(0.55 0.04 200 / 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.55 0.04 200 / 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(180deg, oklch(0 0 0 / 0.55), transparent 85%);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='160' viewBox='0 0 280 160' fill='none'%3E%3Cpath d='M0 80 C35 48 70 48 105 80 C140 112 175 112 210 80 C245 48 280 48 315 80' stroke='black' stroke-opacity='0.04' stroke-width='1'/%3E%3Cpath d='M0 100 C35 68 70 68 105 100 C140 132 175 132 210 100 C245 68 280 68 315 100' stroke='black' stroke-opacity='0.03' stroke-width='1'/%3E%3Cpath d='M0 60 C35 28 70 28 105 60 C140 92 175 92 210 60 C245 28 280 28 315 60' stroke='black' stroke-opacity='0.025' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 280px 160px;
+  background-repeat: repeat;
+  color: oklch(0.12 0 0);
+}
+
+.landing-hairline {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0.12 0 0 / 0.12) 20%,
+    oklch(0.12 0 0 / 0.12) 80%,
+    transparent
+  );
+}
+
+/* Concentric ripples — discreet sound-wave grafismo */
+.landing-wave-ink {
+  --landing-wave-stroke: oklch(1 0 0 / 0.07);
+  color: oklch(0.97 0 0);
+  background-color: oklch(0.13 0 0);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240' fill='none'%3E%3Ccircle cx='0' cy='240' r='48' stroke='white' stroke-opacity='0.09' stroke-width='1'/%3E%3Ccircle cx='0' cy='240' r='88' stroke='white' stroke-opacity='0.075' stroke-width='1'/%3E%3Ccircle cx='0' cy='240' r='128' stroke='white' stroke-opacity='0.06' stroke-width='1'/%3E%3Ccircle cx='0' cy='240' r='168' stroke='white' stroke-opacity='0.045' stroke-width='1'/%3E%3Ccircle cx='0' cy='240' r='208' stroke='white' stroke-opacity='0.03' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+  background-position: left bottom;
+  background-repeat: repeat;
+}
+
+.landing-wave-ink h2,
+.landing-wave-ink h3 {
+  color: oklch(0.98 0 0);
+}
+
+.landing-wave-ink p,
+.landing-wave-ink .landing-wave-mute {
+  color: oklch(0.78 0 0);
+}
+
+.landing-wave-mist {
+  background-color: oklch(0.935 0 0);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='160' viewBox='0 0 280 160' fill='none'%3E%3Cpath d='M0 80 C35 48 70 48 105 80 C140 112 175 112 210 80 C245 48 280 48 315 80' stroke='black' stroke-opacity='0.045' stroke-width='1'/%3E%3Cpath d='M0 100 C35 68 70 68 105 100 C140 132 175 132 210 100 C245 68 280 68 315 100' stroke='black' stroke-opacity='0.035' stroke-width='1'/%3E%3Cpath d='M0 60 C35 28 70 28 105 60 C140 92 175 92 210 60 C245 28 280 28 315 60' stroke='black' stroke-opacity='0.03' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 280px 160px;
+  background-repeat: repeat;
+}
+
+.landing-wave-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: oklch(0.12 0 0 / 0.12);
+  background-color: oklch(0.965 0 0);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180' fill='none'%3E%3Ccircle cx='180' cy='0' r='36' stroke='black' stroke-opacity='0.055' stroke-width='1'/%3E%3Ccircle cx='180' cy='0' r='64' stroke='black' stroke-opacity='0.045' stroke-width='1'/%3E%3Ccircle cx='180' cy='0' r='92' stroke='black' stroke-opacity='0.035' stroke-width='1'/%3E%3Ccircle cx='180' cy='0' r='120' stroke='black' stroke-opacity='0.025' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  background-position: right top;
+  background-repeat: no-repeat;
+}
+
+.landing-wave-card-dark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: oklch(1 0 0 / 0.14);
+  background-color: oklch(0.16 0 0);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200' fill='none'%3E%3Ccircle cx='200' cy='200' r='40' stroke='white' stroke-opacity='0.1' stroke-width='1'/%3E%3Ccircle cx='200' cy='200' r='72' stroke='white' stroke-opacity='0.08' stroke-width='1'/%3E%3Ccircle cx='200' cy='200' r='104' stroke='white' stroke-opacity='0.06' stroke-width='1'/%3E%3Ccircle cx='200' cy='200' r='136' stroke='white' stroke-opacity='0.04' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  color: oklch(0.98 0 0);
 }
 
 @keyframes landing-rise {

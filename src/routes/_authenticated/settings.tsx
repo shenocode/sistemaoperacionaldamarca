@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -215,9 +216,8 @@ function ClientSettingsPage() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="settings-new-password">{t("clientSettings.newPassword")}</Label>
-          <Input
+          <PasswordInput
             id="settings-new-password"
-            type="password"
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -227,9 +227,8 @@ function ClientSettingsPage() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="settings-confirm-password">{t("clientSettings.confirmPassword")}</Label>
-          <Input
+          <PasswordInput
             id="settings-confirm-password"
-            type="password"
             autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

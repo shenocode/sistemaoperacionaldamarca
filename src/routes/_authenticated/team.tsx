@@ -23,6 +23,7 @@ import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -257,9 +258,8 @@ function TeamPage() {
             />
             <div className="space-y-1.5">
               <Label htmlFor="team-password">{t("team.password")}</Label>
-              <Input
+              <PasswordInput
                 id="team-password"
-                type="password"
                 required
                 minLength={6}
                 value={password}
@@ -363,9 +363,8 @@ function TeamPage() {
                         <Label htmlFor={`team-reset-${member.userId}`}>
                           {t("team.newPassword")}
                         </Label>
-                        <Input
+                        <PasswordInput
                           id={`team-reset-${member.userId}`}
-                          type="password"
                           required
                           minLength={6}
                           autoFocus

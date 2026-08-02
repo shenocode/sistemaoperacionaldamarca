@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
@@ -52,6 +52,7 @@ import {
   createContent,
   deleteContent,
   duplicateContent,
+  CONTENT_TAB_ENABLED,
   getClient,
   getProject,
   isVideoUrl,
@@ -92,6 +93,14 @@ function sortByManualOrder(a: ContentItem, b: ContentItem) {
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/projects/$projectId/content/")({
   validateSearch: validateContentSearch,
+  beforeLoad: ({ params }) => {
+    if (CONTENT_TAB_ENABLED) return;
+    throw redirect({
+      to: "/clients/$clientId/projects/$projectId/calendar",
+      params,
+      replace: true,
+    });
+  },
   component: ContentListPage,
 });
 

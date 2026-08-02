@@ -9,17 +9,16 @@ import {
   ChevronLeft,
   History,
   MessageSquareWarning,
-  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge, type ContentStatus, isClientActionableStatus } from "@/components/status-badge";
 import {
   ContentMediaPreview,
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
+import { CommentBody, CommentComposer } from "@/components/comment-composer";
 import {
   Dialog,
   DialogContent,
@@ -28,11 +27,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  CONTENT_TAB_ENABLED,
   addComment,
   listComments,
   saveClientContentVersion,
   setContentStatus,
   updateCommentI18n,
+  uploadCommentAudio,
   type CommentWithAuthor,
   type ContentFormat,
 } from "@/lib/api";
@@ -191,15 +192,32 @@ export function ClientContentApprovalView({
   });
 
   const commentMutation = useMutation({
-    mutationFn: async () => {
-      const payload = await buildCommentI18n(comment, uiLocale);
+    mutationFn: async (input: { body: string; audioBlob?: Blob | null }) => {
+      let audioUrl: string | null = null;
+      let audioStoragePath: string | null = null;
+      if (input.audioBlob) {
+        const uploaded = await uploadCommentAudio({
+          projectId,
+          contentId,
+          blob: input.audioBlob,
+        });
+        audioUrl = uploaded.publicUrl;
+        audioStoragePath = uploaded.storagePath;
+      }
+
+      const text = input.body.trim();
+      const payload = text
+        ? await buildCommentI18n(text, uiLocale)
+        : { body: "", i18n: {} as RowI18n };
       return addComment({
         contentId,
         clientId,
         projectId,
         body: payload.body,
         contentTitle: title,
-        i18n: payload.i18n,
+        i18n: text ? payload.i18n : undefined,
+        audioUrl,
+        audioStoragePath,
       });
     },
     onSuccess: (row) => {
@@ -246,13 +264,17 @@ export function ClientContentApprovalView({
       <div className="mx-auto flex max-w-3xl flex-col px-4 pb-10 pt-4 sm:px-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
-            to="/clients/$clientId/projects/$projectId/content"
+            to={
+              CONTENT_TAB_ENABLED
+                ? "/clients/$clientId/projects/$projectId/content"
+                : "/clients/$clientId/projects/$projectId/calendar"
+            }
             params={{ clientId, projectId }}
-            search={{}}
+            {...(CONTENT_TAB_ENABLED ? { search: {} } : {})}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            {t("project.tabs.content")}
+            {t(CONTENT_TAB_ENABLED ? "project.tabs.content" : "project.tabs.calendar")}
           </Link>
           <div className="flex items-center gap-2">
             <StatusBadge status={status} asButton />
@@ -366,36 +388,23 @@ export function ClientContentApprovalView({
                           })}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap text-muted-foreground">
-                        {getLocalizedText(c.i18n, "body", c.body, uiLocale)}
-                      </p>
+                      <CommentBody
+                        body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                        audioUrl={c.audio_url}
+                      />
                     </li>
                   ))}
                 </ul>
               ) : null}
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!comment.trim()) return;
-                  commentMutation.mutate();
-                }}
-              >
-                <Input
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder={t("project.detail.leaveComment")}
-                  aria-label={t("project.detail.leaveComment")}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  aria-label={t("project.detail.send")}
-                  disabled={commentMutation.isPending || !comment.trim()}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </form>
+              <CommentComposer
+                value={comment}
+                onChange={setComment}
+                isPending={commentMutation.isPending}
+                onSubmitText={() => commentMutation.mutateAsync({ body: comment })}
+                onSubmitAudio={(blob) =>
+                  commentMutation.mutateAsync({ body: "", audioBlob: blob })
+                }
+              />
             </div>
           ) : null}
         </div>

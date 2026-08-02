@@ -34,6 +34,9 @@
     "reviewInviteHint": "Sign in with the email and password provided by the team to review content.",
     "accessDenied": "No platform access. Subscribe to a plan or contact us.",
     "accessDeniedCta": "See plans",
+    "invalidCredentials": "Invalid email or password. Check your details or ask the team for a new password.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "requestAccess": "Request access"
   },
   "accessRelease": {
@@ -124,7 +127,7 @@
   },
   "landing": {
     "heroTitle": "From briefing to approval — no spreadsheet chaos.",
-    "heroSubtitle": "The operating system for content managers who produce, align, and approve posts with clients — in one place.",
+    "heroSubtitle": "Brand communication materials, aligned with the client — ready to resonate loud and clear.",
     "cta": "Get started",
     "ctaSecondary": "See plans",
     "signIn": "Sign in",
@@ -135,7 +138,7 @@
     "navPricing": "Pricing",
     "navContact": "Contact",
     "problemTitle": "Why use SOM — Sistema Operacional da Marca?",
-    "problemBody": "So production doesn't stall at approval.\nClients gain context — you gain time.",
+    "problemBody": "So production doesn't stall at approval.\nClients gain context — you gain time.\n\nThe operating system for content managers who produce, align, and approve posts with clients — in one place.",
     "howTitle": "One flow, from briefing to post.",
     "howSteps": {
       "1": { "title": "Define the brand", "body": "AI-guided briefing and visual kit (colors, fonts, voice)." },
@@ -236,10 +239,10 @@
       "blockHint": "{{count}} posts in this period",
       "posts": {
         "campaign": {
-          "title": "New campaign is live",
+          "title": "Have you heard of Awareness?",
           "day": "Monday",
           "datetime": "07/21/2026 10:00",
-          "theme": "Presence"
+          "theme": "Awareness"
         },
         "reelsHook": {
           "title": "Reels hook — behind the scenes",
@@ -290,12 +293,8 @@
     },
     "mockDetail": {
       "captionLabel": "Caption",
-      "caption": "New campaign live — brand tone, CTA, and art aligned.",
-      "ctaLabel": "CTA",
-      "cta": "Learn more",
-      "hashtagsLabel": "Hashtags",
-      "hashtags": "#brand #campaign #bos",
-      "save": "Save"
+      "caption": "We often live on autopilot and only notice what we felt after we've already reacted.",
+      "mediaFile": "awareness-marina.jpg"
     },
     "contactTitle": "Contact us",
     "contactSubtitle": "Questions about plans or onboarding? Choose how to start and send on WhatsApp.",
@@ -397,7 +396,19 @@
     "noPending": "No pending approvals.",
     "noActivity": "No recent activity.",
     "viewAll": "View all",
-    "projects": "Projects"
+    "projects": "Projects",
+    "activeSubscribers": "Active subscribers",
+    "estimatedMrr": "Estimated MRR",
+    "leadsThisMonth": "Leads this month",
+    "mrrHint": "MRR estimated from plan prices (Solo, Studio, and Agency). Excludes courtesy and real Stripe billing.",
+    "growthChart": "Monthly growth",
+    "growthChartHint": "New subscribers and leads over the last 6 months.",
+    "planMix": "Plan mix",
+    "planMixHint": "Active subscribers by plan.",
+    "planCourtesy": "Courtesy",
+    "chartSubscribers": "Subscribers",
+    "chartLeads": "Leads",
+    "chartCount": "Count"
   },
   "activity": {
     "comment_added": "Comment on {{subject}}",
@@ -556,7 +567,7 @@
       "hintReorder": "Drag the ⋮⋮ handle to reorder.",
       "sendUpdates": "Send updates",
       "openStatus": "Open content and view status",
-      "empty": "No content to schedule. Create content in the Content tab.",
+      "empty": "No content to schedule. Create a new content item in the calendar.",
       "access": "Open",
       "duplicate": "Duplicate",
       "duplicateHint": "Creates a copy with date +7 days, as draft, with version history reset.",
@@ -941,6 +952,14 @@
       "publish": "Publish",
       "leaveComment": "Leave a comment...",
       "send": "Send",
+      "recordComment": "Record audio comment",
+      "stopRecording": "Stop recording",
+      "discardRecording": "Discard audio",
+      "recording": "Recording {{time}}",
+      "audioComment": "Audio comment",
+      "micPermissionDenied": "Allow microphone access to record.",
+      "recordingUnsupported": "Your browser can't record audio here.",
+      "recordingFailed": "Couldn't record audio. Please try again.",
       "noComments": "No comments yet.",
       "commentsLoadError": "Could not load comments.",
       "deleteComment": "Delete comment",

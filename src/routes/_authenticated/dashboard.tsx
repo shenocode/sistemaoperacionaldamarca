@@ -2,21 +2,18 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR, enUS, es } from "date-fns/locale";
-import { CheckCircle2, FolderKanban, Users, Clock } from "lucide-react";
+import { FolderKanban, Users, Clock } from "lucide-react";
 import { Route as AuthLayout } from "./route";
 import { ClientCard } from "@/components/client-card";
 import {
   ClientSettingsDialog,
   useClientSettingsDialog,
 } from "@/components/client-settings-dialog";
+import { DashboardBusinessSection } from "@/components/dashboard-business-section";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import {
   countProjects,
   ensureFieldsTranslated,
@@ -24,25 +21,16 @@ import {
   isAdmin,
   listClients,
   listPendingApprovals,
-  listRecentActivity,
   resolvePostLoginPath,
-  updateActivityEventI18n,
-  updateContentI18n,
   updateProject,
   type ClientWithProjects,
-  type PendingApproval,
 } from "@/lib/api";
 import {
   fieldsNeedLocaleBackfill,
-  getLocalizedText,
   normalizeAppLocale,
   parseRowI18n,
 } from "@/lib/i18n-content";
-import { formatActivitySummary } from "@/lib/activity-i18n";
-import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
-import type { LanguageCode } from "@/i18n";
-
-const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
+import { useAppRole } from "@/hooks/use-app-role";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   beforeLoad: async () => {
@@ -68,7 +56,7 @@ function DashboardPage() {
   const { t, i18n } = useTranslation();
   const { user } = AuthLayout.useRouteContext();
   const queryClient = useQueryClient();
-  const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const { isAdminMaster, loading: roleLoading } = useAppRole();
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const settingsDialog = useClientSettingsDialog();
 
@@ -76,22 +64,17 @@ function DashboardPage() {
   const projectsCountQuery = useQuery({
     queryKey: ["dashboard", "projects-count"],
     queryFn: countProjects,
+    enabled: !roleLoading && !isAdminMaster,
   });
   const pendingQuery = useQuery({
     queryKey: ["dashboard", "pending"],
     queryFn: listPendingApprovals,
-  });
-  const activityQuery = useQuery({
-    queryKey: ["dashboard", "activity"],
-    queryFn: () => listRecentActivity(12),
+    enabled: !roleLoading && !isAdminMaster,
   });
 
   const clients = clientsQuery.data ?? [];
   const pending = pendingQuery.data ?? [];
-  const activity = activityQuery.data ?? [];
 
-  const pendingIdsKey = useMemo(() => pending.map((p) => p.id).join(","), [pending]);
-  const activityIdsKey = useMemo(() => activity.map((a) => a.id).join(","), [activity]);
   const projectBackfillKey = useMemo(
     () =>
       clients
@@ -100,7 +83,7 @@ function DashboardPage() {
     [clients],
   );
 
-  // Backfill project names shown on client cards + pending subtitles.
+  // Backfill project names shown on client cards.
   useEffect(() => {
     if (!clients.length) return;
     let cancelled = false;
@@ -129,67 +112,12 @@ function DashboardPage() {
       }
       if (!cancelled && improved > 0) {
         void queryClient.invalidateQueries({ queryKey: ["clients"] });
-        void queryClient.invalidateQueries({ queryKey: ["dashboard", "pending"] });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [projectBackfillKey, queryClient, uiLocale, clients]);
-
-  useEffect(() => {
-    if (!pending.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: pending,
-        locale: uiLocale,
-        getKey: (r) => r.id,
-        getI18n: (r) => r.i18n,
-        getFields: (r) => ({ title: r.title }),
-        persist: async (r, nextI18n) => {
-          const row = await updateContentI18n(r.id, nextI18n);
-          if (cancelled) return;
-          queryClient.setQueryData<PendingApproval[]>(["dashboard", "pending"], (prev) =>
-            (prev ?? []).map((item) =>
-              item.id === row.id ? { ...item, ...row, projects: item.projects } : item,
-            ),
-          );
-        },
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["dashboard", "pending"] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingIdsKey gates retries
-  }, [pendingIdsKey, queryClient, uiLocale]);
-
-  useEffect(() => {
-    if (!activity.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: activity,
-        locale: uiLocale,
-        getKey: (r) => r.id,
-        getI18n: (r) => r.i18n,
-        getFields: (r) => ({ summary: r.summary }),
-        persist: (r, nextI18n) => updateActivityEventI18n(r.id, nextI18n),
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["dashboard", "activity"] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- activityIdsKey gates retries
-  }, [activityIdsKey, queryClient, uiLocale]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
@@ -198,19 +126,24 @@ function DashboardPage() {
         description={`${t("dashboard.welcome")}, ${user.email}`}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label={t("nav.clients")} value={clients.length} icon={Users} />
-        <StatCard
-          label={t("dashboard.pendingApprovals")}
-          value={pending.length}
-          icon={Clock}
-        />
-        <StatCard
-          label={t("dashboard.projects")}
-          value={projectsCountQuery.data ?? 0}
-          icon={FolderKanban}
-        />
-      </div>
+      {!roleLoading && isAdminMaster ? (
+        <DashboardBusinessSection />
+      ) : null}
+      {!roleLoading && !isAdminMaster ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard label={t("nav.clients")} value={clients.length} icon={Users} />
+          <StatCard
+            label={t("dashboard.pendingApprovals")}
+            value={pending.length}
+            icon={Clock}
+          />
+          <StatCard
+            label={t("dashboard.projects")}
+            value={projectsCountQuery.data ?? 0}
+            icon={FolderKanban}
+          />
+        </div>
+      ) : null}
 
       <section aria-labelledby="clients-heading" className="space-y-4">
         <div className="flex items-center justify-between">
@@ -237,82 +170,6 @@ function DashboardPage() {
       </section>
 
       <ClientSettingsDialog {...settingsDialog} />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="rounded-xl">
-          <CardHeader>
-            <CardTitle className="text-base">{t("dashboard.pendingApprovals")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pending.length === 0 ? (
-              <EmptyState icon={CheckCircle2} title={t("dashboard.noPending")} />
-            ) : (
-              <ul className="space-y-3">
-                {pending.map((item) => (
-                  <li key={item.id}>
-                    <Link
-                      to="/clients/$clientId/projects/$projectId/content/$contentId"
-                      params={{
-                        clientId: item.projects.client_id,
-                        projectId: item.projects.id,
-                        contentId: item.id,
-                      }}
-                      search={{}}
-                      className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/40"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {getLocalizedText(item.i18n, "title", item.title, uiLocale)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {getLocalizedText(
-                            item.projects.clients.i18n,
-                            "name",
-                            item.projects.clients.name,
-                            uiLocale,
-                          )}{" "}
-                          ·{" "}
-                          {getLocalizedText(
-                            item.projects.i18n,
-                            "name",
-                            item.projects.name,
-                            uiLocale,
-                          )}
-                        </p>
-                      </div>
-                      <StatusBadge status={item.status as ContentStatus} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="rounded-xl">
-          <CardHeader>
-            <CardTitle className="text-base">{t("dashboard.recentActivity")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activity.length === 0 ? (
-              <EmptyState icon={Clock} title={t("dashboard.noActivity")} />
-            ) : (
-              <ul className="space-y-3">
-                {activity.map((event) => (
-                  <li key={event.id} className="flex items-start justify-between gap-3 text-sm">
-                    <p>{formatActivitySummary(event, uiLocale, t)}</p>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(event.created_at), {
-                        addSuffix: true,
-                        locale,
-                      })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

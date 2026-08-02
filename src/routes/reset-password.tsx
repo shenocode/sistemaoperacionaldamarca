@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
@@ -108,14 +108,14 @@ function ResetPasswordPage() {
         <h1 className="text-lg font-medium">{t("auth.resetPassword")}</h1>
         <div className="space-y-1.5">
           <Label htmlFor="password">{t("auth.newPassword")}</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
             disabled={!ready}
+            autoComplete="new-password"
           />
         </div>
         <Button type="submit" className="w-full" disabled={busy || !ready}>

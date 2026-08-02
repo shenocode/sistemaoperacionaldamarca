@@ -9,6 +9,7 @@ import {
 } from "@/components/client-contact-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -307,9 +308,8 @@ export function ClientSettingsDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="settings-login-password">{t("clients.loginPassword")}</Label>
-              <Input
+              <PasswordInput
                 id="settings-login-password"
-                type="password"
                 autoComplete="new-password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}

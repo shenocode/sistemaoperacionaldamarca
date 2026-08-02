@@ -9,7 +9,6 @@ import {
   Eye,
   GripVertical,
   Plus,
-  Send,
   Save,
   History,
   Trash2,
@@ -27,6 +26,7 @@ import {
   type ContentStatus,
 } from "@/components/status-badge";
 import { CONTENT_STATUSES } from "@/components/content-status-select";
+import { ContentFormatSelect } from "@/components/content-format-select";
 import {
   ContentMediaPreview,
   guessMediaKind,
@@ -34,6 +34,7 @@ import {
 } from "@/components/content-media-preview";
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { ContentDesignAssistant } from "@/components/content-design-assistant";
+import { CommentBody, CommentComposer } from "@/components/comment-composer";
 import { PresetField } from "@/components/preset-field";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,6 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   CONTENT_MEDIA_ACCEPT,
+  CONTENT_TAB_ENABLED,
   addComment,
   addProjectThemePreset,
   canManageClient,
@@ -75,6 +77,7 @@ import {
   updateContentFields,
   updateContentI18n,
   updateCommentI18n,
+  uploadCommentAudio,
   uploadContentMediaFiles,
   getLocalizedText,
   getCanonicalText,
@@ -646,22 +649,41 @@ function ContentDetailPage() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: async () => {
-      let commentI18n: RowI18n = {};
-      try {
-        const block = await translateTextField({ text: comment });
-        commentI18n = { body: block };
-      } catch {
-        commentI18n = { body: buildLocalizedFieldFromSource(comment, uiLocale) };
+    mutationFn: async (input: { body: string; audioBlob?: Blob | null }) => {
+      let audioUrl: string | null = null;
+      let audioStoragePath: string | null = null;
+      if (input.audioBlob) {
+        const uploaded = await uploadCommentAudio({
+          projectId,
+          contentId,
+          blob: input.audioBlob,
+        });
+        audioUrl = uploaded.publicUrl;
+        audioStoragePath = uploaded.storagePath;
       }
-      const bodyCanonical = getCanonicalText(commentI18n, "body", comment);
+
+      const text = input.body.trim();
+      let commentI18n: RowI18n = {};
+      if (text) {
+        try {
+          const block = await translateTextField({ text });
+          commentI18n = { body: block };
+        } catch {
+          commentI18n = { body: buildLocalizedFieldFromSource(text, uiLocale) };
+        }
+      }
+      const bodyCanonical = text
+        ? getCanonicalText(commentI18n, "body", text)
+        : "";
       return addComment({
         contentId,
         clientId,
         projectId,
         body: bodyCanonical,
         contentTitle: content?.title ?? title,
-        i18n: commentI18n,
+        i18n: text ? commentI18n : undefined,
+        audioUrl,
+        audioStoragePath,
       });
     },
     onSuccess: (row) => {
@@ -816,9 +838,13 @@ function ContentDetailPage() {
   if (!canManage && status === "draft") {
     return (
       <Navigate
-        to="/clients/$clientId/projects/$projectId/content"
+        to={
+          CONTENT_TAB_ENABLED
+            ? "/clients/$clientId/projects/$projectId/content"
+            : "/clients/$clientId/projects/$projectId/calendar"
+        }
         params={{ clientId, projectId }}
-        search={{}}
+        {...(CONTENT_TAB_ENABLED ? { search: {} } : {})}
         replace
       />
     );
@@ -835,13 +861,17 @@ function ContentDetailPage() {
       <UnsavedChangesGuard isDirty={isDirty} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          to="/clients/$clientId/projects/$projectId/content"
+          to={
+            CONTENT_TAB_ENABLED
+              ? "/clients/$clientId/projects/$projectId/content"
+              : "/clients/$clientId/projects/$projectId/calendar"
+          }
           params={{ clientId, projectId }}
-          search={{}}
+          {...(CONTENT_TAB_ENABLED ? { search: {} } : {})}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          {t("project.tabs.content")}
+          {t(CONTENT_TAB_ENABLED ? "project.tabs.content" : "project.tabs.calendar")}
         </Link>
         <StatusBadge status={status} asButton />
       </div>
@@ -969,44 +999,77 @@ function ContentDetailPage() {
                             ) : null}
                           </div>
                         </div>
-                        <p className="whitespace-pre-wrap text-muted-foreground">
-                          {getLocalizedText(c.i18n, "body", c.body, uiLocale)}
-                        </p>
+                        <CommentBody
+                          body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                          audioUrl={c.audio_url}
+                        />
                       </li>
                     );
                   })}
                 </ul>
               ) : null}
-              <form
-                className="flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!comment.trim()) return;
-                  commentMutation.mutate();
-                }}
-              >
-                <Input
-                  className="min-w-0 flex-1 bg-background"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder={t("project.detail.leaveComment")}
-                  aria-label={t("project.detail.leaveComment")}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="shrink-0"
-                  aria-label={t("project.detail.send")}
-                  disabled={commentMutation.isPending || !comment.trim()}
-                >
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </form>
+              <CommentComposer
+                value={comment}
+                onChange={setComment}
+                isPending={commentMutation.isPending}
+                onSubmitText={() => commentMutation.mutateAsync({ body: comment })}
+                onSubmitAudio={(blob) =>
+                  commentMutation.mutateAsync({ body: "", audioBlob: blob })
+                }
+              />
             </CardContent>
           </Card>
 
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label variant="highlight">{t("project.detail.format")}</Label>
+                    <ContentFormatSelect
+                      format={formatType}
+                      formats={allowedFormats}
+                      onValueChange={(next) => {
+                        setFormatType(next);
+                        if (next !== "carousel" && mediaItems.length > 1) {
+                          setMediaItems((prev) => prev.slice(0, 1));
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
+                    <Select
+                      value={theme.trim() || NONE_THEME_VALUE}
+                      onValueChange={(value) => {
+                        if (value === NEW_THEME_VALUE) {
+                          setNewTheme("");
+                          setThemeDialogOpen(true);
+                          return;
+                        }
+                        setTheme(value === NONE_THEME_VALUE ? "" : value);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={t("project.calendar.selectTheme")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_THEME_VALUE}>
+                          {t("project.calendar.noTheme")}
+                        </SelectItem>
+                        {themeOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={NEW_THEME_VALUE}>
+                          {t("project.calendar.newTheme")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" variant="highlight">
                   {t("project.content.layoutText")}
@@ -1018,61 +1081,6 @@ function ContentDetailPage() {
                   fallback={title}
                   onI18nCommit={onFieldI18nCommit}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label variant="highlight">{t("project.detail.format")}</Label>
-                <Select
-                  value={formatType}
-                  onValueChange={(v) => {
-                    const next = v as ContentFormat;
-                    setFormatType(next);
-                    if (next !== "carousel" && mediaItems.length > 1) {
-                      setMediaItems((prev) => prev.slice(0, 1));
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowedFormats.map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {t(`project.detail.formats.${key}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
-                <Select
-                  value={theme.trim() || NONE_THEME_VALUE}
-                  onValueChange={(value) => {
-                    if (value === NEW_THEME_VALUE) {
-                      setNewTheme("");
-                      setThemeDialogOpen(true);
-                      return;
-                    }
-                    setTheme(value === NONE_THEME_VALUE ? "" : value);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("project.calendar.selectTheme")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE_THEME_VALUE}>
-                      {t("project.calendar.noTheme")}
-                    </SelectItem>
-                    {themeOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value={NEW_THEME_VALUE}>
-                      {t("project.calendar.newTheme")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="caption" variant="highlight">
