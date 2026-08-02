@@ -36,24 +36,16 @@ import {
 } from "@/components/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ContactForm } from "@/components/contact-form";
+import { ExitIntentDialog } from "@/components/exit-intent-dialog";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SiteFooter } from "@/components/site-footer";
 import { SomLogo, SomMark } from "@/components/som-logo";
-import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import {
-  buildWhatsAppNotifyUrl,
   startSubscriptionCheckout,
-  submitContactLead,
-  type ContactLeadIntent,
-  type ContactLeadNiche,
   type ContentFormat,
   type SubscriptionPlanKey,
 } from "@/lib/api";
-import { CONTACT_WHATSAPP } from "@/lib/company";
-import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -777,180 +769,6 @@ function ProductMockup() {
   );
 }
 
-function ContactForm() {
-  const { t, i18n } = useTranslation();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [niche, setNiche] = useState<ContactLeadNiche | "">("");
-  const [intent, setIntent] = useState<ContactLeadIntent | "">("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const nicheLabel = (value: ContactLeadNiche) => {
-    if (value === "agency") return t("landing.contactNicheAgency");
-    if (value === "social_media") return t("landing.contactNicheSocialMedia");
-    return t("landing.contactNicheBrandOwner");
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!niche) {
-      toast.error(t("landing.contactNicheRequired"));
-      return;
-    }
-    if (!intent) {
-      toast.error(t("landing.contactIntentRequired"));
-      return;
-    }
-    const { local } = splitWhatsAppDigits(whatsapp);
-    if (!isValidWhatsAppLocal(local)) return;
-
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
-    const fullWhatsapp = whatsapp.replace(/\D/g, "");
-    const bodyKey =
-      intent === "trial"
-        ? "landing.contactWhatsAppBodyTrial"
-        : "landing.contactWhatsAppBodyHuman";
-    const body = t(bodyKey, {
-      name: trimmedName,
-      email: trimmedEmail,
-      whatsapp: fullWhatsapp,
-      niche: nicheLabel(niche),
-    });
-    const url = buildWhatsAppNotifyUrl(CONTACT_WHATSAPP, body);
-    if (!url) return;
-
-    setSubmitting(true);
-    try {
-      await submitContactLead({
-        name: trimmedName,
-        email: trimmedEmail,
-        whatsapp: fullWhatsapp,
-        intent,
-        niche,
-        locale: i18n.language,
-      });
-    } catch {
-      toast.error(t("landing.contactLeadSaveFailed"));
-    } finally {
-      setSubmitting(false);
-    }
-
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="mx-auto mt-10 max-w-lg space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="contact-name">{t("landing.contactName")}</Label>
-        <Input
-          id="contact-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="bg-white/80"
-          autoComplete="name"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="contact-email">{t("landing.contactEmail")}</Label>
-        <Input
-          id="contact-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="bg-white/80"
-          autoComplete="email"
-        />
-      </div>
-      <WhatsAppPhoneField
-        idPrefix="contact"
-        value={whatsapp}
-        onChange={setWhatsapp}
-        label={t("landing.contactWhatsapp")}
-        countryLabel={t("landing.contactCountry")}
-        hint={t("landing.contactWhatsappHint")}
-        required
-        inputClassName="bg-white/80"
-      />
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-medium leading-none">
-          {t("landing.contactNicheLabel")}
-        </legend>
-        <RadioGroup
-          value={niche}
-          onValueChange={(value) => setNiche(value as ContactLeadNiche)}
-          className="gap-3"
-          required
-        >
-          {(
-            [
-              { value: "agency" as const, labelKey: "landing.contactNicheAgency" },
-              { value: "social_media" as const, labelKey: "landing.contactNicheSocialMedia" },
-              { value: "brand_owner" as const, labelKey: "landing.contactNicheBrandOwner" },
-            ] as const
-          ).map((option) => (
-            <label
-              key={option.value}
-              htmlFor={`contact-niche-${option.value}`}
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-md border border-neutral-900/10 bg-white/80 px-3 py-3 text-sm transition-colors",
-                niche === option.value && "border-neutral-900/40 bg-white",
-              )}
-            >
-              <RadioGroupItem
-                id={`contact-niche-${option.value}`}
-                value={option.value}
-                className="mt-0.5"
-              />
-              <span>{t(option.labelKey)}</span>
-            </label>
-          ))}
-        </RadioGroup>
-      </fieldset>
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-medium leading-none">
-          {t("landing.contactIntentLabel")}
-        </legend>
-        <RadioGroup
-          value={intent}
-          onValueChange={(value) => setIntent(value as ContactLeadIntent)}
-          className="gap-3"
-          required
-        >
-          {(
-            [
-              { value: "trial" as const, labelKey: "landing.contactIntentTrial" },
-              { value: "human" as const, labelKey: "landing.contactIntentHuman" },
-            ] as const
-          ).map((option) => (
-            <label
-              key={option.value}
-              htmlFor={`contact-intent-${option.value}`}
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-md border border-neutral-900/10 bg-white/80 px-3 py-3 text-sm transition-colors",
-                intent === option.value && "border-neutral-900/40 bg-white",
-              )}
-            >
-              <RadioGroupItem
-                id={`contact-intent-${option.value}`}
-                value={option.value}
-                className="mt-0.5"
-              />
-              <span>{t(option.labelKey)}</span>
-            </label>
-          ))}
-        </RadioGroup>
-      </fieldset>
-      <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={submitting}>
-        {t("landing.contactSubmit")}
-      </Button>
-    </form>
-  );
-}
-
 export function LandingPage() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
@@ -1292,12 +1110,13 @@ export function LandingPage() {
             <p className="mx-auto mt-3 max-w-xl text-center text-base text-neutral-600">
               {t("landing.contactSubtitle")}
             </p>
-            <ContactForm />
+            <ContactForm className="mt-10" />
           </div>
         </section>
       </main>
 
       <SiteFooter />
+      <ExitIntentDialog enabled={!user} />
     </div>
   );
 }
