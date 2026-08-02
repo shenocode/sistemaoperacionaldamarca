@@ -116,9 +116,8 @@ export function ExitIntentDialog({ enabled = true }: ExitIntentDialogProps) {
           <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-neutral-900">
             {t("landing.exitIntentTitle")}
           </DialogTitle>
-          <DialogDescription className="space-y-2 text-sm leading-relaxed text-neutral-600">
-            <span className="block">{t("landing.exitIntentBody")}</span>
-            <span className="block text-neutral-700">{t("landing.exitIntentClosing")}</span>
+          <DialogDescription className="text-sm leading-relaxed text-neutral-600">
+            {t("landing.exitIntentBody")}
           </DialogDescription>
         </DialogHeader>
         <ContactForm

@@ -5,63 +5,31 @@ import {
   CONTACT_WHATSAPP,
   CONTACT_WHATSAPP_DISPLAY,
 } from "@/lib/company";
-import { SomLogo, SomMark } from "@/components/som-logo";
+import { SomLogo } from "@/components/som-logo";
 import { cn } from "@/lib/utils";
 
 type SiteFooterProps = {
-  variant?: "landing" | "app";
   className?: string;
 };
 
-export function SiteFooter({ variant = "landing", className }: SiteFooterProps) {
+export function SiteFooter({ className }: SiteFooterProps) {
   const { t } = useTranslation();
-  const isApp = variant === "app";
 
   return (
     <footer
-      className={cn(
-        "border-t",
-        isApp
-          ? "mt-auto border-border bg-background px-4 py-4 md:px-6"
-          : "border-neutral-900/10 bg-white px-6 py-12",
-        className,
-      )}
+      className={cn("border-t border-neutral-900/10 bg-white px-6 py-12", className)}
     >
-      <div
-        className={cn(
-          "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
-          !isApp && "mx-auto max-w-6xl gap-8",
-        )}
-      >
-        {isApp ? (
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+        <SomLogo size="md" title={t("app.fullName")} className="h-28 sm:h-32" />
+        <div className="flex flex-col gap-1 text-sm text-neutral-500 sm:items-end sm:text-right">
           <a
             href={COMPANY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-medium tracking-wide text-neutral-900 underline-offset-4 hover:underline"
           >
-            <SomMark className="h-6 w-auto" title={t("app.fullName")} aria-hidden />
             {COMPANY_NAME}
           </a>
-        ) : (
-          <SomLogo size="md" title={t("app.fullName")} className="h-28 sm:h-32" />
-        )}
-        <div
-          className={cn(
-            "flex flex-col gap-1 sm:items-end sm:text-right",
-            isApp ? "text-xs text-muted-foreground" : "text-sm text-neutral-500",
-          )}
-        >
-          {!isApp ? (
-            <a
-              href={COMPANY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium tracking-wide text-neutral-900 underline-offset-4 hover:underline"
-            >
-              {COMPANY_NAME}
-            </a>
-          ) : null}
           <a
             href={`https://wa.me/${CONTACT_WHATSAPP}`}
             target="_blank"

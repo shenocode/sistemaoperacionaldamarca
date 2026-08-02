@@ -235,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Sheet>
 
         <main className="min-w-0 flex-1 pt-14 md:pt-0">{children}</main>
-        <SiteFooter variant="app" />
+        <SiteFooter className="mt-auto" />
       </div>
     </div>
   );
