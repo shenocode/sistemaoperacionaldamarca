@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  User,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -104,6 +105,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <UserPlus className="h-4 w-4" /> {t("nav.team")}
             </Link>
           ) : null}
+          <Link
+            to="/profile"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <User className="h-4 w-4" /> {t("nav.settings")}
+          </Link>
           <Link
             to="/settings"
             onClick={closeMobileNav}

@@ -453,6 +453,27 @@
     "passwordUpdated": "Senha atualizada.",
     "savePassword": "Salvar senha"
   },
+  "gestorProfile": {
+    "title": "Meu Perfil",
+    "subtitle": "Atualize os dados da sua conta de gestor.",
+    "loadError": "Não foi possível carregar o perfil.",
+    "email": "E-mail de login",
+    "emailHint": "O e-mail de acesso não pode ser alterado por aqui. Peça ao administrador se precisar trocar.",
+    "fullName": "Nome completo",
+    "fullNamePlaceholder": "Seu nome",
+    "whatsapp": "WhatsApp",
+    "whatsappCountry": "País do WhatsApp",
+    "whatsappHint": "Usado para contato e avisos da plataforma.",
+    "whatsappInvalid": "Informe um número de WhatsApp válido.",
+    "updated": "Perfil atualizado.",
+    "passwordSection": "Senha de acesso",
+    "passwordHint": "Altere a senha usada para entrar na plataforma.",
+    "newPassword": "Nova senha",
+    "confirmPassword": "Confirmar nova senha",
+    "passwordMismatch": "As senhas não coincidem.",
+    "passwordUpdated": "Senha atualizada.",
+    "savePassword": "Salvar senha"
+  },
   "adminAiSettings": {
     "title": "Chaves de IA",
     "subtitle": "Cada gestor usa as próprias chaves OpenAI e Gemini. O consumo fica na sua conta.",

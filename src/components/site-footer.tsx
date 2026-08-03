@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   COMPANY_NAME,
@@ -20,7 +21,13 @@ export function SiteFooter({ className }: SiteFooterProps) {
       className={cn("border-t border-neutral-900/10 bg-white px-6 py-12", className)}
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
-        <SomLogo size="md" title={t("app.fullName")} className="h-28 sm:h-32" />
+        <Link
+          to="/"
+          className="inline-block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/30"
+          aria-label={t("app.fullName")}
+        >
+          <SomLogo size="md" title={t("app.fullName")} className="h-28 sm:h-32" />
+        </Link>
         <div className="flex flex-col gap-1 text-sm text-neutral-500 sm:items-end sm:text-right">
           <a
             href={COMPANY_URL}

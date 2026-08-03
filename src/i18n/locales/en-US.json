@@ -453,6 +453,27 @@
     "passwordUpdated": "Password updated.",
     "savePassword": "Save password"
   },
+  "gestorProfile": {
+    "title": "My Profile",
+    "subtitle": "Update your manager account details.",
+    "loadError": "Could not load your profile.",
+    "email": "Login email",
+    "emailHint": "Login email cannot be changed here. Ask an administrator if you need to change it.",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Your name",
+    "whatsapp": "WhatsApp",
+    "whatsappCountry": "WhatsApp country",
+    "whatsappHint": "Used for contact and platform notifications.",
+    "whatsappInvalid": "Enter a valid WhatsApp number.",
+    "updated": "Profile updated.",
+    "passwordSection": "Access password",
+    "passwordHint": "Change the password used to sign in to the platform.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordUpdated": "Password updated.",
+    "savePassword": "Save password"
+  },
   "adminAiSettings": {
     "title": "AI keys",
     "subtitle": "Each manager uses their own OpenAI and Gemini keys. Usage is billed to their account.",

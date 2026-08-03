@@ -1009,6 +1009,71 @@ export async function updateOwnPassword(password: string) {
   if (error) throw new Error(error.message);
 }
 
+export type MyProfile = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  whatsapp: string | null;
+};
+
+export async function getMyProfile(): Promise<MyProfile> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) throw new Error(userError.message);
+  if (!user) throw new Error("Não autenticado.");
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, whatsapp")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    full_name:
+      data?.full_name ??
+      (typeof user.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name
+        : null),
+    whatsapp: data?.whatsapp ?? null,
+  };
+}
+
+export async function updateMyProfile(input: {
+  fullName: string;
+  whatsapp: string;
+}): Promise<MyProfile> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) throw new Error(userError.message);
+  if (!user) throw new Error("Não autenticado.");
+
+  const fullName = input.fullName.trim();
+  const whatsapp = input.whatsapp.replace(/\D/g, "") || null;
+
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.id,
+    full_name: fullName || null,
+    whatsapp,
+  });
+  if (error) throw new Error(error.message);
+
+  if (fullName) {
+    await supabase.auth.updateUser({
+      data: { full_name: fullName },
+    });
+  }
+
+  return getMyProfile();
+}
+
 // —— Projects ——
 
 export async function listProjects(clientId: string) {
