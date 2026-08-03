@@ -60,7 +60,7 @@ export function ContentAiAssistant({
   const [transcription, setTranscription] = useState("");
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
 
-  const needsLocucao = format === "reels" || format === "recorded_video";
+  const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
   const needsRoteiro = format === "carousel";
 
   const generateMutation = useMutation({

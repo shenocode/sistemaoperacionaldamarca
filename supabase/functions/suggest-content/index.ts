@@ -11,7 +11,9 @@ type ContentFormat =
   | "reels"
   | "stories"
   | "carousel"
-  | "recorded_video";
+  | "recorded_video"
+  | "youtube_short"
+  | "print_material";
 
 type SuggestRequest = {
   contentId: string;
@@ -142,7 +144,7 @@ function sanitizeSuggestion(raw: Record<string, unknown>, format: ContentFormat)
     cta: asString(raw.cta),
     hashtags: asString(raw.hashtags),
     theme: themeRaw || null,
-    locucao: format === "reels" || format === "recorded_video" ? asString(raw.locucao) : "",
+    locucao: format === "reels" || format === "recorded_video" || format === "youtube_short" ? asString(raw.locucao) : "",
     roteiro: format === "carousel" ? asString(raw.roteiro) : "",
   };
 }
@@ -320,7 +322,7 @@ Deno.serve(async (req) => {
       Promise.all(instagramUrls.map((url) => fetchInstagramMeta(url))),
     ]);
 
-    const needsLocucao = format === "reels" || format === "recorded_video";
+    const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
     const needsRoteiro = format === "carousel";
     const brandGuide =
       typeof brandBriefing?.guide_markdown === "string"

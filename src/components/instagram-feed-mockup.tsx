@@ -76,7 +76,7 @@ function coverUrl(item: ContentItem) {
 function formatBadge(format: ContentFormat, cover: string | null) {
   if (format === "carousel") return "carousel" as const;
   if (format === "reels") return "reels" as const;
-  if (format === "recorded_video") return "video" as const;
+  if (format === "recorded_video" || format === "youtube_short") return "video" as const;
   if (cover && isVideoUrl(cover)) return "video" as const;
   return null;
 }

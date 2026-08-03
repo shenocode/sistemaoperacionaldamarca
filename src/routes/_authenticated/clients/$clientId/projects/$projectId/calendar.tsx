@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
@@ -51,7 +51,12 @@ import {
   contentFormatRowStyles,
   contentFormatStyles,
 } from "@/components/content-format-styles";
+import {
+  GraphicArtsMaterialFields,
+  parseCmInput,
+} from "@/components/graphic-arts-material-fields";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
+import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
 import type { ContentStatus } from "@/components/status-badge";
 import {
   addProjectThemePreset,
@@ -60,12 +65,15 @@ import {
   canManageClient,
   claimClientAccess,
   contentFormatsForProject,
+  createContent,
   deleteContent,
   duplicateCalendarBlock,
   deleteCalendarBlock,
   duplicateContent,
   ensureCalendarBlocks,
   getClient,
+  getGraphicArtsMaterialPreset,
+  getPrimaryProjectCategory,
   listContent,
   getProject,
   getLocalizedText,
@@ -80,6 +88,7 @@ import {
   type CalendarBlock,
   type ContentFormat,
   type ContentItem,
+  type GraphicArtsMaterialType,
 } from "@/lib/api";
 import {
   buildLocalizedFieldFromSource,
@@ -303,7 +312,14 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/projects
 function ProjectCalendarPage() {
   const { clientId, projectId } = Route.useParams();
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const posterPreset = getGraphicArtsMaterialPreset("poster");
+  const [newMaterialType, setNewMaterialType] = useState<GraphicArtsMaterialType>("poster");
+  const [newWidthCm, setNewWidthCm] = useState(String(posterPreset.widthCm));
+  const [newHeightCm, setNewHeightCm] = useState(String(posterPreset.heightCm));
   const [themeDialogContentId, setThemeDialogContentId] = useState<string | null>(null);
   const [newTheme, setNewTheme] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
@@ -364,9 +380,10 @@ function ProjectCalendarPage() {
   const localizedTitle = (item: ContentItem) =>
     getLocalizedText(item.i18n, "title", item.title, uiLocale);
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
-  const showInstagramMockup = projectCategoryConfig(projectQuery.data?.categories).tabs.includes(
-    "feed",
-  );
+  const isGraphicArts =
+    getPrimaryProjectCategory(projectQuery.data?.categories) === "graphic_arts";
+  const isVideos = getPrimaryProjectCategory(projectQuery.data?.categories) === "videos";
+  const showFeedMockup = projectCategoryConfig(projectQuery.data?.categories).tabs.includes("feed");
   const serverRows = useMemo(
     () => [...(contentQuery.data ?? [])].sort(sortByManualOrder),
     [contentQuery.data],
@@ -474,6 +491,41 @@ function ProjectCalendarPage() {
     window.open(url, "_blank", "noopener,noreferrer");
     toast.success(t("clients.whatsappOpened"));
   }
+
+  const openCreateDialog = () => {
+    const preset = getGraphicArtsMaterialPreset("poster");
+    setNewTitle("");
+    setNewMaterialType("poster");
+    setNewWidthCm(String(preset.widthCm));
+    setNewHeightCm(String(preset.heightCm));
+    setCreateOpen(true);
+  };
+
+  const resetCreateForm = () => {
+    const preset = getGraphicArtsMaterialPreset("poster");
+    setNewTitle("");
+    setNewMaterialType("poster");
+    setNewWidthCm(String(preset.widthCm));
+    setNewHeightCm(String(preset.heightCm));
+  };
+
+  const createMutation = useMutation({
+    mutationFn: createContent,
+    onSuccess: (row) => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setCreateOpen(false);
+      resetCreateForm();
+      toast.success(t("project.content.created"));
+      void navigate({
+        to: "/clients/$clientId/projects/$projectId/content/$contentId",
+        params: { clientId, projectId, contentId: row.id },
+        search: {},
+      });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const updateMutation = useMutation({
     mutationFn: updateContentCalendar,
@@ -1163,15 +1215,21 @@ function ProjectCalendarPage() {
           </ul>
         </div>
         {canEdit ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={clientQuery.isLoading || projectQuery.isLoading}
-            onClick={handleSendUpdates}
-          >
-            {t("project.calendar.sendUpdates")}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" size="sm" onClick={openCreateDialog}>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t("project.content.new")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={clientQuery.isLoading || projectQuery.isLoading}
+              onClick={handleSendUpdates}
+            >
+              {t("project.calendar.sendUpdates")}
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -1184,7 +1242,12 @@ function ProjectCalendarPage() {
             : t("common.error")}
         </p>
       ) : rows.length === 0 ? (
-        <EmptyState icon={CalendarDays} title={t("project.calendar.empty")} />
+        <EmptyState
+          icon={CalendarDays}
+          title={t("project.calendar.empty")}
+          description={canEdit ? t("project.calendar.emptyCreateHint") : undefined}
+          onClick={canEdit ? openCreateDialog : undefined}
+        />
       ) : blocks.length > 0 ? (
         <div className="space-y-4">
           {blocks.map((block) => renderBlockCard(block))}
@@ -1200,19 +1263,106 @@ function ProjectCalendarPage() {
         </Card>
       )}
 
-      {!loading && !contentQuery.isError && showInstagramMockup ? (
+      {!loading && !contentQuery.isError && showFeedMockup ? (
         <div className="flex min-w-0 justify-center overflow-x-clip pt-4">
-          <InstagramFeedMockup
-            items={rows}
-            clientId={clientId}
-            projectId={projectId}
-            username={clientQuery.data?.name}
-            avatarUrl={clientQuery.data?.logo_url}
-            canReorder={canEdit && rows.length > 1}
-            onReorder={applyReorder}
-          />
+          {isVideos ? (
+            <YouTubeChannelMockup
+              items={rows}
+              clientId={clientId}
+              projectId={projectId}
+              username={clientQuery.data?.name}
+              avatarUrl={clientQuery.data?.logo_url}
+            />
+          ) : (
+            <InstagramFeedMockup
+              items={rows}
+              clientId={clientId}
+              projectId={projectId}
+              username={clientQuery.data?.name}
+              avatarUrl={clientQuery.data?.logo_url}
+              canReorder={canEdit && rows.length > 1}
+              onReorder={applyReorder}
+            />
+          )}
         </div>
       ) : null}
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) resetCreateForm();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {isGraphicArts ? t("project.graphicArts.newPiece") : t("project.content.new")}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newTitle.trim()) return;
+              if (isGraphicArts) {
+                const width = parseCmInput(newWidthCm);
+                const height = parseCmInput(newHeightCm);
+                if (width == null || height == null) {
+                  toast.error(t("project.graphicArts.invalidDimensions"));
+                  return;
+                }
+                createMutation.mutate({
+                  projectId,
+                  clientId,
+                  title: newTitle.trim(),
+                  format: "print_material",
+                  materialType: newMaterialType,
+                  widthCm: width,
+                  heightCm: height,
+                });
+                return;
+              }
+              createMutation.mutate({ projectId, clientId, title: newTitle.trim() });
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="calendar-content-title">{t("project.content.title")}</Label>
+              <Input
+                id="calendar-content-title"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+            {isGraphicArts ? (
+              <GraphicArtsMaterialFields
+                idPrefix="calendar-create"
+                materialType={newMaterialType}
+                widthCm={newWidthCm}
+                heightCm={newHeightCm}
+                onMaterialTypeChange={setNewMaterialType}
+                onWidthCmChange={setNewWidthCm}
+                onHeightCmChange={setNewHeightCm}
+              />
+            ) : null}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                disabled={createMutation.isPending}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending || !newTitle.trim()}>
+                {t("common.save")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(themeDialogContentId)}

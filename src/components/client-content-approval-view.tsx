@@ -64,6 +64,9 @@ type ClientContentApprovalViewProps = {
   previewItems: PreviewMediaItem[];
   username?: string;
   avatarUrl?: string | null;
+  materialType?: string | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
   onCaptionChange: (value: string) => void;
   onHashtagsChange: (value: string) => void;
   onCtaChange: (value: string) => void;
@@ -97,6 +100,9 @@ export function ClientContentApprovalView({
   previewItems,
   username,
   avatarUrl,
+  materialType,
+  widthCm,
+  heightCm,
   onCaptionChange,
   onHashtagsChange,
   onCtaChange,
@@ -110,7 +116,8 @@ export function ClientContentApprovalView({
   const [changesNote, setChangesNote] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(false);
   const showLocucao =
-    (format === "reels" || format === "recorded_video") && locucao.trim().length > 0;
+    (format === "reels" || format === "recorded_video" || format === "youtube_short") &&
+    locucao.trim().length > 0;
 
   const commentsQuery = useQuery({
     queryKey: ["comments", contentId],
@@ -292,6 +299,9 @@ export function ClientContentApprovalView({
             cta={cta}
             username={username ?? title}
             avatarUrl={avatarUrl}
+            materialType={materialType}
+            widthCm={widthCm}
+            heightCm={heightCm}
             editable
             size="lg"
             onCaptionChange={onCaptionChange}

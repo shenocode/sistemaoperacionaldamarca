@@ -28,6 +28,10 @@ import {
 import { CONTENT_STATUSES } from "@/components/content-status-select";
 import { ContentFormatSelect } from "@/components/content-format-select";
 import {
+  GraphicArtsMaterialFields,
+  parseCmInput,
+} from "@/components/graphic-arts-material-fields";
+import {
   ContentMediaPreview,
   guessMediaKind,
   type PreviewMediaItem,
@@ -57,6 +61,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   CONTENT_MEDIA_ACCEPT,
+  CLIENT_LOGO_ACCEPT,
   CONTENT_TAB_ENABLED,
   addComment,
   addProjectThemePreset,
@@ -66,7 +71,11 @@ import {
   deleteComment,
   getClient,
   getContent,
+  getGraphicArtsMaterialPreset,
   getProject,
+  GRAPHIC_ARTS_MATERIAL_TYPES,
+  isPrintMaterialFormat,
+  isYoutubeVideoFormat,
   listComments,
   listVersions,
   resolveContentMediaUrls,
@@ -78,6 +87,7 @@ import {
   updateContentI18n,
   updateCommentI18n,
   uploadCommentAudio,
+  uploadContentMedia,
   uploadContentMediaFiles,
   getLocalizedText,
   getCanonicalText,
@@ -92,6 +102,7 @@ import {
   type ContentFormat,
   type ContentVersion,
   type CommentWithAuthor,
+  type GraphicArtsMaterialType,
   type LocalizedField,
   type RowI18n,
 } from "@/lib/api";
@@ -152,7 +163,13 @@ function buildContentFormSnapshot(input: {
   hashtags: string;
   theme: string;
   formatType: ContentFormat;
+  materialType: string;
+  widthCm: string;
+  heightCm: string;
+  productionNotes: string;
   mediaItems: MediaEntry[];
+  thumbnailUrl: string;
+  thumbnailFileName: string;
   rowI18n: RowI18n;
 }) {
   return JSON.stringify({
@@ -164,7 +181,13 @@ function buildContentFormSnapshot(input: {
     hashtags: input.hashtags,
     theme: input.theme.trim(),
     formatType: input.formatType,
+    materialType: input.materialType,
+    widthCm: input.widthCm,
+    heightCm: input.heightCm,
+    productionNotes: input.productionNotes,
     media: serializeMediaForDirty(input.mediaItems),
+    thumbnailUrl: input.thumbnailUrl,
+    thumbnailFileName: input.thumbnailFileName,
     i18n: input.rowI18n,
   });
 }
@@ -204,7 +227,15 @@ function ContentDetailPage() {
   const [theme, setTheme] = useState("");
   const [rowI18n, setRowI18n] = useState<RowI18n>({});
   const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
+  const posterPreset = getGraphicArtsMaterialPreset("poster");
+  const [materialType, setMaterialType] = useState<GraphicArtsMaterialType>("poster");
+  const [widthCm, setWidthCm] = useState(String(posterPreset.widthCm));
+  const [heightCm, setHeightCm] = useState(String(posterPreset.heightCm));
+  const [productionNotes, setProductionNotes] = useState("");
   const [mediaItems, setMediaItems] = useState<MediaEntry[]>([]);
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailBlobUrl, setThumbnailBlobUrl] = useState<string | null>(null);
   const [source, setSource] = useState<SourceMode>("file");
   const [urlDraft, setUrlDraft] = useState("");
   const [comment, setComment] = useState("");
@@ -222,6 +253,7 @@ function ContentDetailPage() {
   const [hydratedKey, setHydratedKey] = useState<string | null>(null);
   const [viewingVersion, setViewingVersion] = useState<ContentVersion | null>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
 
   const contentQuery = useQuery({
     queryKey: ["content", "detail", contentId],
@@ -278,8 +310,11 @@ function ContentDetailPage() {
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
+  const isPrintPiece = isPrintMaterialFormat(formatType);
+  const isYoutubePiece = isYoutubeVideoFormat(formatType);
   const isCarousel = formatType === "carousel";
-  const needsLocucao = formatType === "reels" || formatType === "recorded_video";
+  const needsLocucao =
+    formatType === "reels" || formatType === "recorded_video" || formatType === "youtube_short";
   const themeOptions = useMemo(() => {
     const current = theme.trim();
     return Array.from(new Set([...themePresets, ...(current ? [current] : [])])).sort((a, b) =>
@@ -287,6 +322,7 @@ function ContentDetailPage() {
     );
   }, [themePresets, theme, i18n.language]);
   const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
+  const previewThumbnailUrl = thumbnailBlobUrl || thumbnailUrl.trim() || null;
   const previewItems: PreviewMediaItem[] = mediaItems
     .map((item) => {
       if (item.kind === "url") return { url: item.url };
@@ -310,7 +346,17 @@ function ContentDetailPage() {
     const nextTheme = getLocalizedText(nextI18n, "theme", row.theme ?? "", uiLocale);
     const nextFormat =
       row.format ?? defaultContentFormatForProject(projectQuery.data?.categories);
+    const nextPreset = getGraphicArtsMaterialPreset(row.material_type);
+    const nextMaterialType = GRAPHIC_ARTS_MATERIAL_TYPES.includes(
+      row.material_type as GraphicArtsMaterialType,
+    )
+      ? (row.material_type as GraphicArtsMaterialType)
+      : nextPreset.id;
+    const nextWidthCm = String(row.width_cm ?? nextPreset.widthCm);
+    const nextHeightCm = String(row.height_cm ?? nextPreset.heightCm);
+    const nextProductionNotes = row.production_notes ?? "";
     const nextMedia = mediaEntriesFromUrls(resolveContentMediaUrls(row));
+    const nextThumbnail = row.thumbnail_url?.trim() || "";
     setRowI18n(nextI18n);
     setTitle(nextTitle);
     setCaption(nextCaption);
@@ -320,7 +366,13 @@ function ContentDetailPage() {
     setHashtags(nextHashtags);
     setTheme(nextTheme);
     setFormatType(nextFormat);
+    setMaterialType(nextMaterialType);
+    setWidthCm(nextWidthCm);
+    setHeightCm(nextHeightCm);
+    setProductionNotes(nextProductionNotes);
     setMediaItems(nextMedia);
+    setThumbnailUrl(nextThumbnail);
+    setThumbnailFile(null);
     setUrlDraft("");
     setDragIndex(null);
     setDropIndex(null);
@@ -334,7 +386,13 @@ function ContentDetailPage() {
         hashtags: nextHashtags,
         theme: nextTheme,
         formatType: nextFormat,
+        materialType: nextMaterialType,
+        widthCm: nextWidthCm,
+        heightCm: nextHeightCm,
+        productionNotes: nextProductionNotes,
         mediaItems: nextMedia,
+        thumbnailUrl: nextThumbnail,
+        thumbnailFileName: "",
         rowI18n: nextI18n,
       }),
     );
@@ -361,12 +419,28 @@ function ContentDetailPage() {
     hashtags,
     theme,
     formatType,
+    materialType,
+    widthCm,
+    heightCm,
+    productionNotes,
     mediaItems,
+    thumbnailUrl,
+    thumbnailFileName: thumbnailFile?.name ?? "",
     rowI18n,
   });
   const isDirty = Boolean(formBaseline) && !ignoreUnsavedChanges && formSnapshot !== formBaseline;
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
+
+  useEffect(() => {
+    if (!thumbnailFile) {
+      setThumbnailBlobUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(thumbnailFile);
+    setThumbnailBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [thumbnailFile]);
 
   const contentBackfillFields = useMemo(
     () =>
@@ -468,14 +542,20 @@ function ContentDetailPage() {
   const buildSavePayload = () => {
     // versionNote is only for change_note on new versions — never persist on content.i18n
     const { versionNote: _omitVersionNote, ...i18nPayload } = rowI18n;
+    const parsedWidth = parseCmInput(widthCm);
+    const parsedHeight = parseCmInput(heightCm);
     return {
       title: getCanonicalText(i18nPayload, "title", title),
       caption: getCanonicalText(i18nPayload, "caption", caption),
       cta: getCanonicalText(i18nPayload, "cta", cta),
-      hashtags: getCanonicalText(i18nPayload, "hashtags", hashtags),
+      hashtags: isPrintPiece ? "" : getCanonicalText(i18nPayload, "hashtags", hashtags),
       locucao: getCanonicalText(i18nPayload, "locucao", locucao),
       roteiro: getCanonicalText(i18nPayload, "roteiro", roteiro),
       theme: getCanonicalText(i18nPayload, "theme", theme.trim()) || null,
+      materialType: isPrintPiece ? materialType : null,
+      widthCm: isPrintPiece ? parsedWidth : null,
+      heightCm: isPrintPiece ? parsedHeight : null,
+      productionNotes: isPrintPiece ? productionNotes : "",
       i18n: i18nPayload,
     };
   };
@@ -528,10 +608,21 @@ function ContentDetailPage() {
     return urls;
   };
 
+  const resolveThumbnailForSave = async () => {
+    if (thumbnailFile) {
+      return uploadContentMedia(projectId, thumbnailFile);
+    }
+    return thumbnailUrl.trim() || null;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const urls = await resolveMediaForSave();
+      const nextThumbnail = isYoutubePiece ? await resolveThumbnailForSave() : null;
       const payload = buildSavePayload();
+      if (isPrintPiece && (payload.widthCm == null || payload.heightCm == null)) {
+        throw new Error(t("project.graphicArts.invalidDimensions"));
+      }
       return updateContentFields({
         contentId,
         title: payload.title,
@@ -541,8 +632,13 @@ function ContentDetailPage() {
         locucao: payload.locucao,
         roteiro: payload.roteiro,
         mediaUrls: urls,
+        thumbnailUrl: isYoutubePiece ? nextThumbnail : null,
         format: formatType,
         theme: payload.theme,
+        materialType: payload.materialType,
+        widthCm: payload.widthCm,
+        heightCm: payload.heightCm,
+        productionNotes: payload.productionNotes,
         i18n: payload.i18n,
       });
     },
@@ -559,6 +655,9 @@ function ContentDetailPage() {
   const versionMutation = useMutation({
     mutationFn: async () => {
       const payload = buildSavePayload();
+      if (isPrintPiece && (payload.widthCm == null || payload.heightCm == null)) {
+        throw new Error(t("project.graphicArts.invalidDimensions"));
+      }
       const noteCanonical = getCanonicalText(rowI18n, "versionNote", versionNote);
       // Clients save title/format/theme/copy via RPC; admins save full content as a new version.
       if (!isAdmin) {
@@ -578,6 +677,7 @@ function ContentDetailPage() {
         });
       }
       const urls = await resolveMediaForSave();
+      const nextThumbnail = isYoutubePiece ? await resolveThumbnailForSave() : null;
       return saveContentAsNewVersion({
         contentId,
         clientId,
@@ -589,8 +689,13 @@ function ContentDetailPage() {
         locucao: payload.locucao,
         roteiro: payload.roteiro,
         mediaUrls: urls,
+        thumbnailUrl: isYoutubePiece ? nextThumbnail : null,
         format: formatType,
         theme: payload.theme,
+        materialType: payload.materialType,
+        widthCm: payload.widthCm,
+        heightCm: payload.heightCm,
+        productionNotes: payload.productionNotes,
         changeNote: noteCanonical,
         i18n: payload.i18n,
       });
@@ -744,9 +849,16 @@ function ContentDetailPage() {
       locucao: getLocalizedText(versionI18n, "locucao", viewingVersion.locucao ?? "", uiLocale),
       roteiro: getLocalizedText(versionI18n, "roteiro", viewingVersion.roteiro ?? "", uiLocale),
       format,
+      materialType: viewingVersion.material_type,
+      widthCm: viewingVersion.width_cm,
+      heightCm: viewingVersion.height_cm,
+      productionNotes: viewingVersion.production_notes ?? "",
       previewItems: resolveContentMediaUrls(viewingVersion).map((url) => ({ url })),
-      needsLocucao: format === "reels" || format === "recorded_video",
+      thumbnailUrl: viewingVersion.thumbnail_url,
+      needsLocucao:
+        format === "reels" || format === "recorded_video" || format === "youtube_short",
       isCarousel: format === "carousel",
+      isPrint: isPrintMaterialFormat(format),
     };
   }, [viewingVersion, content, uiLocale]);
 
@@ -892,6 +1004,10 @@ function ContentDetailPage() {
                 cta={cta}
                 username={client?.name ?? title}
                 avatarUrl={client?.logo_url}
+                thumbnailUrl={previewThumbnailUrl}
+                materialType={materialType}
+                widthCm={parseCmInput(widthCm)}
+                heightCm={parseCmInput(heightCm)}
               />
             </CardContent>
           </Card>
@@ -909,7 +1025,9 @@ function ContentDetailPage() {
                   cta: suggestion.cta,
                   hashtags: suggestion.hashtags,
                   ...(suggestion.theme ? { theme: suggestion.theme } : {}),
-                  ...(formatType === "reels" || formatType === "recorded_video"
+                  ...(formatType === "reels" ||
+                  formatType === "recorded_video" ||
+                  formatType === "youtube_short"
                     ? { locucao: suggestion.locucao }
                     : {}),
                   ...(formatType === "carousel" ? { roteiro: suggestion.roteiro } : {}),
@@ -923,7 +1041,11 @@ function ContentDetailPage() {
                 if (suggestion.theme) {
                   setTheme(getLocalizedText(merged, "theme", suggestion.theme, uiLocale));
                 }
-                if (formatType === "reels" || formatType === "recorded_video") {
+                if (
+                  formatType === "reels" ||
+                  formatType === "recorded_video" ||
+                  formatType === "youtube_short"
+                ) {
                   setLocucao(getLocalizedText(merged, "locucao", suggestion.locucao, uiLocale));
                 }
                 if (formatType === "carousel") {
@@ -1024,20 +1146,34 @@ function ContentDetailPage() {
             <CardContent className="space-y-4 p-6">
               <div className="rounded-lg border bg-muted/20 p-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label variant="highlight">{t("project.detail.format")}</Label>
-                    <ContentFormatSelect
-                      format={formatType}
-                      formats={allowedFormats}
-                      onValueChange={(next) => {
-                        setFormatType(next);
-                        if (next !== "carousel" && mediaItems.length > 1) {
-                          setMediaItems((prev) => prev.slice(0, 1));
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
+                  {isPrintPiece ? (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <GraphicArtsMaterialFields
+                        idPrefix="content-detail"
+                        materialType={materialType}
+                        widthCm={widthCm}
+                        heightCm={heightCm}
+                        onMaterialTypeChange={setMaterialType}
+                        onWidthCmChange={setWidthCm}
+                        onHeightCmChange={setHeightCm}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label variant="highlight">{t("project.detail.format")}</Label>
+                      <ContentFormatSelect
+                        format={formatType}
+                        formats={allowedFormats}
+                        onValueChange={(next) => {
+                          setFormatType(next);
+                          if (next !== "carousel" && mediaItems.length > 1) {
+                            setMediaItems((prev) => prev.slice(0, 1));
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className={cn("space-y-1.5", isPrintPiece && "sm:col-span-2")}>
                     <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
                     <Select
                       value={theme.trim() || NONE_THEME_VALUE}
@@ -1072,7 +1208,9 @@ function ContentDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" variant="highlight">
-                  {t("project.content.layoutText")}
+                  {isPrintPiece
+                    ? t("project.graphicArts.pieceTitle")
+                    : t("project.content.layoutText")}
                 </Label>
                 <LocalizedTextInput
                   id="title"
@@ -1084,7 +1222,9 @@ function ContentDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="caption" variant="highlight">
-                  {t("project.detail.caption")}
+                  {isPrintPiece
+                    ? t("project.graphicArts.pieceCopy")
+                    : t("project.detail.caption")}
                 </Label>
                 <LocalizedTextarea
                   id="caption"
@@ -1155,10 +1295,14 @@ function ContentDetailPage() {
                   />
                 </div>
               ) : null}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className={cn("grid gap-4", isPrintPiece ? "sm:grid-cols-1" : "sm:grid-cols-2")}>
                 <PresetField
                   id="cta"
-                  label={t("project.detail.cta")}
+                  label={
+                    isPrintPiece
+                      ? t("project.graphicArts.cta")
+                      : t("project.detail.cta")
+                  }
                   value={cta}
                   onChange={setCta}
                   onBlur={() => void translatePresetField("cta", cta)}
@@ -1167,21 +1311,98 @@ function ContentDetailPage() {
                   emptyPresetsLabel={t("project.detail.noCtaPresets")}
                   labelVariant="highlight"
                 />
-                <PresetField
-                  id="hashtags"
-                  label={t("project.detail.hashtags")}
-                  value={hashtags}
-                  onChange={setHashtags}
-                  onBlur={() => void translatePresetField("hashtags", hashtags)}
-                  presets={hashtagPresets}
-                  selectLabel={t("project.detail.selectHashtagPreset")}
-                  emptyPresetsLabel={t("project.detail.noHashtagPresets")}
-                  multiple
-                  labelVariant="highlight"
-                />
+                {!isPrintPiece ? (
+                  <PresetField
+                    id="hashtags"
+                    label={t("project.detail.hashtags")}
+                    value={hashtags}
+                    onChange={setHashtags}
+                    onBlur={() => void translatePresetField("hashtags", hashtags)}
+                    presets={hashtagPresets}
+                    selectLabel={t("project.detail.selectHashtagPreset")}
+                    emptyPresetsLabel={t("project.detail.noHashtagPresets")}
+                    multiple
+                    labelVariant="highlight"
+                  />
+                ) : null}
               </div>
+              {isPrintPiece ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="production-notes" variant="highlight">
+                    {t("project.graphicArts.productionNotes")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("project.graphicArts.productionNotesHint")}
+                  </p>
+                  <Textarea
+                    id="production-notes"
+                    value={productionNotes}
+                    onChange={(e) => setProductionNotes(e.target.value)}
+                    rows={4}
+                    className="min-h-[6rem]"
+                    placeholder={t("project.graphicArts.productionNotesPlaceholder")}
+                  />
+                </div>
+              ) : null}
               {isAdmin ? (
                 <>
+                  {isYoutubePiece ? (
+                    <div className="space-y-3">
+                      <Label variant="highlight">{t("project.detail.thumbnail")}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t("project.detail.thumbnailHint")}
+                      </p>
+                      <input
+                        ref={thumbnailFileInputRef}
+                        type="file"
+                        className="sr-only"
+                        accept={CLIENT_LOGO_ACCEPT}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          if (file) {
+                            if (!file.type.startsWith("image/")) {
+                              toast.error(t("project.detail.thumbnailImageOnly"));
+                            } else {
+                              setThumbnailFile(file);
+                            }
+                          }
+                          e.target.value = "";
+                        }}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => thumbnailFileInputRef.current?.click()}
+                        >
+                          {t("project.detail.thumbnailUpload")}
+                        </Button>
+                        {previewThumbnailUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setThumbnailFile(null);
+                              setThumbnailUrl("");
+                            }}
+                          >
+                            {t("project.detail.thumbnailRemove")}
+                          </Button>
+                        ) : null}
+                      </div>
+                      {previewThumbnailUrl ? (
+                        <div className="overflow-hidden rounded-lg border bg-muted/20">
+                          <img
+                            src={previewThumbnailUrl}
+                            alt=""
+                            className="aspect-video max-h-40 w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="space-y-3">
                     <Label variant="highlight">{t("project.detail.media")}</Label>
                     <input
@@ -1475,6 +1696,10 @@ function ContentDetailPage() {
                   cta={versionPreview.cta}
                   username={client?.name ?? versionPreview.title}
                   avatarUrl={client?.logo_url}
+                  thumbnailUrl={versionPreview.thumbnailUrl}
+                  materialType={versionPreview.materialType}
+                  widthCm={versionPreview.widthCm}
+                  heightCm={versionPreview.heightCm}
                 />
 
                 <div className="space-y-3 rounded-md border p-3">
@@ -1484,18 +1709,43 @@ function ContentDetailPage() {
                     </p>
                     <p className="text-sm">{versionPreview.title}</p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {t("project.detail.format")}
-                    </p>
-                    <p className="text-sm">
-                      {t(`project.detail.formats.${versionPreview.format}`)}
-                    </p>
-                  </div>
+                  {versionPreview.isPrint ? (
+                    <>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {t("project.graphicArts.materialType")}
+                        </p>
+                        <p className="text-sm">
+                          {t(`project.graphicArts.materials.${versionPreview.materialType}`, {
+                            defaultValue: versionPreview.materialType ?? "",
+                          })}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {t("project.graphicArts.dimensions")}
+                        </p>
+                        <p className="text-sm">
+                          {versionPreview.widthCm ?? "—"} × {versionPreview.heightCm ?? "—"} cm
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.detail.format")}
+                      </p>
+                      <p className="text-sm">
+                        {t(`project.detail.formats.${versionPreview.format}`)}
+                      </p>
+                    </div>
+                  )}
                   {versionPreview.caption.trim() ? (
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">
-                        {t("project.detail.caption")}
+                        {versionPreview.isPrint
+                          ? t("project.graphicArts.pieceCopy")
+                          : t("project.detail.caption")}
                       </p>
                       <p className="whitespace-pre-wrap text-sm">{versionPreview.caption}</p>
                     </div>
@@ -1519,17 +1769,29 @@ function ContentDetailPage() {
                   {versionPreview.cta.trim() ? (
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">
-                        {t("project.detail.cta")}
+                        {versionPreview.isPrint
+                          ? t("project.graphicArts.cta")
+                          : t("project.detail.cta")}
                       </p>
                       <p className="text-sm">{versionPreview.cta}</p>
                     </div>
                   ) : null}
-                  {versionPreview.hashtags.trim() ? (
+                  {!versionPreview.isPrint && versionPreview.hashtags.trim() ? (
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground">
                         {t("project.detail.hashtags")}
                       </p>
                       <p className="text-sm">{versionPreview.hashtags}</p>
+                    </div>
+                  ) : null}
+                  {versionPreview.isPrint && versionPreview.productionNotes.trim() ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("project.graphicArts.productionNotes")}
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm">
+                        {versionPreview.productionNotes}
+                      </p>
                     </div>
                   ) : null}
                 </div>

@@ -84,7 +84,61 @@ export const CONTENT_FORMATS: ContentFormat[] = [
   "stories",
   "carousel",
   "recorded_video",
+  "print_material",
+  "youtube_short",
 ];
+
+export function isYoutubeVideoFormat(format?: ContentFormat | null) {
+  return format === "recorded_video" || format === "youtube_short";
+}
+
+export function isYoutubeShortFormat(format?: ContentFormat | null) {
+  return format === "youtube_short";
+}
+
+export const GRAPHIC_ARTS_MATERIAL_TYPES = [
+  "poster",
+  "banner",
+  "flyer_a5",
+  "flyer_a4",
+  "folder",
+  "business_card",
+  "outdoor",
+  "sticker",
+  "other",
+] as const;
+
+export type GraphicArtsMaterialType = (typeof GRAPHIC_ARTS_MATERIAL_TYPES)[number];
+
+export type GraphicArtsMaterialPreset = {
+  id: GraphicArtsMaterialType;
+  widthCm: number;
+  heightCm: number;
+};
+
+/** Dimensões padrão sugeridas (cm). O gestor pode alterar no cadastro/ficha. */
+export const GRAPHIC_ARTS_MATERIAL_PRESETS: GraphicArtsMaterialPreset[] = [
+  { id: "poster", widthCm: 40, heightCm: 60 },
+  { id: "banner", widthCm: 90, heightCm: 120 },
+  { id: "flyer_a5", widthCm: 14.8, heightCm: 21 },
+  { id: "flyer_a4", widthCm: 21, heightCm: 29.7 },
+  { id: "folder", widthCm: 21, heightCm: 29.7 },
+  { id: "business_card", widthCm: 9, heightCm: 5 },
+  { id: "outdoor", widthCm: 300, heightCm: 200 },
+  { id: "sticker", widthCm: 10, heightCm: 10 },
+  { id: "other", widthCm: 21, heightCm: 29.7 },
+];
+
+export function getGraphicArtsMaterialPreset(
+  materialType?: string | null,
+): GraphicArtsMaterialPreset {
+  const found = GRAPHIC_ARTS_MATERIAL_PRESETS.find((p) => p.id === materialType);
+  return found ?? GRAPHIC_ARTS_MATERIAL_PRESETS.find((p) => p.id === "other")!;
+}
+
+export function isPrintMaterialFormat(format?: ContentFormat | null) {
+  return format === "print_material";
+}
 
 export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos"] as const;
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
@@ -121,17 +175,16 @@ export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryCon
     experienceReady: true,
   },
   graphic_arts: {
-    // Formatos específicos (banner, cartaz…) entram depois; por ora peça estática.
-    formats: ["static_feed"],
+    formats: ["print_material"],
     tabs: ["themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
-    experienceReady: false,
+    experienceReady: true,
   },
   videos: {
-    formats: ["recorded_video"],
-    tabs: ["themes", "calendar", "content", "meeting", "library", "settings"],
-    defaultTab: "content",
-    experienceReady: false,
+    formats: ["recorded_video", "youtube_short"],
+    tabs: ["feed", "themes", "calendar", "content", "meeting", "library", "settings"],
+    defaultTab: "feed",
+    experienceReady: true,
   },
 };
 
@@ -201,6 +254,20 @@ export function resolveContentMediaUrls(item: {
   }
   if (item.media_url?.trim()) return [item.media_url.trim()];
   return [];
+}
+
+/** Thumbnail dedicada; se ausente e a mídia for vídeo, usa frame inicial (#t=0.1). */
+export function resolveContentThumbnail(item: {
+  thumbnail_url?: string | null;
+  media_url?: string | null;
+  media_urls?: string[] | null;
+}): string | null {
+  const dedicated = item.thumbnail_url?.trim();
+  if (dedicated) return dedicated;
+  const media = resolveContentMediaUrls(item)[0];
+  if (!media) return null;
+  if (isVideoUrl(media)) return `${media}#t=0.1`;
+  return media;
 }
 
 function sanitizeFileName(name: string) {
@@ -1262,6 +1329,10 @@ export async function createContent(input: {
   hashtags?: string;
   mediaUrl?: string;
   format?: ContentFormat;
+  materialType?: string | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  productionNotes?: string;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
@@ -1288,6 +1359,22 @@ export async function createContent(input: {
     cta: input.cta,
     hashtags: input.hashtags,
   });
+  const materialType =
+    input.materialType?.trim() ||
+    (format === "print_material" ? "poster" : null);
+  const preset = getGraphicArtsMaterialPreset(materialType);
+  const widthCm =
+    input.widthCm !== undefined && input.widthCm !== null
+      ? input.widthCm
+      : format === "print_material"
+        ? preset.widthCm
+        : null;
+  const heightCm =
+    input.heightCm !== undefined && input.heightCm !== null
+      ? input.heightCm
+      : format === "print_material"
+        ? preset.heightCm
+        : null;
   const baseInsert = {
     project_id: input.projectId,
     title: getCanonicalText(i18n, "title", input.title).trim(),
@@ -1296,6 +1383,10 @@ export async function createContent(input: {
     hashtags: getCanonicalText(i18n, "hashtags", input.hashtags)?.trim() || "",
     media_url: input.mediaUrl?.trim() || null,
     format,
+    material_type: materialType,
+    width_cm: widthCm,
+    height_cm: heightCm,
+    production_notes: input.productionNotes?.trim() || "",
     i18n: toI18nJson(i18n),
     created_by: userId,
     status: "draft" as const,
@@ -1386,7 +1477,12 @@ export async function duplicateContent(input: {
     roteiro: source.roteiro ?? "",
     media_url: mediaUrls[0] ?? null,
     media_urls: mediaUrls,
+    thumbnail_url: source.thumbnail_url ?? null,
     format: source.format,
+    material_type: source.material_type,
+    width_cm: source.width_cm,
+    height_cm: source.height_cm,
+    production_notes: source.production_notes ?? "",
     theme: source.theme,
     scheduled_at: scheduledAt,
     calendar_block_id: calendarBlockId,
@@ -1464,8 +1560,13 @@ export async function saveContentAsNewVersion(input: {
   roteiro?: string;
   mediaUrl?: string | null;
   mediaUrls?: string[];
+  thumbnailUrl?: string | null;
   format?: ContentFormat;
   theme?: string | null;
+  materialType?: string | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  productionNotes?: string;
   changeNote?: string;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
@@ -1486,11 +1587,25 @@ export async function saveContentAsNewVersion(input: {
     input.mediaUrls?.filter((url) => url.trim()) ??
     (input.mediaUrl?.trim() ? [input.mediaUrl.trim()] : []);
   const mediaUrl = mediaUrls[0] ?? null;
+  const thumbnailUrl =
+    input.thumbnailUrl !== undefined
+      ? input.thumbnailUrl?.trim() || null
+      : current.thumbnail_url;
   const format = input.format ?? current.format ?? "static_feed";
   const locucao = input.locucao ?? current.locucao ?? "";
   const roteiro = input.roteiro ?? current.roteiro ?? "";
   const theme =
     input.theme !== undefined ? input.theme?.trim() || null : current.theme;
+  const materialType =
+    input.materialType !== undefined
+      ? input.materialType?.trim() || null
+      : current.material_type;
+  const widthCm = input.widthCm !== undefined ? input.widthCm : current.width_cm;
+  const heightCm = input.heightCm !== undefined ? input.heightCm : current.height_cm;
+  const productionNotes =
+    input.productionNotes !== undefined
+      ? input.productionNotes
+      : (current.production_notes ?? "");
   const nextI18n = input.i18n ?? parseRowI18n(current.i18n);
 
   const { data, error } = await supabase
@@ -1504,8 +1619,13 @@ export async function saveContentAsNewVersion(input: {
       roteiro,
       media_url: mediaUrl,
       media_urls: mediaUrls,
+      thumbnail_url: thumbnailUrl,
       format,
       theme,
+      material_type: materialType,
+      width_cm: widthCm,
+      height_cm: heightCm,
+      production_notes: productionNotes,
       current_version: nextVersion,
       status: nextStatus,
       i18n: toI18nJson(nextI18n),
@@ -1525,7 +1645,12 @@ export async function saveContentAsNewVersion(input: {
     roteiro,
     media_url: mediaUrl,
     media_urls: mediaUrls,
+    thumbnail_url: thumbnailUrl,
     format,
+    material_type: materialType,
+    width_cm: widthCm,
+    height_cm: heightCm,
+    production_notes: productionNotes,
     change_note: input.changeNote?.trim() || `Versão ${nextVersion}`,
     created_by: userId,
     i18n: toI18nJson(nextI18n),
@@ -1553,8 +1678,13 @@ export async function updateContentFields(input: {
   roteiro?: string;
   mediaUrl?: string | null;
   mediaUrls?: string[];
+  thumbnailUrl?: string | null;
   format?: ContentFormat;
   theme?: string | null;
+  materialType?: string | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+  productionNotes?: string;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
   const mediaUrls =
@@ -1573,8 +1703,19 @@ export async function updateContentFields(input: {
       ...(input.roteiro !== undefined ? { roteiro: input.roteiro } : {}),
       media_url: mediaUrl,
       media_urls: mediaUrls,
+      ...(input.thumbnailUrl !== undefined
+        ? { thumbnail_url: input.thumbnailUrl?.trim() || null }
+        : {}),
       ...(input.format ? { format: input.format } : {}),
       ...(input.theme !== undefined ? { theme: input.theme?.trim() || null } : {}),
+      ...(input.materialType !== undefined
+        ? { material_type: input.materialType?.trim() || null }
+        : {}),
+      ...(input.widthCm !== undefined ? { width_cm: input.widthCm } : {}),
+      ...(input.heightCm !== undefined ? { height_cm: input.heightCm } : {}),
+      ...(input.productionNotes !== undefined
+        ? { production_notes: input.productionNotes }
+        : {}),
       ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
     })
     .eq("id", input.contentId)
@@ -2260,7 +2401,12 @@ export async function restoreVersion(input: {
     roteiro: input.version.roteiro ?? "",
     mediaUrl: input.version.media_url,
     mediaUrls: resolveContentMediaUrls(input.version),
+    thumbnailUrl: input.version.thumbnail_url,
     format: input.version.format,
+    materialType: input.version.material_type,
+    widthCm: input.version.width_cm,
+    heightCm: input.version.height_cm,
+    productionNotes: input.version.production_notes ?? "",
     changeNote: `Restaurado da v${input.version.version_number}`,
   });
 }

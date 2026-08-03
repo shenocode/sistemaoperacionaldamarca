@@ -538,7 +538,7 @@
       },
       "videos": {
         "label": "Vídeos",
-        "formats": "Vídeo gravado e outros conteúdos em vídeo."
+        "formats": "Vídeo 16:9 e Shorts 9:16."
       }
     },
     "search": "Buscar clientes...",
@@ -591,6 +591,56 @@
       "settings": "Configurações"
     },
     "categoryExperiencePending": "A experiência completa desta categoria (abas e mockups) ainda está em construção. Por enquanto você pode organizar conteúdos, calendário e biblioteca.",
+    "youtube": {
+      "previewWatch": "Prévia — YouTube (notebook)",
+      "previewShorts": "Prévia — Shorts (notebook)",
+      "previewChannel": "Prévia — canal da marca (notebook)",
+      "search": "Pesquisar",
+      "play": "Reproduzir vídeo",
+      "noThumbnail": "Sem thumbnail",
+      "untitled": "Sem título",
+      "subscribe": "Inscrever-se",
+      "share": "Compartilhar",
+      "save": "Salvar",
+      "viewsMeta": "1,1 mil visualizações · há 4 dias",
+      "emptyDescription": "A descrição do vídeo aparece aqui…",
+      "channelFallback": "Canal da marca",
+      "subscribersMeta": "{{count}} vídeos",
+      "tabHome": "Início",
+      "tabVideos": "Vídeos",
+      "tabShorts": "Shorts",
+      "sectionVideos": "Vídeos",
+      "sectionShorts": "Shorts",
+      "emptyVideos": "Nenhum vídeo 16:9 ainda.",
+      "emptyShorts": "Nenhum Short ainda.",
+      "cardMeta": "Visualizações · há pouco"
+    },
+    "graphicArts": {
+      "newPiece": "Nova peça gráfica",
+      "materialType": "Tipo de material",
+      "widthCm": "Largura (cm)",
+      "heightCm": "Altura (cm)",
+      "dimensions": "Formato (cm)",
+      "pieceTitle": "Nome da peça",
+      "pieceCopy": "Texto da peça",
+      "cta": "CTA / contato na peça",
+      "productionNotes": "Observações de produção",
+      "productionNotesHint": "Papel, acabamento, tiragem, sangria, Pantone e outras instruções de impressão.",
+      "productionNotesPlaceholder": "Ex.: couchê 150g, verniz local, tiragem 500 un., sangria 3 mm…",
+      "invalidDimensions": "Informe largura e altura válidas em centímetros.",
+      "previewEmpty": "Adicione a arte para ver o mockup neste formato.",
+      "materials": {
+        "poster": "Cartaz",
+        "banner": "Banner",
+        "flyer_a5": "Flyer A5",
+        "flyer_a4": "Flyer A4",
+        "folder": "Folder",
+        "business_card": "Cartão de visita",
+        "outdoor": "Outdoor",
+        "sticker": "Adesivo",
+        "other": "Outro"
+      }
+    },
     "calendarPlaceholder": "Em breve.",
     "calendar": {
       "title": "Calendário de publicações",
@@ -599,6 +649,7 @@
       "sendUpdates": "Enviar atualizações",
       "openStatus": "Abrir conteúdo e ver status",
       "empty": "Nenhum conteúdo para agendar. Crie um novo conteúdo no calendário.",
+      "emptyCreateHint": "Clique aqui para criar o primeiro conteúdo.",
       "access": "Acessar",
       "duplicate": "Duplicar",
       "duplicateHint": "Cria uma cópia com a data +7 dias, em rascunho e histórico de versões zerado.",
@@ -968,8 +1019,15 @@
         "reels": "Reels",
         "stories": "Stories",
         "carousel": "Carrossel",
-        "recorded_video": "Vídeo gravado"
+        "recorded_video": "Vídeo",
+        "print_material": "Peça gráfica",
+        "youtube_short": "Shorts"
       },
+      "thumbnail": "Thumbnail",
+      "thumbnailHint": "Imagem de capa no mockup do YouTube. Ao clicar no player, o vídeo começa.",
+      "thumbnailUpload": "Enviar thumbnail",
+      "thumbnailRemove": "Remover thumbnail",
+      "thumbnailImageOnly": "A thumbnail precisa ser uma imagem.",
       "slide": "Slide",
       "addSlide": "Adicionar",
       "removeMedia": "Remover mídia",

@@ -27,12 +27,20 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PrintMaterialPreview } from "@/components/print-material-preview";
 import { cn } from "@/lib/utils";
 import {
   isImageUrl,
+  isPrintMaterialFormat,
   isVideoUrl,
+  isYoutubeShortFormat,
+  isYoutubeVideoFormat,
   type ContentFormat,
 } from "@/lib/api";
+import {
+  YouTubeShortsMockup,
+  YouTubeWatchMockup,
+} from "@/components/youtube-notebook-mockup";
 
 export type PreviewMediaItem = {
   url: string;
@@ -49,8 +57,12 @@ type ContentMediaPreviewProps = {
   cta?: string;
   username?: string;
   avatarUrl?: string | null;
+  thumbnailUrl?: string | null;
   editable?: boolean;
   size?: "default" | "lg";
+  materialType?: string | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
   onCaptionChange?: (value: string) => void;
   onHashtagsChange?: (value: string) => void;
   onCtaChange?: (value: string) => void;
@@ -512,8 +524,12 @@ export function ContentMediaPreview({
   cta,
   username,
   avatarUrl,
+  thumbnailUrl,
   editable,
   size = "default",
+  materialType,
+  widthCm,
+  heightCm,
   onCaptionChange,
   onHashtagsChange,
   onCtaChange,
@@ -525,6 +541,58 @@ export function ContentMediaPreview({
   const [muted, setMuted] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const isPrint = isPrintMaterialFormat(format);
+  const isYoutube = isYoutubeVideoFormat(format);
+
+  useEffect(() => {
+    if (!api || isPrint || isYoutube) return;
+    const sync = () => setCurrent(api.selectedScrollSnap());
+    sync();
+    api.on("select", sync);
+    return () => {
+      api.off("select", sync);
+    };
+  }, [api, isPrint, isYoutube]);
+
+  if (isPrint) {
+    return (
+      <PrintMaterialPreview
+        items={items}
+        title={title}
+        materialType={materialType}
+        widthCm={widthCm}
+        heightCm={heightCm}
+        size={size}
+        className={className}
+      />
+    );
+  }
+
+  if (isYoutube) {
+    const videoUrl =
+      items.find((item) => resolveKind(item) === "video")?.url ?? items[0]?.url ?? null;
+    const thumb =
+      thumbnailUrl?.trim() ||
+      items.find((item) => resolveKind(item) === "image")?.url ||
+      (videoUrl && isVideoUrl(videoUrl) ? `${videoUrl}#t=0.1` : videoUrl) ||
+      null;
+    const shared = {
+      title,
+      caption,
+      hashtags,
+      cta,
+      username,
+      avatarUrl,
+      thumbnailUrl: thumb,
+      videoUrl,
+      size,
+      className,
+    };
+    if (isYoutubeShortFormat(format)) {
+      return <YouTubeShortsMockup {...shared} />;
+    }
+    return <YouTubeWatchMockup {...shared} />;
+  }
 
   const handle = toHandle(username || title || "marca");
   const isStories = format === "stories";
@@ -536,16 +604,6 @@ export function ContentMediaPreview({
     setLightboxIndex(Math.min(Math.max(index, 0), items.length - 1));
     setLightboxOpen(true);
   };
-
-  useEffect(() => {
-    if (!api) return;
-    const sync = () => setCurrent(api.selectedScrollSnap());
-    sync();
-    api.on("select", sync);
-    return () => {
-      api.off("select", sync);
-    };
-  }, [api]);
 
   const mediaFrame = (emptyLabel: string, aspectClass: string) => {
     if (items.length === 0) {
@@ -803,9 +861,7 @@ export function ContentMediaPreview({
           subtitle={
             format === "carousel"
               ? t("project.detail.formats.carousel")
-              : format === "recorded_video"
-                ? t("project.detail.formats.recorded_video")
-                : t("project.detail.formats.static_feed")
+              : t("project.detail.formats.static_feed")
           }
         />
         {mediaFrame(t("project.detail.noPreview"), "aspect-[4/5]")}

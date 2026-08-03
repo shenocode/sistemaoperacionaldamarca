@@ -45,6 +45,10 @@ import {
   MediaLightbox,
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
+import {
+  GraphicArtsMaterialFields,
+  parseCmInput,
+} from "@/components/graphic-arts-material-fields";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import {
   canManageClient,
@@ -54,6 +58,8 @@ import {
   duplicateContent,
   CONTENT_TAB_ENABLED,
   getClient,
+  getGraphicArtsMaterialPreset,
+  getPrimaryProjectCategory,
   getProject,
   isVideoUrl,
   listContent,
@@ -66,6 +72,7 @@ import {
   normalizeAppLocale,
   type ContentFormat,
   type ContentItem,
+  type GraphicArtsMaterialType,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
@@ -112,6 +119,10 @@ function ContentListPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const posterPreset = getGraphicArtsMaterialPreset("poster");
+  const [newMaterialType, setNewMaterialType] = useState<GraphicArtsMaterialType>("poster");
+  const [newWidthCm, setNewWidthCm] = useState(String(posterPreset.widthCm));
+  const [newHeightCm, setNewHeightCm] = useState(String(posterPreset.heightCm));
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -142,9 +153,19 @@ function ContentListPage() {
   });
 
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
+  const isGraphicArts =
+    getPrimaryProjectCategory(projectQuery.data?.categories) === "graphic_arts";
   const showInstagramMockup = projectCategoryConfig(projectQuery.data?.categories).tabs.includes(
     "feed",
   );
+
+  const resetCreateForm = () => {
+    const preset = getGraphicArtsMaterialPreset("poster");
+    setTitle("");
+    setNewMaterialType("poster");
+    setNewWidthCm(String(preset.widthCm));
+    setNewHeightCm(String(preset.heightCm));
+  };
 
   const createMutation = useMutation({
     mutationFn: createContent,
@@ -152,7 +173,7 @@ function ContentListPage() {
       queryClient.invalidateQueries({ queryKey: ["content", projectId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setOpen(false);
-      setTitle("");
+      resetCreateForm();
       toast.success(t("project.content.created"));
       navigate({
         to: "/clients/$clientId/projects/$projectId/content/$contentId",
@@ -650,16 +671,42 @@ function ContentListPage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) resetCreateForm();
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("project.content.new")}</DialogTitle>
+            <DialogTitle>
+              {isGraphicArts ? t("project.graphicArts.newPiece") : t("project.content.new")}
+            </DialogTitle>
           </DialogHeader>
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
               if (!title.trim()) return;
+              if (isGraphicArts) {
+                const width = parseCmInput(newWidthCm);
+                const height = parseCmInput(newHeightCm);
+                if (width == null || height == null) {
+                  toast.error(t("project.graphicArts.invalidDimensions"));
+                  return;
+                }
+                createMutation.mutate({
+                  projectId,
+                  clientId,
+                  title: title.trim(),
+                  format: "print_material",
+                  materialType: newMaterialType,
+                  widthCm: width,
+                  heightCm: height,
+                });
+                return;
+              }
               createMutation.mutate({ projectId, clientId, title });
             }}
           >
@@ -673,6 +720,17 @@ function ContentListPage() {
                 autoFocus
               />
             </div>
+            {isGraphicArts ? (
+              <GraphicArtsMaterialFields
+                idPrefix="content-create"
+                materialType={newMaterialType}
+                widthCm={newWidthCm}
+                heightCm={newHeightCm}
+                onMaterialTypeChange={setNewMaterialType}
+                onWidthCmChange={setNewWidthCm}
+                onHeightCmChange={setNewHeightCm}
+              />
+            ) : null}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 {t("common.cancel")}

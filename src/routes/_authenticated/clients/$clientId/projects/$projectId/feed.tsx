@@ -4,10 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
+import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
 import {
   canManageClient,
   claimClientAccess,
   getClient,
+  getPrimaryProjectCategory,
   getProject,
   listContent,
   projectCategoryConfig,
@@ -135,16 +137,27 @@ function ProjectFeedPage() {
 
   return (
     <div className="flex min-w-0 justify-center overflow-x-clip py-2">
-      <InstagramFeedMockup
-        items={rows}
-        clientId={clientId}
-        projectId={projectId}
-        username={clientQuery.data?.name}
-        avatarUrl={clientQuery.data?.logo_url}
-        canReorder={canReorder}
-        onReorder={applyReorder}
-        showLabel={false}
-      />
+      {getPrimaryProjectCategory(projectQuery.data?.categories) === "videos" ? (
+        <YouTubeChannelMockup
+          items={rows}
+          clientId={clientId}
+          projectId={projectId}
+          username={clientQuery.data?.name}
+          avatarUrl={clientQuery.data?.logo_url}
+          showLabel={false}
+        />
+      ) : (
+        <InstagramFeedMockup
+          items={rows}
+          clientId={clientId}
+          projectId={projectId}
+          username={clientQuery.data?.name}
+          avatarUrl={clientQuery.data?.logo_url}
+          canReorder={canReorder}
+          onReorder={applyReorder}
+          showLabel={false}
+        />
+      )}
     </div>
   );
 }

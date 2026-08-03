@@ -337,19 +337,24 @@ export type Database = {
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
+          height_cm: number | null
           i18n: Json
           id: string
           locucao: string
+          material_type: string | null
           media_url: string | null
           media_urls: string[]
+          production_notes: string
           project_id: string
           roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
           theme: string | null
+          thumbnail_url: string | null
           title: string
           updated_at: string
+          width_cm: number | null
         }
         Insert: {
           calendar_block_id?: string | null
@@ -360,19 +365,24 @@ export type Database = {
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           project_id: string
           roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
           theme?: string | null
+          thumbnail_url?: string | null
           title: string
           updated_at?: string
+          width_cm?: number | null
         }
         Update: {
           calendar_block_id?: string | null
@@ -383,19 +393,24 @@ export type Database = {
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           project_id?: string
           roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
           theme?: string | null
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string
+          width_cm?: number | null
         }
         Relationships: [
           {
@@ -424,13 +439,18 @@ export type Database = {
           cta: string
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
+          height_cm: number | null
           i18n: Json
           id: string
           locucao: string
+          material_type: string | null
           media_url: string | null
           media_urls: string[]
+          production_notes: string
           roteiro: string
+          thumbnail_url: string | null
           version_number: number
+          width_cm: number | null
         }
         Insert: {
           caption?: string
@@ -441,13 +461,18 @@ export type Database = {
           cta?: string
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           roteiro?: string
+          thumbnail_url?: string | null
           version_number: number
+          width_cm?: number | null
         }
         Update: {
           caption?: string
@@ -458,13 +483,18 @@ export type Database = {
           cta?: string
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           roteiro?: string
+          thumbnail_url?: string | null
           version_number?: number
+          width_cm?: number | null
         }
         Relationships: [
           {
@@ -690,6 +720,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          categories: string[]
           client_id: string
           created_at: string
           created_by: string | null
@@ -704,6 +735,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          categories?: string[]
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -718,6 +750,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          categories?: string[]
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -1002,6 +1035,8 @@ export type Database = {
         | "stories"
         | "carousel"
         | "recorded_video"
+        | "print_material"
+        | "youtube_short"
       content_status:
         | "draft"
         | "review"
@@ -1172,6 +1207,8 @@ export const Constants = {
         "stories",
         "carousel",
         "recorded_video",
+        "print_material",
+        "youtube_short",
       ],
       content_status: [
         "draft",
