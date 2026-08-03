@@ -1,5 +1,9 @@
 {
-  "app": { "name": "SOM", "tagline": "Sistema Operacional da Marca", "fullName": "SOM — Sistema Operacional da Marca" },
+  "app": {
+    "name": "SOM",
+    "tagline": "Sistema Operacional da Marca",
+    "fullName": "SOM — Sistema Operacional da Marca"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "clients": "Clientes",
@@ -13,7 +17,8 @@
     "subscribers": "Assinantes",
     "leads": "Leads",
     "team": "Equipe",
-    "openMenu": "Abrir menu"
+    "openMenu": "Abrir menu",
+    "profile": "Meu Perfil"
   },
   "auth": {
     "signIn": "Entrar",
@@ -138,9 +143,18 @@
     "problemBody": "Legendas no Docs, artes no Drive, feedbacks no WhatsApp, prazos no Notion. O cliente perde o contexto — e você perde tempo.",
     "howTitle": "Um fluxo só, do briefing ao post.",
     "howSteps": {
-      "1": { "title": "Defina a marca", "body": "Briefing guiado por IA e kit visual (cores, fontes, voz)." },
-      "2": { "title": "Produza com aceleração", "body": "Copy, roteiros e artes alinhados ao projeto e ao calendário." },
-      "3": { "title": "Aprove no preview", "body": "Cliente comenta e aprova no feed estilo Instagram, com histórico de versões." }
+      "1": {
+        "title": "Defina a marca",
+        "body": "Briefing guiado por IA e kit visual (cores, fontes, voz)."
+      },
+      "2": {
+        "title": "Produza com aceleração",
+        "body": "Copy, roteiros e artes alinhados ao projeto e ao calendário."
+      },
+      "3": {
+        "title": "Aprove no preview",
+        "body": "Cliente comenta e aprova no feed estilo Instagram, com histórico de versões."
+      }
     },
     "assetsTitle": "Todos os formatos que você já produz — em um só fluxo.",
     "assetsSubtitle": "Do post estático ao vídeo gravado: organize, revise e aprove cada ativo com o cliente.",
@@ -173,12 +187,30 @@
     "featuresTitle": "Feito para quem vive de conteúdo.",
     "featuresSubtitle": "Tudo que um gestor ou agência precisa para operar várias marcas sem perder o ritmo.",
     "features": {
-      "calendar": { "title": "Calendário editorial", "body": "Blocos, status, temas e formatos — visão clara do mês de cada cliente." },
-      "approval": { "title": "Aprovação com preview real", "body": "Comentários, versões e decisão no mesmo lugar onde o post será visto." },
-      "aiCopy": { "title": "IA de copy", "body": "Legendas, CTAs, hashtags, locução e roteiros a partir do briefing da marca." },
-      "aiDesign": { "title": "IA de design", "body": "Artes de feed e carrossel com o kit de marca e templates de referência." },
-      "briefing": { "title": "Brand briefing + guia", "body": "Questionário estratégico com coach de IA e guia de marca gerado automaticamente." },
-      "share": { "title": "Acesso do cliente", "body": "Link seguro, aviso no WhatsApp e login próprio — sem anexar ZIP de artes." }
+      "calendar": {
+        "title": "Calendário editorial",
+        "body": "Blocos, status, temas e formatos — visão clara do mês de cada cliente."
+      },
+      "approval": {
+        "title": "Aprovação com preview real",
+        "body": "Comentários, versões e decisão no mesmo lugar onde o post será visto."
+      },
+      "aiCopy": {
+        "title": "IA de copy",
+        "body": "Legendas, CTAs, hashtags, locução e roteiros a partir do briefing da marca."
+      },
+      "aiDesign": {
+        "title": "IA de design",
+        "body": "Artes de feed e carrossel com o kit de marca e templates de referência."
+      },
+      "briefing": {
+        "title": "Brand briefing + guia",
+        "body": "Questionário estratégico com coach de IA e guia de marca gerado automaticamente."
+      },
+      "share": {
+        "title": "Acesso do cliente",
+        "body": "Link seguro, aviso no WhatsApp e login próprio — sem anexar ZIP de artes."
+      }
     },
     "pricingTitle": "Planos para o tamanho da sua operação.",
     "pricingSubtitle": "Comece solo e escale para equipe. Cancele quando quiser.",
@@ -696,7 +728,6 @@
       "unmute": "Ativar som",
       "expandMedia": "Ampliar mídia",
       "mediaViewer": "Visualização ampliada",
-
       "caption": "Legenda",
       "locucao": "Locução",
       "locucaoHint": "Texto que a cliente deve gravar e enviar o áudio por e-mail.",
@@ -885,5 +916,22 @@
       "dismiss": "Fechar",
       "applied": "Resposta aplicada ao briefing."
     }
+  },
+  "profile": {
+    "title": "Meu Perfil",
+    "subtitle": "Atualize seus dados de acesso e contato.",
+    "dataSection": "Dados pessoais",
+    "email": "E-mail",
+    "fullName": "Nome completo",
+    "fullNamePlaceholder": "Seu nome",
+    "whatsapp": "WhatsApp",
+    "whatsappCountry": "País",
+    "passwordSection": "Senha",
+    "newPassword": "Nova senha",
+    "confirmPassword": "Confirmar senha",
+    "updatePassword": "Atualizar senha",
+    "passwordMismatch": "As senhas não coincidem.",
+    "passwordUpdated": "Senha atualizada.",
+    "saved": "Perfil atualizado."
   }
 }

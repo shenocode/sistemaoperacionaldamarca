@@ -1,5 +1,9 @@
 {
-  "app": { "name": "BOS", "tagline": "Brand Operating System", "fullName": "BOS - Brand Operating System" },
+  "app": {
+    "name": "BOS",
+    "tagline": "Brand Operating System",
+    "fullName": "BOS - Brand Operating System"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "clients": "Clients",
@@ -13,7 +17,8 @@
     "subscribers": "Subscribers",
     "leads": "Leads",
     "team": "Team",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "profile": "My Profile"
   },
   "auth": {
     "signIn": "Sign in",
@@ -138,9 +143,18 @@
     "problemBody": "Captions in Docs, art in Drive, feedback on WhatsApp, deadlines in Notion. Clients lose context — you lose time.",
     "howTitle": "One flow, from briefing to post.",
     "howSteps": {
-      "1": { "title": "Define the brand", "body": "AI-guided briefing and visual kit (colors, fonts, voice)." },
-      "2": { "title": "Produce faster", "body": "Copy, scripts, and art aligned to the project and calendar." },
-      "3": { "title": "Approve in preview", "body": "Clients comment and approve in an Instagram-style feed, with version history." }
+      "1": {
+        "title": "Define the brand",
+        "body": "AI-guided briefing and visual kit (colors, fonts, voice)."
+      },
+      "2": {
+        "title": "Produce faster",
+        "body": "Copy, scripts, and art aligned to the project and calendar."
+      },
+      "3": {
+        "title": "Approve in preview",
+        "body": "Clients comment and approve in an Instagram-style feed, with version history."
+      }
     },
     "assetsTitle": "Every format you already produce — in one workflow.",
     "assetsSubtitle": "From static posts to recorded video: organize, review, and approve each asset with your client.",
@@ -173,12 +187,30 @@
     "featuresTitle": "Built for people who live on content.",
     "featuresSubtitle": "Everything a manager or agency needs to run multiple brands without losing rhythm.",
     "features": {
-      "calendar": { "title": "Editorial calendar", "body": "Blocks, statuses, themes, and formats — a clear view of each client’s month." },
-      "approval": { "title": "Real preview approvals", "body": "Comments, versions, and decisions where the post will actually be seen." },
-      "aiCopy": { "title": "Copy AI", "body": "Captions, CTAs, hashtags, voiceover, and scripts from the brand briefing." },
-      "aiDesign": { "title": "Design AI", "body": "Feed and carousel art with the brand kit and reference templates." },
-      "briefing": { "title": "Brand briefing + guide", "body": "Strategic questionnaire with an AI coach and an auto-generated brand guide." },
-      "share": { "title": "Client access", "body": "Secure link, WhatsApp invite, and their own login — no ZIP attachments." }
+      "calendar": {
+        "title": "Editorial calendar",
+        "body": "Blocks, statuses, themes, and formats — a clear view of each client’s month."
+      },
+      "approval": {
+        "title": "Real preview approvals",
+        "body": "Comments, versions, and decisions where the post will actually be seen."
+      },
+      "aiCopy": {
+        "title": "Copy AI",
+        "body": "Captions, CTAs, hashtags, voiceover, and scripts from the brand briefing."
+      },
+      "aiDesign": {
+        "title": "Design AI",
+        "body": "Feed and carousel art with the brand kit and reference templates."
+      },
+      "briefing": {
+        "title": "Brand briefing + guide",
+        "body": "Strategic questionnaire with an AI coach and an auto-generated brand guide."
+      },
+      "share": {
+        "title": "Client access",
+        "body": "Secure link, WhatsApp invite, and their own login — no ZIP attachments."
+      }
     },
     "pricingTitle": "Plans that match your operation.",
     "pricingSubtitle": "Start solo and scale to a team. Cancel anytime.",
@@ -466,7 +498,14 @@
   },
   "project": {
     "back": "Back",
-    "tabs": { "feed": "Feed", "library": "Library", "content": "Content", "calendar": "Calendar", "meeting": "Agenda", "settings": "Settings" },
+    "tabs": {
+      "feed": "Feed",
+      "library": "Library",
+      "content": "Content",
+      "calendar": "Calendar",
+      "meeting": "Agenda",
+      "settings": "Settings"
+    },
     "categoryExperiencePending": "The full experience for this category (tabs and mockups) is still being built. For now you can organize content, calendar, and library.",
     "calendarPlaceholder": "Coming soon.",
     "calendar": {
@@ -689,7 +728,6 @@
       "unmute": "Unmute",
       "expandMedia": "Expand media",
       "mediaViewer": "Expanded media view",
-
       "caption": "Caption",
       "locucao": "Voiceover script",
       "locucaoHint": "Text the client should record and send as audio by email.",
@@ -878,5 +916,22 @@
       "dismiss": "Close",
       "applied": "Answer applied to the briefing."
     }
+  },
+  "profile": {
+    "title": "My Profile",
+    "subtitle": "Update your access and contact details.",
+    "dataSection": "Personal data",
+    "email": "Email",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Your name",
+    "whatsapp": "WhatsApp",
+    "whatsappCountry": "Country",
+    "passwordSection": "Password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "updatePassword": "Update password",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordUpdated": "Password updated.",
+    "saved": "Profile updated."
   }
 }
