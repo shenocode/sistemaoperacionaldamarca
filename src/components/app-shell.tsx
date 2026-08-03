@@ -11,6 +11,7 @@ import {
   Menu,
   Settings,
   UserPlus,
+  UserRound,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
