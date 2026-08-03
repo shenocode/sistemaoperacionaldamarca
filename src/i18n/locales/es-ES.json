@@ -884,7 +884,8 @@
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "unsavedChangesTitle": "¿Guardar los cambios?",
     "unsavedChangesDescription": "Tienes cambios sin guardar. Si sales ahora, se perderán.",
-    "leaveWithoutSaving": "Salir sin guardar"
+    "leaveWithoutSaving": "Salir sin guardar",
+    "saving": "Guardando..."
   },
   "briefing": {
     "pageTitle": "Briefing de marca",

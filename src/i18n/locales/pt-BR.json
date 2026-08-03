@@ -884,7 +884,8 @@
     "error": "Algo deu errado. Tente de novo.",
     "unsavedChangesTitle": "Salvar as alterações?",
     "unsavedChangesDescription": "Você tem alterações que ainda não foram salvas. Se sair agora, elas serão perdidas.",
-    "leaveWithoutSaving": "Sair sem salvar"
+    "leaveWithoutSaving": "Sair sem salvar",
+    "saving": "Salvando..."
   },
   "briefing": {
     "pageTitle": "Briefing da marca",
