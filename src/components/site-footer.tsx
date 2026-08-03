@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
   COMPANY_NAME,
@@ -43,10 +44,16 @@ export function SiteFooter({ variant = "landing", className }: SiteFooterProps) 
           </a>
         ) : (
           <div>
-            <p className="font-display text-lg font-semibold">{t("app.name")}</p>
+            <Link
+              to="/"
+              className="font-display text-lg font-semibold underline-offset-4 hover:underline"
+            >
+              {t("app.name")}
+            </Link>
             <p className="text-sm text-neutral-600">{t("landing.footerTag")}</p>
           </div>
         )}
+
         <div
           className={cn(
             "flex flex-col gap-1 sm:items-end sm:text-right",

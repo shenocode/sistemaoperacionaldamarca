@@ -1,5 +1,9 @@
 {
-  "app": { "name": "SOM", "tagline": "Sistema Operativo de Marca", "fullName": "SOM — Sistema Operativo de Marca" },
+  "app": {
+    "name": "SOM",
+    "tagline": "Sistema Operativo de Marca",
+    "fullName": "SOM — Sistema Operativo de Marca"
+  },
   "nav": {
     "dashboard": "Panel",
     "clients": "Clientes",
@@ -13,7 +17,8 @@
     "subscribers": "Suscriptores",
     "leads": "Leads",
     "team": "Equipo",
-    "openMenu": "Abrir menú"
+    "openMenu": "Abrir menú",
+    "profile": "Mi Perfil"
   },
   "auth": {
     "signIn": "Entrar",
@@ -138,9 +143,18 @@
     "problemBody": "Textos en Docs, artes en Drive, feedbacks en WhatsApp, plazos en Notion. El cliente pierde el contexto — tú pierdes tiempo.",
     "howTitle": "Un solo flujo, del briefing al post.",
     "howSteps": {
-      "1": { "title": "Define la marca", "body": "Briefing guiado por IA y kit visual (colores, tipografías, voz)." },
-      "2": { "title": "Produce con aceleración", "body": "Copy, guiones y artes alineados al proyecto y al calendario." },
-      "3": { "title": "Aprueba en el preview", "body": "El cliente comenta y aprueba en un feed estilo Instagram, con historial de versiones." }
+      "1": {
+        "title": "Define la marca",
+        "body": "Briefing guiado por IA y kit visual (colores, tipografías, voz)."
+      },
+      "2": {
+        "title": "Produce con aceleración",
+        "body": "Copy, guiones y artes alineados al proyecto y al calendario."
+      },
+      "3": {
+        "title": "Aprueba en el preview",
+        "body": "El cliente comenta y aprueba en un feed estilo Instagram, con historial de versiones."
+      }
     },
     "assetsTitle": "Todos los formatos que ya produces — en un solo flujo.",
     "assetsSubtitle": "Del post estático al video grabado: organiza, revisa y aprueba cada activo con el cliente.",
@@ -173,12 +187,30 @@
     "featuresTitle": "Hecho para quien vive de contenido.",
     "featuresSubtitle": "Todo lo que un gestor o agencia necesita para operar varias marcas sin perder el ritmo.",
     "features": {
-      "calendar": { "title": "Calendario editorial", "body": "Bloques, estados, temas y formatos — visión clara del mes de cada cliente." },
-      "approval": { "title": "Aprobación con preview real", "body": "Comentarios, versiones y decisión donde se verá el post." },
-      "aiCopy": { "title": "IA de copy", "body": "Leyendas, CTAs, hashtags, locución y guiones a partir del briefing." },
-      "aiDesign": { "title": "IA de diseño", "body": "Artes de feed y carrusel con el kit de marca y plantillas de referencia." },
-      "briefing": { "title": "Brand briefing + guía", "body": "Cuestionario estratégico con coach de IA y guía de marca automática." },
-      "share": { "title": "Acceso del cliente", "body": "Enlace seguro, aviso por WhatsApp y login propio — sin ZIPs de artes." }
+      "calendar": {
+        "title": "Calendario editorial",
+        "body": "Bloques, estados, temas y formatos — visión clara del mes de cada cliente."
+      },
+      "approval": {
+        "title": "Aprobación con preview real",
+        "body": "Comentarios, versiones y decisión donde se verá el post."
+      },
+      "aiCopy": {
+        "title": "IA de copy",
+        "body": "Leyendas, CTAs, hashtags, locución y guiones a partir del briefing."
+      },
+      "aiDesign": {
+        "title": "IA de diseño",
+        "body": "Artes de feed y carrusel con el kit de marca y plantillas de referencia."
+      },
+      "briefing": {
+        "title": "Brand briefing + guía",
+        "body": "Cuestionario estratégico con coach de IA y guía de marca automática."
+      },
+      "share": {
+        "title": "Acceso del cliente",
+        "body": "Enlace seguro, aviso por WhatsApp y login propio — sin ZIPs de artes."
+      }
     },
     "pricingTitle": "Planes según el tamaño de tu operación.",
     "pricingSubtitle": "Empieza solo y escala a equipo. Cancela cuando quieras.",
@@ -466,7 +498,14 @@
   },
   "project": {
     "back": "Volver",
-    "tabs": { "feed": "Feed", "library": "Biblioteca", "content": "Contenido", "calendar": "Calendario", "meeting": "Pauta", "settings": "Ajustes" },
+    "tabs": {
+      "feed": "Feed",
+      "library": "Biblioteca",
+      "content": "Contenido",
+      "calendar": "Calendario",
+      "meeting": "Pauta",
+      "settings": "Ajustes"
+    },
     "categoryExperiencePending": "La experiencia completa de esta categoría (pestañas y mockups) aún está en construcción. Por ahora puedes organizar contenidos, calendario y biblioteca.",
     "calendarPlaceholder": "Próximamente.",
     "calendar": {
@@ -689,7 +728,6 @@
       "unmute": "Activar sonido",
       "expandMedia": "Ampliar medio",
       "mediaViewer": "Vista ampliada del medio",
-
       "caption": "Descripción",
       "locucao": "Locución",
       "locucaoHint": "Texto que la cliente debe grabar y enviar el audio por correo.",
@@ -846,7 +884,8 @@
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "unsavedChangesTitle": "¿Guardar los cambios?",
     "unsavedChangesDescription": "Tienes cambios sin guardar. Si sales ahora, se perderán.",
-    "leaveWithoutSaving": "Salir sin guardar"
+    "leaveWithoutSaving": "Salir sin guardar",
+    "saving": "Guardando..."
   },
   "briefing": {
     "pageTitle": "Briefing de marca",
@@ -878,5 +917,22 @@
       "dismiss": "Cerrar",
       "applied": "Respuesta aplicada al briefing."
     }
+  },
+  "profile": {
+    "title": "Mi Perfil",
+    "subtitle": "Actualiza tus datos de acceso y contacto.",
+    "dataSection": "Datos personales",
+    "email": "Correo",
+    "fullName": "Nombre completo",
+    "fullNamePlaceholder": "Tu nombre",
+    "whatsapp": "WhatsApp",
+    "whatsappCountry": "País",
+    "passwordSection": "Contraseña",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "updatePassword": "Actualizar contraseña",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "passwordUpdated": "Contraseña actualizada.",
+    "saved": "Perfil actualizado."
   }
 }

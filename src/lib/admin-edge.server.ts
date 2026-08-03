@@ -5,7 +5,7 @@ import { getRequest } from "@tanstack/react-start/server";
  * Keeps the service role key out of the hosting environment (e.g. Netlify).
  */
 export async function callAdminEdge<T>(
-  functionName: "admin-team" | "admin-assinantes",
+  functionName: "admin-team" | "admin-assinantes" | "admin-clients",
   action: string,
   payload?: unknown,
 ): Promise<T> {

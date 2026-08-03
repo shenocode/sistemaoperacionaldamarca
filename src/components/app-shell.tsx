@@ -11,6 +11,7 @@ import {
   Menu,
   Settings,
   UserPlus,
+  UserRound,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -104,6 +105,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ) : null}
           <Link
+            to="/profile"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <UserRound className="h-4 w-4" /> {t("nav.profile")}
+          </Link>
+          <Link
             to="/settings"
             onClick={closeMobileNav}
             className={navClass}
@@ -111,6 +120,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Settings className="h-4 w-4" /> {t("nav.aiSettings")}
           </Link>
+
           {isAdminMaster ? (
             <>
               <Link
