@@ -959,6 +959,50 @@ export async function updateOwnPassword(password: string) {
   if (error) throw new Error(error.message);
 }
 
+export type MyProfile = {
+  id: string;
+  email: string;
+  full_name: string;
+  whatsapp: string;
+};
+
+export async function getMyProfile(): Promise<MyProfile> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw new Error(userError.message);
+  const user = userData.user;
+  if (!user) throw new Error("Não autenticado");
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, whatsapp")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    full_name: data?.full_name ?? "",
+    whatsapp: data?.whatsapp ?? "",
+  };
+}
+
+export async function updateMyProfile(input: { full_name: string; whatsapp: string }) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw new Error(userError.message);
+  const user = userData.user;
+  if (!user) throw new Error("Não autenticado");
+
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.id,
+    full_name: input.full_name.trim() || null,
+    whatsapp: input.whatsapp.trim() || null,
+  });
+  if (error) throw new Error(error.message);
+}
+
+
+
 // —— Projects ——
 
 export async function listProjects(clientId: string) {
