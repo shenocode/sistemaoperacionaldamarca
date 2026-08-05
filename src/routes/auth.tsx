@@ -315,7 +315,8 @@ function AuthPage() {
           <SomLogo
             size="lg"
             title={t("app.fullName")}
-            className="mx-auto h-14"
+            className="h-14"
+            linkClassName="mx-auto inline-flex"
           />
           {nextPath ? (
             <p className="mt-2 text-sm text-muted-foreground">{t("auth.reviewInviteHint")}</p>

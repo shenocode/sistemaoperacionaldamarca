@@ -33,6 +33,8 @@ type HelpFormProps = {
   clientId?: string;
   clients?: HelpClientOption[];
   onClientIdChange?: (clientId: string) => void;
+  /** When false, page header owns title/hint (dedicated /help route). */
+  showIntro?: boolean;
 };
 
 async function fileToAttachment(file: File) {
@@ -58,6 +60,7 @@ export function HelpForm({
   clientId,
   clients,
   onClientIdChange,
+  showIntro = true,
 }: HelpFormProps) {
   const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -118,12 +121,14 @@ export function HelpForm({
 
   return (
     <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{t("help.sectionTitle")}</p>
-        <p className="text-xs text-muted-foreground">
-          {audience === "gestor" ? t("help.gestorHint") : t("help.clientHint")}
-        </p>
-      </div>
+      {showIntro ? (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{t("help.sectionTitle")}</p>
+          <p className="text-xs text-muted-foreground">
+            {audience === "gestor" ? t("help.gestorHint") : t("help.clientHint")}
+          </p>
+        </div>
+      ) : null}
 
       {audience === "client" && clients && clients.length > 1 ? (
         <div className="space-y-1.5">

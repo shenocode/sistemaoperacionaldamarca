@@ -10,6 +10,7 @@ import {
   LifeBuoy,
   LogOut,
   Menu,
+  MessageCircleQuestion,
   Settings,
   User,
   UserPlus,
@@ -66,14 +67,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "flex items-center gap-2 rounded-md bg-sidebar-accent px-3 py-2 text-sm text-sidebar-accent-foreground hover:bg-sidebar-accent";
 
   const brandLogo = (
-    <Link
-      to="/"
+    <SomMark
+      title={t("app.fullName")}
+      className="h-11 w-auto"
       onClick={closeMobileNav}
-      className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={t("app.fullName")}
-    >
-      <SomMark title={t("app.fullName")} className="h-11 w-auto" />
-    </Link>
+      linkClassName="block"
+    />
   );
 
   const navLinks = (
@@ -121,6 +120,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             activeProps={{ className: navActiveClass }}
           >
             <Settings className="h-4 w-4" /> {t("nav.aiSettings")}
+          </Link>
+          <Link
+            to="/help"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <MessageCircleQuestion className="h-4 w-4" /> {t("nav.helpRequest")}
           </Link>
           <Link
             to="/help-inbox"
@@ -184,6 +191,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Settings className="h-4 w-4" /> {t("nav.settings")}
           </Link>
+          <Link
+            to="/help"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <MessageCircleQuestion className="h-4 w-4" /> {t("nav.helpRequest")}
+          </Link>
         </>
       )}
       {!loading && (
@@ -220,13 +235,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <Link
-            to="/"
-            className="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={t("app.fullName")}
-          >
-            <SomMark title={t("app.fullName")} className="h-8 w-auto" />
-          </Link>
+          <SomMark
+            title={t("app.fullName")}
+            className="h-8 w-auto"
+            linkClassName="flex min-w-0 items-center gap-2"
+          />
         </header>
 
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
@@ -236,14 +249,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <SheetHeader className="border-b px-6 py-4 text-left">
               <SheetTitle className="p-0 text-sidebar-foreground">
-                <Link
-                  to="/"
+                <SomMark
+                  title={t("app.fullName")}
+                  className="h-10 w-auto"
                   onClick={closeMobileNav}
-                  className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={t("app.fullName")}
-                >
-                  <SomMark title={t("app.fullName")} className="h-10 w-auto" />
-                </Link>
+                  linkClassName="block"
+                />
               </SheetTitle>
               <SheetDescription className="sr-only">{t("app.fullName")}</SheetDescription>
               <LanguageSwitcher className="mt-3 w-full" />

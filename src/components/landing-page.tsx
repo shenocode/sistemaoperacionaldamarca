@@ -802,9 +802,11 @@ export function LandingPage() {
     <div className="theme-mono landing-atmosphere relative min-h-screen overflow-x-hidden">
       <div id="topo" className="landing-hero-plane">
         <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <a href="#topo" className="inline-flex items-center" aria-label={t("app.fullName")}>
-            <SomMark className="h-9 w-auto" title={t("app.fullName")} />
-          </a>
+          <SomMark
+            className="h-9 w-auto"
+            title={t("app.fullName")}
+            linkClassName="inline-flex items-center"
+          />
           <nav className="hidden items-center gap-7 text-sm text-neutral-500 md:flex">
             <a href="#produto" className="transition-colors hover:text-neutral-900">
               {t("landing.navFeatures")}

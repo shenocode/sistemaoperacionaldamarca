@@ -13,6 +13,7 @@
     "subscribers": "Subscribers",
     "leads": "Leads",
     "helpInbox": "Help inbox",
+    "helpRequest": "I need help",
     "team": "Team",
     "openMenu": "Open menu"
   },
@@ -452,9 +453,14 @@
     "confirmPassword": "Confirm new password",
     "passwordMismatch": "Passwords do not match.",
     "passwordUpdated": "Password updated.",
-    "savePassword": "Save password"
+    "savePassword": "Save password",
+    "helpLinkPrefix": "Issues or questions?"
   },
   "help": {
+    "pageTitle": "I need help",
+    "pageSubtitleGestor": "Describe a platform issue or question. Your message goes to the SOM administrator.",
+    "pageSubtitleClient": "Describe an issue with your account. Your message goes to the manager responsible for your brand.",
+    "noClient": "No brand available. Ask your manager to grant access.",
     "sectionTitle": "Help",
     "gestorHint": "Describe a platform issue or question. Your message goes to the SOM administrator.",
     "clientHint": "Describe an issue with your account. Your message goes to the manager responsible for your brand.",
@@ -508,7 +514,8 @@
     "confirmPassword": "Confirm new password",
     "passwordMismatch": "Passwords do not match.",
     "passwordUpdated": "Password updated.",
-    "savePassword": "Save password"
+    "savePassword": "Save password",
+    "helpLinkPrefix": "Issues or questions?"
   },
   "adminAiSettings": {
     "title": "AI keys",

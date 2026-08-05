@@ -13,6 +13,7 @@
     "subscribers": "Suscriptores",
     "leads": "Leads",
     "helpInbox": "Ayuda recibida",
+    "helpRequest": "Necesito ayuda",
     "team": "Equipo",
     "openMenu": "Abrir menú"
   },
@@ -452,9 +453,14 @@
     "confirmPassword": "Confirmar nueva contraseña",
     "passwordMismatch": "Las contraseñas no coinciden.",
     "passwordUpdated": "Contraseña actualizada.",
-    "savePassword": "Guardar contraseña"
+    "savePassword": "Guardar contraseña",
+    "helpLinkPrefix": "¿Problemas o dudas?"
   },
   "help": {
+    "pageTitle": "Necesito ayuda",
+    "pageSubtitleGestor": "Describe un problema o duda sobre la plataforma. Tu mensaje va al administrador de SOM.",
+    "pageSubtitleClient": "Describe un problema con tu cuenta. Tu mensaje va al gestor responsable de la marca.",
+    "noClient": "Ninguna marca disponible. Pide a tu gestor que libere tu acceso.",
     "sectionTitle": "Ayuda",
     "gestorHint": "Describe un problema o duda sobre la plataforma. El mensaje va al administrador de SOM.",
     "clientHint": "Describe un problema con tu cuenta. El mensaje va al gestor responsable de la marca.",
@@ -508,7 +514,8 @@
     "confirmPassword": "Confirmar nueva contraseña",
     "passwordMismatch": "Las contraseñas no coinciden.",
     "passwordUpdated": "Contraseña actualizada.",
-    "savePassword": "Guardar contraseña"
+    "savePassword": "Guardar contraseña",
+    "helpLinkPrefix": "¿Problemas o dudas?"
   },
   "adminAiSettings": {
     "title": "Claves de IA",

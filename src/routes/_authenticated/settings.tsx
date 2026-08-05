@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { HelpForm } from "@/components/help-form";
+import { Link } from "@tanstack/react-router";
 import {
   Select,
   SelectContent,
@@ -246,15 +246,12 @@ function ClientSettingsPage() {
         </Button>
       </form>
 
-      <Separator />
-
-      <HelpForm
-        idPrefix="client-help"
-        audience="client"
-        clientId={selectedClientId}
-        clients={clients.map((c) => ({ id: c.id, name: c.name, i18n: c.i18n }))}
-        onClientIdChange={setSelectedClientId}
-      />
+      <p className="text-sm text-muted-foreground">
+        {t("clientSettings.helpLinkPrefix")}{" "}
+        <Link to="/help" className="font-medium text-foreground underline-offset-2 hover:underline">
+          {t("nav.helpRequest")}
+        </Link>
+      </p>
     </div>
   );
 }
