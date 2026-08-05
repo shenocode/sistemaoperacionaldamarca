@@ -7,6 +7,8 @@ export const contentFormatStyles: Record<ContentFormat, string> = {
   reels: "border-fuchsia-300 !bg-fuchsia-100 text-fuchsia-900 hover:!bg-fuchsia-100",
   stories: "border-teal-300 !bg-teal-100 text-teal-900 hover:!bg-teal-100",
   recorded_video: "border-indigo-300 !bg-indigo-100 text-indigo-900 hover:!bg-indigo-100",
+  youtube_short: "border-rose-300 !bg-rose-100 text-rose-900 hover:!bg-rose-100",
+  print_material: "border-amber-300 !bg-amber-100 text-amber-900 hover:!bg-amber-100",
 };
 
 /** Subtle row tint so format distribution is scannable in the calendar. */
@@ -16,4 +18,6 @@ export const contentFormatRowStyles: Record<ContentFormat, string> = {
   reels: "bg-fuchsia-50/70",
   stories: "bg-teal-50/70",
   recorded_video: "bg-indigo-50/70",
+  youtube_short: "bg-rose-50/70",
+  print_material: "bg-amber-50/70",
 };
