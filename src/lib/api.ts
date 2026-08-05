@@ -324,7 +324,32 @@ export async function uploadClientLogo(clientId: string, file: File) {
 
   if (!storageError) {
     const { data } = supabase.storage.from(CLIENT_LOGOS_BUCKET).getPublicUrl(storagePath);
-    return data.publicUrl;
+    const logoUrl = data.publicUrl;
+    // Persist logo_url immediately (edge-function path already does this).
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("name, notes, email, phone, whatsapp, instagram")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (clientRow?.name?.trim()) {
+      const { error: updateError } = await supabase
+        .from("clients")
+        .update({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+        .eq("id", clientId);
+      if (updateError) {
+        await supabase.rpc("update_client_contact", {
+          _client_id: clientId,
+          _name: clientRow.name,
+          _notes: clientRow.notes,
+          _email: clientRow.email,
+          _phone: clientRow.phone,
+          _whatsapp: clientRow.whatsapp,
+          _instagram: clientRow.instagram,
+          _logo_url: logoUrl,
+        } as Database["public"]["Functions"]["update_client_contact"]["Args"]);
+      }
+    }
+    return logoUrl;
   }
 
   const storageMessage = storageError.message || "";

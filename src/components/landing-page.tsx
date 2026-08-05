@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { User } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   Check,
@@ -23,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAppRole } from "@/hooks/use-app-role";
 import { useAuth } from "@/hooks/use-auth";
 import { PhoneChrome } from "@/components/content-media-preview";
 import {
@@ -42,6 +44,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { SiteFooter } from "@/components/site-footer";
 import { SomLogo, SomMark } from "@/components/som-logo";
 import {
+  listClients,
   startSubscriptionCheckout,
   type ContentFormat,
   type SubscriptionPlanKey,
@@ -772,11 +775,24 @@ function ProductMockup() {
 export function LandingPage() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
+  const { isClient } = useAppRole();
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanKey | null>(null);
   const displayName = user ? getAuthDisplayName(user) : "";
-  const avatarUrl = user ? getAuthAvatarUrl(user) : null;
   const initials = user ? getAuthInitials(user) : "";
 
+  const brandLogoQuery = useQuery({
+    queryKey: ["clients", "brand-logo"],
+    queryFn: async () => {
+      const clients = await listClients();
+      const logo = clients.map((client) => client.logo_url?.trim()).find(Boolean);
+      return logo ?? null;
+    },
+    enabled: Boolean(user) && isClient,
+    staleTime: 60_000,
+  });
+
+  const avatarUrl =
+    brandLogoQuery.data || (user ? getAuthAvatarUrl(user) : null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -836,7 +852,9 @@ export function LandingPage() {
                   title={t("landing.goToApp")}
                 >
                   <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
-                    {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+                    {avatarUrl ? (
+                      <AvatarImage src={avatarUrl} alt="" className="object-cover" />
+                    ) : null}
                     <AvatarFallback className="bg-neutral-100 text-[11px] font-semibold text-neutral-800">
                       {initials || <UserRound className="h-3.5 w-3.5" />}
                     </AvatarFallback>
