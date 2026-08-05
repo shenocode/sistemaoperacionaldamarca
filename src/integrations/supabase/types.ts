@@ -373,19 +373,24 @@ export type Database = {
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
+          height_cm: number | null
           i18n: Json
           id: string
           locucao: string
+          material_type: string | null
           media_url: string | null
           media_urls: string[]
+          production_notes: string
           project_id: string
           roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
           theme: string | null
+          thumbnail_url: string | null
           title: string
           updated_at: string
+          width_cm: number | null
         }
         Insert: {
           calendar_block_id?: string | null
@@ -396,19 +401,24 @@ export type Database = {
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           project_id: string
           roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
           theme?: string | null
+          thumbnail_url?: string | null
           title: string
           updated_at?: string
+          width_cm?: number | null
         }
         Update: {
           calendar_block_id?: string | null
@@ -419,19 +429,24 @@ export type Database = {
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           project_id?: string
           roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
           status?: Database["public"]["Enums"]["content_status"]
           theme?: string | null
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string
+          width_cm?: number | null
         }
         Relationships: [
           {
@@ -460,13 +475,18 @@ export type Database = {
           cta: string
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
+          height_cm: number | null
           i18n: Json
           id: string
           locucao: string
+          material_type: string | null
           media_url: string | null
           media_urls: string[]
+          production_notes: string
           roteiro: string
+          thumbnail_url: string | null
           version_number: number
+          width_cm: number | null
         }
         Insert: {
           caption?: string
@@ -477,13 +497,18 @@ export type Database = {
           cta?: string
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           roteiro?: string
+          thumbnail_url?: string | null
           version_number: number
+          width_cm?: number | null
         }
         Update: {
           caption?: string
@@ -494,13 +519,18 @@ export type Database = {
           cta?: string
           format?: Database["public"]["Enums"]["content_format"]
           hashtags?: string
+          height_cm?: number | null
           i18n?: Json
           id?: string
           locucao?: string
+          material_type?: string | null
           media_url?: string | null
           media_urls?: string[]
+          production_notes?: string
           roteiro?: string
+          thumbnail_url?: string | null
           version_number?: number
+          width_cm?: number | null
         }
         Relationships: [
           {
@@ -552,6 +582,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "design_templates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      help_requests: {
+        Row: {
+          attachment_file_name: string | null
+          attachment_mime_type: string | null
+          attachment_storage_path: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["help_request_kind"]
+          locale: string | null
+          message: string
+          recipient_user_id: string
+          sender_email: string
+          sender_user_id: string
+        }
+        Insert: {
+          attachment_file_name?: string | null
+          attachment_mime_type?: string | null
+          attachment_storage_path?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["help_request_kind"]
+          locale?: string | null
+          message: string
+          recipient_user_id: string
+          sender_email: string
+          sender_user_id: string
+        }
+        Update: {
+          attachment_file_name?: string | null
+          attachment_mime_type?: string | null
+          attachment_storage_path?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["help_request_kind"]
+          locale?: string | null
+          message?: string
+          recipient_user_id?: string
+          sender_email?: string
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_requests_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
@@ -962,19 +1045,24 @@ export type Database = {
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
           hashtags: string
+          height_cm: number | null
           i18n: Json
           id: string
           locucao: string
+          material_type: string | null
           media_url: string | null
           media_urls: string[]
+          production_notes: string
           project_id: string
           roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
           theme: string | null
+          thumbnail_url: string | null
           title: string
           updated_at: string
+          width_cm: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1047,6 +1135,8 @@ export type Database = {
         | "stories"
         | "carousel"
         | "recorded_video"
+        | "youtube_short"
+        | "print_material"
       content_status:
         | "draft"
         | "review"
@@ -1056,6 +1146,7 @@ export type Database = {
         | "waiting_material"
         | "changes_done"
       design_template_format: "static_feed" | "carousel"
+      help_request_kind: "gestor_platform" | "client_gestor"
       library_category:
         | "brand"
         | "pdfs"
@@ -1219,6 +1310,8 @@ export const Constants = {
         "stories",
         "carousel",
         "recorded_video",
+        "youtube_short",
+        "print_material",
       ],
       content_status: [
         "draft",
@@ -1230,6 +1323,7 @@ export const Constants = {
         "changes_done",
       ],
       design_template_format: ["static_feed", "carousel"],
+      help_request_kind: ["gestor_platform", "client_gestor"],
       library_category: [
         "brand",
         "pdfs",
