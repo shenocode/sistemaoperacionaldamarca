@@ -335,6 +335,18 @@ function ContentDetailPage() {
     })
     .filter((item) => item.url);
 
+  const replaceThumbnailBlob = (next: string | null) => {
+    setThumbnailBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return next;
+    });
+  };
+
+  const setThumbnailFromFile = (file: File | null) => {
+    setThumbnailFile(file);
+    replaceThumbnailBlob(file ? URL.createObjectURL(file) : null);
+  };
+
   const applyContentToForm = (row: NonNullable<typeof content>) => {
     const nextI18n = parseRowI18n(row.i18n);
     const nextTitle = getLocalizedText(nextI18n, "title", row.title, uiLocale);
@@ -373,6 +385,7 @@ function ContentDetailPage() {
     setMediaItems(nextMedia);
     setThumbnailUrl(nextThumbnail);
     setThumbnailFile(null);
+    replaceThumbnailBlob(null);
     setUrlDraft("");
     setDragIndex(null);
     setDropIndex(null);
@@ -431,16 +444,6 @@ function ContentDetailPage() {
   const isDirty = Boolean(formBaseline) && !ignoreUnsavedChanges && formSnapshot !== formBaseline;
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
-
-  useEffect(() => {
-    if (!thumbnailFile) {
-      setThumbnailBlobUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(thumbnailFile);
-    setThumbnailBlobUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [thumbnailFile]);
 
   const contentBackfillFields = useMemo(
     () =>
@@ -1363,7 +1366,7 @@ function ContentDetailPage() {
                             if (!file.type.startsWith("image/")) {
                               toast.error(t("project.detail.thumbnailImageOnly"));
                             } else {
-                              setThumbnailFile(file);
+                              setThumbnailFromFile(file);
                             }
                           }
                           e.target.value = "";
@@ -1384,7 +1387,7 @@ function ContentDetailPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setThumbnailFile(null);
+                              setThumbnailFromFile(null);
                               setThumbnailUrl("");
                             }}
                           >

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Separator } from "@/components/ui/separator";
+import { HelpForm } from "@/components/help-form";
 import {
   getMyProfile,
   isAdmin,
@@ -215,6 +216,10 @@ function GestorProfilePage() {
           {t("gestorProfile.savePassword")}
         </Button>
       </form>
+
+      <Separator />
+
+      <HelpForm idPrefix="gestor-help" audience="gestor" />
     </div>
   );
 }

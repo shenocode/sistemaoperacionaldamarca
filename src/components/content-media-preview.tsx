@@ -569,13 +569,12 @@ export function ContentMediaPreview({
   }
 
   if (isYoutube) {
-    const videoUrl =
-      items.find((item) => resolveKind(item) === "video")?.url ?? items[0]?.url ?? null;
+    const videoUrl = items.find((item) => resolveKind(item) === "video")?.url ?? null;
+    const imageFromMedia = items.find((item) => resolveKind(item) === "image")?.url ?? null;
     const thumb =
       thumbnailUrl?.trim() ||
-      items.find((item) => resolveKind(item) === "image")?.url ||
-      (videoUrl && isVideoUrl(videoUrl) ? `${videoUrl}#t=0.1` : videoUrl) ||
-      null;
+      imageFromMedia ||
+      (videoUrl ? `${videoUrl}#t=0.1` : null);
     const shared = {
       title,
       caption,

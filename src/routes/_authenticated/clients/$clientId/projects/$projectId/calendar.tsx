@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { ApprovalsSummaryDialog } from "@/components/approvals-summary-dialog";
 import { ContentStatusSelect } from "@/components/content-status-select";
+import { ContentFormatSelect } from "@/components/content-format-select";
 import {
   contentFormatRowStyles,
   contentFormatStyles,
@@ -70,6 +71,7 @@ import {
   duplicateCalendarBlock,
   deleteCalendarBlock,
   duplicateContent,
+  defaultContentFormatForProject,
   ensureCalendarBlocks,
   getClient,
   getGraphicArtsMaterialPreset,
@@ -316,6 +318,7 @@ function ProjectCalendarPage() {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newFormat, setNewFormat] = useState<ContentFormat>("static_feed");
   const posterPreset = getGraphicArtsMaterialPreset("poster");
   const [newMaterialType, setNewMaterialType] = useState<GraphicArtsMaterialType>("poster");
   const [newWidthCm, setNewWidthCm] = useState(String(posterPreset.widthCm));
@@ -495,6 +498,9 @@ function ProjectCalendarPage() {
   const openCreateDialog = () => {
     const preset = getGraphicArtsMaterialPreset("poster");
     setNewTitle("");
+    setNewFormat(
+      allowedFormats[0] ?? defaultContentFormatForProject(projectQuery.data?.categories),
+    );
     setNewMaterialType("poster");
     setNewWidthCm(String(preset.widthCm));
     setNewHeightCm(String(preset.heightCm));
@@ -504,6 +510,9 @@ function ProjectCalendarPage() {
   const resetCreateForm = () => {
     const preset = getGraphicArtsMaterialPreset("poster");
     setNewTitle("");
+    setNewFormat(
+      allowedFormats[0] ?? defaultContentFormatForProject(projectQuery.data?.categories),
+    );
     setNewMaterialType("poster");
     setNewWidthCm(String(preset.widthCm));
     setNewHeightCm(String(preset.heightCm));
@@ -1323,7 +1332,12 @@ function ProjectCalendarPage() {
                 });
                 return;
               }
-              createMutation.mutate({ projectId, clientId, title: newTitle.trim() });
+              createMutation.mutate({
+                projectId,
+                clientId,
+                title: newTitle.trim(),
+                format: newFormat,
+              });
             }}
           >
             <div className="space-y-1.5">
@@ -1336,6 +1350,18 @@ function ProjectCalendarPage() {
                 autoFocus
               />
             </div>
+            {!isGraphicArts && allowedFormats.length > 0 ? (
+              <div className="space-y-1.5">
+                <Label>{t("project.detail.format")}</Label>
+                <ContentFormatSelect
+                  format={
+                    allowedFormats.includes(newFormat) ? newFormat : allowedFormats[0]
+                  }
+                  formats={allowedFormats}
+                  onValueChange={setNewFormat}
+                />
+              </div>
+            ) : null}
             {isGraphicArts ? (
               <GraphicArtsMaterialFields
                 idPrefix="calendar-create"

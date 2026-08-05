@@ -222,6 +222,59 @@ export type Database = {
           },
         ]
       }
+      help_requests: {
+        Row: {
+          attachment_file_name: string | null
+          attachment_mime_type: string | null
+          attachment_storage_path: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["help_request_kind"]
+          locale: string | null
+          message: string
+          recipient_user_id: string
+          sender_email: string
+          sender_user_id: string
+        }
+        Insert: {
+          attachment_file_name?: string | null
+          attachment_mime_type?: string | null
+          attachment_storage_path?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["help_request_kind"]
+          locale?: string | null
+          message: string
+          recipient_user_id: string
+          sender_email: string
+          sender_user_id: string
+        }
+        Update: {
+          attachment_file_name?: string | null
+          attachment_mime_type?: string | null
+          attachment_storage_path?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["help_request_kind"]
+          locale?: string | null
+          message?: string
+          recipient_user_id?: string
+          sender_email?: string
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           access_token: string
@@ -1029,6 +1082,7 @@ export type Database = {
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
       client_member_role: "owner" | "member"
+      help_request_kind: "gestor_platform" | "client_gestor"
       content_format:
         | "static_feed"
         | "reels"
@@ -1201,6 +1255,7 @@ export const Constants = {
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
       client_member_role: ["owner", "member"],
+      help_request_kind: ["gestor_platform", "client_gestor"],
       content_format: [
         "static_feed",
         "reels",

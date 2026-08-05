@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { HelpForm } from "@/components/help-form";
 import {
   Select,
   SelectContent,
@@ -244,6 +245,16 @@ function ClientSettingsPage() {
           {t("clientSettings.savePassword")}
         </Button>
       </form>
+
+      <Separator />
+
+      <HelpForm
+        idPrefix="client-help"
+        audience="client"
+        clientId={selectedClientId}
+        clients={clients.map((c) => ({ id: c.id, name: c.name, i18n: c.i18n }))}
+        onClientIdChange={setSelectedClientId}
+      />
     </div>
   );
 }

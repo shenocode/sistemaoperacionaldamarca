@@ -12,6 +12,7 @@
     "accessRelease": "Liberação de acessos",
     "subscribers": "Assinantes",
     "leads": "Leads",
+    "helpInbox": "Ajuda recebida",
     "team": "Equipe",
     "openMenu": "Abrir menu"
   },
@@ -453,6 +454,41 @@
     "passwordUpdated": "Senha atualizada.",
     "savePassword": "Salvar senha"
   },
+  "help": {
+    "sectionTitle": "Ajuda",
+    "gestorHint": "Descreva um problema ou dúvida sobre a plataforma. A mensagem vai para o administrador da SOM.",
+    "clientHint": "Descreva um problema ou dúvida sobre sua conta. A mensagem vai para o gestor responsável pela marca.",
+    "clientLabel": "Marca",
+    "clientPlaceholder": "Selecione a marca",
+    "clientRequired": "Selecione a marca.",
+    "messageLabel": "Descreva o problema",
+    "messagePlaceholder": "Conte o que aconteceu, o que você esperava e em qual tela…",
+    "messageTooShort": "Descreva o problema com pelo menos 10 caracteres.",
+    "attachmentLabel": "Print ou documento (opcional)",
+    "attachmentChoose": "Anexar arquivo",
+    "attachmentRemove": "Remover anexo",
+    "attachmentHint": "Imagem, PDF ou documento de texto, até 10 MB.",
+    "attachmentTooLarge": "O anexo deve ter no máximo 10 MB.",
+    "submit": "Enviar pedido de ajuda",
+    "sending": "Enviando…",
+    "sent": "Pedido enviado. Em breve você receberá retorno.",
+    "sendError": "Não foi possível enviar o pedido."
+  },
+  "helpInbox": {
+    "title": "Ajuda recebida",
+    "subtitle": "Pedidos enviados pelos gestores e clientes.",
+    "fromGestoresTitle": "Gestores",
+    "fromGestoresSubtitle": "Pedidos sobre a plataforma enviados por gestores.",
+    "fromClientsTitle": "Clientes",
+    "fromClientsSubtitle": "Pedidos enviados pelos clientes das suas marcas.",
+    "loadError": "Não foi possível carregar os pedidos.",
+    "empty": "Nenhum pedido de ajuda ainda.",
+    "badgeGestor": "Gestor",
+    "badgeClient": "Cliente",
+    "client": "Marca",
+    "openAttachment": "Abrir anexo: {{name}}",
+    "attachmentFallback": "anexo"
+  },
   "gestorProfile": {
     "title": "Meu Perfil",
     "subtitle": "Atualize os dados da sua conta de gestor.",
@@ -538,7 +574,7 @@
       },
       "videos": {
         "label": "Vídeos",
-        "formats": "Vídeo 16:9 e Shorts 9:16."
+        "formats": "Horizontal (16:9) e Vertical (9:16)."
       }
     },
     "search": "Buscar clientes...",
@@ -592,9 +628,8 @@
     },
     "categoryExperiencePending": "A experiência completa desta categoria (abas e mockups) ainda está em construção. Por enquanto você pode organizar conteúdos, calendário e biblioteca.",
     "youtube": {
-      "previewWatch": "Prévia — YouTube (notebook)",
-      "previewShorts": "Prévia — Shorts (notebook)",
-      "previewChannel": "Prévia — canal da marca (notebook)",
+      "previewFormat": "Prévia — {{format}}",
+      "previewChannel": "Prévia — canal da marca",
       "search": "Pesquisar",
       "play": "Reproduzir vídeo",
       "noThumbnail": "Sem thumbnail",
@@ -1019,9 +1054,9 @@
         "reels": "Reels",
         "stories": "Stories",
         "carousel": "Carrossel",
-        "recorded_video": "Vídeo",
+        "recorded_video": "Horizontal (16:9)",
         "print_material": "Peça gráfica",
-        "youtube_short": "Shorts"
+        "youtube_short": "Vertical (9:16)"
       },
       "thumbnail": "Thumbnail",
       "thumbnailHint": "Imagem de capa no mockup do YouTube. Ao clicar no player, o vídeo começa.",

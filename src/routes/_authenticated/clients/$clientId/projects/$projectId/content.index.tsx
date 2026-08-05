@@ -56,6 +56,7 @@ import {
   createContent,
   deleteContent,
   duplicateContent,
+  defaultContentFormatForProject,
   CONTENT_TAB_ENABLED,
   getClient,
   getGraphicArtsMaterialPreset,
@@ -119,6 +120,7 @@ function ContentListPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [newFormat, setNewFormat] = useState<ContentFormat>("static_feed");
   const posterPreset = getGraphicArtsMaterialPreset("poster");
   const [newMaterialType, setNewMaterialType] = useState<GraphicArtsMaterialType>("poster");
   const [newWidthCm, setNewWidthCm] = useState(String(posterPreset.widthCm));
@@ -162,9 +164,17 @@ function ContentListPage() {
   const resetCreateForm = () => {
     const preset = getGraphicArtsMaterialPreset("poster");
     setTitle("");
+    setNewFormat(
+      allowedFormats[0] ?? defaultContentFormatForProject(projectQuery.data?.categories),
+    );
     setNewMaterialType("poster");
     setNewWidthCm(String(preset.widthCm));
     setNewHeightCm(String(preset.heightCm));
+  };
+
+  const openCreateDialog = () => {
+    resetCreateForm();
+    setOpen(true);
   };
 
   const createMutation = useMutation({
@@ -326,7 +336,7 @@ function ContentListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
         {canManage ? (
-          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
+          <Button onClick={openCreateDialog} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             {t("project.content.new")}
           </Button>
@@ -707,7 +717,12 @@ function ContentListPage() {
                 });
                 return;
               }
-              createMutation.mutate({ projectId, clientId, title });
+              createMutation.mutate({
+                projectId,
+                clientId,
+                title: title.trim(),
+                format: newFormat,
+              });
             }}
           >
             <div className="space-y-1.5">
@@ -720,6 +735,18 @@ function ContentListPage() {
                 autoFocus
               />
             </div>
+            {!isGraphicArts && allowedFormats.length > 0 ? (
+              <div className="space-y-1.5">
+                <Label>{t("project.detail.format")}</Label>
+                <ContentFormatSelect
+                  format={
+                    allowedFormats.includes(newFormat) ? newFormat : allowedFormats[0]
+                  }
+                  formats={allowedFormats}
+                  onValueChange={setNewFormat}
+                />
+              </div>
+            ) : null}
             {isGraphicArts ? (
               <GraphicArtsMaterialFields
                 idPrefix="content-create"

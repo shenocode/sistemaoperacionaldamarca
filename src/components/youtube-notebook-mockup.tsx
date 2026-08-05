@@ -94,6 +94,10 @@ function YoutubeTopBar({ channelName }: { channelName: string }) {
   );
 }
 
+function baseMediaUrl(url: string) {
+  return url.split("#")[0] || url;
+}
+
 function ThumbnailOrVideo({
   thumbnailUrl,
   videoUrl,
@@ -112,13 +116,28 @@ function ThumbnailOrVideo({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const canPlay = Boolean(videoUrl && isVideoUrl(videoUrl));
+  // videoUrl só chega aqui quando o parent já identificou mídia de vídeo (inclui blob:).
+  const canPlay = Boolean(videoUrl);
+  const dedicatedThumb = thumbnailUrl?.trim() || null;
+  const thumbIsVideoFrame = Boolean(
+    dedicatedThumb &&
+      (dedicatedThumb.includes("#t=") ||
+        (videoUrl && baseMediaUrl(dedicatedThumb) === baseMediaUrl(videoUrl))),
+  );
+  const imageThumb = dedicatedThumb && !thumbIsVideoFrame ? dedicatedThumb : null;
+  const videoPosterSrc =
+    thumbIsVideoFrame && dedicatedThumb
+      ? dedicatedThumb
+      : videoUrl
+        ? `${baseMediaUrl(videoUrl)}#t=0.1`
+        : null;
 
   if (playing && canPlay && videoUrl) {
     return (
       <div className={cn("relative bg-black", aspectClass, className)}>
         <video
           src={videoUrl}
+          poster={imageThumb ?? undefined}
           className="h-full w-full object-contain"
           controls
           autoPlay
@@ -141,20 +160,18 @@ function ThumbnailOrVideo({
         if (canPlay) onPlay();
       }}
       aria-label={canPlay ? t("project.youtube.play") : title}
-      disabled={!canPlay && !thumbnailUrl}
+      disabled={!canPlay && !imageThumb && !videoPosterSrc}
     >
-      {thumbnailUrl ? (
-        thumbnailUrl.includes("#t=") || (videoUrl && thumbnailUrl.startsWith(videoUrl.split("#")[0])) ? (
-          <video
-            src={thumbnailUrl}
-            className="h-full w-full object-cover"
-            muted
-            playsInline
-            preload="metadata"
-          />
-        ) : (
-          <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
-        )
+      {imageThumb ? (
+        <img src={imageThumb} alt="" className="h-full w-full object-cover" />
+      ) : videoPosterSrc ? (
+        <video
+          src={videoPosterSrc}
+          className="h-full w-full object-cover"
+          muted
+          playsInline
+          preload="metadata"
+        />
       ) : (
         <div className="flex h-full items-center justify-center text-[11px] text-neutral-400">
           {t("project.youtube.noThumbnail")}
@@ -204,7 +221,11 @@ export function YouTubeWatchMockup({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <p className="text-center text-xs text-muted-foreground">{t("project.youtube.previewWatch")}</p>
+      <p className="text-center text-xs text-muted-foreground">
+        {t("project.youtube.previewFormat", {
+          format: t("project.detail.formats.recorded_video"),
+        })}
+      </p>
       <NotebookChrome size={size}>
         <YoutubeTopBar channelName={channel} />
         <div className="max-h-[420px] space-y-2 overflow-y-auto bg-white p-3">
@@ -288,7 +309,11 @@ export function YouTubeShortsMockup({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <p className="text-center text-xs text-muted-foreground">{t("project.youtube.previewShorts")}</p>
+      <p className="text-center text-xs text-muted-foreground">
+        {t("project.youtube.previewFormat", {
+          format: t("project.detail.formats.youtube_short"),
+        })}
+      </p>
       <NotebookChrome size={size}>
         <YoutubeTopBar channelName={channel} />
         <div className="flex justify-center bg-neutral-950 px-3 py-4">
@@ -378,8 +403,9 @@ export function YouTubeChannelMockup({
     getLocalizedText(item.i18n, "title", item.title, uiLocale);
 
   const renderCard = (item: ContentItem, short: boolean) => {
+    const urls = resolveContentMediaUrls(item);
+    const media = urls.find((url) => isVideoUrl(url)) ?? null;
     const thumb = resolveContentThumbnail(item);
-    const media = resolveContentMediaUrls(item)[0] ?? null;
     const playing = playingId === item.id;
     const title = localizedTitle(item);
 

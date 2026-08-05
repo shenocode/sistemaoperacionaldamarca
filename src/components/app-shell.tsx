@@ -7,6 +7,7 @@ import {
   Inbox,
   KeyRound,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Menu,
   Settings,
@@ -120,6 +121,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             activeProps={{ className: navActiveClass }}
           >
             <Settings className="h-4 w-4" /> {t("nav.aiSettings")}
+          </Link>
+          <Link
+            to="/help-inbox"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <LifeBuoy className="h-4 w-4" /> {t("nav.helpInbox")}
           </Link>
           {isAdminMaster ? (
             <>

@@ -12,6 +12,7 @@
     "accessRelease": "Access release",
     "subscribers": "Subscribers",
     "leads": "Leads",
+    "helpInbox": "Help inbox",
     "team": "Team",
     "openMenu": "Open menu"
   },
@@ -453,6 +454,41 @@
     "passwordUpdated": "Password updated.",
     "savePassword": "Save password"
   },
+  "help": {
+    "sectionTitle": "Help",
+    "gestorHint": "Describe a platform issue or question. Your message goes to the SOM administrator.",
+    "clientHint": "Describe an issue with your account. Your message goes to the manager responsible for your brand.",
+    "clientLabel": "Brand",
+    "clientPlaceholder": "Select a brand",
+    "clientRequired": "Select a brand.",
+    "messageLabel": "Describe the issue",
+    "messagePlaceholder": "What happened, what you expected, and which screen…",
+    "messageTooShort": "Please describe the issue in at least 10 characters.",
+    "attachmentLabel": "Screenshot or document (optional)",
+    "attachmentChoose": "Attach file",
+    "attachmentRemove": "Remove attachment",
+    "attachmentHint": "Image, PDF, or plain-text document, up to 10 MB.",
+    "attachmentTooLarge": "Attachment must be 10 MB or smaller.",
+    "submit": "Send help request",
+    "sending": "Sending…",
+    "sent": "Request sent. You will hear back soon.",
+    "sendError": "Could not send the request."
+  },
+  "helpInbox": {
+    "title": "Help inbox",
+    "subtitle": "Requests from managers and clients.",
+    "fromGestoresTitle": "Managers",
+    "fromGestoresSubtitle": "Platform help requests from managers.",
+    "fromClientsTitle": "Clients",
+    "fromClientsSubtitle": "Help requests from your clients.",
+    "loadError": "Could not load requests.",
+    "empty": "No help requests yet.",
+    "badgeGestor": "Manager",
+    "badgeClient": "Client",
+    "client": "Brand",
+    "openAttachment": "Open attachment: {{name}}",
+    "attachmentFallback": "attachment"
+  },
   "gestorProfile": {
     "title": "My Profile",
     "subtitle": "Update your manager account details.",
@@ -538,7 +574,7 @@
       },
       "videos": {
         "label": "Videos",
-        "formats": "16:9 video and 9:16 Shorts."
+        "formats": "Horizontal (16:9) and Vertical (9:16)."
       }
     },
     "search": "Search clients...",
@@ -584,9 +620,8 @@
     "tabs": { "feed": "Feed", "themes": "Themes", "library": "Library", "content": "Content", "calendar": "Calendar", "meeting": "Agenda", "settings": "Settings" },
     "categoryExperiencePending": "The full experience for this category (tabs and mockups) is still being built. For now you can organize content, calendar, and library.",
     "youtube": {
-      "previewWatch": "Preview — YouTube (notebook)",
-      "previewShorts": "Preview — Shorts (notebook)",
-      "previewChannel": "Preview — brand channel (notebook)",
+      "previewFormat": "Preview — {{format}}",
+      "previewChannel": "Preview — brand channel",
       "search": "Search",
       "play": "Play video",
       "noThumbnail": "No thumbnail",
@@ -1011,9 +1046,9 @@
         "reels": "Reels",
         "stories": "Stories",
         "carousel": "Carousel",
-        "recorded_video": "Video",
+        "recorded_video": "Horizontal (16:9)",
         "print_material": "Print piece",
-        "youtube_short": "Shorts"
+        "youtube_short": "Vertical (9:16)"
       },
       "thumbnail": "Thumbnail",
       "thumbnailHint": "Cover image in the YouTube mockup. Clicking the player starts the video.",

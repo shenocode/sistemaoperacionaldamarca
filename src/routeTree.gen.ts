@@ -17,6 +17,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedAccessRouteImport } from './routes/_authenticated/access'
 import { Route as AuthenticatedAssinantesRouteImport } from './routes/_authenticated/assinantes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedHelpInboxRouteImport } from './routes/_authenticated/help-inbox'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
@@ -80,6 +81,11 @@ const AuthenticatedAssinantesRoute = AuthenticatedAssinantesRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHelpInboxRoute = AuthenticatedHelpInboxRouteImport.update({
+  id: '/help-inbox',
+  path: '/help-inbox',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
@@ -249,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/access': typeof AuthenticatedAccessRoute
   '/assinantes': typeof AuthenticatedAssinantesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/help-inbox': typeof AuthenticatedHelpInboxRoute
   '/home': typeof AuthenticatedHomeRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/access': typeof AuthenticatedAccessRoute
   '/assinantes': typeof AuthenticatedAssinantesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/help-inbox': typeof AuthenticatedHelpInboxRoute
   '/home': typeof AuthenticatedHomeRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -316,6 +324,7 @@ export interface FileRoutesById {
   '/_authenticated/access': typeof AuthenticatedAccessRoute
   '/_authenticated/assinantes': typeof AuthenticatedAssinantesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/help-inbox': typeof AuthenticatedHelpInboxRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
@@ -352,6 +361,7 @@ export interface FileRouteTypes {
     | '/access'
     | '/assinantes'
     | '/dashboard'
+    | '/help-inbox'
     | '/home'
     | '/leads'
     | '/profile'
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/access'
     | '/assinantes'
     | '/dashboard'
+    | '/help-inbox'
     | '/home'
     | '/leads'
     | '/profile'
@@ -418,6 +429,7 @@ export interface FileRouteTypes {
     | '/_authenticated/access'
     | '/_authenticated/assinantes'
     | '/_authenticated/dashboard'
+    | '/_authenticated/help-inbox'
     | '/_authenticated/home'
     | '/_authenticated/leads'
     | '/_authenticated/profile'
@@ -512,6 +524,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/help-inbox': {
+      id: '/_authenticated/help-inbox'
+      path: '/help-inbox'
+      fullPath: '/help-inbox'
+      preLoaderRoute: typeof AuthenticatedHelpInboxRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/home': {
@@ -768,6 +787,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccessRoute: typeof AuthenticatedAccessRoute
   AuthenticatedAssinantesRoute: typeof AuthenticatedAssinantesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedHelpInboxRoute: typeof AuthenticatedHelpInboxRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
@@ -784,6 +804,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccessRoute: AuthenticatedAccessRoute,
   AuthenticatedAssinantesRoute: AuthenticatedAssinantesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedHelpInboxRoute: AuthenticatedHelpInboxRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,

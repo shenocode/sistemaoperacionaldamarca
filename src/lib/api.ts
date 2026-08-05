@@ -3391,6 +3391,104 @@ export async function listContactLeads(): Promise<ContactLead[]> {
   }));
 }
 
+export type HelpRequestKind = "gestor_platform" | "client_gestor";
+
+export type HelpRequest = {
+  id: string;
+  createdAt: string;
+  kind: HelpRequestKind;
+  message: string;
+  senderEmail: string;
+  senderUserId: string;
+  senderName: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  attachmentFileName: string | null;
+  hasAttachment: boolean;
+};
+
+export async function submitHelpRequest(input: {
+  message: string;
+  clientId?: string;
+  locale?: string;
+  attachment?: { fileName: string; contentType: string; base64: string };
+}): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("submit-help-request", {
+    body: {
+      message: input.message.trim(),
+      clientId: input.clientId,
+      locale: input.locale,
+      attachment: input.attachment,
+    },
+  });
+
+  const payload = data as { ok?: boolean; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+  if (!payload?.ok) throw new Error("Não foi possível enviar o pedido de ajuda.");
+}
+
+export async function getHelpRequestAttachmentUrl(requestId: string): Promise<{
+  url: string;
+  fileName: string;
+}> {
+  const { data, error } = await supabase.functions.invoke("help-request-attachment", {
+    body: { requestId },
+  });
+  const payload = data as { url?: string; fileName?: string; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+  if (!payload?.url) throw new Error("Não foi possível abrir o anexo.");
+  return { url: payload.url, fileName: payload.fileName ?? "anexo" };
+}
+
+export async function listReceivedHelpRequests(options?: {
+  kind?: HelpRequestKind;
+}): Promise<HelpRequest[]> {
+  let query = supabase
+    .from("help_requests")
+    .select(
+      `
+      id,
+      created_at,
+      kind,
+      message,
+      sender_email,
+      sender_user_id,
+      client_id,
+      attachment_file_name,
+      attachment_storage_path,
+      clients ( name, i18n )
+    `,
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (options?.kind) {
+    query = query.eq("kind", options.kind);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const client = row.clients as { name: string; i18n: unknown } | null;
+    return {
+      id: row.id,
+      createdAt: row.created_at,
+      kind: row.kind as HelpRequestKind,
+      message: row.message,
+      senderEmail: row.sender_email,
+      senderUserId: row.sender_user_id,
+      senderName: null,
+      clientId: row.client_id,
+      clientName: client?.name ?? null,
+      attachmentFileName: row.attachment_file_name,
+      hasAttachment: Boolean(row.attachment_storage_path),
+    };
+  });
+}
+
 export type { DashboardBusinessStats } from "@/lib/dashboard-metrics";
 
 /** Platform business metrics for admin master dashboard. */
