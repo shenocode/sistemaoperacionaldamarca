@@ -582,6 +582,10 @@
       "videos": {
         "label": "Videos",
         "formats": "Horizontal (16:9) and Vertical (9:16)."
+      },
+      "site": {
+        "label": "Website",
+        "formats": "Prototype, briefing, and Prompt (PRD) for Lovable development."
       }
     },
     "search": "Search clients...",
@@ -624,7 +628,95 @@
   },
   "project": {
     "back": "Back",
-    "tabs": { "feed": "Feed", "themes": "Themes", "library": "Library", "content": "Content", "calendar": "Calendar", "meeting": "Agenda", "settings": "Settings" },
+    "tabs": {
+      "feed": "Feed",
+      "themes": "Themes",
+      "library": "Library",
+      "content": "Content",
+      "calendar": "Calendar",
+      "meeting": "Agenda",
+      "settings": "Settings",
+      "prototype": "Prototype",
+      "briefing": "Briefing",
+      "prompt": "Prompt (PRD)",
+      "schedule": "Schedule"
+    },
+    "site": {
+      "prototype": {
+        "title": "Website prototype",
+        "hint": "Paste the published Lovable URL. The notebook preview updates when you republish to the same URL.",
+        "urlLabel": "Published URL (Lovable)",
+        "urlPlaceholder": "https://your-project.lovable.app",
+        "save": "Save URL",
+        "saved": "Prototype URL saved.",
+        "openExternal": "Open in Lovable",
+        "refresh": "Refresh preview",
+        "empty": "No URL configured. Save the published URL to see the site in this mockup.",
+        "iframeTitle": "Website preview",
+        "share": "Share update",
+        "shareWhatsapp": "Hi! There is an update on the website prototype for project \"{{project}}\" ({{client}}).\n\nOpen the link below (sign in or create your account) to review and send change requests:\n{{link}}",
+        "shareOpened": "Opening WhatsApp to notify the client.",
+        "notes": "Notes",
+        "notesHint": "Internal manager notes about the prototype.",
+        "notesPlaceholder": "Notes about the prototype…",
+        "notesSaved": "Notes saved.",
+        "changeRequests": "Change requests",
+        "changeRequestsHint": "Client and team can record requested prototype changes.",
+        "changeRequestsPlaceholder": "Describe the requested changes…",
+        "changeRequestsSaved": "Change requests saved.",
+        "feedbackSaving": "Saving…"
+      },
+      "briefing": {
+        "title": "Briefing",
+        "hint": "Client answers and meeting notes that feed the Prompt (PRD).",
+        "progress": "{{answered}} of {{total}} questions answered",
+        "saving": "Saving…",
+        "saved": "Briefing saved.",
+        "answerPlaceholder": "Write your answer…",
+        "share": "Share with client",
+        "shareWhatsapp": "Hi! Please fill in the website briefing for project \"{{project}}\" ({{client}}).\n\nOpen the link below (sign in or create your account):\n{{link}}",
+        "shareOpened": "Opening WhatsApp to send the briefing.",
+        "markComplete": "Mark briefing as completed",
+        "completed": "Briefing marked as completed.",
+        "managerNotes": "Notes from the 1st meeting (manager)",
+        "managerNotesHint": "Only the team sees this field. It is not shown on the client form.",
+        "managerNotesPlaceholder": "Notes from the first client meeting…",
+        "managerNotesSaved": "Notes saved.",
+        "status": {
+          "draft": "Not started",
+          "in_progress": "In progress",
+          "completed": "Completed"
+        }
+      },
+      "prompt": {
+        "title": "Prompt (PRD)",
+        "hint": "Generate a PRD from the briefing (and brand guide, if available) to paste into Lovable.",
+        "generate": "Generate PRD",
+        "regenerate": "Regenerate PRD",
+        "regenerateConfirm": "This replaces the current PRD. Continue?",
+        "generating": "Generating PRD…",
+        "generated": "PRD generated.",
+        "saved": "PRD saved.",
+        "save": "Save edits",
+        "copy": "Copy for Lovable",
+        "copied": "PRD copied.",
+        "empty": "No PRD yet. Fill in the briefing and click Generate PRD.",
+        "needBriefing": "Answer at least one Briefing question before generating the PRD.",
+        "updatedAt": "Generated on {{date}}"
+      },
+      "schedule": {
+        "title": "Schedule",
+        "hint": "Organize phases, estimated timelines, and main deliverables for the project.",
+        "fase": "Phase",
+        "prazo": "Estimated timeline",
+        "entregas": "Main deliverables",
+        "addRow": "Add row",
+        "removeRow": "Remove",
+        "save": "Save schedule",
+        "saved": "Schedule saved.",
+        "emptyCell": "—"
+      }
+    },
     "categoryExperiencePending": "The full experience for this category (tabs and mockups) is still being built. For now you can organize content, calendar, and library.",
     "youtube": {
       "previewFormat": "Preview — {{format}}",
@@ -799,6 +891,13 @@
           "in_progress": "In progress",
           "completed": "Completed"
         }
+      },
+      "siteBriefing": {
+        "title": "Website briefing",
+        "description": "Site project form that feeds the Prompt (PRD).",
+        "progress": "{{answered}}/{{total}} answered",
+        "open": "Open briefing",
+        "project": "Project: {{name}}"
       },
       "categories": {
         "brand": "Brand guide",

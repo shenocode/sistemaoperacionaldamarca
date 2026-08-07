@@ -9,6 +9,16 @@ import {
   parseBriefingTemplate,
   type BriefingTemplate,
 } from "@/lib/brand-briefing-template";
+import {
+  countSiteBriefingProgress,
+  isSiteBriefingFormFilled,
+  parseSiteBriefingForm,
+  type SiteBriefingFormData,
+} from "@/lib/site-briefing-form-data";
+import {
+  DEFAULT_SITE_BRIEFING_TEMPLATE,
+  parseSiteBriefingTemplate,
+} from "@/lib/site-briefing-template";
 import type { RowI18n } from "@/lib/i18n-content";
 import {
   ensureFieldsTranslated,
@@ -60,10 +70,12 @@ export type DesignTemplateFormat = Database["public"]["Enums"]["design_template_
 export type ActivityEvent = Tables<"activity_events">;
 export type Profile = Tables<"profiles">;
 export type BrandBriefing = Tables<"brand_briefings">;
+export type ProjectSite = Tables<"project_site">;
 export type ActivityType = Database["public"]["Enums"]["activity_type"];
 export type LibraryCategory = Database["public"]["Enums"]["library_category"];
 export type ContentFormat = Database["public"]["Enums"]["content_format"];
 export type BrandBriefingStatus = Database["public"]["Enums"]["brand_briefing_status"];
+export type SiteBriefingStatus = "draft" | "in_progress" | "completed";
 
 export type {
   BriefingQuestion,
@@ -140,7 +152,7 @@ export function isPrintMaterialFormat(format?: ContentFormat | null) {
   return format === "print_material";
 }
 
-export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos"] as const;
+export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos", "site"] as const;
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
 
 export type ProjectTabId =
@@ -150,7 +162,11 @@ export type ProjectTabId =
   | "content"
   | "library"
   | "settings"
-  | "meeting";
+  | "meeting"
+  | "prototype"
+  | "briefing"
+  | "prompt"
+  | "schedule";
 
 export type ProjectCategoryConfig = {
   formats: ContentFormat[];
@@ -186,6 +202,12 @@ export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryCon
     defaultTab: "feed",
     experienceReady: true,
   },
+  site: {
+    formats: [],
+    tabs: ["prototype", "briefing", "prompt", "schedule", "library", "settings"],
+    defaultTab: "prototype",
+    experienceReady: true,
+  },
 };
 
 /** Uma categoria por projeto (primeira válida). Legado sem categoria → Instagram. */
@@ -216,7 +238,11 @@ export function projectDefaultRoute(values?: string[] | null): {
   to:
     | "/clients/$clientId/projects/$projectId/feed"
     | "/clients/$clientId/projects/$projectId/calendar"
-    | "/clients/$clientId/projects/$projectId/content";
+    | "/clients/$clientId/projects/$projectId/content"
+    | "/clients/$clientId/projects/$projectId/prototype"
+    | "/clients/$clientId/projects/$projectId/briefing"
+    | "/clients/$clientId/projects/$projectId/prompt"
+    | "/clients/$clientId/projects/$projectId/schedule";
 } {
   const tab = projectCategoryConfig(values).defaultTab;
   if (tab === "calendar") {
@@ -224,6 +250,18 @@ export function projectDefaultRoute(values?: string[] | null): {
   }
   if (tab === "content") {
     return { to: "/clients/$clientId/projects/$projectId/content" };
+  }
+  if (tab === "prototype") {
+    return { to: "/clients/$clientId/projects/$projectId/prototype" };
+  }
+  if (tab === "briefing") {
+    return { to: "/clients/$clientId/projects/$projectId/briefing" };
+  }
+  if (tab === "prompt") {
+    return { to: "/clients/$clientId/projects/$projectId/prompt" };
+  }
+  if (tab === "schedule") {
+    return { to: "/clients/$clientId/projects/$projectId/schedule" };
   }
   return { to: "/clients/$clientId/projects/$projectId/feed" };
 }
@@ -626,6 +664,28 @@ export function buildProjectReviewUrl(clientId: string, projectId: string, acces
     access: accessToken,
   });
   return `${origin}/share/${clientId}/${projectId}?${params.toString()}`;
+}
+
+/** Client access link to the Site briefing tab. */
+export function buildSiteBriefingUrl(
+  clientId: string,
+  projectId: string,
+  accessToken: string,
+) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const params = new URLSearchParams({ access: accessToken });
+  return `${origin}/clients/${clientId}/projects/${projectId}/briefing?${params.toString()}`;
+}
+
+/** Client access link to the Site prototype tab. */
+export function buildSitePrototypeUrl(
+  clientId: string,
+  projectId: string,
+  accessToken: string,
+) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const params = new URLSearchParams({ access: accessToken });
+  return `${origin}/clients/${clientId}/projects/${projectId}/prototype?${params.toString()}`;
 }
 
 /** Join the client workspace using the invite token from the review link. */
@@ -3009,6 +3069,247 @@ export async function completeBrandBriefing(
 ): Promise<BrandBriefingView> {
   await ensureBrandBriefing(clientId);
   return generateBrandGuide(clientId, locale);
+}
+
+// —— Site project (prototype / briefing / PRD / schedule) ——
+
+export type SiteScheduleRow = {
+  id: string;
+  fase: string;
+  prazo: string;
+  entregas: string;
+};
+
+export function createEmptyScheduleRows(count = 5): SiteScheduleRow[] {
+  return Array.from({ length: count }, () => ({
+    id: crypto.randomUUID(),
+    fase: "",
+    prazo: "",
+    entregas: "",
+  }));
+}
+
+export function parseSiteSchedule(raw: unknown): SiteScheduleRow[] {
+  if (!Array.isArray(raw) || raw.length === 0) return createEmptyScheduleRows(5);
+  const rows: SiteScheduleRow[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    rows.push({
+      id: typeof row.id === "string" && row.id ? row.id : crypto.randomUUID(),
+      fase: typeof row.fase === "string" ? row.fase : "",
+      prazo: typeof row.prazo === "string" ? row.prazo : "",
+      entregas: typeof row.entregas === "string" ? row.entregas : "",
+    });
+  }
+  return rows.length > 0 ? rows : createEmptyScheduleRows(5);
+}
+
+export type ProjectSiteView = ProjectSite & {
+  templateParsed: BriefingTemplate;
+  formParsed: SiteBriefingFormData;
+  scheduleParsed: SiteScheduleRow[];
+  answeredCount: number;
+  totalCount: number;
+};
+
+function toProjectSiteView(row: ProjectSite): ProjectSiteView {
+  const templateParsed = parseSiteBriefingTemplate(row.briefing_template);
+  const formParsed = parseSiteBriefingForm(row.briefing_answers);
+  const progress = countSiteBriefingProgress(formParsed);
+  return {
+    ...row,
+    templateParsed,
+    formParsed,
+    scheduleParsed: parseSiteSchedule(row.schedule),
+    answeredCount: progress.answered,
+    totalCount: progress.total,
+  };
+}
+
+export async function getProjectSite(projectId: string): Promise<ProjectSiteView | null> {
+  const { data, error } = await supabase
+    .from("project_site")
+    .select("*")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toProjectSiteView(data) : null;
+}
+
+export async function ensureProjectSite(projectId: string): Promise<ProjectSiteView> {
+  const existing = await getProjectSite(projectId);
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from("project_site")
+    .insert({
+      project_id: projectId,
+      briefing_template: DEFAULT_SITE_BRIEFING_TEMPLATE as unknown as Json,
+      briefing_answers: parseSiteBriefingForm(null) as unknown as Json,
+      briefing_status: "draft",
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      const again = await getProjectSite(projectId);
+      if (again) return again;
+    }
+    throw error;
+  }
+
+  return toProjectSiteView(ensureData(data, error));
+}
+
+function resolveSiteBriefingStatus(
+  form: SiteBriefingFormData,
+  current: SiteBriefingStatus | string,
+): SiteBriefingStatus {
+  if (current === "completed") return "completed";
+  return isSiteBriefingFormFilled(form) ? "in_progress" : "draft";
+}
+
+export async function updateProjectSitePrototypeUrl(input: {
+  projectId: string;
+  prototypeUrl: string | null;
+}): Promise<ProjectSiteView> {
+  await ensureProjectSite(input.projectId);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({
+      prototype_url: input.prototypeUrl?.trim() || null,
+    })
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function upsertSiteBriefingForm(input: {
+  projectId: string;
+  form: SiteBriefingFormData;
+}): Promise<ProjectSiteView> {
+  const site = await ensureProjectSite(input.projectId);
+  const nextStatus = resolveSiteBriefingStatus(input.form, site.briefing_status);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({
+      briefing_answers: input.form as unknown as Json,
+      briefing_template: DEFAULT_SITE_BRIEFING_TEMPLATE as unknown as Json,
+      briefing_status: nextStatus,
+    })
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function updateSiteManagerNotes(input: {
+  projectId: string;
+  managerNotes: string;
+}): Promise<ProjectSiteView> {
+  await ensureProjectSite(input.projectId);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({
+      manager_notes: input.managerNotes.trim() || null,
+    })
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function updateSitePrototypeFeedback(input: {
+  projectId: string;
+  prototypeNotes?: string;
+  prototypeChangeRequests?: string;
+}): Promise<ProjectSiteView> {
+  await ensureProjectSite(input.projectId);
+  const patch: {
+    prototype_notes?: string | null;
+    prototype_change_requests?: string | null;
+  } = {};
+  if (input.prototypeNotes !== undefined) {
+    patch.prototype_notes = input.prototypeNotes.trim() || null;
+  }
+  if (input.prototypeChangeRequests !== undefined) {
+    patch.prototype_change_requests = input.prototypeChangeRequests.trim() || null;
+  }
+  const { data, error } = await supabase
+    .from("project_site")
+    .update(patch)
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function updateSiteSchedule(input: {
+  projectId: string;
+  schedule: SiteScheduleRow[];
+}): Promise<ProjectSiteView> {
+  await ensureProjectSite(input.projectId);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({
+      schedule: input.schedule as unknown as Json,
+    })
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function markSiteBriefingCompleted(projectId: string): Promise<ProjectSiteView> {
+  await ensureProjectSite(projectId);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({ briefing_status: "completed" })
+    .eq("project_id", projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function updateSitePrdMarkdown(input: {
+  projectId: string;
+  prdMarkdown: string;
+}): Promise<ProjectSiteView> {
+  await ensureProjectSite(input.projectId);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({
+      prd_markdown: input.prdMarkdown,
+    })
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function generateSitePrd(
+  projectId: string,
+  locale?: string,
+): Promise<ProjectSiteView> {
+  const { data, error } = await supabase.functions.invoke("generate-site-prd", {
+    body: { projectId, locale },
+  });
+
+  const payload = data as { site?: ProjectSite; error?: string } | null;
+  if (error) {
+    throw new Error(payload?.error || error.message || "Falha ao gerar o Prompt (PRD)");
+  }
+  if (payload?.error) throw new Error(payload.error);
+  if (payload?.site) {
+    return toProjectSiteView(payload.site);
+  }
+
+  const refreshed = await getProjectSite(projectId);
+  if (!refreshed) throw new Error("Dados do site não encontrados após gerar o PRD");
+  return refreshed;
 }
 
 // —— Library ——

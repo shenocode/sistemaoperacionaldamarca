@@ -582,6 +582,10 @@
       "videos": {
         "label": "Vídeos",
         "formats": "Horizontal (16:9) e Vertical (9:16)."
+      },
+      "site": {
+        "label": "Site",
+        "formats": "Protótipo, briefing e Prompt (PRD) para desenvolvimento no Lovable."
       }
     },
     "search": "Buscar clientes...",
@@ -631,7 +635,87 @@
       "content": "Conteúdo",
       "calendar": "Calendário",
       "meeting": "Pauta",
-      "settings": "Configurações"
+      "settings": "Configurações",
+      "prototype": "Protótipo",
+      "briefing": "Briefing",
+      "prompt": "Prompt (PRD)",
+      "schedule": "Cronograma"
+    },
+    "site": {
+      "prototype": {
+        "title": "Protótipo do site",
+        "hint": "Cole a URL publicada no Lovable. O preview na tela do notebook atualiza quando você republicar nessa mesma URL.",
+        "urlLabel": "URL publicada (Lovable)",
+        "urlPlaceholder": "https://seu-projeto.lovable.app",
+        "save": "Salvar URL",
+        "saved": "URL do protótipo salva.",
+        "openExternal": "Abrir no Lovable",
+        "refresh": "Atualizar preview",
+        "empty": "Nenhuma URL configurada. Salve a URL publicada para ver o site neste mockup.",
+        "iframeTitle": "Prévia do site",
+        "share": "Compartilhar atualização",
+        "shareWhatsapp": "Olá! Há uma atualização no protótipo do site do projeto \"{{project}}\" ({{client}}).\n\nAcesse pelo link abaixo (entre ou crie sua conta) para revisar e enviar solicitações de ajuste:\n{{link}}",
+        "shareOpened": "Abrindo WhatsApp para avisar o cliente.",
+        "notes": "Observações",
+        "notesHint": "Anotações internas do gestor sobre o protótipo.",
+        "notesPlaceholder": "Observações sobre o protótipo…",
+        "notesSaved": "Observações salvas.",
+        "changeRequests": "Solicitações de ajuste",
+        "changeRequestsHint": "Cliente e equipe podem registrar pedidos de mudança no protótipo.",
+        "changeRequestsPlaceholder": "Descreva os ajustes desejados…",
+        "changeRequestsSaved": "Solicitações salvas.",
+        "feedbackSaving": "Salvando…"
+      },
+      "briefing": {
+        "title": "Briefing",
+        "hint": "Respostas do cliente e anotações da reunião que alimentam o Prompt (PRD).",
+        "progress": "{{answered}} de {{total}} perguntas respondidas",
+        "saving": "Salvando…",
+        "saved": "Briefing salvo.",
+        "answerPlaceholder": "Escreva sua resposta…",
+        "share": "Compartilhar com o cliente",
+        "shareWhatsapp": "Olá! Preencha o briefing do site do projeto \"{{project}}\" ({{client}}).\n\nAcesse pelo link abaixo (entre ou crie sua conta):\n{{link}}",
+        "shareOpened": "Abrindo WhatsApp para enviar o briefing.",
+        "markComplete": "Marcar briefing como concluído",
+        "completed": "Briefing marcado como concluído.",
+        "managerNotes": "Anotações da 1ª reunião (gestor)",
+        "managerNotesHint": "Só a equipe vê este campo. Não aparece no formulário do cliente.",
+        "managerNotesPlaceholder": "Anotações da primeira reunião com o cliente…",
+        "managerNotesSaved": "Anotações salvas.",
+        "status": {
+          "draft": "Não iniciado",
+          "in_progress": "Em andamento",
+          "completed": "Concluído"
+        }
+      },
+      "prompt": {
+        "title": "Prompt (PRD)",
+        "hint": "Gere um PRD a partir do briefing (e do guia de marca, se existir) para colar no Lovable.",
+        "generate": "Gerar PRD",
+        "regenerate": "Regenerar PRD",
+        "regenerateConfirm": "Isso substitui o PRD atual. Continuar?",
+        "generating": "Gerando PRD…",
+        "generated": "PRD gerado.",
+        "saved": "PRD salvo.",
+        "save": "Salvar edições",
+        "copy": "Copiar para o Lovable",
+        "copied": "PRD copiado.",
+        "empty": "Ainda sem PRD. Preencha o briefing e clique em Gerar PRD.",
+        "needBriefing": "Preencha ao menos uma resposta no Briefing antes de gerar o PRD.",
+        "updatedAt": "Gerado em {{date}}"
+      },
+      "schedule": {
+        "title": "Cronograma",
+        "hint": "Organize as fases, prazos estimados e principais entregas do projeto.",
+        "fase": "Fase",
+        "prazo": "Prazo estimado",
+        "entregas": "Principais entregas",
+        "addRow": "Adicionar linha",
+        "removeRow": "Remover",
+        "save": "Salvar cronograma",
+        "saved": "Cronograma salvo.",
+        "emptyCell": "—"
+      }
     },
     "categoryExperiencePending": "A experiência completa desta categoria (abas e mockups) ainda está em construção. Por enquanto você pode organizar conteúdos, calendário e biblioteca.",
     "youtube": {
@@ -807,6 +891,13 @@
           "in_progress": "Em andamento",
           "completed": "Concluído"
         }
+      },
+      "siteBriefing": {
+        "title": "Briefing do site",
+        "description": "Formulário do projeto Site para alimentar o Prompt (PRD).",
+        "progress": "{{answered}}/{{total}} respondidas",
+        "open": "Abrir briefing",
+        "project": "Projeto: {{name}}"
       },
       "categories": {
         "brand": "Guia de marca",

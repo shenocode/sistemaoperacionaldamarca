@@ -11,6 +11,6 @@ export const Route = createFileRoute(
 });
 
 function ProjectLibraryPage() {
-  const { clientId } = Route.useParams();
-  return <ClientLibraryView clientId={clientId} variant="embedded" />;
+  const { clientId, projectId } = Route.useParams();
+  return <ClientLibraryView clientId={clientId} projectId={projectId} variant="embedded" />;
 }

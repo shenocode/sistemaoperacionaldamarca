@@ -40,6 +40,10 @@ const TAB_PATHS: Record<
   | "/clients/$clientId/projects/$projectId/meeting"
   | "/clients/$clientId/projects/$projectId/library"
   | "/clients/$clientId/projects/$projectId/settings"
+  | "/clients/$clientId/projects/$projectId/prototype"
+  | "/clients/$clientId/projects/$projectId/briefing"
+  | "/clients/$clientId/projects/$projectId/prompt"
+  | "/clients/$clientId/projects/$projectId/schedule"
 > = {
   feed: "/clients/$clientId/projects/$projectId/feed",
   themes: "/clients/$clientId/projects/$projectId/themes",
@@ -48,6 +52,10 @@ const TAB_PATHS: Record<
   meeting: "/clients/$clientId/projects/$projectId/meeting",
   library: "/clients/$clientId/projects/$projectId/library",
   settings: "/clients/$clientId/projects/$projectId/settings",
+  prototype: "/clients/$clientId/projects/$projectId/prototype",
+  briefing: "/clients/$clientId/projects/$projectId/briefing",
+  prompt: "/clients/$clientId/projects/$projectId/prompt",
+  schedule: "/clients/$clientId/projects/$projectId/schedule",
 };
 
 function ProjectLayout() {

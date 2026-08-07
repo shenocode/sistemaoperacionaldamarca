@@ -827,6 +827,62 @@ export type Database = {
           },
         ]
       }
+      project_site: {
+        Row: {
+          briefing_answers: Json
+          briefing_status: string
+          briefing_template: Json
+          created_at: string
+          manager_notes: string | null
+          prd_generated_at: string | null
+          prd_markdown: string | null
+          project_id: string
+          prototype_change_requests: string | null
+          prototype_notes: string | null
+          prototype_url: string | null
+          schedule: Json
+          updated_at: string
+        }
+        Insert: {
+          briefing_answers?: Json
+          briefing_status?: string
+          briefing_template?: Json
+          created_at?: string
+          manager_notes?: string | null
+          prd_generated_at?: string | null
+          prd_markdown?: string | null
+          project_id: string
+          prototype_change_requests?: string | null
+          prototype_notes?: string | null
+          prototype_url?: string | null
+          schedule?: Json
+          updated_at?: string
+        }
+        Update: {
+          briefing_answers?: Json
+          briefing_status?: string
+          briefing_template?: Json
+          created_at?: string
+          manager_notes?: string | null
+          prd_generated_at?: string | null
+          prd_markdown?: string | null
+          project_id?: string
+          prototype_change_requests?: string | null
+          prototype_notes?: string | null
+          prototype_url?: string | null
+          schedule?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_site_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean

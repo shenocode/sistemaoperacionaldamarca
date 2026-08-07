@@ -59,8 +59,8 @@ export function NotebookChrome({
           <span className="h-2 w-2 rounded-full bg-emerald-400/90" />
           <div className="ml-3 h-4 flex-1 rounded-sm bg-neutral-700/80" />
         </div>
-        <div className="overflow-hidden rounded-t-md border border-b-0 border-neutral-600 bg-white">
-          {children}
+        <div className="aspect-video overflow-hidden rounded-t-md border border-b-0 border-neutral-600 bg-white">
+          <div className="flex h-full min-h-0 flex-col">{children}</div>
         </div>
       </div>
       <div className="relative mx-auto h-3 w-[102%] max-w-none -translate-x-[1%] rounded-b-2xl border border-neutral-700 bg-gradient-to-b from-neutral-700 to-neutral-800">
@@ -73,7 +73,7 @@ export function NotebookChrome({
 function YoutubeTopBar({ channelName }: { channelName: string }) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2">
+    <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2">
       <div className="flex items-center gap-1">
         <span className="flex h-5 w-7 items-center justify-center rounded-sm bg-red-600 text-[9px] font-bold text-white">
           ▶
@@ -228,7 +228,7 @@ export function YouTubeWatchMockup({
       </p>
       <NotebookChrome size={size}>
         <YoutubeTopBar channelName={channel} />
-        <div className="max-h-[420px] space-y-2 overflow-y-auto bg-white p-3">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-white p-3">
           <ThumbnailOrVideo
             thumbnailUrl={thumbnailUrl}
             videoUrl={videoUrl}
@@ -316,13 +316,13 @@ export function YouTubeShortsMockup({
       </p>
       <NotebookChrome size={size}>
         <YoutubeTopBar channelName={channel} />
-        <div className="flex justify-center bg-neutral-950 px-3 py-4">
-          <div className="relative w-full max-w-[220px]">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-neutral-950 px-3 py-2">
+          <div className="relative aspect-[9/16] h-full max-h-full">
             <ThumbnailOrVideo
               thumbnailUrl={thumbnailUrl}
               videoUrl={videoUrl}
               title={title}
-              aspectClass="aspect-[9/16]"
+              aspectClass="absolute inset-0 h-full w-full"
               playing={playing}
               onPlay={() => setPlaying(true)}
               className="rounded-xl"
@@ -451,7 +451,7 @@ export function YouTubeChannelMockup({
       ) : null}
       <NotebookChrome size="lg">
         <YoutubeTopBar channelName={channel} />
-        <div className="max-h-[520px] overflow-y-auto bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white">
           <div className="h-16 bg-gradient-to-r from-neutral-800 via-neutral-600 to-neutral-400" />
           <div className="flex flex-wrap items-end gap-3 px-3 pb-2 pt-3">
             <div className="-mt-8 h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-white bg-neutral-200 shadow">

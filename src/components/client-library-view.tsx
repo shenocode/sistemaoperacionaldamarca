@@ -61,15 +61,20 @@ import {
   createLibraryAssets,
   deleteDesignTemplate,
   ensureBrandBriefing,
+  ensureProjectSite,
   getClient,
+  getPrimaryProjectCategory,
   guessLibraryCategory,
   listDesignTemplates,
   listLibraryAssets,
+  listProjects,
   updateClient,
   updateLibraryAssetI18n,
   type DesignTemplateFormat,
   type LibraryAsset,
   type LibraryCategory,
+  type Project,
+  type ProjectSiteView,
 } from "@/lib/api";
 import { downloadImageFromUrl, downloadImagesAsZip } from "@/lib/download-image";
 import {
@@ -77,6 +82,7 @@ import {
   getCanonicalText,
   getLocalizedText,
   normalizeAppLocale,
+  parseRowI18n,
   setLocalizedField,
   translateTextField,
   type RowI18n,
@@ -114,9 +120,12 @@ function localizedAssetName(asset: LibraryAsset, locale: string) {
 
 export function ClientLibraryView({
   clientId,
+  projectId,
   variant = "standalone",
 }: {
   clientId: string;
+  /** When embedded in a project, scopes the Site briefing card to that project. */
+  projectId?: string;
   /** `standalone` = página da marca; `embedded` = aba dentro do projeto (mantém o menu). */
   variant?: "standalone" | "embedded";
 }) {
@@ -168,6 +177,36 @@ export function ClientLibraryView({
     queryKey: ["brand-briefing", clientId],
     queryFn: () => ensureBrandBriefing(clientId),
     enabled: libraryAllowed,
+  });
+
+  const projectsQuery = useQuery({
+    queryKey: ["projects", clientId],
+    queryFn: () => listProjects(clientId),
+    enabled: libraryAllowed,
+  });
+
+  const siteProjects = useMemo(() => {
+    const projects = projectsQuery.data ?? [];
+    const sites = projects.filter(
+      (project) => getPrimaryProjectCategory(project.categories) === "site",
+    );
+    if (projectId) {
+      return sites.filter((project) => project.id === projectId);
+    }
+    return sites;
+  }, [projectsQuery.data, projectId]);
+
+  const siteBriefingsQuery = useQuery({
+    queryKey: ["project-site-library", clientId, siteProjects.map((p) => p.id).join(",")],
+    queryFn: async () => {
+      const entries: Array<{ project: Project; site: ProjectSiteView }> = [];
+      for (const project of siteProjects) {
+        const site = await ensureProjectSite(project.id);
+        entries.push({ project, site });
+      }
+      return entries;
+    },
+    enabled: libraryAllowed && siteProjects.length > 0,
   });
 
   const manageQuery = useQuery({
@@ -619,6 +658,54 @@ export function ClientLibraryView({
                       </Link>
                     </Button>
                   </div>
+
+                  {(siteBriefingsQuery.data ?? []).map(({ project, site }) => {
+                    const statusKey =
+                      site.briefing_status === "completed" ||
+                      site.briefing_status === "in_progress" ||
+                      site.briefing_status === "draft"
+                        ? site.briefing_status
+                        : "draft";
+                    const projectName = getLocalizedText(
+                      parseRowI18n(project.i18n),
+                      "name",
+                      project.name,
+                      uiLocale,
+                    );
+                    return (
+                      <div key={project.id}>
+                        <Separator className="my-3" />
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
+                              <p className="text-sm font-medium">
+                                {t("project.library.siteBriefing.title")}
+                              </p>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {t("project.library.siteBriefing.project", { name: projectName })}
+                              {" · "}
+                              {t("project.library.siteBriefing.progress", {
+                                answered: site.answeredCount,
+                                total: site.totalCount,
+                              })}
+                              {" · "}
+                              {t(`project.library.briefing.status.${statusKey}`)}
+                            </p>
+                          </div>
+                          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                            <Link
+                              to="/clients/$clientId/projects/$projectId/briefing"
+                              params={{ clientId, projectId: project.id }}
+                            >
+                              {t("project.library.siteBriefing.open")}
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </CollapsibleContent>
             </Card>
