@@ -355,41 +355,6 @@ function ProjectPrototypePage() {
         iframeTitle={t("project.site.prototype.iframeTitle")}
       />
 
-      {clientCanAct ? (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            disabled={busy}
-            onClick={() => statusMutation.mutate("approved")}
-          >
-            <Check className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t("project.site.prototype.approve")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={() => void handleRequestChanges()}
-          >
-            <MessageSquareWarning className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t("project.site.prototype.requestChanges")}
-          </Button>
-        </div>
-      ) : null}
-
-      {canManage && prototypeStatus === "changes" ? (
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={() => statusMutation.mutate("changes_done")}
-          >
-            {t("project.site.prototype.markChangesDone")}
-          </Button>
-        </div>
-      ) : null}
-
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2 rounded-lg border p-4">
           <Label htmlFor="prototype-notes">{t("project.site.prototype.notes")}</Label>
@@ -447,6 +412,56 @@ function ProjectPrototypePage() {
             ) : null}
             {t("project.site.prototype.saveChangeRequests")}
           </Button>
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-lg border p-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{t("project.site.prototype.statusLabel")}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("project.site.prototype.statusFooterHint")}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {SITE_PROTOTYPE_STATUSES.map((value) => {
+            const selected = value === prototypeStatus;
+            const clientAllowed =
+              clientCanAct && (value === "changes" || value === "approved");
+            const clickable = canManage || clientAllowed;
+            return (
+              <button
+                key={value}
+                type="button"
+                disabled={busy || !clickable || selected}
+                aria-pressed={selected}
+                onClick={() => {
+                  if (value === "changes" && !canManage) {
+                    void handleRequestChanges();
+                    return;
+                  }
+                  statusMutation.mutate(value);
+                }}
+                className={cn(
+                  "inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium shadow-sm transition-opacity",
+                  prototypeStatusStyles[value],
+                  selected ? "ring-2 ring-foreground/20" : null,
+                  !clickable || selected
+                    ? "cursor-default opacity-60"
+                    : "cursor-pointer hover:opacity-90",
+                  busy ? "pointer-events-none opacity-60" : null,
+                )}
+              >
+                {value === "approved" ? (
+                  <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                ) : null}
+                {value === "changes" ? (
+                  <MessageSquareWarning className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                ) : null}
+                {t(`project.site.prototype.status.${value}`)}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

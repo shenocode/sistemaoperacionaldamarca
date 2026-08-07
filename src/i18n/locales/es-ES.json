@@ -669,6 +669,7 @@
         "changeRequestsRequired": "Describe los ajustes deseados antes de solicitar.",
         "feedbackSaving": "Guardando…",
         "statusLabel": "Estado del prototipo",
+        "statusFooterHint": "Después de guardar las anotaciones, actualiza el estado del prototipo.",
         "statusUpdated": "Estado del prototipo actualizado.",
         "approve": "Aprobar prototipo",
         "requestChanges": "Solicitar ajustes",

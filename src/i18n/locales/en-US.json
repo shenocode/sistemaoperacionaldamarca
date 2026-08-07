@@ -669,6 +669,7 @@
         "changeRequestsRequired": "Describe the requested changes before submitting.",
         "feedbackSaving": "Saving…",
         "statusLabel": "Prototype status",
+        "statusFooterHint": "After saving your notes, update the prototype status.",
         "statusUpdated": "Prototype status updated.",
         "approve": "Approve prototype",
         "requestChanges": "Request adjustments",
