@@ -76,6 +76,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     />
   );
 
+  const roleLabel = loading
+    ? null
+    : isAdminMaster
+      ? t("nav.roleAdmin")
+      : isAdmin
+        ? t("nav.roleGestor")
+        : t("nav.roleClient");
+
+  const roleBadge = roleLabel ? (
+    <p className="mt-3 text-xs tracking-wide text-muted-foreground">{roleLabel}</p>
+  ) : null;
+
   const navLinks = (
     <>
       {loading ? null : isAdmin ? (
@@ -227,6 +239,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-60 shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col">
         <div className="border-b px-6 py-4">
           {brandLogo}
+          {roleBadge}
           <LanguageSwitcher className="mt-3 w-full" />
         </div>
         <nav className="flex-1 space-y-1 p-3">{navLinks}</nav>
@@ -266,6 +279,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
               </SheetTitle>
               <SheetDescription className="sr-only">{t("app.fullName")}</SheetDescription>
+              {roleBadge}
               <LanguageSwitcher className="mt-3 w-full" />
             </SheetHeader>
             <nav className="flex-1 space-y-1 overflow-y-auto p-3">{navLinks}</nav>

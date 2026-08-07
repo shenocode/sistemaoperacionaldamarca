@@ -16,7 +16,10 @@
     "helpInbox": "Solicitações de ajuda",
     "helpRequest": "Preciso de ajuda",
     "team": "Equipe",
-    "openMenu": "Abrir menu"
+    "openMenu": "Abrir menu",
+    "roleClient": "Cliente",
+    "roleGestor": "Gestor",
+    "roleAdmin": "Admin"
   },
   "auth": {
     "signIn": "Entrar",

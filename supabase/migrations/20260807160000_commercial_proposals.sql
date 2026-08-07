@@ -192,7 +192,8 @@ revoke all on table public.commercial_proposals from anon, public;
 grant select, insert, update, delete on table public.commercial_proposals to authenticated;
 grant all on table public.commercial_proposals to service_role;
 
--- Access: creator, admin master, or client team member (not every gestor via is_admin)
+-- Access: creator, admin master, or via can_access_client (security definer).
+-- Do NOT call is_client_member() from RLS — EXECUTE was revoked from authenticated.
 create or replace function public.can_access_commercial_proposal(_proposal_id uuid)
 returns boolean
 language sql
@@ -207,7 +208,7 @@ as $$
       and (
         public.is_admin_master()
         or cp.created_by = auth.uid()
-        or public.is_client_member(cp.client_id)
+        or public.can_access_client(cp.client_id)
       )
   )
 $$;
@@ -221,7 +222,7 @@ create policy "Gestores can view accessible proposals"
   using (
     public.is_admin_master()
     or created_by = auth.uid()
-    or public.is_client_member(client_id)
+    or public.can_access_client(client_id)
   );
 
 drop policy if exists "Admins can insert proposals" on public.commercial_proposals;
@@ -232,7 +233,7 @@ create policy "Admins can insert proposals"
     and created_by = auth.uid()
     and (
       public.is_admin_master()
-      or public.is_client_member(client_id)
+      or public.can_access_client(client_id)
       or exists (
         select 1 from public.clients c
         where c.id = client_id and c.created_by = auth.uid()
@@ -246,12 +247,12 @@ create policy "Gestores can update accessible proposals"
   using (
     public.is_admin_master()
     or created_by = auth.uid()
-    or public.is_client_member(client_id)
+    or public.can_access_client(client_id)
   )
   with check (
     public.is_admin_master()
     or created_by = auth.uid()
-    or public.is_client_member(client_id)
+    or public.can_access_client(client_id)
   );
 
 drop policy if exists "Gestores can delete own proposals" on public.commercial_proposals;
