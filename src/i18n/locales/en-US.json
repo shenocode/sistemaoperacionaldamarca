@@ -660,11 +660,28 @@
         "notesHint": "Internal manager notes about the prototype.",
         "notesPlaceholder": "Notes about the prototype…",
         "notesSaved": "Notes saved.",
+        "saveNotes": "Save notes",
         "changeRequests": "Change requests",
         "changeRequestsHint": "Client and team can record requested prototype changes.",
         "changeRequestsPlaceholder": "Describe the requested changes…",
         "changeRequestsSaved": "Change requests saved.",
-        "feedbackSaving": "Saving…"
+        "saveChangeRequests": "Save change requests",
+        "changeRequestsRequired": "Describe the requested changes before submitting.",
+        "feedbackSaving": "Saving…",
+        "statusLabel": "Prototype status",
+        "statusUpdated": "Prototype status updated.",
+        "approve": "Approve prototype",
+        "requestChanges": "Request adjustments",
+        "markChangesDone": "Mark adjustments completed",
+        "approvedToast": "Prototype approved.",
+        "changesToast": "Adjustment request recorded.",
+        "changesDoneToast": "Adjustments completed — waiting for client review.",
+        "status": {
+          "review": "In review",
+          "changes": "Adjustments requested",
+          "changes_done": "Adjustments completed",
+          "approved": "Approved"
+        }
       },
       "briefing": {
         "title": "Briefing",

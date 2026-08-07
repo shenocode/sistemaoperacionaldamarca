@@ -660,11 +660,28 @@
         "notesHint": "Anotações internas do gestor sobre o protótipo.",
         "notesPlaceholder": "Observações sobre o protótipo…",
         "notesSaved": "Observações salvas.",
+        "saveNotes": "Salvar anotações",
         "changeRequests": "Solicitações de ajuste",
         "changeRequestsHint": "Cliente e equipe podem registrar pedidos de mudança no protótipo.",
         "changeRequestsPlaceholder": "Descreva os ajustes desejados…",
         "changeRequestsSaved": "Solicitações salvas.",
-        "feedbackSaving": "Salvando…"
+        "saveChangeRequests": "Salvar solicitações",
+        "changeRequestsRequired": "Descreva os ajustes desejados antes de solicitar.",
+        "feedbackSaving": "Salvando…",
+        "statusLabel": "Status do protótipo",
+        "statusUpdated": "Status do protótipo atualizado.",
+        "approve": "Aprovar protótipo",
+        "requestChanges": "Solicitar ajustes",
+        "markChangesDone": "Marcar ajustes concluídos",
+        "approvedToast": "Protótipo aprovado.",
+        "changesToast": "Pedido de ajustes registrado.",
+        "changesDoneToast": "Ajustes concluídos — aguardando nova revisão do cliente.",
+        "status": {
+          "review": "Em revisão",
+          "changes": "Pedido de ajustes",
+          "changes_done": "Ajustes concluídos",
+          "approved": "Aprovado"
+        }
       },
       "briefing": {
         "title": "Briefing",

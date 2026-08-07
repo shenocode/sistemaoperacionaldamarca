@@ -76,6 +76,28 @@ export type LibraryCategory = Database["public"]["Enums"]["library_category"];
 export type ContentFormat = Database["public"]["Enums"]["content_format"];
 export type BrandBriefingStatus = Database["public"]["Enums"]["brand_briefing_status"];
 export type SiteBriefingStatus = "draft" | "in_progress" | "completed";
+export type SitePrototypeStatus = "review" | "changes" | "changes_done" | "approved";
+
+export const SITE_PROTOTYPE_STATUSES: SitePrototypeStatus[] = [
+  "review",
+  "changes",
+  "changes_done",
+  "approved",
+];
+
+export function parseSitePrototypeStatus(
+  value: string | null | undefined,
+): SitePrototypeStatus {
+  if (
+    value === "review" ||
+    value === "changes" ||
+    value === "changes_done" ||
+    value === "approved"
+  ) {
+    return value;
+  }
+  return "review";
+}
 
 export type {
   BriefingQuestion,
@@ -3148,6 +3170,7 @@ export async function ensureProjectSite(projectId: string): Promise<ProjectSiteV
       briefing_template: DEFAULT_SITE_BRIEFING_TEMPLATE as unknown as Json,
       briefing_answers: parseSiteBriefingForm(null) as unknown as Json,
       briefing_status: "draft",
+      prototype_status: "review",
     })
     .select("*")
     .single();
@@ -3241,6 +3264,22 @@ export async function updateSitePrototypeFeedback(input: {
   const { data, error } = await supabase
     .from("project_site")
     .update(patch)
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return toProjectSiteView(ensureData(data, error));
+}
+
+export async function updateSitePrototypeStatus(input: {
+  projectId: string;
+  status: SitePrototypeStatus;
+}): Promise<ProjectSiteView> {
+  await ensureProjectSite(input.projectId);
+  const { data, error } = await supabase
+    .from("project_site")
+    .update({
+      prototype_status: input.status,
+    })
     .eq("project_id", input.projectId)
     .select("*")
     .single();

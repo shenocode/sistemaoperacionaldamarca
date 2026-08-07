@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import type { SitePrototypeStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export type ContentStatus =
@@ -9,6 +10,8 @@ export type ContentStatus =
   | "changes"
   | "changes_done"
   | "published";
+
+export type { SitePrototypeStatus };
 
 /** Statuses where the client can approve or request new adjustments. */
 export function isClientActionableStatus(
@@ -63,6 +66,39 @@ export function StatusBadge({
       )}
     >
       {t(`project.content.status.${status}`)}
+    </span>
+  );
+}
+
+export const prototypeStatusStyles: Record<SitePrototypeStatus, string> = {
+  review: contentStatusStyles.review,
+  changes: contentStatusStyles.changes,
+  changes_done: contentStatusStyles.changes_done,
+  approved: contentStatusStyles.approved,
+};
+
+export function PrototypeStatusBadge({
+  status,
+  className,
+  asButton = false,
+}: {
+  status: SitePrototypeStatus;
+  className?: string;
+  asButton?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center justify-center border font-medium",
+        asButton
+          ? "h-8 max-w-full truncate rounded-md px-3 text-xs shadow-sm"
+          : "max-w-full truncate rounded-full px-2.5 py-0.5 text-xs",
+        prototypeStatusStyles[status],
+        className,
+      )}
+    >
+      {t(`project.site.prototype.status.${status}`)}
     </span>
   );
 }

@@ -2,14 +2,27 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ExternalLink, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { Check, ExternalLink, Loader2, MessageSquareWarning, RefreshCw, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { SitePrototypeMockup } from "@/components/site-prototype-mockup";
+import {
+  PrototypeStatusBadge,
+  isClientActionableStatus,
+  prototypeStatusStyles,
+} from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  SITE_PROTOTYPE_STATUSES,
   buildSitePrototypeUrl,
   buildWhatsAppNotifyUrl,
   canManageClient,
@@ -21,10 +34,14 @@ import {
   getProject,
   normalizeAppLocale,
   parseRowI18n,
+  parseSitePrototypeStatus,
   projectDefaultRoute,
   updateProjectSitePrototypeUrl,
   updateSitePrototypeFeedback,
+  updateSitePrototypeStatus,
+  type SitePrototypeStatus,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export type PrototypeSearch = {
   access?: string;
@@ -90,6 +107,10 @@ function ProjectPrototypePage() {
 
   const isSite = getPrimaryProjectCategory(projectQuery.data?.categories) === "site";
   const canManage = Boolean(manageQuery.data);
+  const prototypeStatus = parseSitePrototypeStatus(siteQuery.data?.prototype_status);
+  const notesDirty = (siteQuery.data?.prototype_notes ?? "") !== notesDraft;
+  const requestsDirty = (siteQuery.data?.prototype_change_requests ?? "") !== requestsDraft;
+  const clientCanAct = !canManage && isClientActionableStatus(prototypeStatus);
 
   useEffect(() => {
     if (!projectQuery.data || isSite) return;
@@ -143,6 +164,40 @@ function ProjectPrototypePage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const statusMutation = useMutation({
+    mutationFn: (status: SitePrototypeStatus) =>
+      updateSitePrototypeStatus({ projectId, status }),
+    onSuccess: (data, status) => {
+      queryClient.setQueryData(["project-site", projectId], data);
+      if (status === "approved") toast.success(t("project.site.prototype.approvedToast"));
+      else if (status === "changes") toast.success(t("project.site.prototype.changesToast"));
+      else if (status === "changes_done")
+        toast.success(t("project.site.prototype.changesDoneToast"));
+      else toast.success(t("project.site.prototype.statusUpdated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  async function handleRequestChanges() {
+    const text = requestsDraft.trim();
+    if (!text) {
+      toast.error(t("project.site.prototype.changeRequestsRequired"));
+      return;
+    }
+    try {
+      if (requestsDirty) {
+        const saved = await updateSitePrototypeFeedback({
+          projectId,
+          prototypeChangeRequests: requestsDraft,
+        });
+        queryClient.setQueryData(["project-site", projectId], saved);
+      }
+      statusMutation.mutate("changes");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   function handleShare() {
     const client = clientQuery.data;
     const project = projectQuery.data;
@@ -179,6 +234,7 @@ function ProjectPrototypePage() {
   }
 
   const prototypeUrl = siteQuery.data?.prototype_url ?? null;
+  const busy = feedbackMutation.isPending || statusMutation.isPending;
 
   if (projectQuery.isLoading || (isSite && siteQuery.isLoading)) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
@@ -190,9 +246,44 @@ function ProjectPrototypePage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-base font-medium">{t("project.site.prototype.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("project.site.prototype.hint")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-base font-medium">{t("project.site.prototype.title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("project.site.prototype.hint")}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {canManage ? (
+            <Select
+              value={prototypeStatus}
+              disabled={statusMutation.isPending}
+              onValueChange={(value) => {
+                const next = value as SitePrototypeStatus;
+                if (next === prototypeStatus) return;
+                statusMutation.mutate(next);
+              }}
+            >
+              <SelectTrigger
+                aria-label={t("project.site.prototype.statusLabel")}
+                className={cn(
+                  "h-8 w-[11.5rem] border px-2 text-xs font-medium shadow-sm focus:ring-1",
+                  prototypeStatusStyles[prototypeStatus],
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SITE_PROTOTYPE_STATUSES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`project.site.prototype.status.${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <PrototypeStatusBadge status={prototypeStatus} asButton />
+          )}
+        </div>
       </div>
 
       {canManage ? (
@@ -264,23 +355,66 @@ function ProjectPrototypePage() {
         iframeTitle={t("project.site.prototype.iframeTitle")}
       />
 
+      {clientCanAct ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => statusMutation.mutate("approved")}
+          >
+            <Check className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t("project.site.prototype.approve")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void handleRequestChanges()}
+          >
+            <MessageSquareWarning className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t("project.site.prototype.requestChanges")}
+          </Button>
+        </div>
+      ) : null}
+
+      {canManage && prototypeStatus === "changes" ? (
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => statusMutation.mutate("changes_done")}
+          >
+            {t("project.site.prototype.markChangesDone")}
+          </Button>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2 rounded-lg border p-4">
           <Label htmlFor="prototype-notes">{t("project.site.prototype.notes")}</Label>
           <p className="text-xs text-muted-foreground">{t("project.site.prototype.notesHint")}</p>
           {canManage ? (
-            <Textarea
-              id="prototype-notes"
-              value={notesDraft}
-              rows={5}
-              placeholder={t("project.site.prototype.notesPlaceholder")}
-              onChange={(e) => setNotesDraft(e.target.value)}
-              onBlur={() => {
-                if ((siteQuery.data?.prototype_notes ?? "") !== notesDraft) {
-                  feedbackMutation.mutate({ prototypeNotes: notesDraft });
-                }
-              }}
-            />
+            <>
+              <Textarea
+                id="prototype-notes"
+                value={notesDraft}
+                rows={5}
+                placeholder={t("project.site.prototype.notesPlaceholder")}
+                onChange={(e) => setNotesDraft(e.target.value)}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={!notesDirty || feedbackMutation.isPending}
+                onClick={() => feedbackMutation.mutate({ prototypeNotes: notesDraft })}
+              >
+                {feedbackMutation.isPending && notesDirty ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {t("project.site.prototype.saveNotes")}
+              </Button>
+            </>
           ) : (
             <p className="whitespace-pre-wrap text-sm text-foreground">
               {notesDraft.trim() || t("project.site.schedule.emptyCell")}
@@ -299,21 +433,22 @@ function ProjectPrototypePage() {
             rows={5}
             placeholder={t("project.site.prototype.changeRequestsPlaceholder")}
             onChange={(e) => setRequestsDraft(e.target.value)}
-            onBlur={() => {
-              if ((siteQuery.data?.prototype_change_requests ?? "") !== requestsDraft) {
-                feedbackMutation.mutate({ prototypeChangeRequests: requestsDraft });
-              }
-            }}
           />
+          <Button
+            type="button"
+            size="sm"
+            disabled={!requestsDirty || feedbackMutation.isPending}
+            onClick={() =>
+              feedbackMutation.mutate({ prototypeChangeRequests: requestsDraft })
+            }
+          >
+            {feedbackMutation.isPending && requestsDirty ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {t("project.site.prototype.saveChangeRequests")}
+          </Button>
         </div>
       </div>
-
-      {feedbackMutation.isPending ? (
-        <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-          {t("project.site.prototype.feedbackSaving")}
-        </p>
-      ) : null}
     </div>
   );
 }

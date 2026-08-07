@@ -39,16 +39,19 @@ export function NotebookChrome({
   children,
   className,
   size = "default",
+  aspect = "wide",
 }: {
   children: ReactNode;
   className?: string;
   size?: "default" | "lg";
+  /** `wide` = modelo Site (16:10); `video` = 16:9 (watch/shorts). */
+  aspect?: "wide" | "video";
 }) {
   return (
     <div
       className={cn(
         "mx-auto w-full",
-        size === "lg" ? "max-w-[min(100%,720px)]" : "max-w-[min(100%,560px)]",
+        size === "lg" ? "max-w-[min(100%,960px)]" : "max-w-[min(100%,560px)]",
         className,
       )}
     >
@@ -59,7 +62,12 @@ export function NotebookChrome({
           <span className="h-2 w-2 rounded-full bg-emerald-400/90" />
           <div className="ml-3 h-4 flex-1 rounded-sm bg-neutral-700/80" />
         </div>
-        <div className="aspect-video overflow-hidden rounded-t-md border border-b-0 border-neutral-600 bg-white">
+        <div
+          className={cn(
+            "overflow-hidden rounded-t-md border border-b-0 border-neutral-600 bg-white",
+            aspect === "wide" ? "aspect-[16/10]" : "aspect-video",
+          )}
+        >
           <div className="flex h-full min-h-0 flex-col">{children}</div>
         </div>
       </div>
@@ -226,7 +234,7 @@ export function YouTubeWatchMockup({
           format: t("project.detail.formats.recorded_video"),
         })}
       </p>
-      <NotebookChrome size={size}>
+      <NotebookChrome size={size} aspect="video">
         <YoutubeTopBar channelName={channel} />
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-white p-3">
           <ThumbnailOrVideo
@@ -314,7 +322,7 @@ export function YouTubeShortsMockup({
           format: t("project.detail.formats.youtube_short"),
         })}
       </p>
-      <NotebookChrome size={size}>
+      <NotebookChrome size={size} aspect="video">
         <YoutubeTopBar channelName={channel} />
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-neutral-950 px-3 py-2">
           <div className="relative aspect-[9/16] h-full max-h-full">
@@ -410,7 +418,7 @@ export function YouTubeChannelMockup({
     const title = localizedTitle(item);
 
     return (
-      <div key={item.id} className={cn("min-w-0", short ? "w-[88px] shrink-0" : "w-[148px] shrink-0")}>
+      <div key={item.id} className={cn("min-w-0", short ? "w-[100px] shrink-0" : "w-[180px] shrink-0")}>
         <ThumbnailOrVideo
           thumbnailUrl={thumb}
           videoUrl={media}
@@ -425,11 +433,11 @@ export function YouTubeChannelMockup({
               to="/clients/$clientId/projects/$projectId/content/$contentId"
               params={{ clientId, projectId, contentId: item.id }}
               search={{}}
-              className="line-clamp-2 text-[11px] font-medium leading-snug text-neutral-900 hover:underline"
+              className="line-clamp-2 text-xs font-medium leading-snug text-neutral-900 hover:underline"
             >
               {title}
             </Link>
-            <p className="text-[9px] text-neutral-500">{t("project.youtube.cardMeta")}</p>
+            <p className="text-[10px] text-neutral-500">{t("project.youtube.cardMeta")}</p>
           </div>
         ) : null}
       </div>
@@ -449,32 +457,32 @@ export function YouTubeChannelMockup({
       {showLabel ? (
         <p className="text-center text-xs text-muted-foreground">{t("project.youtube.previewChannel")}</p>
       ) : null}
-      <NotebookChrome size="lg">
+      <NotebookChrome size="lg" aspect="wide">
         <YoutubeTopBar channelName={channel} />
         <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-          <div className="h-16 bg-gradient-to-r from-neutral-800 via-neutral-600 to-neutral-400" />
-          <div className="flex flex-wrap items-end gap-3 px-3 pb-2 pt-3">
-            <div className="-mt-8 h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-white bg-neutral-200 shadow">
+          <div className="h-20 bg-gradient-to-r from-neutral-800 via-neutral-600 to-neutral-400 sm:h-24" />
+          <div className="flex flex-wrap items-end gap-3 px-4 pb-2 pt-3">
+            <div className="-mt-10 h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white bg-neutral-200 shadow sm:h-[4.5rem] sm:w-[4.5rem]">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span className="flex h-full w-full items-center justify-center text-sm font-bold uppercase text-neutral-600">
+                <span className="flex h-full w-full items-center justify-center text-base font-bold uppercase text-neutral-600">
                   {channel.slice(0, 2)}
                 </span>
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-neutral-900">{channel}</p>
-              <p className="truncate text-[11px] text-neutral-500">
+              <p className="truncate text-base font-bold text-neutral-900">{channel}</p>
+              <p className="truncate text-xs text-neutral-500">
                 @{handle} · {t("project.youtube.subscribersMeta", { count: visible.length })}
               </p>
             </div>
-            <span className="rounded-full bg-neutral-900 px-3 py-1 text-[10px] font-semibold text-white">
+            <span className="rounded-full bg-neutral-900 px-3.5 py-1.5 text-[11px] font-semibold text-white">
               {t("project.youtube.subscribe")}
             </span>
           </div>
 
-          <div className="flex gap-3 border-b border-neutral-200 px-3 text-[11px] font-medium text-neutral-600">
+          <div className="flex gap-4 border-b border-neutral-200 px-4 text-xs font-medium text-neutral-600">
             {(
               [
                 ["home", t("project.youtube.tabHome")],
@@ -486,7 +494,7 @@ export function YouTubeChannelMockup({
                 key={id}
                 type="button"
                 className={cn(
-                  "border-b-2 py-2 transition-colors",
+                  "border-b-2 py-2.5 transition-colors",
                   tab === id
                     ? "border-neutral-900 text-neutral-900"
                     : "border-transparent hover:text-neutral-800",
@@ -501,44 +509,44 @@ export function YouTubeChannelMockup({
             ))}
           </div>
 
-          <div className="space-y-4 p-3">
+          <div className="space-y-4 p-4">
             {tab === "home" ? (
               <>
                 <section className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-[12px] font-semibold text-neutral-900">
+                    <h4 className="text-sm font-semibold text-neutral-900">
                       {t("project.youtube.sectionVideos")}
                     </h4>
                     <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-neutral-400" aria-hidden="true" />
                   </div>
                   {longForm.length === 0 ? (
-                    <p className="text-[11px] text-neutral-500">{t("project.youtube.emptyVideos")}</p>
+                    <p className="text-xs text-neutral-500">{t("project.youtube.emptyVideos")}</p>
                   ) : (
-                    <div className="flex gap-2 overflow-x-auto pb-1">
+                    <div className="flex gap-3 overflow-x-auto pb-1">
                       {longForm.map((item) => renderCard(item, false))}
                     </div>
                   )}
                 </section>
                 <section className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-bold text-red-600">S</span>
-                    <h4 className="text-[12px] font-semibold text-neutral-900">
+                    <span className="text-sm font-bold text-red-600">S</span>
+                    <h4 className="text-sm font-semibold text-neutral-900">
                       {t("project.youtube.sectionShorts")}
                     </h4>
                   </div>
                   {shorts.length === 0 ? (
-                    <p className="text-[11px] text-neutral-500">{t("project.youtube.emptyShorts")}</p>
+                    <p className="text-xs text-neutral-500">{t("project.youtube.emptyShorts")}</p>
                   ) : (
-                    <div className="flex gap-2 overflow-x-auto pb-1">
+                    <div className="flex gap-3 overflow-x-auto pb-1">
                       {shorts.map((item) => renderCard(item, true))}
                     </div>
                   )}
                 </section>
               </>
             ) : listForTab && listForTab.length === 0 ? (
-              <p className="text-[11px] text-neutral-500">{emptyLabel}</p>
+              <p className="text-xs text-neutral-500">{emptyLabel}</p>
             ) : (
-              <div className={cn("flex gap-2 overflow-x-auto pb-1", tab === "shorts" ? "" : "flex-wrap")}>
+              <div className={cn("flex gap-3 overflow-x-auto pb-1", tab === "shorts" ? "" : "flex-wrap")}>
                 {(listForTab ?? []).map((item) => renderCard(item, tab === "shorts"))}
               </div>
             )}

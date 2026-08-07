@@ -33,23 +33,21 @@ export function SitePrototypeMockup({
   const src = url?.trim() ? withCacheBust(url.trim(), refreshKey) : null;
 
   return (
-    <NotebookChrome size="lg" className={cn(className)}>
-      <div className="relative aspect-[16/10] w-full bg-neutral-100">
-        {src ? (
-          <iframe
-            key={src}
-            title={iframeTitle}
-            src={src}
-            className="absolute inset-0 h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
-            <p className="max-w-sm text-sm text-muted-foreground">{emptyLabel}</p>
-          </div>
-        )}
-      </div>
+    <NotebookChrome size="lg" aspect="wide" className={cn(className)}>
+      {src ? (
+        <iframe
+          key={src}
+          title={iframeTitle}
+          src={src}
+          className="h-full min-h-0 w-full flex-1 border-0 bg-white"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-neutral-100 px-6 text-center">
+          <p className="max-w-sm text-sm text-muted-foreground">{emptyLabel}</p>
+        </div>
+      )}
     </NotebookChrome>
   );
 }

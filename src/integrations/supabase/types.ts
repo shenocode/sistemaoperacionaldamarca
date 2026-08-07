@@ -839,6 +839,7 @@ export type Database = {
           project_id: string
           prototype_change_requests: string | null
           prototype_notes: string | null
+          prototype_status: string
           prototype_url: string | null
           schedule: Json
           updated_at: string
@@ -854,6 +855,7 @@ export type Database = {
           project_id: string
           prototype_change_requests?: string | null
           prototype_notes?: string | null
+          prototype_status?: string
           prototype_url?: string | null
           schedule?: Json
           updated_at?: string
@@ -869,6 +871,7 @@ export type Database = {
           project_id?: string
           prototype_change_requests?: string | null
           prototype_notes?: string | null
+          prototype_status?: string
           prototype_url?: string | null
           schedule?: Json
           updated_at?: string
