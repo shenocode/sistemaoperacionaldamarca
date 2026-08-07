@@ -30,6 +30,7 @@ export function contactFormFromClient(
     phone?: string | null;
     whatsapp?: string | null;
     instagram?: string | null;
+    website?: string | null;
     logo_url?: string | null;
     i18n?: unknown;
   },
@@ -43,6 +44,7 @@ export function contactFormFromClient(
     phone: client.phone ?? "",
     whatsapp: client.whatsapp ?? "",
     instagram: client.instagram ?? "",
+    website: client.website ?? "",
     logo_url: client.logo_url ?? "",
     i18n,
   };
@@ -230,6 +232,17 @@ export function ClientContactFields({
           onChange={(e) => setField("instagram", e.target.value)}
           placeholder="@cliente ou https://instagram.com/cliente"
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-website`}>{t("clients.website")}</Label>
+        <Input
+          id={`${idPrefix}-website`}
+          type="url"
+          value={form.website ?? ""}
+          onChange={(e) => setField("website", e.target.value)}
+          placeholder={t("clients.websitePlaceholder")}
+        />
+        <p className="text-xs text-muted-foreground">{t("clients.websiteHint")}</p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-notes`}>{t("clients.notes")}</Label>

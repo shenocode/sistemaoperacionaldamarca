@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
+  FilePenLine,
   FileText,
   FolderKanban,
   Inbox,
@@ -94,6 +95,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             activeProps={{ className: navActiveClass }}
           >
             <Users className="h-4 w-4" /> {t("nav.clients")}
+          </Link>
+          <Link
+            to="/proposals"
+            onClick={closeMobileNav}
+            className={navClass}
+            activeProps={{ className: navActiveClass }}
+          >
+            <FilePenLine className="h-4 w-4" /> {t("nav.proposals")}
           </Link>
           {entitlements.canManageTeam ? (
             <Link

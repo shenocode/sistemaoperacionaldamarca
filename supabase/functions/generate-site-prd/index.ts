@@ -29,6 +29,7 @@ const FIELD_LABELS: Record<string, string> = {
   whatsapp: "WhatsApp",
   telefone: "Telefone",
   email: "E-mail",
+  website: "URL do site (se houver)",
   endereco: "Endereço",
   maps: "Google Maps",
   instagram: "Instagram",

@@ -245,6 +245,7 @@ export function ClientLibraryView({
         phone: client.phone ?? undefined,
         whatsapp: client.whatsapp ?? undefined,
         instagram: client.instagram ?? undefined,
+        website: client.website ?? undefined,
         brand_colors: brandKit.brand_colors,
         brand_fonts: brandKit.brand_fonts,
         i18n: client.i18n as RowI18n | undefined,

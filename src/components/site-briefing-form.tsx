@@ -430,6 +430,15 @@ export function SiteBriefingForm({
                     />
                   </Field>
                 </div>
+                <Field label="URL do site (se houver)" hint="Site atual da marca, se já existir.">
+                  <TextInput
+                    type="url"
+                    value={form.website}
+                    onChange={(e) => set("website", e.target.value)}
+                    onBlur={() => persistForm()}
+                    placeholder="https://"
+                  />
+                </Field>
                 <Field label="Endereço">
                   <TextInput
                     value={form.endereco}
@@ -552,6 +561,7 @@ export function SiteBriefingForm({
                       ["Segmento", form.segmento || "—"],
                       ["Local", [form.cidade, form.estado].filter(Boolean).join(", ") || "—"],
                       ["WhatsApp", form.whatsapp ? `${form.ddi} ${form.whatsapp}` : "—"],
+                      ["Site atual", form.website || "—"],
                       ["Estilo", form.estilo || "—"],
                       ["Tom", form.tom || "—"],
                       ["Objetivos", form.objetivos.join(", ") || "—"],

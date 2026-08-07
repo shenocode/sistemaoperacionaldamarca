@@ -27,6 +27,8 @@ import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/t
 import { Route as AssinaturaCanceladaRouteImport } from './routes/assinatura.cancelada'
 import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura.sucesso'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
+import { Route as AuthenticatedProposalsIndexRouteImport } from './routes/_authenticated/proposals/index'
+import { Route as AuthenticatedProposalsProposalIdRouteImport } from './routes/_authenticated/proposals/$proposalId'
 import { Route as ShareClientIdProjectIdRouteImport } from './routes/share.$clientId.$projectId'
 import { Route as AuthenticatedClientsClientIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/index'
 import { Route as AuthenticatedClientsClientIdBriefingRouteImport } from './routes/_authenticated/clients/$clientId/briefing'
@@ -137,6 +139,18 @@ const AuthenticatedClientsIndexRoute =
   AuthenticatedClientsIndexRouteImport.update({
     id: '/clients/',
     path: '/clients/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProposalsIndexRoute =
+  AuthenticatedProposalsIndexRouteImport.update({
+    id: '/proposals/',
+    path: '/proposals/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProposalsProposalIdRoute =
+  AuthenticatedProposalsProposalIdRouteImport.update({
+    id: '/proposals/$proposalId',
+    path: '/proposals/$proposalId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ShareClientIdProjectIdRoute = ShareClientIdProjectIdRouteImport.update({
@@ -302,8 +316,10 @@ export interface FileRoutesByFullPath {
   '/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
+  '/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
+  '/proposals/': typeof AuthenticatedProposalsIndexRoute
   '/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
   '/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
   '/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
@@ -342,8 +358,10 @@ export interface FileRoutesByTo {
   '/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
+  '/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
+  '/proposals': typeof AuthenticatedProposalsIndexRoute
   '/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
   '/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdIndexRoute
@@ -381,8 +399,10 @@ export interface FileRoutesById {
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
+  '/_authenticated/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
+  '/_authenticated/proposals/': typeof AuthenticatedProposalsIndexRoute
   '/_authenticated/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
   '/_authenticated/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
   '/_authenticated/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
@@ -423,8 +443,10 @@ export interface FileRouteTypes {
     | '/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
+    | '/proposals/$proposalId'
     | '/share/$clientId/$projectId'
     | '/clients/'
+    | '/proposals/'
     | '/clients/$clientId/briefing'
     | '/clients/$clientId/library'
     | '/clients/$clientId/'
@@ -463,8 +485,10 @@ export interface FileRouteTypes {
     | '/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
+    | '/proposals/$proposalId'
     | '/share/$clientId/$projectId'
     | '/clients'
+    | '/proposals'
     | '/clients/$clientId/briefing'
     | '/clients/$clientId/library'
     | '/clients/$clientId'
@@ -501,8 +525,10 @@ export interface FileRouteTypes {
     | '/_authenticated/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
+    | '/_authenticated/proposals/$proposalId'
     | '/share/$clientId/$projectId'
     | '/_authenticated/clients/'
+    | '/_authenticated/proposals/'
     | '/_authenticated/clients/$clientId/briefing'
     | '/_authenticated/clients/$clientId/library'
     | '/_authenticated/clients/$clientId/'
@@ -662,6 +688,20 @@ declare module '@tanstack/react-router' {
       path: '/clients'
       fullPath: '/clients/'
       preLoaderRoute: typeof AuthenticatedClientsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proposals/': {
+      id: '/_authenticated/proposals/'
+      path: '/proposals'
+      fullPath: '/proposals/'
+      preLoaderRoute: typeof AuthenticatedProposalsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proposals/$proposalId': {
+      id: '/_authenticated/proposals/$proposalId'
+      path: '/proposals/$proposalId'
+      fullPath: '/proposals/$proposalId'
+      preLoaderRoute: typeof AuthenticatedProposalsProposalIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/share/$clientId/$projectId': {
@@ -909,7 +949,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedProposalsProposalIdRoute: typeof AuthenticatedProposalsProposalIdRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
+  AuthenticatedProposalsIndexRoute: typeof AuthenticatedProposalsIndexRoute
   AuthenticatedClientsClientIdBriefingRoute: typeof AuthenticatedClientsClientIdBriefingRoute
   AuthenticatedClientsClientIdLibraryRoute: typeof AuthenticatedClientsClientIdLibraryRoute
   AuthenticatedClientsClientIdIndexRoute: typeof AuthenticatedClientsClientIdIndexRoute
@@ -927,7 +969,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedProposalsProposalIdRoute: AuthenticatedProposalsProposalIdRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
+  AuthenticatedProposalsIndexRoute: AuthenticatedProposalsIndexRoute,
   AuthenticatedClientsClientIdBriefingRoute:
     AuthenticatedClientsClientIdBriefingRoute,
   AuthenticatedClientsClientIdLibraryRoute:
@@ -954,3 +998,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -9,10 +9,10 @@ import {
   contactFormFromClient,
   toCanonicalContactInput,
 } from "@/components/client-contact-fields";
+import { ClientGestorContactCard } from "@/components/client-gestor-contact-card";
 import { PageHeader } from "@/components/page-header";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -40,6 +40,7 @@ const emptyForm: ClientContactInput = {
   phone: "",
   whatsapp: "",
   instagram: "",
+  website: "",
   logo_url: "",
   i18n: {},
 };
@@ -197,6 +198,13 @@ function ClientSettingsPage() {
           </Button>
         </form>
       )}
+
+      {selectedClientId ? (
+        <>
+          <Separator />
+          <ClientGestorContactCard clientId={selectedClientId} />
+        </>
+      ) : null}
 
       <Separator />
 

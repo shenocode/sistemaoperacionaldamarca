@@ -291,6 +291,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         Insert: {
@@ -308,6 +309,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Update: {
@@ -325,9 +327,69 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Relationships: []
+      }
+      commercial_proposals: {
+        Row: {
+          client_id: string
+          commercial_terms: Json
+          cover_image_url: string | null
+          created_at: string
+          created_by: string
+          id: string
+          investment_items: Json
+          proposal_month: string
+          scope_summary: string
+          sections: Json
+          status: Database["public"]["Enums"]["commercial_proposal_status"]
+          subtitle: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          commercial_terms?: Json
+          cover_image_url?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          investment_items?: Json
+          proposal_month?: string
+          scope_summary?: string
+          sections?: Json
+          status?: Database["public"]["Enums"]["commercial_proposal_status"]
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          commercial_terms?: Json
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          investment_items?: Json
+          proposal_month?: string
+          scope_summary?: string
+          sections?: Json
+          status?: Database["public"]["Enums"]["commercial_proposal_status"]
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_comments: {
         Row: {
@@ -741,32 +803,41 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          company_name: string | null
           created_at: string
           full_name: string | null
           i18n: Json
           id: string
           locale: string
+          logo_url: string | null
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
+          company_name?: string | null
           created_at?: string
           full_name?: string | null
           i18n?: Json
           id: string
           locale?: string
+          logo_url?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
+          company_name?: string | null
           created_at?: string
           full_name?: string | null
           i18n?: Json
           id?: string
           locale?: string
+          logo_url?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Relationships: []
@@ -1085,6 +1156,12 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_client_gestor_contact: {
+        Args: {
+          _client_id: string
+        }
+        Returns: Json
+      }
       update_client_contact: {
         Args: {
           _brand_colors?: Json
@@ -1096,6 +1173,7 @@ export type Database = {
           _name: string
           _notes?: string
           _phone?: string
+          _website?: string
           _whatsapp?: string
         }
         Returns: {
@@ -1113,6 +1191,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         SetofOptions: {
@@ -1141,6 +1220,7 @@ export type Database = {
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
       client_member_role: "owner" | "member"
+      commercial_proposal_status: "draft" | "ready"
       help_request_kind: "gestor_platform" | "client_gestor"
       content_format:
         | "static_feed"
@@ -1314,6 +1394,7 @@ export const Constants = {
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
       client_member_role: ["owner", "member"],
+      commercial_proposal_status: ["draft", "ready"],
       help_request_kind: ["gestor_platform", "client_gestor"],
       content_format: [
         "static_feed",

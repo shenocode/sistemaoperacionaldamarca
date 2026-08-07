@@ -37,6 +37,7 @@ const emptyContactForm: ClientContactInput = {
   phone: "",
   whatsapp: "",
   instagram: "",
+  website: "",
   logo_url: "",
   i18n: {},
 };

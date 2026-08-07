@@ -19,6 +19,16 @@ import {
   DEFAULT_SITE_BRIEFING_TEMPLATE,
   parseSiteBriefingTemplate,
 } from "@/lib/site-briefing-template";
+import {
+  createBlankProposalDraft,
+  parseCommercialTerms,
+  parseInvestmentItems,
+  parseProposalSections,
+  type CommercialTerms,
+  type InvestmentItem,
+  type ProposalDraftFields,
+  type ProposalSection,
+} from "@/lib/proposal-template";
 import type { RowI18n } from "@/lib/i18n-content";
 import {
   ensureFieldsTranslated,
@@ -69,6 +79,9 @@ export type DesignTemplate = Tables<"design_templates">;
 export type DesignTemplateFormat = Database["public"]["Enums"]["design_template_format"];
 export type ActivityEvent = Tables<"activity_events">;
 export type Profile = Tables<"profiles">;
+export type CommercialProposal = Tables<"commercial_proposals">;
+export type CommercialProposalStatus =
+  Database["public"]["Enums"]["commercial_proposal_status"];
 export type BrandBriefing = Tables<"brand_briefings">;
 export type ProjectSite = Tables<"project_site">;
 export type ActivityType = Database["public"]["Enums"]["activity_type"];
@@ -226,7 +239,7 @@ export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryCon
   },
   site: {
     formats: [],
-    tabs: ["prototype", "briefing", "prompt", "schedule", "library", "settings"],
+    tabs: ["prototype", "briefing", "prompt", "schedule", "meeting", "library", "settings"],
     defaultTab: "prototype",
     experienceReady: true,
   },
@@ -298,9 +311,13 @@ export function normalizeProjectCategories(values?: string[] | null): ProjectCat
 
 export const CONTENT_MEDIA_BUCKET = "content-media";
 export const CLIENT_LOGOS_BUCKET = "client-logos";
+export const GESTOR_LOGOS_BUCKET = "gestor-logos";
+export const PROPOSAL_COVERS_BUCKET = "proposal-covers";
 export const COMMENT_AUDIO_BUCKET = "comment-audio";
 
 export const CLIENT_LOGO_ACCEPT = ".jpg,.jpeg,.png,.gif,.webp,.svg,image/jpeg,image/png,image/gif,image/webp,image/svg+xml";
+export const GESTOR_LOGO_ACCEPT = CLIENT_LOGO_ACCEPT;
+export const PROPOSAL_COVER_ACCEPT = ".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp";
 
 export const CONTENT_MEDIA_ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.heic,.heif,.mp4,.webm,.mov,.avi,.txt,.md,.csv,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,image/*,video/*,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -388,7 +405,7 @@ export async function uploadClientLogo(clientId: string, file: File) {
     // Persist logo_url immediately (edge-function path already does this).
     const { data: clientRow } = await supabase
       .from("clients")
-      .select("name, notes, email, phone, whatsapp, instagram")
+      .select("name, notes, email, phone, whatsapp, instagram, website")
       .eq("id", clientId)
       .maybeSingle();
     if (clientRow?.name?.trim()) {
@@ -405,6 +422,7 @@ export async function uploadClientLogo(clientId: string, file: File) {
           _phone: clientRow.phone,
           _whatsapp: clientRow.whatsapp,
           _instagram: clientRow.instagram,
+          _website: clientRow.website,
           _logo_url: logoUrl,
         } as Database["public"]["Functions"]["update_client_contact"]["Args"]);
       }
@@ -850,6 +868,7 @@ export type ClientContactInput = {
   phone?: string;
   whatsapp?: string;
   instagram?: string;
+  website?: string;
   /** Public URL; empty string or null clears the logo on update. */
   logo_url?: string | null;
   brand_colors?: BrandColor[];
@@ -938,6 +957,7 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
     phone: normalizeOptionalText(input.phone),
     whatsapp: normalizeOptionalText(input.whatsapp),
     instagram: normalizeOptionalText(input.instagram),
+    website: normalizeOptionalText(input.website),
     logo_url: normalizeOptionalText(input.logo_url ?? undefined),
     ...(input.i18n ? { i18n: toI18nJson(i18n) } : {}),
     created_by: userId,
@@ -974,6 +994,7 @@ export async function updateClient(clientId: string, input: ClientContactInput):
     _phone: normalizeOptionalText(input.phone),
     _whatsapp: normalizeOptionalText(input.whatsapp),
     _instagram: normalizeOptionalText(input.instagram),
+    _website: normalizeOptionalText(input.website),
   };
 
   const withLogoArgs = {
@@ -993,17 +1014,46 @@ export async function updateClient(clientId: string, input: ClientContactInput):
     withBrandArgs as Database["public"]["Functions"]["update_client_contact"]["Args"],
   );
 
-  // Remote may still be on an older RPC signature without brand kit / logo.
+  // Remote may still be on an older RPC signature without website / brand kit / logo.
   if (error && /Could not find the function|PGRST202/i.test(error.message)) {
+    const legacyBase = {
+      _client_id: clientId,
+      _name: name,
+      _notes: notes,
+      _email: normalizeOptionalText(input.email),
+      _phone: normalizeOptionalText(input.phone),
+      _whatsapp: normalizeOptionalText(input.whatsapp),
+      _instagram: normalizeOptionalText(input.instagram),
+    };
+    const legacyLogo = {
+      ...legacyBase,
+      _logo_url:
+        input.logo_url === undefined
+          ? null
+          : (normalizeOptionalText(input.logo_url ?? undefined) ?? ""),
+    };
+    const legacyBrand = {
+      ...legacyLogo,
+      _brand_colors: brandColors as unknown as Json,
+      _brand_fonts: brandFonts as unknown as Json,
+    };
+
     ({ data, error } = await supabase.rpc(
       "update_client_contact",
-      withLogoArgs as Database["public"]["Functions"]["update_client_contact"]["Args"],
+      legacyBrand as Database["public"]["Functions"]["update_client_contact"]["Args"],
     ));
 
     if (error && /Could not find the function|PGRST202/i.test(error.message)) {
       ({ data, error } = await supabase.rpc(
         "update_client_contact",
-        baseArgs as Database["public"]["Functions"]["update_client_contact"]["Args"],
+        legacyLogo as Database["public"]["Functions"]["update_client_contact"]["Args"],
+      ));
+    }
+
+    if (error && /Could not find the function|PGRST202/i.test(error.message)) {
+      ({ data, error } = await supabase.rpc(
+        "update_client_contact",
+        legacyBase as Database["public"]["Functions"]["update_client_contact"]["Args"],
       ));
     }
 
@@ -1012,11 +1062,15 @@ export async function updateClient(clientId: string, input: ClientContactInput):
         logo_url?: string | null;
         brand_colors?: Json;
         brand_fonts?: Json;
+        website?: string | null;
       } = {};
       if (brandColors !== null) patch.brand_colors = brandColors as unknown as Json;
       if (brandFonts !== null) patch.brand_fonts = brandFonts as unknown as Json;
       if (input.logo_url !== undefined) {
         patch.logo_url = normalizeOptionalText(input.logo_url ?? undefined);
+      }
+      if (input.website !== undefined) {
+        patch.website = normalizeOptionalText(input.website);
       }
       if (Object.keys(patch).length > 0) {
         const { error: kitError } = await supabase.from("clients").update(patch).eq("id", clientId);
@@ -1049,6 +1103,42 @@ export async function getClientPlatformLogin(clientId: string): Promise<string |
   });
   if (error) throw new Error(error.message);
   return (data as string | null) ?? null;
+}
+
+export type ClientGestorContact = {
+  userId: string;
+  fullName: string | null;
+  email: string | null;
+  whatsapp: string | null;
+  website: string | null;
+};
+
+export async function getMyGestorContact(clientId: string): Promise<ClientGestorContact | null> {
+  const { data, error } = await supabase.rpc("get_client_gestor_contact", {
+    _client_id: clientId,
+  });
+  if (error) throw new Error(error.message);
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+
+  const row = data as Record<string, unknown>;
+  const userId = typeof row.userId === "string" ? row.userId : "";
+  if (!userId) return null;
+
+  return {
+    userId,
+    fullName: typeof row.fullName === "string" ? row.fullName : null,
+    email: typeof row.email === "string" ? row.email : null,
+    whatsapp: typeof row.whatsapp === "string" ? row.whatsapp : null,
+    website: typeof row.website === "string" ? row.website : null,
+  };
+}
+
+/** Normalize a stored website value into an absolute http(s) URL for links. */
+export function websiteHref(website: string | null | undefined): string | null {
+  const trimmed = website?.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }
 
 export async function provisionClientAccess(input: {
@@ -1188,6 +1278,9 @@ export type MyProfile = {
   email: string | null;
   full_name: string | null;
   whatsapp: string | null;
+  company_name: string | null;
+  website: string | null;
+  logo_url: string | null;
 };
 
 export async function getMyProfile(): Promise<MyProfile> {
@@ -1200,7 +1293,7 @@ export async function getMyProfile(): Promise<MyProfile> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, whatsapp")
+    .select("id, full_name, whatsapp, company_name, website, logo_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -1215,12 +1308,18 @@ export async function getMyProfile(): Promise<MyProfile> {
         ? user.user_metadata.full_name
         : null),
     whatsapp: data?.whatsapp ?? null,
+    company_name: data?.company_name ?? null,
+    website: data?.website ?? null,
+    logo_url: data?.logo_url ?? null,
   };
 }
 
 export async function updateMyProfile(input: {
   fullName: string;
   whatsapp: string;
+  companyName?: string;
+  website?: string;
+  logoUrl?: string | null;
 }): Promise<MyProfile> {
   const {
     data: { user },
@@ -1231,11 +1330,20 @@ export async function updateMyProfile(input: {
 
   const fullName = input.fullName.trim();
   const whatsapp = input.whatsapp.replace(/\D/g, "") || null;
+  const companyName = input.companyName?.trim() || null;
+  const website = input.website?.trim() || null;
+  const logoUrl =
+    input.logoUrl === undefined
+      ? undefined
+      : input.logoUrl?.trim() || null;
 
   const { error } = await supabase.from("profiles").upsert({
     id: user.id,
     full_name: fullName || null,
     whatsapp,
+    company_name: companyName,
+    website,
+    ...(logoUrl !== undefined ? { logo_url: logoUrl } : {}),
   });
   if (error) throw new Error(error.message);
 
@@ -1246,6 +1354,209 @@ export async function updateMyProfile(input: {
   }
 
   return getMyProfile();
+}
+
+export async function uploadGestorLogo(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Envie uma imagem (PNG, JPG, WebP ou SVG).");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("O logo deve ter no máximo 2 MB.");
+  }
+
+  const userId = await requireUserId();
+  const safeName = sanitizeFileName(file.name || "logo");
+  const storagePath = `${userId}/${crypto.randomUUID()}-${safeName}`;
+  const { error: storageError } = await supabase.storage
+    .from(GESTOR_LOGOS_BUCKET)
+    .upload(storagePath, file, {
+      cacheControl: "3600",
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+  if (storageError) throw new Error(storageError.message);
+
+  const { data } = supabase.storage.from(GESTOR_LOGOS_BUCKET).getPublicUrl(storagePath);
+  const logoUrl = data.publicUrl;
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ id: userId, logo_url: logoUrl });
+  if (error) throw new Error(error.message);
+
+  return logoUrl;
+}
+
+// —— Commercial proposals ——
+
+export type {
+  CommercialTerms,
+  InvestmentItem,
+  ProposalDraftFields,
+  ProposalSection,
+} from "@/lib/proposal-template";
+
+export type CommercialProposalWithClient = CommercialProposal & {
+  clients: Pick<Client, "id" | "name" | "logo_url"> | null;
+};
+
+function toProposalJson(value: unknown): Json {
+  return value as Json;
+}
+
+export async function listCommercialProposals(): Promise<CommercialProposalWithClient[]> {
+  const { data, error } = await supabase
+    .from("commercial_proposals")
+    .select("*, clients ( id, name, logo_url )")
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CommercialProposalWithClient[];
+}
+
+export async function getCommercialProposal(
+  proposalId: string,
+): Promise<CommercialProposalWithClient | null> {
+  const { data, error } = await supabase
+    .from("commercial_proposals")
+    .select("*, clients ( id, name, logo_url )")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data as CommercialProposalWithClient | null;
+}
+
+export async function createCommercialProposal(input: {
+  clientId: string;
+}): Promise<CommercialProposal> {
+  const userId = await requireUserId();
+  const { data: client, error: clientError } = await supabase
+    .from("clients")
+    .select("id, name")
+    .eq("id", input.clientId)
+    .maybeSingle();
+  if (clientError) throw new Error(clientError.message);
+  if (!client) throw new Error("Cliente não encontrado.");
+
+  const draft = createBlankProposalDraft(client.name);
+  const { data, error } = await supabase
+    .from("commercial_proposals")
+    .insert({
+      created_by: userId,
+      client_id: client.id,
+      title: draft.title,
+      subtitle: draft.subtitle,
+      scope_summary: draft.scope_summary,
+      proposal_month: draft.proposal_month,
+      cover_image_url: draft.cover_image_url,
+      sections: toProposalJson(draft.sections),
+      investment_items: toProposalJson(draft.investment_items),
+      commercial_terms: toProposalJson(draft.commercial_terms),
+      status: draft.status,
+    } satisfies TablesInsert<"commercial_proposals">)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function updateCommercialProposal(input: {
+  proposalId: string;
+  clientId?: string;
+  title?: string;
+  subtitle?: string;
+  scopeSummary?: string;
+  proposalMonth?: string;
+  coverImageUrl?: string | null;
+  sections?: ProposalSection[];
+  investmentItems?: InvestmentItem[];
+  commercialTerms?: CommercialTerms;
+  status?: CommercialProposalStatus;
+}): Promise<CommercialProposal> {
+  const patch: Database["public"]["Tables"]["commercial_proposals"]["Update"] = {};
+
+  if (input.clientId !== undefined) patch.client_id = input.clientId;
+  if (input.title !== undefined) patch.title = input.title.trim() || "PROPOSTA COMERCIAL";
+  if (input.subtitle !== undefined) patch.subtitle = input.subtitle;
+  if (input.scopeSummary !== undefined) patch.scope_summary = input.scopeSummary;
+  if (input.proposalMonth !== undefined) patch.proposal_month = input.proposalMonth;
+  if (input.coverImageUrl !== undefined) patch.cover_image_url = input.coverImageUrl;
+  if (input.sections !== undefined) patch.sections = toProposalJson(input.sections);
+  if (input.investmentItems !== undefined) {
+    patch.investment_items = toProposalJson(input.investmentItems);
+  }
+  if (input.commercialTerms !== undefined) {
+    patch.commercial_terms = toProposalJson(input.commercialTerms);
+  }
+  if (input.status !== undefined) patch.status = input.status;
+
+  const { data, error } = await supabase
+    .from("commercial_proposals")
+    .update(patch)
+    .eq("id", input.proposalId)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function deleteCommercialProposal(proposalId: string): Promise<void> {
+  const { error } = await supabase
+    .from("commercial_proposals")
+    .delete()
+    .eq("id", proposalId);
+  if (error) throw new Error(error.message);
+}
+
+export async function uploadProposalCover(input: {
+  proposalId: string;
+  file: File;
+}): Promise<string> {
+  if (!input.file.type.startsWith("image/")) {
+    throw new Error("Envie uma imagem (PNG, JPG ou WebP).");
+  }
+  if (input.file.size > 5 * 1024 * 1024) {
+    throw new Error("A imagem de capa deve ter no máximo 5 MB.");
+  }
+
+  const userId = await requireUserId();
+  const safeName = sanitizeFileName(input.file.name || "capa");
+  const storagePath = `${userId}/${input.proposalId}/${crypto.randomUUID()}-${safeName}`;
+  const { error: storageError } = await supabase.storage
+    .from(PROPOSAL_COVERS_BUCKET)
+    .upload(storagePath, input.file, {
+      cacheControl: "3600",
+      contentType: input.file.type || undefined,
+      upsert: false,
+    });
+  if (storageError) throw new Error(storageError.message);
+
+  const { data } = supabase.storage.from(PROPOSAL_COVERS_BUCKET).getPublicUrl(storagePath);
+  const coverUrl = data.publicUrl;
+
+  const { error } = await supabase
+    .from("commercial_proposals")
+    .update({ cover_image_url: coverUrl })
+    .eq("id", input.proposalId);
+  if (error) throw new Error(error.message);
+
+  return coverUrl;
+}
+
+export function hydrateProposalDraft(
+  row: CommercialProposal,
+  clientName = "",
+): ProposalDraftFields {
+  return {
+    title: row.title,
+    subtitle: row.subtitle,
+    scope_summary: row.scope_summary,
+    proposal_month: row.proposal_month,
+    cover_image_url: row.cover_image_url,
+    sections: parseProposalSections(row.sections),
+    investment_items: parseInvestmentItems(row.investment_items),
+    commercial_terms: parseCommercialTerms(row.commercial_terms, clientName),
+    status: row.status,
+  };
 }
 
 // —— Projects ——

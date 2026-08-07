@@ -216,6 +216,7 @@ function ProjectLayout() {
         phone: client.phone ?? undefined,
         whatsapp: client.whatsapp ?? undefined,
         instagram: client.instagram ?? undefined,
+        website: client.website ?? undefined,
         i18n: nextI18n,
       });
       void queryClient.invalidateQueries({ queryKey: ["clients"] });

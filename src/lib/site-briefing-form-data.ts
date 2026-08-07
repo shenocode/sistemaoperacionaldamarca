@@ -20,6 +20,7 @@ export type SiteBriefingFormData = {
   whatsapp: string;
   telefone: string;
   email: string;
+  website: string;
   endereco: string;
   maps: string;
   instagram: string;
@@ -56,6 +57,7 @@ export const emptySiteBriefingForm: SiteBriefingFormData = {
   whatsapp: "",
   telefone: "",
   email: "",
+  website: "",
   endereco: "",
   maps: "",
   instagram: "",
@@ -166,6 +168,7 @@ const TRACKED_STRING_FIELDS: Array<keyof SiteBriefingFormData> = [
   "whatsapp",
   "telefone",
   "email",
+  "website",
   "endereco",
   "maps",
   "instagram",
@@ -198,6 +201,7 @@ const FIELD_LABELS: Record<string, string> = {
   whatsapp: "WhatsApp",
   telefone: "Telefone",
   email: "E-mail",
+  website: "URL do site (se houver)",
   endereco: "Endereço",
   maps: "Google Maps",
   instagram: "Instagram",
@@ -278,6 +282,7 @@ export function parseSiteBriefingForm(raw: unknown): SiteBriefingFormData {
     whatsapp: str("whatsapp"),
     telefone: str("telefone"),
     email: str("email"),
+    website: str("website"),
     endereco: str("endereco"),
     maps: str("maps"),
     instagram: str("instagram"),
