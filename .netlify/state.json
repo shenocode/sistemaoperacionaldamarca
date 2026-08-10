@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Piracicaba",
+			"country": {
+				"code": "BR",
+				"name": "Brazil"
+			},
+			"subdivision": {
+				"code": "SP",
+				"name": "São Paulo"
+			},
+			"timezone": "America/Sao_Paulo",
+			"latitude": -22.7146,
+			"longitude": -47.7756,
+			"postalCode": "13400"
+		},
+		"timestamp": 1785695918051
+	}
+}
