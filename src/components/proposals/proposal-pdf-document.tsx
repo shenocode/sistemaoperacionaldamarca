@@ -33,19 +33,20 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
     marginBottom: 28,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
+    minHeight: 34,
   },
   headerLogo: {
-    height: 28,
+    height: 34,
     objectFit: "contain",
   },
-  headerLogoRight: {
-    height: 32,
+  coverLogo: {
+    height: 31,
     objectFit: "contain",
   },
   footer: {
@@ -240,7 +241,6 @@ export type ProposalPdfGestor = {
 
 export type ProposalPdfData = {
   clientName: string;
-  clientLogoUrl: string | null;
   title: string;
   subtitle: string;
   scopeSummary: string;
@@ -250,7 +250,6 @@ export type ProposalPdfData = {
   investmentItems: InvestmentItem[];
   commercialTerms: CommercialTerms;
   gestor: ProposalPdfGestor;
-  somLogoUrl: string;
 };
 
 function formatWhatsApp(digits: string | null | undefined) {
@@ -267,30 +266,17 @@ function formatWhatsApp(digits: string | null | undefined) {
 
 function footerLine(gestor: ProposalPdfGestor) {
   const parts = [
-    gestor.fullName?.trim(),
     gestor.companyName?.trim(),
-    gestor.email?.trim(),
+    gestor.fullName?.trim(),
     formatWhatsApp(gestor.whatsapp),
-    gestor.website?.trim(),
   ].filter(Boolean);
   return parts.join("  ·  ");
 }
 
-function Letterhead({
-  somLogoUrl,
-  gestorLogoUrl,
-}: {
-  somLogoUrl: string;
-  gestorLogoUrl: string | null;
-}) {
+function Letterhead({ logoUrl }: { logoUrl: string | null }) {
   return (
     <View style={styles.header} fixed>
-      <Image src={somLogoUrl} style={styles.headerLogo} />
-      {gestorLogoUrl ? (
-        <Image src={gestorLogoUrl} style={styles.headerLogoRight} />
-      ) : (
-        <View style={{ width: 40 }} />
-      )}
+      {logoUrl ? <Image src={logoUrl} style={styles.headerLogo} /> : null}
     </View>
   );
 }
@@ -525,13 +511,11 @@ export function ProposalPdfDocument({ data }: { data: ProposalPdfData }) {
         )}
         <View style={styles.coverBody}>
           <View style={styles.coverTopRow}>
-            <Image src={data.somLogoUrl} style={{ height: 26, objectFit: "contain" }} />
-            {data.gestor.logoUrl || data.clientLogoUrl ? (
-              <Image
-                src={(data.gestor.logoUrl || data.clientLogoUrl)!}
-                style={{ height: 36, objectFit: "contain" }}
-              />
-            ) : null}
+            {data.gestor.logoUrl ? (
+              <Image src={data.gestor.logoUrl} style={styles.coverLogo} />
+            ) : (
+              <View />
+            )}
           </View>
           <Text style={styles.coverEyebrow}>{data.title}</Text>
           <Text style={styles.coverTitle}>{data.clientName}</Text>
@@ -549,7 +533,7 @@ export function ProposalPdfDocument({ data }: { data: ProposalPdfData }) {
       </Page>
 
       <Page size="A4" style={styles.page} wrap>
-        <Letterhead somLogoUrl={data.somLogoUrl} gestorLogoUrl={data.gestor.logoUrl} />
+        <Letterhead logoUrl={data.gestor.logoUrl} />
         {visibleSections.map((section) => (
           <SectionView key={section.id} section={section} data={data} />
         ))}

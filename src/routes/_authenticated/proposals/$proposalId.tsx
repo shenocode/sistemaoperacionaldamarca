@@ -160,7 +160,7 @@ function ProposalEditorPage() {
       if (isDirty) {
         await saveMutation.mutateAsync();
       }
-      const [{ downloadProposalPdf, buildSomLogoAbsoluteUrl }, profile] = await Promise.all([
+      const [{ downloadProposalPdf }, profile] = await Promise.all([
         import("@/components/proposals/download-proposal-pdf"),
         profileQuery.data ? Promise.resolve(profileQuery.data) : getMyProfile(),
       ]);
@@ -168,15 +168,10 @@ function ProposalEditorPage() {
         clientsQuery.data?.find((c) => c.id === clientId)?.name ??
         proposalQuery.data?.clients?.name ??
         "Cliente";
-      const clientLogo =
-        clientsQuery.data?.find((c) => c.id === clientId)?.logo_url ??
-        proposalQuery.data?.clients?.logo_url ??
-        null;
 
       await downloadProposalPdf(
         {
           clientName,
-          clientLogoUrl: clientLogo,
           title: draft.title,
           subtitle: draft.subtitle,
           scopeSummary: draft.scope_summary,
@@ -193,7 +188,6 @@ function ProposalEditorPage() {
             website: profile.website,
             logoUrl: profile.logo_url,
           },
-          somLogoUrl: buildSomLogoAbsoluteUrl(),
         },
         `proposta-${clientName.replace(/\s+/g, "-").toLowerCase()}.pdf`,
       );

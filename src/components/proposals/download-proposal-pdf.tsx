@@ -15,8 +15,3 @@ export async function downloadProposalPdf(data: ProposalPdfData, fileName: strin
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-
-export function buildSomLogoAbsoluteUrl() {
-  if (typeof window === "undefined") return "/brand/som-logo.png";
-  return `${window.location.origin}/brand/som-logo.png`;
-}
