@@ -33,6 +33,7 @@ export type Client = Tables<"clients">;
 export type Project = Tables<"projects">;
 export type CalendarBlock = Tables<"calendar_blocks">;
 export type MeetingAgenda = Tables<"meeting_agendas">;
+export type ThemeReference = Tables<"theme_references">;
 export type ContentItem = Tables<"content_items">;
 export type ContentVersion = Tables<"content_versions">;
 export type ContentComment = Tables<"content_comments">;
@@ -71,7 +72,14 @@ export const CONTENT_FORMATS: ContentFormat[] = [
 export const PROJECT_CATEGORIES = ["instagram", "graphic_arts", "videos"] as const;
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number];
 
-export type ProjectTabId = "feed" | "calendar" | "content" | "library" | "settings" | "meeting";
+export type ProjectTabId =
+  | "feed"
+  | "themes"
+  | "calendar"
+  | "content"
+  | "library"
+  | "settings"
+  | "meeting";
 
 export type ProjectCategoryConfig = {
   formats: ContentFormat[];
@@ -81,24 +89,31 @@ export type ProjectCategoryConfig = {
   experienceReady: boolean;
 };
 
+/**
+ * Aba "Conteúdo" ocultada temporariamente (lista quase igual ao Calendário).
+ * Vale para todos os perfis: cliente, gestor e admin.
+ * Para reexibir: altere para `true`.
+ */
+export const CONTENT_TAB_ENABLED = false;
+
 /** Capacidades por tipo de projeto. Instagram é o fluxo pronto (ex.: Marina Mazon). */
 export const PROJECT_CATEGORY_CONFIG: Record<ProjectCategory, ProjectCategoryConfig> = {
   instagram: {
     formats: ["static_feed", "reels", "stories", "carousel"],
-    tabs: ["feed", "calendar", "content", "meeting", "library", "settings"],
+    tabs: ["feed", "themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "feed",
     experienceReady: true,
   },
   graphic_arts: {
     // Formatos específicos (banner, cartaz…) entram depois; por ora peça estática.
     formats: ["static_feed"],
-    tabs: ["calendar", "content", "meeting", "library", "settings"],
+    tabs: ["themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
     experienceReady: false,
   },
   videos: {
     formats: ["recorded_video"],
-    tabs: ["calendar", "content", "meeting", "library", "settings"],
+    tabs: ["themes", "calendar", "content", "meeting", "library", "settings"],
     defaultTab: "content",
     experienceReady: false,
   },
@@ -111,7 +126,13 @@ export function getPrimaryProjectCategory(values?: string[] | null): ProjectCate
 }
 
 export function projectCategoryConfig(values?: string[] | null): ProjectCategoryConfig {
-  return PROJECT_CATEGORY_CONFIG[getPrimaryProjectCategory(values)];
+  const config = PROJECT_CATEGORY_CONFIG[getPrimaryProjectCategory(values)];
+  if (CONTENT_TAB_ENABLED) return config;
+  return {
+    ...config,
+    tabs: config.tabs.filter((tab) => tab !== "content"),
+    defaultTab: config.defaultTab === "content" ? "calendar" : config.defaultTab,
+  };
 }
 
 export function contentFormatsForProject(values?: string[] | null): ContentFormat[] {
@@ -1542,6 +1563,119 @@ export async function addProjectThemePreset(projectId: string, theme: string): P
     status: project.status,
     themePresets: [...existing, next],
   });
+}
+
+function isMissingThemeReferencesTable(message: string) {
+  return /theme_references/i.test(message) && /(does not exist|not find)/i.test(message);
+}
+
+function normalizeLinkList(links: string[] | null | undefined): string[] {
+  return (links ?? []).map((link) => link.trim()).filter(Boolean);
+}
+
+async function nextThemeReferenceSortOrder(projectId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("theme_references")
+    .select("sort_order")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (isMissingThemeReferencesTable(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return (data?.sort_order ?? 0) - 1;
+}
+
+export async function listThemeReferences(projectId: string): Promise<ThemeReference[]> {
+  const { data, error } = await supabase
+    .from("theme_references")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  if (!error) return data ?? [];
+  if (isMissingThemeReferencesTable(error.message)) return [];
+  throw new Error(error.message);
+}
+
+export async function createThemeReference(input: {
+  projectId: string;
+  theme?: string;
+  recommendations?: string;
+  links?: string[];
+}): Promise<ThemeReference> {
+  const sortOrder = await nextThemeReferenceSortOrder(input.projectId);
+  const { data, error } = await supabase
+    .from("theme_references")
+    .insert({
+      project_id: input.projectId,
+      theme: input.theme?.trim() ?? "",
+      recommendations: input.recommendations ?? "",
+      links: normalizeLinkList(input.links),
+      sort_order: sortOrder,
+    })
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function updateThemeReference(input: {
+  id: string;
+  projectId: string;
+  theme?: string;
+  recommendations?: string;
+  links?: string[];
+}): Promise<ThemeReference> {
+  const patch: {
+    theme?: string;
+    recommendations?: string;
+    links?: string[];
+  } = {};
+  if (input.theme !== undefined) patch.theme = input.theme.trim();
+  if (input.recommendations !== undefined) patch.recommendations = input.recommendations;
+  if (input.links !== undefined) patch.links = normalizeLinkList(input.links);
+
+  const { data, error } = await supabase
+    .from("theme_references")
+    .update(patch)
+    .eq("id", input.id)
+    .eq("project_id", input.projectId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function duplicateThemeReference(input: {
+  id: string;
+  projectId: string;
+}): Promise<ThemeReference> {
+  const { data: source, error: loadError } = await supabase
+    .from("theme_references")
+    .select("*")
+    .eq("id", input.id)
+    .eq("project_id", input.projectId)
+    .single();
+  const row = ensureData(source, loadError);
+  return createThemeReference({
+    projectId: input.projectId,
+    theme: row.theme,
+    recommendations: row.recommendations,
+    links: row.links ?? [],
+  });
+}
+
+export async function deleteThemeReference(input: {
+  id: string;
+  projectId: string;
+}): Promise<void> {
+  const { error } = await supabase
+    .from("theme_references")
+    .delete()
+    .eq("id", input.id)
+    .eq("project_id", input.projectId);
+  if (error) throw new Error(error.message);
 }
 
 function isMissingCalendarBlocksTable(message: string) {

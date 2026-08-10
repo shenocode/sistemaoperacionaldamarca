@@ -500,6 +500,7 @@
     "back": "Back",
     "tabs": {
       "feed": "Feed",
+      "themes": "Themes",
       "library": "Library",
       "content": "Content",
       "calendar": "Calendar",
@@ -871,6 +872,32 @@
       "publishedToast": "Content published.",
       "notFound": "Content not found.",
       "anonymous": "User"
+    },
+    "themes": {
+      "title": "Themes and references",
+      "hint": "Register themes with recommendations and reference links to develop content.",
+      "add": "Add theme",
+      "empty": "No themes registered yet.",
+      "emptyHint": "Add an entry to include recommendations and reference links.",
+      "themeLabel": "Theme",
+      "themePlaceholder": "Select a theme",
+      "themeEmpty": "No theme",
+      "recommendations": "General recommendations",
+      "recommendationsPlaceholder": "Context for developing the content…",
+      "links": "Links",
+      "linkPlaceholder": "https://…",
+      "addLink": "Add link",
+      "removeLink": "Remove link",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "deleteTitle": "Remove theme entry?",
+      "deleteDescription": "The entry will be removed. The theme label remains available in the calendar.",
+      "created": "Theme added.",
+      "saved": "Theme saved.",
+      "duplicated": "Theme duplicated.",
+      "deleted": "Theme removed."
     }
   },
   "common": {

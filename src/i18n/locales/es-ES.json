@@ -500,6 +500,7 @@
     "back": "Volver",
     "tabs": {
       "feed": "Feed",
+      "themes": "Temas",
       "library": "Biblioteca",
       "content": "Contenido",
       "calendar": "Calendario",
@@ -871,6 +872,32 @@
       "publishedToast": "Contenido publicado.",
       "notFound": "Contenido no encontrado.",
       "anonymous": "Usuario"
+    },
+    "themes": {
+      "title": "Temas y referencias",
+      "hint": "Registra temas con recomendaciones y enlaces de referencia para desarrollar el contenido.",
+      "add": "Agregar tema",
+      "empty": "No hay temas registrados.",
+      "emptyHint": "Agrega una ficha para incluir recomendaciones y enlaces de referencia.",
+      "themeLabel": "Tema",
+      "themePlaceholder": "Selecciona un tema",
+      "themeEmpty": "Sin tema",
+      "recommendations": "Recomendaciones generales",
+      "recommendationsPlaceholder": "Contexto para desarrollar el contenido…",
+      "links": "Enlaces",
+      "linkPlaceholder": "https://…",
+      "addLink": "Agregar enlace",
+      "removeLink": "Eliminar enlace",
+      "expand": "Expandir",
+      "collapse": "Recoger",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar",
+      "deleteTitle": "¿Eliminar ficha de tema?",
+      "deleteDescription": "La ficha se eliminará. La etiqueta del tema sigue disponible en el calendario.",
+      "created": "Tema agregado.",
+      "saved": "Tema guardado.",
+      "duplicated": "Tema duplicado.",
+      "deleted": "Tema eliminado."
     }
   },
   "common": {
