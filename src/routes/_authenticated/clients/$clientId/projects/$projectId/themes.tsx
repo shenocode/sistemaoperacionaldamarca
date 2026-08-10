@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp, Copy, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, ExternalLink, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import {
 import {
   addProjectThemePreset,
   canAccessClient,
+  claimClientAccess,
   createThemeReference,
   deleteThemeReference,
   duplicateThemeReference,
@@ -46,9 +47,30 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+export type ThemesSearch = {
+  access?: string;
+};
+
+function validateThemesSearch(search: Record<string, unknown>): ThemesSearch {
+  const result: ThemesSearch = {};
+  if (typeof search.access === "string" && search.access.length > 0) {
+    result.access = search.access;
+  }
+  return result;
+}
+
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/themes",
 )({
+  validateSearch: validateThemesSearch,
+  beforeLoad: async ({ search }) => {
+    if (!search.access) return;
+    try {
+      await claimClientAccess(search.access);
+    } catch {
+      // Already a member, admin, or stale token — page/RLS decide access.
+    }
+  },
   head: () => ({
     meta: [{ title: "Temas — SOM" }, { name: "robots", content: "noindex" }],
   }),
@@ -244,6 +266,18 @@ function ThemeReferenceCard({
   );
 }
 
+function hrefForLink(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function LinkListEditor({
   label,
   placeholder,
@@ -265,32 +299,43 @@ function LinkListEditor({
     <div className="space-y-2">
       <Label>{label}</Label>
       <ul className="space-y-2">
-        {links.map((link, index) => (
-          <li key={index} className="flex gap-2">
-            <Input
-              className="min-w-0 flex-1"
-              value={link}
-              disabled={disabled}
-              placeholder={placeholder}
-              onChange={(e) => {
-                const next = [...links];
-                next[index] = e.target.value;
-                onChange(next);
-              }}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="shrink-0 text-muted-foreground"
-              disabled={disabled || links.length <= 1}
-              onClick={() => onChange(links.filter((_, i) => i !== index))}
-              aria-label={removeLabel}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </li>
-        ))}
+        {links.map((link, index) => {
+          const href = hrefForLink(link);
+          return (
+            <li key={index} className="flex gap-2">
+              <Input
+                className="min-w-0 flex-1"
+                value={link}
+                disabled={disabled}
+                placeholder={placeholder}
+                onChange={(e) => {
+                  const next = [...links];
+                  next[index] = e.target.value;
+                  onChange(next);
+                }}
+              />
+              {href ? (
+                <Button type="button" variant="ghost" size="icon" className="shrink-0" asChild>
+                  <a href={href} target="_blank" rel="noopener noreferrer" title={href}>
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="sr-only">{href}</span>
+                  </a>
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-muted-foreground"
+                disabled={disabled || links.length <= 1}
+                onClick={() => onChange(links.filter((_, i) => i !== index))}
+                aria-label={removeLabel}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </li>
+          );
+        })}
       </ul>
       <Button
         type="button"
@@ -401,29 +446,26 @@ function ProjectThemesPage() {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 
-  if (!accessQuery.data) {
-    return (
-      <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-        {t("project.settings.readOnly")}
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-medium">{t("project.themes.title")}</h2>
           <p className="text-xs text-muted-foreground">{t("project.themes.hint")}</p>
+          {!canEdit ? (
+            <p className="mt-1 text-xs text-muted-foreground">{t("project.settings.readOnly")}</p>
+          ) : null}
         </div>
-        <Button
-          type="button"
-          disabled={!canEdit || createMutation.isPending}
-          onClick={() => createMutation.mutate()}
-        >
-          <Plus className="mr-1.5 h-4 w-4" />
-          {t("project.themes.add")}
-        </Button>
+        {canEdit ? (
+          <Button
+            type="button"
+            disabled={createMutation.isPending}
+            onClick={() => createMutation.mutate()}
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            {t("project.themes.add")}
+          </Button>
+        ) : null}
       </div>
 
       {rows.length === 0 ? (

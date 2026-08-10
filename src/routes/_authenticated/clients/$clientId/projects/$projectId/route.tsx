@@ -225,6 +225,8 @@ function ProjectLayout() {
 
   // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
   // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
+  // Conteúdo: oculto para cliente, gestor e admin (ver CONTENT_TAB_ENABLED).
+  // Temas: visível para o cliente com acesso aos recursos/referências.
   const tabs = categoryConfig.tabs
     .map((tabId) => ({
       id: tabId,
@@ -233,6 +235,7 @@ function ProjectLayout() {
       requiresLibrary: tabId === "library",
     }))
     .filter((tab) => {
+      if (tab.id === "content") return false;
       if (tab.requiresLibrary) {
         return isClient || entitlements.library;
       }

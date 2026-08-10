@@ -213,6 +213,7 @@ export type ProjectCategoryConfig = {
 
 /**
  * Aba "Conteúdo" ocultada temporariamente (lista quase igual ao Calendário).
+ * Vale para todos os perfis: cliente, gestor e admin.
  * Para reexibir: altere para `true`.
  */
 export const CONTENT_TAB_ENABLED = false;
