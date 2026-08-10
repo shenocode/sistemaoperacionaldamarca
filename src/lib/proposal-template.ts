@@ -423,3 +423,19 @@ export function parseCommercialTerms(value: unknown, clientName = ""): Commercia
         : defaults.contractorSignLabel,
   };
 }
+
+export function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+export function renumberSections(sections: ProposalSection[]): ProposalSection[] {
+  return sections.map((section, index) =>
+    section.number === index + 1 ? section : { ...section, number: index + 1 },
+  );
+}

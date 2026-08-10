@@ -6,6 +6,7 @@ import { ArrowLeft, Download, ImagePlus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { ProposalSectionsEditor } from "@/components/proposals/proposal-sections-editor";
+import { DragHandle, useListReorder } from "@/components/proposals/reorderable";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ import {
   type ProposalDraftFields,
   type ProposalSection,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/proposals/$proposalId")({
   beforeLoad: async () => {
@@ -395,71 +397,10 @@ function ProposalEditorPage() {
 
         <ProposalSectionsEditor sections={draft.sections} onChange={patchSections} />
 
-        <div className="space-y-3 rounded-lg border p-4">
-          <p className="text-sm font-medium">{t("proposals.investment")}</p>
-          <div className="space-y-2">
-            {draft.investment_items.map((item, idx) => (
-              <div key={item.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                <Input
-                  placeholder={t("proposals.investmentFront")}
-                  value={item.front}
-                  onChange={(e) => {
-                    const items = [...draft.investment_items];
-                    items[idx] = { ...item, front: e.target.value };
-                    patchInvestment(items);
-                  }}
-                />
-                <Input
-                  placeholder={t("proposals.investmentModel")}
-                  value={item.model}
-                  onChange={(e) => {
-                    const items = [...draft.investment_items];
-                    items[idx] = { ...item, model: e.target.value };
-                    patchInvestment(items);
-                  }}
-                />
-                <Input
-                  placeholder={t("proposals.investmentAmount")}
-                  value={item.amount}
-                  onChange={(e) => {
-                    const items = [...draft.investment_items];
-                    items[idx] = { ...item, amount: e.target.value };
-                    patchInvestment(items);
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    patchInvestment(draft.investment_items.filter((i) => i.id !== item.id))
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              patchInvestment([
-                ...draft.investment_items,
-                {
-                  id: `inv-${crypto.randomUUID().slice(0, 8)}`,
-                  front: "",
-                  model: "",
-                  amount: "",
-                },
-              ])
-            }
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            {t("proposals.addInvestmentRow")}
-          </Button>
-        </div>
+        <InvestmentItemsEditor
+          items={draft.investment_items}
+          onChange={patchInvestment}
+        />
 
         <div className="space-y-3 rounded-lg border p-4">
           <p className="text-sm font-medium">{t("proposals.commercialTerms")}</p>
@@ -487,46 +428,10 @@ function ProposalEditorPage() {
               onChange={(e) => patchTerms({ notes: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
-            <Label>{t("proposals.nextSteps")}</Label>
-            {draft.commercial_terms.nextSteps.map((step, idx) => (
-              <div key={`step-${idx}`} className="flex gap-2">
-                <Input
-                  value={step}
-                  onChange={(e) => {
-                    const nextSteps = [...draft.commercial_terms.nextSteps];
-                    nextSteps[idx] = e.target.value;
-                    patchTerms({ nextSteps });
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    patchTerms({
-                      nextSteps: draft.commercial_terms.nextSteps.filter((_, i) => i !== idx),
-                    })
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                patchTerms({
-                  nextSteps: [...draft.commercial_terms.nextSteps, ""],
-                })
-              }
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("proposals.addNextStep")}
-            </Button>
-          </div>
+          <NextStepsEditor
+            steps={draft.commercial_terms.nextSteps}
+            onChange={(nextSteps) => patchTerms({ nextSteps })}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t("proposals.clientSignLabel")}</Label>
@@ -545,6 +450,174 @@ function ProposalEditorPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function InvestmentItemsEditor({
+  items,
+  onChange,
+}: {
+  items: InvestmentItem[];
+  onChange: (items: InvestmentItem[]) => void;
+}) {
+  const { t } = useTranslation();
+  const {
+    dragIndex,
+    dropIndex,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+  } = useListReorder(items, onChange);
+
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <p className="text-sm font-medium">{t("proposals.investment")}</p>
+      <div className="space-y-2">
+        {items.map((item, idx) => (
+          <div
+            key={item.id}
+            className={cn(
+              "grid gap-2 sm:grid-cols-[auto_1fr_1fr_1fr_auto]",
+              dragIndex === idx && "opacity-50",
+              dropIndex === idx &&
+                dragIndex !== null &&
+                dragIndex !== idx &&
+                "border-t-2 border-t-primary",
+            )}
+            onDragOver={onDragOver(idx)}
+            onDrop={onDrop(idx)}
+          >
+            <DragHandle
+              index={idx}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              className="mt-2.5"
+            />
+            <Input
+              placeholder={t("proposals.investmentFront")}
+              value={item.front}
+              onChange={(e) => {
+                const next = [...items];
+                next[idx] = { ...item, front: e.target.value };
+                onChange(next);
+              }}
+            />
+            <Input
+              placeholder={t("proposals.investmentModel")}
+              value={item.model}
+              onChange={(e) => {
+                const next = [...items];
+                next[idx] = { ...item, model: e.target.value };
+                onChange(next);
+              }}
+            />
+            <Input
+              placeholder={t("proposals.investmentAmount")}
+              value={item.amount}
+              onChange={(e) => {
+                const next = [...items];
+                next[idx] = { ...item, amount: e.target.value };
+                onChange(next);
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => onChange(items.filter((i) => i.id !== item.id))}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() =>
+          onChange([
+            ...items,
+            {
+              id: `inv-${crypto.randomUUID().slice(0, 8)}`,
+              front: "",
+              model: "",
+              amount: "",
+            },
+          ])
+        }
+      >
+        <Plus className="mr-1.5 h-3.5 w-3.5" />
+        {t("proposals.addInvestmentRow")}
+      </Button>
+    </div>
+  );
+}
+
+function NextStepsEditor({
+  steps,
+  onChange,
+}: {
+  steps: string[];
+  onChange: (steps: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  const {
+    dragIndex,
+    dropIndex,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+  } = useListReorder(steps, onChange);
+
+  return (
+    <div className="space-y-2">
+      <Label>{t("proposals.nextSteps")}</Label>
+      {steps.map((step, idx) => (
+        <div
+          key={`step-${idx}`}
+          className={cn(
+            "flex items-center gap-2",
+            dragIndex === idx && "opacity-50",
+            dropIndex === idx &&
+              dragIndex !== null &&
+              dragIndex !== idx &&
+              "border-t-2 border-t-primary",
+          )}
+          onDragOver={onDragOver(idx)}
+          onDrop={onDrop(idx)}
+        >
+          <DragHandle index={idx} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <Input
+            value={step}
+            onChange={(e) => {
+              const nextSteps = [...steps];
+              nextSteps[idx] = e.target.value;
+              onChange(nextSteps);
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onChange(steps.filter((_, i) => i !== idx))}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => onChange([...steps, ""])}
+      >
+        <Plus className="mr-1.5 h-3.5 w-3.5" />
+        {t("proposals.addNextStep")}
+      </Button>
     </div>
   );
 }

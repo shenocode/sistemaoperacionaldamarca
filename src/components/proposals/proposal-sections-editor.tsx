@@ -11,7 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProposalBlock, ProposalSection } from "@/lib/proposal-template";
+import { cn } from "@/lib/utils";
+import {
+  renumberSections,
+  type ProposalBlock,
+  type ProposalSection,
+} from "@/lib/proposal-template";
+import { DragHandle, useListReorder } from "@/components/proposals/reorderable";
 
 function updateBlock(
   sections: ProposalSection[],
@@ -37,17 +43,45 @@ export function ProposalSectionsEditor({
   onChange: (sections: ProposalSection[]) => void;
 }) {
   const { t } = useTranslation();
+  const {
+    dragIndex,
+    dropIndex,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+  } = useListReorder(sections, (next) => onChange(renumberSections(next)));
 
   return (
     <div className="space-y-3">
       <Label>{t("proposals.sections")}</Label>
+      <p className="text-xs text-muted-foreground">{t("proposals.reorderHint")}</p>
       <Accordion type="multiple" className="w-full rounded-lg border px-3">
-        {sections.map((section) => (
-          <AccordionItem key={section.id} value={section.id}>
+        {sections.map((section, index) => (
+          <AccordionItem
+            key={section.id}
+            value={section.id}
+            className={cn(
+              dragIndex === index && "opacity-50",
+              dropIndex === index &&
+                dragIndex !== null &&
+                dragIndex !== index &&
+                "border-t-2 border-t-primary",
+            )}
+            onDragOver={onDragOver(index)}
+            onDrop={onDrop(index)}
+          >
             <AccordionTrigger className="hover:no-underline">
               <span className="flex flex-1 items-center justify-between gap-3 pr-2 text-left">
-                <span className="font-medium">
-                  {section.number}. {section.title}
+                <span className="flex min-w-0 items-center gap-2">
+                  <DragHandle
+                    index={index}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
+                  />
+                  <span className="font-medium">
+                    {section.number}. {section.title}
+                  </span>
                 </span>
                 <span
                   className="flex items-center gap-2 text-xs font-normal text-muted-foreground"
@@ -140,46 +174,11 @@ function BlockEditor({
   }
 
   if (block.type === "bullets" || block.type === "steps") {
-    const label =
-      block.type === "bullets" ? t("proposals.blockBullets") : t("proposals.blockSteps");
     return (
-      <div className="space-y-2">
-        <Label className="text-muted-foreground">{label}</Label>
-        {block.items.map((item, idx) => (
-          <div key={`${block.id}-${idx}`} className="flex gap-2">
-            <Input
-              value={item}
-              onChange={(e) => {
-                const items = [...block.items];
-                items[idx] = e.target.value;
-                onChange({ ...block, items });
-              }}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                onChange({
-                  ...block,
-                  items: block.items.filter((_, i) => i !== idx),
-                })
-              }
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => onChange({ ...block, items: [...block.items, ""] })}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          {t("proposals.addBullet")}
-        </Button>
-      </div>
+      <ListBlockEditor
+        block={block}
+        onChange={onChange}
+      />
     );
   }
 
@@ -253,4 +252,78 @@ function BlockEditor({
   }
 
   return null;
+}
+
+function ListBlockEditor({
+  block,
+  onChange,
+}: {
+  block: Extract<ProposalBlock, { type: "bullets" | "steps" }>;
+  onChange: (block: ProposalBlock) => void;
+}) {
+  const { t } = useTranslation();
+  const {
+    dragIndex,
+    dropIndex,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+  } = useListReorder(block.items, (items) => onChange({ ...block, items }));
+
+  const label =
+    block.type === "bullets" ? t("proposals.blockBullets") : t("proposals.blockSteps");
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-muted-foreground">{label}</Label>
+      {block.items.map((item, idx) => (
+        <div
+          key={`${block.id}-${idx}`}
+          className={cn(
+            "flex items-center gap-2 rounded-md",
+            dragIndex === idx && "opacity-50",
+            dropIndex === idx &&
+              dragIndex !== null &&
+              dragIndex !== idx &&
+              "border-t-2 border-t-primary",
+          )}
+          onDragOver={onDragOver(idx)}
+          onDrop={onDrop(idx)}
+        >
+          <DragHandle index={idx} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+          <Input
+            value={item}
+            onChange={(e) => {
+              const items = [...block.items];
+              items[idx] = e.target.value;
+              onChange({ ...block, items });
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              onChange({
+                ...block,
+                items: block.items.filter((_, i) => i !== idx),
+              })
+            }
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => onChange({ ...block, items: [...block.items, ""] })}
+      >
+        <Plus className="mr-1.5 h-3.5 w-3.5" />
+        {t("proposals.addBullet")}
+      </Button>
+    </div>
+  );
 }

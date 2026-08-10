@@ -374,14 +374,142 @@ function BlockView({ block }: { block: ProposalBlock }) {
   return null;
 }
 
+function InvestmentSectionView({
+  section,
+  data,
+}: {
+  section: ProposalPdfData["sections"][number];
+  data: ProposalPdfData;
+}) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text style={styles.investmentTitle}>
+        {section.number}. {section.title}
+      </Text>
+      {section.blocks.map((block) => (
+        <BlockView key={block.id} block={block} />
+      ))}
+      {data.investmentItems.length > 0 ? (
+        <View style={styles.table}>
+          <View style={styles.tableRow} wrap={false}>
+            <Text style={styles.tableHeaderCell}>Frente</Text>
+            <Text style={styles.tableHeaderCell}>Modelo</Text>
+            <Text style={styles.tableHeaderCell}>Investimento</Text>
+          </View>
+          {data.investmentItems.map((item) => (
+            <View key={item.id} style={styles.tableRow} wrap={false}>
+              <Text style={styles.tableCell}>{item.front}</Text>
+              <Text style={styles.tableCell}>{item.model}</Text>
+              <Text style={styles.tableCell}>{item.amount}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <View style={styles.termsBox}>
+        <Text style={styles.termsLine}>
+          Validade desta proposta: {data.commercialTerms.validityDays || "____"} dias.
+        </Text>
+        <Text style={styles.termsLine}>
+          Forma de pagamento: {data.commercialTerms.payment || "________________"}
+        </Text>
+        {data.commercialTerms.notes.trim() ? (
+          <Text style={styles.termsLine}>{data.commercialTerms.notes}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function NextStepsSectionView({
+  section,
+  data,
+}: {
+  section: ProposalPdfData["sections"][number];
+  data: ProposalPdfData;
+}) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text style={styles.sectionTitle}>
+        {section.number}. {section.title}
+      </Text>
+      {data.commercialTerms.nextSteps
+        .filter((s) => s.trim())
+        .map((step, idx) => (
+          <View key={`ns-${idx}`} style={styles.bulletItem} wrap={false}>
+            <Text style={styles.bulletDot}>•</Text>
+            <Text style={styles.bulletText}>{step}</Text>
+          </View>
+        ))}
+    </View>
+  );
+}
+
+function SignatureSectionView({
+  section,
+  data,
+}: {
+  section: ProposalPdfData["sections"][number];
+  data: ProposalPdfData;
+}) {
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        {section.number}. {section.title}
+      </Text>
+      {section.blocks.map((block) => (
+        <BlockView key={block.id} block={block} />
+      ))}
+      <View style={styles.signRow}>
+        <View style={styles.signCol}>
+          <View style={styles.signLine} />
+          <Text style={styles.signLabel}>
+            {data.commercialTerms.clientSignLabel || data.clientName}
+          </Text>
+        </View>
+        <View style={styles.signCol}>
+          <View style={styles.signLine} />
+          <Text style={styles.signLabel}>
+            {data.commercialTerms.contractorSignLabel ||
+              data.gestor.fullName ||
+              "Contratada"}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function SectionView({
+  section,
+  data,
+}: {
+  section: ProposalPdfData["sections"][number];
+  data: ProposalPdfData;
+}) {
+  if (section.key === "investimento") {
+    return <InvestmentSectionView section={section} data={data} />;
+  }
+  if (section.key === "proximos") {
+    return <NextStepsSectionView section={section} data={data} />;
+  }
+  if (section.key === "assinatura") {
+    return <SignatureSectionView section={section} data={data} />;
+  }
+
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <Text style={styles.sectionTitle} minPresenceAhead={40}>
+        {section.number}. {section.title}
+      </Text>
+      {section.blocks.map((block) => (
+        <BlockView key={block.id} block={block} />
+      ))}
+    </View>
+  );
+}
+
 export function ProposalPdfDocument({ data }: { data: ProposalPdfData }) {
   const visibleSections = data.sections.filter((s) => s.visible);
-  const investmentSection = visibleSections.find((s) => s.key === "investimento");
-  const nextStepsSection = visibleSections.find((s) => s.key === "proximos");
-  const signatureSection = visibleSections.find((s) => s.key === "assinatura");
-  const bodySections = visibleSections.filter(
-    (s) => !["investimento", "proximos", "assinatura"].includes(s.key),
-  );
 
   return (
     <Document
@@ -422,98 +550,9 @@ export function ProposalPdfDocument({ data }: { data: ProposalPdfData }) {
 
       <Page size="A4" style={styles.page} wrap>
         <Letterhead somLogoUrl={data.somLogoUrl} gestorLogoUrl={data.gestor.logoUrl} />
-        {bodySections.map((section) => (
-          <View key={section.id} style={{ marginBottom: 14 }}>
-            <Text style={styles.sectionTitle} minPresenceAhead={40}>
-              {section.number}. {section.title}
-            </Text>
-            {section.blocks.map((block) => (
-              <BlockView key={block.id} block={block} />
-            ))}
-          </View>
+        {visibleSections.map((section) => (
+          <SectionView key={section.id} section={section} data={data} />
         ))}
-
-        {investmentSection ? (
-          <View style={{ marginBottom: 14 }}>
-            <Text style={styles.investmentTitle}>
-              {investmentSection.number}. {investmentSection.title}
-            </Text>
-            {investmentSection.blocks.map((block) => (
-              <BlockView key={block.id} block={block} />
-            ))}
-            {data.investmentItems.length > 0 ? (
-              <View style={styles.table}>
-                <View style={styles.tableRow} wrap={false}>
-                  <Text style={styles.tableHeaderCell}>Frente</Text>
-                  <Text style={styles.tableHeaderCell}>Modelo</Text>
-                  <Text style={styles.tableHeaderCell}>Investimento</Text>
-                </View>
-                {data.investmentItems.map((item) => (
-                  <View key={item.id} style={styles.tableRow} wrap={false}>
-                    <Text style={styles.tableCell}>{item.front}</Text>
-                    <Text style={styles.tableCell}>{item.model}</Text>
-                    <Text style={styles.tableCell}>{item.amount}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            <View style={styles.termsBox}>
-              <Text style={styles.termsLine}>
-                Validade desta proposta: {data.commercialTerms.validityDays || "____"} dias.
-              </Text>
-              <Text style={styles.termsLine}>
-                Forma de pagamento: {data.commercialTerms.payment || "________________"}
-              </Text>
-              {data.commercialTerms.notes.trim() ? (
-                <Text style={styles.termsLine}>{data.commercialTerms.notes}</Text>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        {nextStepsSection ? (
-          <View style={{ marginBottom: 14 }}>
-            <Text style={styles.sectionTitle}>
-              {nextStepsSection.number}. {nextStepsSection.title}
-            </Text>
-            {data.commercialTerms.nextSteps
-              .filter((s) => s.trim())
-              .map((step, idx) => (
-                <View key={`ns-${idx}`} style={styles.bulletItem} wrap={false}>
-                  <Text style={styles.bulletDot}>•</Text>
-                  <Text style={styles.bulletText}>{step}</Text>
-                </View>
-              ))}
-          </View>
-        ) : null}
-
-        {signatureSection ? (
-          <View>
-            <Text style={styles.sectionTitle}>
-              {signatureSection.number}. {signatureSection.title}
-            </Text>
-            {signatureSection.blocks.map((block) => (
-              <BlockView key={block.id} block={block} />
-            ))}
-            <View style={styles.signRow}>
-              <View style={styles.signCol}>
-                <View style={styles.signLine} />
-                <Text style={styles.signLabel}>
-                  {data.commercialTerms.clientSignLabel || data.clientName}
-                </Text>
-              </View>
-              <View style={styles.signCol}>
-                <View style={styles.signLine} />
-                <Text style={styles.signLabel}>
-                  {data.commercialTerms.contractorSignLabel ||
-                    data.gestor.fullName ||
-                    "Contratada"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
         <PageFooter gestor={data.gestor} />
       </Page>
     </Document>
