@@ -33,8 +33,33 @@ type RequestBody = {
   attachment?: AttachmentBody;
 };
 
+/** App-level failures as HTTP 200 so supabase-js keeps the body in `data`. */
+function fail(error: string) {
+  return jsonResponse({ ok: false, error }, 200);
+}
+
 function sanitizeFileName(name: string) {
   return name.replace(/[^\w.\-()+ ]+/g, "_").replace(/\s+/g, "-").slice(0, 120);
+}
+
+function resolveContentType(fileName: string, contentType?: string): string {
+  const ct = (contentType || "").trim().toLowerCase();
+  if (ct && ct !== "application/octet-stream") return ct;
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const byExt: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    heif: "image/heif",
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    txt: "text/plain",
+  };
+  return byExt[ext] || ct || "application/octet-stream";
 }
 
 function decodeBase64(base64: string): Uint8Array {
@@ -44,6 +69,33 @@ function decodeBase64(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+async function ensureBucket(
+  admin: ReturnType<typeof createClient>,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data: buckets, error: listError } = await admin.storage.listBuckets();
+  if (listError) return { ok: false, message: listError.message };
+
+  const exists = (buckets ?? []).some((bucket) => bucket.id === BUCKET || bucket.name === BUCKET);
+  if (exists) {
+    await admin.storage.updateBucket(BUCKET, {
+      public: false,
+      fileSizeLimit: MAX_BYTES,
+      allowedMimeTypes: [...ALLOWED_TYPES],
+    });
+    return { ok: true };
+  }
+
+  const { error: createError } = await admin.storage.createBucket(BUCKET, {
+    public: false,
+    fileSizeLimit: MAX_BYTES,
+    allowedMimeTypes: [...ALLOWED_TYPES],
+  });
+  if (createError && !/already exists|duplicate/i.test(createError.message)) {
+    return { ok: false, message: createError.message };
+  }
+  return { ok: true };
 }
 
 async function userIsAdmin(userClient: ReturnType<typeof createClient>, userId: string): Promise<boolean> {
@@ -102,7 +154,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return fail("Method not allowed");
   }
 
   try {
@@ -110,12 +162,12 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-      return jsonResponse({ error: "Supabase não configurado" }, 500);
+      return fail("Supabase não configurado");
     }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return jsonResponse({ error: "Não autenticado" }, 401);
+      return fail("Não autenticado");
     }
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -128,7 +180,7 @@ Deno.serve(async (req) => {
       error: userError,
     } = await userClient.auth.getUser();
     if (userError || !user) {
-      return jsonResponse({ error: "Não autenticado" }, 401);
+      return fail("Não autenticado");
     }
 
     const body = (await req.json().catch(() => ({}))) as RequestBody;
@@ -137,7 +189,7 @@ Deno.serve(async (req) => {
     const clientId = body.clientId?.trim() || null;
 
     if (message.length < MIN_MESSAGE || message.length > MAX_MESSAGE) {
-      return jsonResponse({ error: "Descreva o problema (mínimo 10 caracteres)." }, 400);
+      return fail("Descreva o problema (mínimo 10 caracteres).");
     }
 
     const isAdmin = await userIsAdmin(userClient, user.id);
@@ -149,29 +201,32 @@ Deno.serve(async (req) => {
       kind = "gestor_platform";
       recipientUserId = await resolveAdminMasterUserId(admin);
       if (recipientUserId === user.id) {
-        return jsonResponse({ error: "Use outro canal para falar consigo mesmo." }, 400);
+        return fail("Use outro canal para falar consigo mesmo.");
       }
     } else {
       if (!clientId) {
-        return jsonResponse({ error: "Selecione a marca." }, 400);
+        return fail("Selecione a marca.");
       }
       const { data: canAccess, error: accessError } = await userClient.rpc("can_access_client", {
         _client_id: clientId,
       });
       if (accessError) {
-        return jsonResponse({ error: accessError.message }, 400);
+        return fail(accessError.message);
       }
       if (!canAccess) {
-        return jsonResponse({ error: "Sem permissão para esta marca." }, 403);
+        return fail("Sem permissão para esta marca.");
       }
       kind = "client_gestor";
       recipientUserId = await resolveClientGestorUserId(admin, clientId);
+      if (recipientUserId === user.id) {
+        return fail("Não é possível enviar o pedido para a própria conta.");
+      }
       resolvedClientId = clientId;
     }
 
     const senderEmail = (user.email ?? "").trim().toLowerCase();
     if (!senderEmail) {
-      return jsonResponse({ error: "E-mail da conta não encontrado." }, 400);
+      return fail("E-mail da conta não encontrado.");
     }
 
     const { data: inserted, error: insertError } = await admin
@@ -190,7 +245,16 @@ Deno.serve(async (req) => {
 
     if (insertError || !inserted) {
       console.error("help_requests insert:", insertError?.message);
-      return jsonResponse({ error: "Falha ao enviar o pedido." }, 500);
+      const detail = insertError?.message ?? "";
+      const missingTable = /relation .*help_requests.* does not exist|Could not find the table/i.test(
+        detail,
+      );
+      if (missingTable) {
+        return fail(
+          "Tabela de ajuda ainda não existe. Execute a migration help_requests no Cloud (SQL Editor).",
+        );
+      }
+      return fail(detail ? `Falha ao enviar o pedido: ${detail}` : "Falha ao enviar o pedido.");
     }
 
     const requestId = inserted.id as string;
@@ -198,19 +262,24 @@ Deno.serve(async (req) => {
     const attachment = body.attachment;
     const base64 = attachment?.base64?.replace(/^data:[^;]+;base64,/, "").trim();
     if (base64) {
-      const contentType = (attachment?.contentType || "application/octet-stream").trim();
       const fileName = sanitizeFileName(attachment?.fileName || "anexo");
+      const contentType = resolveContentType(fileName, attachment?.contentType);
       if (!ALLOWED_TYPES.has(contentType)) {
         await admin.from("help_requests").delete().eq("id", requestId);
-        return jsonResponse(
-          { error: "Formato não permitido. Envie imagem, PDF ou documento de texto." },
-          400,
-        );
+        return fail("Formato não permitido. Envie imagem, PDF ou documento de texto.");
       }
       const bytes = decodeBase64(base64);
       if (bytes.byteLength > MAX_BYTES) {
         await admin.from("help_requests").delete().eq("id", requestId);
-        return jsonResponse({ error: "O anexo deve ter no máximo 10 MB." }, 400);
+        return fail("O anexo deve ter no máximo 10 MB.");
+      }
+
+      const bucketReady = await ensureBucket(admin);
+      if (!bucketReady.ok) {
+        await admin.from("help_requests").delete().eq("id", requestId);
+        return fail(
+          "Armazenamento de anexos ainda não configurado. Execute a migration de help_requests no Cloud.",
+        );
       }
 
       const attachmentStoragePath = `${requestId}/${crypto.randomUUID()}-${fileName}`;
@@ -222,7 +291,12 @@ Deno.serve(async (req) => {
         });
       if (uploadError) {
         await admin.from("help_requests").delete().eq("id", requestId);
-        return jsonResponse({ error: uploadError.message }, 400);
+        const bucketMissing = /bucket not found/i.test(uploadError.message);
+        return fail(
+          bucketMissing
+            ? "Armazenamento de anexos ainda não configurado. Execute a migration de help_requests no Cloud."
+            : `Falha no anexo: ${uploadError.message}`,
+        );
       }
 
       const { error: updateError } = await admin
@@ -236,7 +310,7 @@ Deno.serve(async (req) => {
       if (updateError) {
         await admin.storage.from(BUCKET).remove([attachmentStoragePath]);
         await admin.from("help_requests").delete().eq("id", requestId);
-        return jsonResponse({ error: updateError.message }, 500);
+        return fail(`Falha ao salvar anexo: ${updateError.message}`);
       }
     }
 
@@ -244,6 +318,6 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("submit-help-request:", err);
     const msg = err instanceof Error ? err.message : "Erro interno";
-    return jsonResponse({ error: msg }, 500);
+    return fail(msg);
   }
 });

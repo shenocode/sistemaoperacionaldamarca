@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/help")({
 
 function HelpPage() {
   const { t } = useTranslation();
-  const { isAdmin, loading } = useAppRole();
+  const { isAdmin, isAdminMaster, loading } = useAppRole();
   const [selectedClientId, setSelectedClientId] = useState("");
 
   const clientsQuery = useQuery({
@@ -46,6 +46,15 @@ function HelpPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-6 sm:px-6 sm:py-8 md:p-8">
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      </div>
+    );
+  }
+
+  if (isAdminMaster) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
+        <PageHeader title={t("help.pageTitle")} description={t("help.adminMasterHint")} />
+        <p className="text-sm text-muted-foreground">{t("help.adminMasterInbox")}</p>
       </div>
     );
   }

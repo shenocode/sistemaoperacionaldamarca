@@ -40,7 +40,7 @@ export const contentStatusStyles: Record<ContentStatus, string> = {
   approved:
     "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500/90",
   published:
-    "border-green-600 bg-green-600 text-white hover:bg-green-600/90",
+    "border-green-800 bg-green-800 text-white hover:bg-green-800/90",
 };
 
 export function StatusBadge({

@@ -149,7 +149,7 @@ export function ClientLibraryView({
   const [selectedGeneratedIds, setSelectedGeneratedIds] = useState<string[]>([]);
   const [downloading, setDownloading] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [brandKitOpen, setBrandKitOpen] = useState(true);
+  const [brandKitOpen, setBrandKitOpen] = useState(false);
   const [brandKit, setBrandKit] = useState<BrandKitValue>({
     brand_colors: [],
     brand_fonts: {},
@@ -467,16 +467,18 @@ export function ClientLibraryView({
       {embedded ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{t("project.library.sharedHint")}</p>
-          {manageQuery.data ? (
+          {libraryAllowed ? (
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => setTemplateOpen(true)}
-              >
-                <LayoutTemplate className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t("project.library.templates.upload")}
-              </Button>
+              {manageQuery.data ? (
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setTemplateOpen(true)}
+                >
+                  <LayoutTemplate className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {t("project.library.templates.upload")}
+                </Button>
+              ) : null}
               <Button className="w-full sm:w-auto" onClick={() => setOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
                 {t("project.library.upload")}
@@ -489,12 +491,14 @@ export function ClientLibraryView({
           title={t("project.tabs.library")}
           description={t("project.library.sharedHint")}
           actions={
-            manageQuery.data ? (
+            libraryAllowed ? (
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button variant="outline" onClick={() => setTemplateOpen(true)}>
-                  <LayoutTemplate className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {t("project.library.templates.upload")}
-                </Button>
+                {manageQuery.data ? (
+                  <Button variant="outline" onClick={() => setTemplateOpen(true)}>
+                    <LayoutTemplate className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t("project.library.templates.upload")}
+                  </Button>
+                ) : null}
                 <Button onClick={() => setOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
                   {t("project.library.upload")}
@@ -712,126 +716,128 @@ export function ClientLibraryView({
             </Card>
           </Collapsible>
 
-          <Card className="rounded-xl">
-            <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Sparkles className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <CardTitle className="text-sm font-medium">
-                  {t("project.library.generated.title")}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {t("project.library.generated.count", { count: generatedArts.length })}
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <p className="text-xs text-muted-foreground">{t("project.library.generated.hint")}</p>
+          {!isClient ? (
+            <Card className="rounded-xl">
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-sm font-medium">
+                    {t("project.library.generated.title")}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {t("project.library.generated.count", { count: generatedArts.length })}
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                <p className="text-xs text-muted-foreground">{t("project.library.generated.hint")}</p>
 
-              {generatedArts.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("project.library.generated.empty")}
-                </p>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                    <label className="flex items-center gap-2 text-xs">
-                      <Checkbox
-                        checked={
-                          selectedGeneratedIds.length > 0 &&
-                          selectedGeneratedIds.length === generatedArts.length
-                        }
-                        onCheckedChange={(checked) =>
-                          toggleSelectAllGenerated(checked === true)
-                        }
-                      />
-                      {t("project.library.generated.selectAll")}
-                    </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      disabled={downloading || selectedGenerated.length === 0}
-                      onClick={() => void downloadGenerated(selectedGenerated, "png", true)}
-                    >
-                      <Download className="mr-1.5 h-3.5 w-3.5" />
-                      {t("project.library.generated.downloadSelectedPng")}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      disabled={downloading || selectedGenerated.length === 0}
-                      onClick={() => void downloadGenerated(selectedGenerated, "jpg", true)}
-                    >
-                      <Download className="mr-1.5 h-3.5 w-3.5" />
-                      {t("project.library.generated.downloadSelectedJpg")}
-                    </Button>
-                  </div>
+                {generatedArts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("project.library.generated.empty")}
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                      <label className="flex items-center gap-2 text-xs">
+                        <Checkbox
+                          checked={
+                            selectedGeneratedIds.length > 0 &&
+                            selectedGeneratedIds.length === generatedArts.length
+                          }
+                          onCheckedChange={(checked) =>
+                            toggleSelectAllGenerated(checked === true)
+                          }
+                        />
+                        {t("project.library.generated.selectAll")}
+                      </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        disabled={downloading || selectedGenerated.length === 0}
+                        onClick={() => void downloadGenerated(selectedGenerated, "png", true)}
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        {t("project.library.generated.downloadSelectedPng")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        disabled={downloading || selectedGenerated.length === 0}
+                        onClick={() => void downloadGenerated(selectedGenerated, "jpg", true)}
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        {t("project.library.generated.downloadSelectedJpg")}
+                      </Button>
+                    </div>
 
-                  <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {generatedArts.map((asset) => (
-                      <li key={asset.id} className="rounded-lg border p-2">
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={selectedGeneratedIds.includes(asset.id)}
-                            onCheckedChange={(checked) =>
-                              toggleGeneratedSelection(asset.id, checked === true)
-                            }
-                            aria-label={localizedAssetName(asset, uiLocale)}
-                          />
-                          {asset.file_url ? (
-                            <img
-                              src={asset.file_url}
-                              alt=""
-                              className="h-16 w-16 shrink-0 rounded-md object-cover"
+                    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {generatedArts.map((asset) => (
+                        <li key={asset.id} className="rounded-lg border p-2">
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={selectedGeneratedIds.includes(asset.id)}
+                              onCheckedChange={(checked) =>
+                                toggleGeneratedSelection(asset.id, checked === true)
+                              }
+                              aria-label={localizedAssetName(asset, uiLocale)}
                             />
-                          ) : (
-                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
-                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className="truncate text-sm font-medium"
-                              title={localizedAssetName(asset, uiLocale)}
-                            >
-                              {localizedAssetName(asset, uiLocale)}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2"
-                                disabled={downloading || !asset.file_url}
-                                onClick={() => void downloadGenerated([asset], "png", false)}
+                            {asset.file_url ? (
+                              <img
+                                src={asset.file_url}
+                                alt=""
+                                className="h-16 w-16 shrink-0 rounded-md object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="truncate text-sm font-medium"
+                                title={localizedAssetName(asset, uiLocale)}
                               >
-                                PNG
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2"
-                                disabled={downloading || !asset.file_url}
-                                onClick={() => void downloadGenerated([asset], "jpg", false)}
-                              >
-                                JPG
-                              </Button>
+                                {localizedAssetName(asset, uiLocale)}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2"
+                                  disabled={downloading || !asset.file_url}
+                                  onClick={() => void downloadGenerated([asset], "png", false)}
+                                >
+                                  PNG
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2"
+                                  disabled={downloading || !asset.file_url}
+                                  onClick={() => void downloadGenerated([asset], "jpg", false)}
+                                >
+                                  JPG
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((c) => {

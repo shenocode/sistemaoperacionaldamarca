@@ -1,4 +1,4 @@
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type {
   CommercialTerms,
   InvestmentItem,
@@ -63,6 +63,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: "center",
     lineHeight: 1.4,
+  },
+  footerLink: {
+    fontSize: 7.5,
+    color: colors.accent,
+    textDecoration: "underline",
   },
   coverHero: {
     height: 320,
@@ -264,29 +269,72 @@ function formatWhatsApp(digits: string | null | undefined) {
   return d ? `+${d}` : "";
 }
 
-function footerLine(gestor: ProposalPdfGestor) {
-  const parts = [
-    gestor.companyName?.trim(),
-    gestor.fullName?.trim(),
-    formatWhatsApp(gestor.whatsapp),
-  ].filter(Boolean);
-  return parts.join("  ·  ");
+function websiteHref(website: string | null | undefined): string | null {
+  const trimmed = website?.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }
 
-function Letterhead({ logoUrl }: { logoUrl: string | null }) {
+function formatWebsiteLabel(website: string | null | undefined) {
+  const trimmed = website?.trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+}
+
+function GestorLogo({
+  logoUrl,
+  website,
+  style,
+}: {
+  logoUrl: string | null;
+  website: string | null;
+  style: { height: number; objectFit: "contain" };
+}) {
+  if (!logoUrl) return null;
+  const image = <Image src={logoUrl} style={style} />;
+  const href = websiteHref(website);
+  if (!href) return image;
+  return <Link src={href}>{image}</Link>;
+}
+
+function Letterhead({
+  logoUrl,
+  website,
+}: {
+  logoUrl: string | null;
+  website: string | null;
+}) {
   return (
     <View style={styles.header} fixed>
-      {logoUrl ? <Image src={logoUrl} style={styles.headerLogo} /> : null}
+      <GestorLogo logoUrl={logoUrl} website={website} style={styles.headerLogo} />
     </View>
   );
 }
 
 function PageFooter({ gestor }: { gestor: ProposalPdfGestor }) {
-  const line = footerLine(gestor);
-  if (!line) return null;
+  const company = gestor.companyName?.trim() || "";
+  const name = gestor.fullName?.trim() || "";
+  const whatsapp = formatWhatsApp(gestor.whatsapp);
+  const websiteLabel = formatWebsiteLabel(gestor.website);
+  const websiteUrl = websiteHref(gestor.website);
+  const textParts = [company, name, whatsapp].filter(Boolean);
+
+  if (textParts.length === 0 && !websiteLabel) return null;
+
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>{line}</Text>
+      <Text style={styles.footerText}>
+        {textParts.join("  ·  ")}
+        {websiteLabel && websiteUrl ? (
+          <>
+            {textParts.length > 0 ? "  ·  " : ""}
+            <Link src={websiteUrl} style={styles.footerLink}>
+              {websiteLabel}
+            </Link>
+          </>
+        ) : null}
+      </Text>
     </View>
   );
 }
@@ -511,11 +559,11 @@ export function ProposalPdfDocument({ data }: { data: ProposalPdfData }) {
         )}
         <View style={styles.coverBody}>
           <View style={styles.coverTopRow}>
-            {data.gestor.logoUrl ? (
-              <Image src={data.gestor.logoUrl} style={styles.coverLogo} />
-            ) : (
-              <View />
-            )}
+            <GestorLogo
+              logoUrl={data.gestor.logoUrl}
+              website={data.gestor.website}
+              style={styles.coverLogo}
+            />
           </View>
           <Text style={styles.coverEyebrow}>{data.title}</Text>
           <Text style={styles.coverTitle}>{data.clientName}</Text>
@@ -533,7 +581,7 @@ export function ProposalPdfDocument({ data }: { data: ProposalPdfData }) {
       </Page>
 
       <Page size="A4" style={styles.page} wrap>
-        <Letterhead logoUrl={data.gestor.logoUrl} />
+        <Letterhead logoUrl={data.gestor.logoUrl} website={data.gestor.website} />
         {visibleSections.map((section) => (
           <SectionView key={section.id} section={section} data={data} />
         ))}

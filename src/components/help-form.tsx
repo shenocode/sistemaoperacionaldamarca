@@ -37,6 +37,26 @@ type HelpFormProps = {
   showIntro?: boolean;
 };
 
+function resolveAttachmentContentType(file: File): string {
+  const ct = (file.type || "").trim().toLowerCase();
+  if (ct && ct !== "application/octet-stream") return ct;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const byExt: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    webp: "image/webp",
+    heic: "image/heic",
+    heif: "image/heif",
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    txt: "text/plain",
+  };
+  return byExt[ext] || ct || "application/octet-stream";
+}
+
 async function fileToAttachment(file: File) {
   if (file.size > MAX_ATTACHMENT_BYTES) {
     throw new Error("MAX_SIZE");
@@ -49,7 +69,7 @@ async function fileToAttachment(file: File) {
   }
   return {
     fileName: file.name,
-    contentType: file.type || "application/octet-stream",
+    contentType: resolveAttachmentContentType(file),
     base64: btoa(binary),
   };
 }

@@ -4084,6 +4084,48 @@ export type HelpRequest = {
   hasAttachment: boolean;
 };
 
+async function readFunctionsInvokeError(
+  data: unknown,
+  error: { message: string; name?: string; context?: unknown } | null,
+): Promise<string | null> {
+  if (data && typeof data === "object" && data !== null && "error" in data) {
+    const msg = String((data as { error?: unknown }).error ?? "").trim();
+    if (msg) return msg;
+  }
+  if (!error) return null;
+
+  const ctx = error.context as {
+    clone?: () => Response;
+    json?: () => Promise<unknown>;
+    text?: () => Promise<string>;
+  } | null;
+
+  if (ctx) {
+    try {
+      const response = typeof ctx.clone === "function" ? ctx.clone() : null;
+      const body = response
+        ? await response.json().catch(async () => {
+            const text = await (typeof ctx.clone === "function" ? ctx.clone().text() : ctx.text?.());
+            return text ? { error: text } : null;
+          })
+        : await ctx.json?.();
+      if (body && typeof body === "object" && "error" in body) {
+        const msg = String((body as { error?: unknown }).error ?? "").trim();
+        if (msg) return msg;
+      }
+    } catch {
+      // ignore parse failures
+    }
+  }
+
+  if (/non-2xx|FunctionsHttpError|FunctionsRelayError|FunctionsFetchError/i.test(
+    `${error.name ?? ""} ${error.message}`,
+  )) {
+    return "Não foi possível enviar o pedido. Verifique se a migration de ajuda foi aplicada no Cloud e se a função submit-help-request está publicada.";
+  }
+  return error.message;
+}
+
 export async function submitHelpRequest(input: {
   message: string;
   clientId?: string;
@@ -4100,9 +4142,11 @@ export async function submitHelpRequest(input: {
   });
 
   const payload = data as { ok?: boolean; error?: string } | null;
-  if (payload?.error) throw new Error(payload.error);
-  if (error) throw new Error(error.message);
-  if (!payload?.ok) throw new Error("Não foi possível enviar o pedido de ajuda.");
+  if (payload?.ok) return;
+
+  const invokeError = await readFunctionsInvokeError(payload, error);
+  if (invokeError) throw new Error(invokeError);
+  throw new Error("Não foi possível enviar o pedido de ajuda.");
 }
 
 export async function getHelpRequestAttachmentUrl(requestId: string): Promise<{
@@ -4113,10 +4157,12 @@ export async function getHelpRequestAttachmentUrl(requestId: string): Promise<{
     body: { requestId },
   });
   const payload = data as { url?: string; fileName?: string; error?: string } | null;
-  if (payload?.error) throw new Error(payload.error);
-  if (error) throw new Error(error.message);
-  if (!payload?.url) throw new Error("Não foi possível abrir o anexo.");
-  return { url: payload.url, fileName: payload.fileName ?? "anexo" };
+  if (payload?.url) {
+    return { url: payload.url, fileName: payload.fileName ?? "anexo" };
+  }
+  const invokeError = await readFunctionsInvokeError(payload, error);
+  if (invokeError) throw new Error(invokeError);
+  throw new Error("Não foi possível abrir o anexo.");
 }
 
 export async function listReceivedHelpRequests(options?: {

@@ -493,7 +493,9 @@
     "submit": "Send help request",
     "sending": "Sending…",
     "sent": "Request sent. You will hear back soon.",
-    "sendError": "Could not send the request."
+    "sendError": "Could not send the request.",
+    "adminMasterHint": "This account is the platform administrator — help requests from managers arrive in your inbox.",
+    "adminMasterInbox": "To test sending, use a manager account (not the master account) or a client account."
   },
   "helpInbox": {
     "title": "Help requests",

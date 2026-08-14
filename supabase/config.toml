@@ -43,6 +43,12 @@ verify_jwt = false
 [functions.submit-contact-lead]
 verify_jwt = false
 
+[functions.submit-help-request]
+verify_jwt = true
+
+[functions.help-request-attachment]
+verify_jwt = true
+
 [functions.admin-team]
 verify_jwt = true
 

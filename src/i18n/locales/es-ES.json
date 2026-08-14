@@ -493,7 +493,9 @@
     "submit": "Enviar solicitud de ayuda",
     "sending": "Enviando…",
     "sent": "Solicitud enviada. Pronto recibirás respuesta.",
-    "sendError": "No se pudo enviar la solicitud."
+    "sendError": "No se pudo enviar la solicitud.",
+    "adminMasterHint": "Esta cuenta es la administradora de la plataforma — las solicitudes de ayuda de los gestores llegan a tu bandeja.",
+    "adminMasterInbox": "Para probar el envío, usa una cuenta de gestor (no la cuenta master) o de cliente."
   },
   "helpInbox": {
     "title": "Solicitudes de ayuda",
