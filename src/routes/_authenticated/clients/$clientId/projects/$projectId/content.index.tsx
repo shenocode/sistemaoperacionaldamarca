@@ -684,6 +684,7 @@ function ContentListPage() {
       <Dialog
         open={open}
         onOpenChange={(next) => {
+          if (!next && createMutation.isPending) return;
           setOpen(next);
           if (!next) resetCreateForm();
         }}
@@ -759,10 +760,20 @@ function ContentListPage() {
               />
             ) : null}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={createMutation.isPending}
+              >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !title.trim()}>
+              <Button
+                type="submit"
+                loading={createMutation.isPending}
+                loadingLabel={t("common.saving")}
+                disabled={!title.trim()}
+              >
                 {t("common.save")}
               </Button>
             </DialogFooter>

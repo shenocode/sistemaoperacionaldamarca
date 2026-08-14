@@ -1021,11 +1021,21 @@ export function ClientLibraryView({
             </Tabs>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={createMutation.isPending}
+              >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !canSubmit}>
-                {createMutation.isPending ? t("common.loading") : t("common.save")}
+              <Button
+                type="submit"
+                loading={createMutation.isPending}
+                loadingLabel={t("common.saving")}
+                disabled={!canSubmit}
+              >
+                {t("common.save")}
               </Button>
             </DialogFooter>
           </form>
@@ -1098,9 +1108,11 @@ export function ClientLibraryView({
               </Button>
               <Button
                 type="submit"
-                disabled={!templateFile || createTemplateMutation.isPending}
+                loading={createTemplateMutation.isPending}
+                loadingLabel={t("common.saving")}
+                disabled={!templateFile}
               >
-                {createTemplateMutation.isPending ? t("common.loading") : t("common.save")}
+                {t("common.save")}
               </Button>
             </DialogFooter>
           </form>

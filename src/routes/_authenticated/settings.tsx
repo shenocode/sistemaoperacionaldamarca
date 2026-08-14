@@ -193,7 +193,12 @@ function ClientSettingsPage() {
             clientId={selectedClientId || undefined}
           />
 
-          <Button type="submit" disabled={saveMutation.isPending || !form.name.trim()}>
+          <Button
+            type="submit"
+            loading={saveMutation.isPending}
+            loadingLabel={t("common.saving")}
+            disabled={!form.name.trim()}
+          >
             {t("common.save")}
           </Button>
         </form>

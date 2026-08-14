@@ -292,7 +292,12 @@ function GestorProfilePage() {
             <p className="text-xs text-destructive">{t("gestorProfile.whatsappInvalid")}</p>
           ) : null}
 
-          <Button type="submit" disabled={saveMutation.isPending || !whatsappOk || !isDirty}>
+          <Button
+            type="submit"
+            loading={saveMutation.isPending}
+            loadingLabel={t("common.saving")}
+            disabled={!whatsappOk || !isDirty}
+          >
             {t("common.save")}
           </Button>
         </form>

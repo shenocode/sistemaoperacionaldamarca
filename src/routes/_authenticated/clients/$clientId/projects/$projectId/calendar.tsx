@@ -1299,6 +1299,7 @@ function ProjectCalendarPage() {
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
+          if (!open && createMutation.isPending) return;
           setCreateOpen(open);
           if (!open) resetCreateForm();
         }}
@@ -1382,7 +1383,12 @@ function ProjectCalendarPage() {
               >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !newTitle.trim()}>
+              <Button
+                type="submit"
+                loading={createMutation.isPending}
+                loadingLabel={t("common.saving")}
+                disabled={!newTitle.trim()}
+              >
                 {t("common.save")}
               </Button>
             </DialogFooter>

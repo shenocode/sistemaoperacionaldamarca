@@ -137,7 +137,13 @@ function ClientsPage() {
         </div>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!open && createMutation.isPending) return;
+          setCreateOpen(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("clients.new")}</DialogTitle>
@@ -158,10 +164,20 @@ function ClientsPage() {
               idPrefix="create-client"
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                disabled={createMutation.isPending}
+              >
                 {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={createMutation.isPending || !createForm.name.trim()}>
+              <Button
+                type="submit"
+                loading={createMutation.isPending}
+                loadingLabel={t("common.saving")}
+                disabled={!createForm.name.trim()}
+              >
                 {t("common.save")}
               </Button>
             </DialogFooter>

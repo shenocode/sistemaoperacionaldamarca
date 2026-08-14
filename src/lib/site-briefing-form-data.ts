@@ -18,6 +18,7 @@ export type SiteBriefingFormData = {
   horario: string;
   ddi: string;
   whatsapp: string;
+  telefoneDdi: string;
   telefone: string;
   email: string;
   website: string;
@@ -55,6 +56,7 @@ export const emptySiteBriefingForm: SiteBriefingFormData = {
   horario: "",
   ddi: "+55",
   whatsapp: "",
+  telefoneDdi: "+55",
   telefone: "",
   email: "",
   website: "",
@@ -280,6 +282,7 @@ export function parseSiteBriefingForm(raw: unknown): SiteBriefingFormData {
     horario: str("horario"),
     ddi: str("ddi", "+55"),
     whatsapp: str("whatsapp"),
+    telefoneDdi: str("telefoneDdi", str("ddi", "+55")),
     telefone: str("telefone"),
     email: str("email"),
     website: str("website"),
@@ -332,12 +335,15 @@ export function siteBriefingFormToQaText(form: SiteBriefingFormData): string {
   };
 
   for (const key of TRACKED_STRING_FIELDS) {
-    if (key === "whatsapp") continue;
+    if (key === "whatsapp" || key === "telefone") continue;
     const value = form[key];
     if (typeof value === "string") push(key, value);
   }
   if (form.whatsapp.trim()) {
     push("whatsapp", `${form.ddi} ${form.whatsapp}`.trim());
+  }
+  if (form.telefone.trim()) {
+    push("telefone", `${form.telefoneDdi} ${form.telefone}`.trim());
   }
   push("objetivos", form.objetivos.join(", "));
   push("ctas", ctaPrincipal(form));

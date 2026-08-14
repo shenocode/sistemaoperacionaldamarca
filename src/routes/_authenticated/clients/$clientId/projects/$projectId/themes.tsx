@@ -255,7 +255,9 @@ function ThemeReferenceCard({
 
           <Button
             type="button"
-            disabled={disabled || saveMutation.isPending}
+            loading={saveMutation.isPending}
+            loadingLabel={t("common.saving")}
+            disabled={disabled}
             onClick={() => saveMutation.mutate()}
           >
             {t("common.save")}

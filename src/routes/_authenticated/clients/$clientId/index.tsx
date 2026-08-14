@@ -176,6 +176,7 @@ function ClientDetailPage() {
       <Dialog
         open={open}
         onOpenChange={(next) => {
+          if (!next && createMutation.isPending) return;
           setOpen(next);
           if (!next) resetForm();
         }}
@@ -226,12 +227,19 @@ function ClientDetailPage() {
               required
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={createMutation.isPending}
+              >
                 {t("common.cancel")}
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending || !name.trim() || !category}
+                loading={createMutation.isPending}
+                loadingLabel={t("common.saving")}
+                disabled={!name.trim() || !category}
               >
                 {t("common.save")}
               </Button>

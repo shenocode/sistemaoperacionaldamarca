@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,18 +49,29 @@ export function WhatsAppPhoneField({
     () => initial?.dial ?? defaultDialByLanguage(i18n.language),
   );
   const [localNumber, setLocalNumber] = useState(() => initial?.local ?? "");
+  const lastEmittedRef = useRef(value.replace(/\D/g, ""));
 
   useEffect(() => {
-    if (value.trim()) return;
-    setLocalNumber("");
-    setCountryDial(defaultDialByLanguage(i18n.language));
+    const digits = value.replace(/\D/g, "");
+    if (digits === lastEmittedRef.current) return;
+    lastEmittedRef.current = digits;
+    if (!digits) {
+      setLocalNumber("");
+      setCountryDial(defaultDialByLanguage(i18n.language));
+      return;
+    }
+    const parsed = splitWhatsAppDigits(digits);
+    setCountryDial(parsed.dial);
+    setLocalNumber(parsed.local);
   }, [value, i18n.language]);
 
   const selectedCountry = findWhatsAppCountry(countryDial);
 
   function emit(dial: WhatsAppDial, local: string) {
-    const digits = local.replace(/\D/g, "");
-    onChange(digits ? composeWhatsAppDigits(dial, digits) : "");
+    const nextDigits = local.replace(/\D/g, "");
+    const next = nextDigits ? composeWhatsAppDigits(dial, nextDigits) : "";
+    lastEmittedRef.current = next;
+    onChange(next);
   }
 
   return (
@@ -95,7 +106,7 @@ export function WhatsAppPhoneField({
           inputMode="numeric"
           value={localNumber}
           onChange={(e) => {
-            const next = e.target.value;
+            const next = e.target.value.replace(/\D/g, "");
             setLocalNumber(next);
             emit(countryDial, next);
           }}

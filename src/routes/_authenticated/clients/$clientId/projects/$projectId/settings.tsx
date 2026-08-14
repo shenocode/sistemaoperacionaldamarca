@@ -398,7 +398,9 @@ function ProjectSettingsPage() {
 
       <Button
         type="submit"
-        disabled={saveMutation.isPending || (canManage && !name.trim())}
+        loading={saveMutation.isPending}
+        loadingLabel={t("common.saving")}
+        disabled={canManage && !name.trim()}
       >
         {t("common.save")}
       </Button>

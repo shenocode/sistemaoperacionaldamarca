@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { passwordPolicyIssue } from "@/lib/auth-errors";
 import {
   ClientContactFields,
   contactFormFromClient,
@@ -206,6 +207,12 @@ export function ClientSettingsDialog({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isAdminMaster } = useAppRole();
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPasswordFieldError(null);
+  }, [settingsClient?.id]);
 
   const updateMutation = useMutation({
     mutationFn: async ({
@@ -252,13 +259,32 @@ export function ClientSettingsDialog({
         toast.success(t("clients.accessUpdated"));
       }
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      const issue = passwordPolicyIssue(err.message);
+      if (issue === "weak") {
+        setPasswordFieldError(t("clients.weakPassword"));
+        toast.error(t("clients.accessNotSaved"));
+      } else if (issue === "short") {
+        setPasswordFieldError(t("clients.passwordTooShort"));
+        toast.error(t("clients.accessNotSaved"));
+      } else {
+        setPasswordFieldError(null);
+        toast.error(err.message);
+      }
+      if (issue) {
+        requestAnimationFrame(() => {
+          passwordRef.current?.focus();
+          passwordRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      }
+    },
   });
 
   return (
     <Dialog
       open={Boolean(settingsClient)}
       onOpenChange={(open) => {
+        if (!open && updateMutation.isPending) return;
         if (!open) closeSettings();
       }}
     >
@@ -310,14 +336,34 @@ export function ClientSettingsDialog({
             <div className="space-y-1.5">
               <Label htmlFor="settings-login-password">{t("clients.loginPassword")}</Label>
               <PasswordInput
+                ref={passwordRef}
                 id="settings-login-password"
                 autoComplete="new-password"
                 value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
+                onChange={(e) => {
+                  setLoginPassword(e.target.value);
+                  if (passwordFieldError) setPasswordFieldError(null);
+                }}
                 minLength={6}
                 placeholder="••••••••"
+                aria-invalid={Boolean(passwordFieldError)}
+                aria-describedby={
+                  passwordFieldError
+                    ? "settings-login-password-error settings-login-password-hint"
+                    : "settings-login-password-hint"
+                }
               />
-              <p className="text-xs text-muted-foreground">{t("clients.loginPasswordHint")}</p>
+              {passwordFieldError ? (
+                <p id="settings-login-password-error" className="text-xs text-destructive" role="alert">
+                  {passwordFieldError}
+                </p>
+              ) : null}
+              <p
+                id="settings-login-password-hint"
+                className="text-xs text-muted-foreground"
+              >
+                {t("clients.loginPasswordHint")}
+              </p>
             </div>
           </div>
 
@@ -333,12 +379,14 @@ export function ClientSettingsDialog({
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeSettings}>
+            <Button type="button" variant="outline" onClick={closeSettings} disabled={updateMutation.isPending}>
               {t("common.cancel")}
             </Button>
             <Button
               type="submit"
-              disabled={updateMutation.isPending || !settingsForm.name.trim()}
+              loading={updateMutation.isPending}
+              loadingLabel={t("common.saving")}
+              disabled={!settingsForm.name.trim()}
             >
               {t("common.save")}
             </Button>

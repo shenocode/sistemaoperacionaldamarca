@@ -29,12 +29,14 @@ import {
   type ProposalDraftFields,
   type ProposalSection,
 } from "@/lib/proposal-template";
+import { isAdminMasterEmail } from "@/lib/admin-master";
 import type { RowI18n } from "@/lib/i18n-content";
 import {
   ensureFieldsTranslated,
   getCanonicalText,
   parseRowI18n,
 } from "@/lib/i18n-content";
+import type { PlanEntitlements } from "@/lib/plan-entitlements";
 
 export type { RowI18n, LocalizedField, AppLocale } from "@/lib/i18n-content";
 export {
@@ -491,13 +493,20 @@ export function isImageUrl(url: string) {
   return /\.(jpe?g|png|gif|webp|svg|heic|heif)(\?|$)/i.test(url) || /\/image\//i.test(url);
 }
 
-async function requireUserId() {
+async function requireAuthUser() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session?.user) return sessionData.session.user;
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) throw new Error("Não autenticado");
-  return data.user.id;
+  return data.user;
 }
 
-async function logActivity(input: {
+async function requireUserId() {
+  return (await requireAuthUser()).id;
+}
+
+/** Best-effort audit log. Never blocks the user-facing save (no AI translate). */
+function logActivity(input: {
   type: ActivityType;
   summary: string;
   clientId?: string | null;
@@ -505,23 +514,19 @@ async function logActivity(input: {
   contentId?: string | null;
   i18n?: RowI18n;
 }) {
-  const actorId = await requireUserId();
-  let i18n = input.i18n;
-  if (!i18n) {
-    try {
-      i18n = await ensureFieldsTranslated({}, { summary: input.summary });
-    } catch {
-      i18n = undefined;
-    }
-  }
-  await supabase.from("activity_events").insert({
-    type: input.type,
-    summary: input.summary,
-    client_id: input.clientId ?? null,
-    project_id: input.projectId ?? null,
-    content_id: input.contentId ?? null,
-    actor_id: actorId,
-    ...(i18n ? { i18n: toI18nJson(i18n) } : {}),
+  void (async () => {
+    const actorId = await requireUserId();
+    await supabase.from("activity_events").insert({
+      type: input.type,
+      summary: input.summary,
+      client_id: input.clientId ?? null,
+      project_id: input.projectId ?? null,
+      content_id: input.contentId ?? null,
+      actor_id: actorId,
+      ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
+    });
+  })().catch(() => {
+    // Activity is secondary; a failed insert must not roll back the save.
   });
 }
 
@@ -918,30 +923,33 @@ function normalizeOptionalText(value?: string) {
 }
 
 export async function createClient(input: ClientContactInput): Promise<Client> {
-  const userId = await requireUserId();
+  const user = await requireAuthUser();
+  const userId = user.id;
 
-  const entitlements = await getMyEntitlements();
-  if (!entitlements.isMaster) {
-    if (!entitlements.isTeamOwner) {
-      throw new Error(
-        "Apenas o gestor dono do plano pode criar clientes. Peça ao gestor para atribuir um cliente à sua conta.",
-      );
-    }
+  if (!isAdminMasterEmail(user.email)) {
+    const entitlements = await getMyEntitlements();
+    if (!entitlements.isMaster) {
+      if (!entitlements.isTeamOwner) {
+        throw new Error(
+          "Apenas o gestor dono do plano pode criar clientes. Peça ao gestor para atribuir um cliente à sua conta.",
+        );
+      }
 
-    const { count, error: countError } = await supabase
-      .from("clients")
-      .select("id", { count: "exact", head: true })
-      .eq("created_by", userId);
-    if (countError) throw new Error(countError.message);
+      const { count, error: countError } = await supabase
+        .from("clients")
+        .select("id", { count: "exact", head: true })
+        .eq("created_by", userId);
+      if (countError) throw new Error(countError.message);
 
-    const { canCreateAnotherClient } = await import("./plan-entitlements");
-    if (!canCreateAnotherClient(entitlements, count ?? 0)) {
-      const max = entitlements.maxClients ?? 0;
-      throw new Error(
-        max <= 0
-          ? "Seu plano não permite criar clientes. Peça ao administrador para atribuir uma assinatura."
-          : `Limite do plano atingido (${max} cliente${max === 1 ? "" : "s"}). Atualize o plano para adicionar mais.`,
-      );
+      const { canCreateAnotherClient } = await import("./plan-entitlements");
+      if (!canCreateAnotherClient(entitlements, count ?? 0)) {
+        const max = entitlements.maxClients ?? 0;
+        throw new Error(
+          max <= 0
+            ? "Seu plano não permite criar clientes. Peça ao administrador para atribuir uma assinatura."
+            : `Limite do plano atingido (${max} cliente${max === 1 ? "" : "s"}). Atualize o plano para adicionar mais.`,
+        );
+      }
     }
   }
 
@@ -967,7 +975,7 @@ export async function createClient(input: ClientContactInput): Promise<Client> {
 
   const { data, error } = await supabase.from("clients").select("*").eq("id", id).single();
   const row = ensureData(data, error);
-  await logActivity({
+  logActivity({
     type: "client_created",
     summary: `Cliente criado: ${row.name}`,
     clientId: row.id,
@@ -1217,9 +1225,17 @@ export async function reassignClientGestor(input: {
   return reassignClientGestorFn({ data: input });
 }
 
+let myEntitlementsCache: { at: number; value: PlanEntitlements } | null = null;
+const MY_ENTITLEMENTS_TTL_MS = 60_000;
+
 export async function getMyEntitlements() {
+  if (myEntitlementsCache && Date.now() - myEntitlementsCache.at < MY_ENTITLEMENTS_TTL_MS) {
+    return myEntitlementsCache.value;
+  }
   const { getMyEntitlementsFn } = await import("./provision-gestor-access.functions");
-  return getMyEntitlementsFn();
+  const value = await getMyEntitlementsFn();
+  myEntitlementsCache = { at: Date.now(), value };
+  return value;
 }
 
 export async function listMyTeam() {
@@ -1590,10 +1606,7 @@ export async function createProject(input: {
   if (categories.length === 0) {
     throw new Error("Selecione o tipo do projeto.");
   }
-  const i18n = await ensureFieldsTranslated(input.i18n, {
-    name: input.name,
-    description: input.description,
-  });
+  const i18n = parseRowI18n(input.i18n);
   const name = getCanonicalText(i18n, "name", input.name).trim();
   const description =
     getCanonicalText(i18n, "description", input.description)?.trim() || null;
@@ -1610,7 +1623,7 @@ export async function createProject(input: {
     .select("*")
     .single();
   const row = ensureData(data, error);
-  await logActivity({
+  logActivity({
     type: "project_created",
     summary: `Projeto criado: ${row.name}`,
     clientId: input.clientId,
@@ -1754,30 +1767,15 @@ export async function createContent(input: {
   productionNotes?: string;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
-  const userId = await requireUserId();
-  const sortOrder = await nextContentSortOrder(input.projectId);
-  let calendarBlockId: string | null = null;
-  try {
-    const blocks = await listCalendarBlocks(input.projectId);
-    calendarBlockId = blocks[0]?.id ?? null;
-  } catch {
-    calendarBlockId = null;
-  }
-  let format = input.format;
-  if (!format) {
-    try {
-      const project = await getProject(input.projectId);
-      format = defaultContentFormatForProject(project?.categories);
-    } catch {
-      format = "static_feed";
-    }
-  }
-  const i18n = await ensureFieldsTranslated(input.i18n, {
-    title: input.title,
-    caption: input.caption,
-    cta: input.cta,
-    hashtags: input.hashtags,
-  });
+  const [userId, sortOrder, blocks, project] = await Promise.all([
+    requireUserId(),
+    nextContentSortOrder(input.projectId),
+    listCalendarBlocks(input.projectId).catch(() => []),
+    input.format ? Promise.resolve(null) : getProject(input.projectId).catch(() => null),
+  ]);
+  const calendarBlockId = blocks[0]?.id ?? null;
+  const format = input.format ?? defaultContentFormatForProject(project?.categories);
+  const i18n = parseRowI18n(input.i18n);
   const materialType =
     input.materialType?.trim() ||
     (format === "print_material" ? "poster" : null);
@@ -1834,7 +1832,7 @@ export async function createContent(input: {
     error = retry.error;
   }
   const row = ensureData(data, error);
-  await logActivity({
+  logActivity({
     type: "content_created",
     summary: `Conteúdo criado: ${row.title}`,
     clientId: input.clientId,
@@ -1943,7 +1941,7 @@ export async function duplicateContent(input: {
   }
 
   if (!input.silent) {
-    await logActivity({
+    logActivity({
       type: "content_created",
       summary: `Conteúdo duplicado: ${row.title}`,
       clientId: input.clientId,
@@ -2076,7 +2074,7 @@ export async function saveContentAsNewVersion(input: {
   });
   if (versionInsert.error) throw new Error(versionInsert.error.message);
 
-  await logActivity({
+  logActivity({
     type: "version_created",
     summary: `${row.title} — v${nextVersion}`,
     clientId: input.clientId,
@@ -2395,7 +2393,7 @@ export async function duplicateCalendarBlock(input: {
     .single();
   const finalBlock = ensureData(titled, titleError);
 
-  await logActivity({
+  logActivity({
     type: "content_created",
     summary: `Calendário duplicado: ${finalBlock.title}`,
     clientId: input.clientId,
@@ -2505,7 +2503,7 @@ export async function createMeetingAgenda(input: {
     .single();
   const agenda = ensureData(data, error);
 
-  await logActivity({
+  logActivity({
     type: "meeting_agenda_created",
     summary: "Pauta de reunião criada",
     clientId: input.clientId,
@@ -2568,7 +2566,7 @@ export async function updateMeetingAgenda(input: {
 
   const agenda = ensureData(data, error);
 
-  await logActivity({
+  logActivity({
     type: "meeting_agenda_updated",
     summary: "Pauta de reunião atualizada",
     clientId: input.clientId,
@@ -2590,7 +2588,7 @@ export async function deleteMeetingAgenda(input: {
     .eq("project_id", input.projectId);
   if (error) throw new Error(error.message);
 
-  await logActivity({
+  logActivity({
     type: "meeting_agenda_deleted",
     summary: "Pauta de reunião removida",
     clientId: input.clientId,
@@ -2760,7 +2758,7 @@ export async function setContentStatus(input: {
 
   const type = activityMap[input.status];
   if (type) {
-    await logActivity({
+    logActivity({
       type,
       summary: summaryMap[input.status] ?? input.title,
       clientId: input.clientId,
@@ -3163,7 +3161,7 @@ export async function addComment(input: {
     .select("*")
     .single();
   const row = ensureData(data, error);
-  await logActivity({
+  logActivity({
     type: "comment_added",
     summary: `Comentário em ${input.contentTitle}`,
     clientId: input.clientId,
@@ -4084,7 +4082,7 @@ export type HelpRequest = {
   hasAttachment: boolean;
 };
 
-async function readFunctionsInvokeError(
+async function readHelpFunctionInvokeError(
   data: unknown,
   error: { message: string; name?: string; context?: unknown } | null,
 ): Promise<string | null> {
@@ -4144,7 +4142,7 @@ export async function submitHelpRequest(input: {
   const payload = data as { ok?: boolean; error?: string } | null;
   if (payload?.ok) return;
 
-  const invokeError = await readFunctionsInvokeError(payload, error);
+  const invokeError = await readHelpFunctionInvokeError(payload, error);
   if (invokeError) throw new Error(invokeError);
   throw new Error("Não foi possível enviar o pedido de ajuda.");
 }
@@ -4160,7 +4158,7 @@ export async function getHelpRequestAttachmentUrl(requestId: string): Promise<{
   if (payload?.url) {
     return { url: payload.url, fileName: payload.fileName ?? "anexo" };
   }
-  const invokeError = await readFunctionsInvokeError(payload, error);
+  const invokeError = await readHelpFunctionInvokeError(payload, error);
   if (invokeError) throw new Error(invokeError);
   throw new Error("Não foi possível abrir o anexo.");
 }

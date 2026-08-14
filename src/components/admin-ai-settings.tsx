@@ -176,8 +176,8 @@ export function AdminAiSettingsPage() {
             ) : null}
           </div>
 
-          <Button type="submit" disabled={saveMutation.isPending || !canSave}>
-            {saveMutation.isPending ? t("common.saving") : t("common.save")}
+          <Button type="submit" loading={saveMutation.isPending} loadingLabel={t("common.saving")} disabled={!canSave}>
+            {t("common.save")}
           </Button>
         </form>
       ) : null}

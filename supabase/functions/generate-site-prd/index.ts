@@ -79,7 +79,7 @@ function buildFormQaText(raw: unknown): { qaText: string; filled: boolean } {
   };
 
   for (const key of Object.keys(FIELD_LABELS)) {
-    if (key === "whatsapp" || key === "videos" || key === "objetivos" || key === "ctas" || key === "cta") {
+    if (key === "whatsapp" || key === "telefone" || key === "videos" || key === "objetivos" || key === "ctas" || key === "cta") {
       continue;
     }
     const value = form[key];
@@ -89,6 +89,10 @@ function buildFormQaText(raw: unknown): { qaText: string; filled: boolean } {
   const ddi = typeof form.ddi === "string" ? form.ddi : "";
   const whatsapp = typeof form.whatsapp === "string" ? form.whatsapp : "";
   if (whatsapp.trim()) push("whatsapp", `${ddi} ${whatsapp}`.trim());
+
+  const telefoneDdi = typeof form.telefoneDdi === "string" ? form.telefoneDdi : ddi;
+  const telefone = typeof form.telefone === "string" ? form.telefone : "";
+  if (telefone.trim()) push("telefone", `${telefoneDdi} ${telefone}`.trim());
 
   const objetivos = asStringArray(form.objetivos);
   push("objetivos", objetivos.join(", "));

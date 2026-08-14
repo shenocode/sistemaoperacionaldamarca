@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
 import { LocalizedTextInput, LocalizedTextarea } from "@/components/localized-text-field";
 import {
   CLIENT_LOGO_ACCEPT,
@@ -41,8 +42,8 @@ export function contactFormFromClient(
     name: getLocalizedText(i18n, "name", client.name, locale),
     notes: getLocalizedText(i18n, "notes", client.notes ?? "", locale),
     email: client.email ?? "",
-    phone: client.phone ?? "",
-    whatsapp: client.whatsapp ?? "",
+    phone: (client.phone ?? "").replace(/\D/g, ""),
+    whatsapp: (client.whatsapp ?? "").replace(/\D/g, ""),
     instagram: client.instagram ?? "",
     website: client.website ?? "",
     logo_url: client.logo_url ?? "",
@@ -56,6 +57,8 @@ export function toCanonicalContactInput(form: ClientContactInput): ClientContact
     ...form,
     name: getCanonicalText(i18n, "name", form.name),
     notes: getCanonicalText(i18n, "notes", form.notes),
+    phone: (form.phone ?? "").replace(/\D/g, ""),
+    whatsapp: (form.whatsapp ?? "").replace(/\D/g, ""),
     i18n,
   };
 }
@@ -203,27 +206,22 @@ export function ClientContactFields({
           placeholder="cliente@email.com"
         />
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-phone`}>{t("clients.phone")}</Label>
-        <Input
-          id={`${idPrefix}-phone`}
-          type="tel"
-          value={form.phone ?? ""}
-          onChange={(e) => setField("phone", e.target.value)}
-          placeholder="+55 11 99999-9999"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-whatsapp`}>{t("clients.whatsapp")}</Label>
-        <Input
-          id={`${idPrefix}-whatsapp`}
-          type="tel"
-          value={form.whatsapp ?? ""}
-          onChange={(e) => setField("whatsapp", e.target.value)}
-          placeholder="5511999999999"
-        />
-        <p className="text-xs text-muted-foreground">{t("clients.whatsappHint")}</p>
-      </div>
+      <WhatsAppPhoneField
+        idPrefix={`${idPrefix}-phone`}
+        value={form.phone ?? ""}
+        onChange={(next) => setField("phone", next)}
+        label={t("clients.phone")}
+        countryLabel={t("clients.phoneCountry")}
+        hint={t("clients.phoneHint")}
+      />
+      <WhatsAppPhoneField
+        idPrefix={`${idPrefix}-whatsapp`}
+        value={form.whatsapp ?? ""}
+        onChange={(next) => setField("whatsapp", next)}
+        label={t("clients.whatsapp")}
+        countryLabel={t("clients.whatsappCountry")}
+        hint={t("clients.whatsappHint")}
+      />
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-instagram`}>{t("clients.instagram")}</Label>
         <Input

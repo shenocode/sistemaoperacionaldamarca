@@ -415,11 +415,29 @@ export function SiteBriefingForm({
                 </Field>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field label="Telefone">
-                    <TextInput
-                      value={form.telefone}
-                      onChange={(e) => set("telefone", e.target.value)}
-                      onBlur={() => persistForm()}
-                    />
+                    <div className="flex gap-2">
+                      <SelectInput
+                        value={form.telefoneDdi}
+                        onChange={(value) => {
+                          const next = { ...form, telefoneDdi: value };
+                          setForm(next);
+                          persistForm(next);
+                        }}
+                        className="w-32 shrink-0"
+                      >
+                        {DDIS.map((d) => (
+                          <SelectOption key={d.code} value={d.code}>
+                            {d.label}
+                          </SelectOption>
+                        ))}
+                      </SelectInput>
+                      <TextInput
+                        value={form.telefone}
+                        onChange={(e) => set("telefone", e.target.value)}
+                        onBlur={() => persistForm()}
+                        placeholder="11 3456-7890"
+                      />
+                    </div>
                   </Field>
                   <Field label="E-mail">
                     <TextInput
@@ -561,6 +579,7 @@ export function SiteBriefingForm({
                       ["Segmento", form.segmento || "—"],
                       ["Local", [form.cidade, form.estado].filter(Boolean).join(", ") || "—"],
                       ["WhatsApp", form.whatsapp ? `${form.ddi} ${form.whatsapp}` : "—"],
+                      ["Telefone", form.telefone ? `${form.telefoneDdi} ${form.telefone}` : "—"],
                       ["Site atual", form.website || "—"],
                       ["Estilo", form.estilo || "—"],
                       ["Tom", form.tom || "—"],
