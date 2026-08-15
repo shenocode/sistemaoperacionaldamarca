@@ -33,6 +33,7 @@ import { isAdminMasterEmail } from "@/lib/admin-master";
 import type { RowI18n } from "@/lib/i18n-content";
 import {
   ensureFieldsTranslated,
+  ensurePresetListTranslated,
   getCanonicalText,
   parseRowI18n,
 } from "@/lib/i18n-content";
@@ -143,6 +144,15 @@ export function isYoutubeVideoFormat(format?: ContentFormat | null) {
 
 export function isYoutubeShortFormat(format?: ContentFormat | null) {
   return format === "youtube_short";
+}
+
+export function isReelsFormat(format?: ContentFormat | null) {
+  return format === "reels";
+}
+
+/** YouTube e Reels aceitam imagem de capa dedicada (`thumbnail_url`). */
+export function contentUsesDedicatedThumbnail(format?: ContentFormat | null) {
+  return isYoutubeVideoFormat(format) || isReelsFormat(format);
 }
 
 export const GRAPHIC_ARTS_MATERIAL_TYPES = [
@@ -490,7 +500,8 @@ export async function uploadClientLogo(clientId: string, file: File) {
 }
 
 export function isVideoUrl(url: string) {
-  return /\.(mp4|webm|mov|avi)(\?|$)/i.test(url) || url.includes("video/");
+  const path = url.split(/[?#]/)[0] ?? url;
+  return /\.(mp4|webm|mov|avi)$/i.test(path) || url.includes("video/");
 }
 
 export function isImageUrl(url: string) {
@@ -1769,6 +1780,8 @@ export async function createContent(input: {
   widthCm?: number | null;
   heightCm?: number | null;
   productionNotes?: string;
+  scheduledAt?: string | null;
+  calendarBlockId?: string | null;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
   const [userId, sortOrder, blocks, project] = await Promise.all([
@@ -1777,7 +1790,10 @@ export async function createContent(input: {
     listCalendarBlocks(input.projectId).catch(() => []),
     input.format ? Promise.resolve(null) : getProject(input.projectId).catch(() => null),
   ]);
-  const calendarBlockId = blocks[0]?.id ?? null;
+  const calendarBlockId =
+    input.calendarBlockId !== undefined
+      ? input.calendarBlockId
+      : (blocks[0]?.id ?? null);
   const format = input.format ?? defaultContentFormatForProject(project?.categories);
   const i18n = parseRowI18n(input.i18n);
   const materialType =
@@ -1811,6 +1827,7 @@ export async function createContent(input: {
     i18n: toI18nJson(i18n),
     created_by: userId,
     status: "draft" as const,
+    scheduled_at: input.scheduledAt ?? null,
     ...(calendarBlockId ? { calendar_block_id: calendarBlockId } : {}),
   };
   let { data, error } = await supabase
@@ -2201,6 +2218,34 @@ export async function addProjectThemePreset(projectId: string, theme: string): P
     description: project.description ?? undefined,
     status: project.status,
     themePresets: [...existing, next],
+  });
+}
+
+export async function addProjectTextPreset(
+  projectId: string,
+  field: "cta" | "hashtags",
+  value: string,
+): Promise<Project> {
+  const project = await getProject(projectId);
+  if (!project) throw new Error("Projeto não encontrado");
+  const next = value.trim();
+  if (!next) throw new Error("Valor inválido");
+
+  const column = field === "cta" ? "cta_presets" : "hashtag_presets";
+  const existing = project[column] ?? [];
+  if (existing.some((item) => item.toLowerCase() === next.toLowerCase())) {
+    return project;
+  }
+
+  const nextItems = [...existing, next];
+  const { i18n } = await ensurePresetListTranslated(parseRowI18n(project.i18n), column, nextItems);
+
+  return updateProject(projectId, {
+    name: project.name,
+    description: project.description ?? undefined,
+    status: project.status,
+    ...(field === "cta" ? { ctaPresets: nextItems } : { hashtagPresets: nextItems }),
+    i18n,
   });
 }
 

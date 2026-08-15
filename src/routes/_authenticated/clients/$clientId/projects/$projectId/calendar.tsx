@@ -12,6 +12,7 @@ import {
   Copy,
   ExternalLink,
   GripVertical,
+  Play,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -46,6 +47,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApprovalsSummaryDialog } from "@/components/approvals-summary-dialog";
+import {
+  MediaLightbox,
+  type PreviewMediaItem,
+} from "@/components/content-media-preview";
 import { ContentStatusSelect } from "@/components/content-status-select";
 import { ContentFormatSelect } from "@/components/content-format-select";
 import {
@@ -80,10 +85,13 @@ import {
   getProject,
   getLocalizedText,
   getLocalizedPresetList,
+  isVideoUrl,
   normalizeAppLocale,
   parseRowI18n,
   projectCategoryConfig,
   reorderContentItems,
+  resolveContentMediaUrls,
+  resolveContentThumbnail,
   updateCalendarBlockTitle,
   updateContentCalendar,
   updateContentI18n,
@@ -211,6 +219,73 @@ function CalendarTitleCell({
   );
 }
 
+function previewItemsForContent(item: ContentItem): PreviewMediaItem[] {
+  const urls = resolveContentMediaUrls(item);
+  if (urls.length > 0) {
+    return urls.map((url) => ({
+      url,
+      kind: isVideoUrl(url) ? "video" : "image",
+    }));
+  }
+  const thumb = item.thumbnail_url?.trim();
+  if (!thumb) return [];
+  return [{ url: thumb, kind: isVideoUrl(thumb) ? "video" : "image" }];
+}
+
+function CalendarLayoutThumb({
+  item,
+  sizeClass,
+  expandLabel,
+  onOpen,
+}: {
+  item: ContentItem;
+  sizeClass: string;
+  expandLabel: string;
+  onOpen: (item: ContentItem) => void;
+}) {
+  const thumb = resolveContentThumbnail(item);
+  const canOpen = previewItemsForContent(item).length > 0;
+  const video = Boolean(thumb && isVideoUrl(thumb));
+  const frame = cn(sizeClass, "overflow-hidden rounded-md bg-muted");
+
+  const media = thumb ? (
+    video ? (
+      <video
+        src={thumb}
+        muted
+        playsInline
+        preload="metadata"
+        className="h-full w-full object-cover"
+      />
+    ) : (
+      <img src={thumb} alt="" className="h-full w-full object-cover" />
+    )
+  ) : null;
+
+  if (!canOpen) {
+    return <div className={cn(frame, "shrink-0")} />;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(item)}
+      aria-label={expandLabel}
+      className={cn(
+        frame,
+        "relative shrink-0 cursor-zoom-in outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+    >
+      {media}
+      {video ? (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25">
+          <Play className="h-3 w-3 text-white" aria-hidden="true" />
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function BlockPeriodTitle({
   title,
   i18n,
@@ -323,6 +398,8 @@ function ProjectCalendarPage() {
   const [newMaterialType, setNewMaterialType] = useState<GraphicArtsMaterialType>("poster");
   const [newWidthCm, setNewWidthCm] = useState(String(posterPreset.widthCm));
   const [newHeightCm, setNewHeightCm] = useState(String(posterPreset.heightCm));
+  const [newScheduledLocal, setNewScheduledLocal] = useState("");
+  const [newBlockId, setNewBlockId] = useState("");
   const [themeDialogContentId, setThemeDialogContentId] = useState<string | null>(null);
   const [newTheme, setNewTheme] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
@@ -338,6 +415,10 @@ function ProjectCalendarPage() {
     readCollapsedCalendarBlockIds(projectId),
   );
   const [approvalsSummaryBlockId, setApprovalsSummaryBlockId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    items: PreviewMediaItem[];
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     setCollapsedBlockIds(readCollapsedCalendarBlockIds(projectId));
@@ -382,6 +463,11 @@ function ProjectCalendarPage() {
   );
   const localizedTitle = (item: ContentItem) =>
     getLocalizedText(item.i18n, "title", item.title, uiLocale);
+  const openMediaLightbox = (item: ContentItem) => {
+    const items = previewItemsForContent(item);
+    if (items.length === 0) return;
+    setLightbox({ items, title: localizedTitle(item) });
+  };
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
   const isGraphicArts =
     getPrimaryProjectCategory(projectQuery.data?.categories) === "graphic_arts";
@@ -504,6 +590,8 @@ function ProjectCalendarPage() {
     setNewMaterialType("poster");
     setNewWidthCm(String(preset.widthCm));
     setNewHeightCm(String(preset.heightCm));
+    setNewScheduledLocal("");
+    setNewBlockId(blocks.at(-1)?.id ?? "");
     setCreateOpen(true);
   };
 
@@ -516,6 +604,8 @@ function ProjectCalendarPage() {
     setNewMaterialType("poster");
     setNewWidthCm(String(preset.widthCm));
     setNewHeightCm(String(preset.heightCm));
+    setNewScheduledLocal("");
+    setNewBlockId(blocks.at(-1)?.id ?? "");
   };
 
   const createMutation = useMutation({
@@ -900,6 +990,12 @@ function ProjectCalendarPage() {
                     ) : null}
                     <span className="text-xs text-muted-foreground">{index + 1}</span>
                   </div>
+                  <CalendarLayoutThumb
+                    item={row}
+                    sizeClass="h-12 w-12"
+                    expandLabel={t("project.detail.expandMedia")}
+                    onOpen={openMediaLightbox}
+                  />
                   <div className="min-w-0 flex-1">
                     <CalendarTitleCell
                       title={localizedTitle(row)}
@@ -961,7 +1057,7 @@ function ProjectCalendarPage() {
         </div>
 
         <div className="hidden overflow-x-auto overscroll-x-contain md:block">
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="w-full min-w-[1040px] text-sm">
             <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">#</th>
@@ -969,6 +1065,7 @@ function ProjectCalendarPage() {
                 <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
                 <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
                 <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
+                <th className="px-3 py-3">{t("project.calendar.columns.layout")}</th>
                 <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
                 <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
                 <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
@@ -1032,6 +1129,14 @@ function ProjectCalendarPage() {
                       />
                     </td>
                     <td className="px-3 py-2.5">{renderFormatField(row, rowFormat, "w-[9.5rem]")}</td>
+                    <td className="px-3 py-2.5">
+                      <CalendarLayoutThumb
+                        item={row}
+                        sizeClass="h-10 w-10"
+                        expandLabel={t("project.detail.expandMedia")}
+                        onOpen={openMediaLightbox}
+                      />
+                    </td>
                     <td className="px-3 py-2.5">{renderThemeField(row, "w-[10.5rem]")}</td>
                     <td className="px-3 py-2.5">
                       <CalendarTitleCell
@@ -1315,6 +1420,8 @@ function ProjectCalendarPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!newTitle.trim()) return;
+              const scheduledAt = fromDatetimeLocalValue(newScheduledLocal);
+              const calendarBlockId = newBlockId || undefined;
               if (isGraphicArts) {
                 const width = parseCmInput(newWidthCm);
                 const height = parseCmInput(newHeightCm);
@@ -1330,6 +1437,8 @@ function ProjectCalendarPage() {
                   materialType: newMaterialType,
                   widthCm: width,
                   heightCm: height,
+                  scheduledAt,
+                  calendarBlockId,
                 });
                 return;
               }
@@ -1338,6 +1447,8 @@ function ProjectCalendarPage() {
                 clientId,
                 title: newTitle.trim(),
                 format: newFormat,
+                scheduledAt,
+                calendarBlockId,
               });
             }}
           >
@@ -1373,6 +1484,46 @@ function ProjectCalendarPage() {
                 onWidthCmChange={setNewWidthCm}
                 onHeightCmChange={setNewHeightCm}
               />
+            ) : null}
+            <div className="space-y-1.5">
+              <Label htmlFor="calendar-content-datetime">
+                {t("project.calendar.columns.datetime")}
+              </Label>
+              <Input
+                id="calendar-content-datetime"
+                type="datetime-local"
+                value={newScheduledLocal}
+                onChange={(e) => setNewScheduledLocal(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("project.calendar.datetimeHint")}
+              </p>
+            </div>
+            {blocks.length > 1 ? (
+              <div className="space-y-1.5">
+                <Label>{t("project.calendar.selectPeriod")}</Label>
+                <Select value={newBlockId || undefined} onValueChange={setNewBlockId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("project.calendar.selectPeriod")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {blocks.map((block) => {
+                      const label =
+                        getLocalizedText(
+                          parseRowI18n(block.i18n),
+                          "title",
+                          block.title,
+                          uiLocale,
+                        ).trim() || t("project.calendar.untitledPeriod");
+                      return (
+                        <SelectItem key={block.id} value={block.id}>
+                          {label}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
             ) : null}
             <DialogFooter>
               <Button
@@ -1524,6 +1675,15 @@ function ProjectCalendarPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MediaLightbox
+        open={Boolean(lightbox)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setLightbox(null);
+        }}
+        items={lightbox?.items ?? []}
+        title={lightbox?.title ?? ""}
+      />
 
       <ApprovalsSummaryDialog
         open={Boolean(approvalsSummaryBlockId)}

@@ -64,6 +64,7 @@ import {
   CLIENT_LOGO_ACCEPT,
   CONTENT_TAB_ENABLED,
   addComment,
+  addProjectTextPreset,
   addProjectThemePreset,
   canManageClient,
   contentFormatsForProject,
@@ -74,8 +75,9 @@ import {
   getGraphicArtsMaterialPreset,
   getProject,
   GRAPHIC_ARTS_MATERIAL_TYPES,
+  contentUsesDedicatedThumbnail,
   isPrintMaterialFormat,
-  isYoutubeVideoFormat,
+  isReelsFormat,
   listComments,
   listVersions,
   resolveContentMediaUrls,
@@ -108,6 +110,7 @@ import {
 } from "@/lib/api";
 import type { LanguageCode } from "@/i18n";
 import { useAppRole } from "@/hooks/use-app-role";
+import { useEntitlements } from "@/hooks/use-entitlements";
 import { useAuth } from "@/hooks/use-auth";
 import { backfillRowsForLocale, useI18nBackfill } from "@/hooks/use-i18n-backfill";
 import {
@@ -215,7 +218,9 @@ function ContentDetailPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
-  const { isAdmin, loading: roleLoading } = useAppRole();
+  const { isAdmin, isClient, loading: roleLoading } = useAppRole();
+  const { entitlements } = useEntitlements();
+  const presetsAllowed = isClient || entitlements.presets;
   const { user } = useAuth();
 
   const [title, setTitle] = useState("");
@@ -311,7 +316,8 @@ function ContentDetailPage() {
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isPrintPiece = isPrintMaterialFormat(formatType);
-  const isYoutubePiece = isYoutubeVideoFormat(formatType);
+  const isReelsPiece = isReelsFormat(formatType);
+  const usesDedicatedThumbnail = contentUsesDedicatedThumbnail(formatType);
   const isCarousel = formatType === "carousel";
   const needsLocucao =
     formatType === "reels" || formatType === "recorded_video" || formatType === "youtube_short";
@@ -527,6 +533,21 @@ function ContentDetailPage() {
     if (payload.field === "versionNote") setVersionNote(payload.display);
   };
 
+  const persistTextPreset = async (field: "cta" | "hashtags", value: string) => {
+    try {
+      await addProjectTextPreset(projectId, field, value);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success(
+        field === "cta"
+          ? t("project.detail.ctaPresetAdded")
+          : t("project.detail.hashtagPresetAdded"),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+      throw err;
+    }
+  };
+
   const translatePresetField = async (field: "cta" | "hashtags" | "theme", value: string) => {
     try {
       const block = await translateTextField({ text: value });
@@ -621,7 +642,7 @@ function ContentDetailPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const urls = await resolveMediaForSave();
-      const nextThumbnail = isYoutubePiece ? await resolveThumbnailForSave() : null;
+      const nextThumbnail = usesDedicatedThumbnail ? await resolveThumbnailForSave() : null;
       const payload = buildSavePayload();
       if (isPrintPiece && (payload.widthCm == null || payload.heightCm == null)) {
         throw new Error(t("project.graphicArts.invalidDimensions"));
@@ -635,7 +656,7 @@ function ContentDetailPage() {
         locucao: payload.locucao,
         roteiro: payload.roteiro,
         mediaUrls: urls,
-        thumbnailUrl: isYoutubePiece ? nextThumbnail : null,
+        thumbnailUrl: usesDedicatedThumbnail ? nextThumbnail : null,
         format: formatType,
         theme: payload.theme,
         materialType: payload.materialType,
@@ -680,7 +701,7 @@ function ContentDetailPage() {
         });
       }
       const urls = await resolveMediaForSave();
-      const nextThumbnail = isYoutubePiece ? await resolveThumbnailForSave() : null;
+      const nextThumbnail = usesDedicatedThumbnail ? await resolveThumbnailForSave() : null;
       return saveContentAsNewVersion({
         contentId,
         clientId,
@@ -692,7 +713,7 @@ function ContentDetailPage() {
         locucao: payload.locucao,
         roteiro: payload.roteiro,
         mediaUrls: urls,
-        thumbnailUrl: isYoutubePiece ? nextThumbnail : null,
+        thumbnailUrl: usesDedicatedThumbnail ? nextThumbnail : null,
         format: formatType,
         theme: payload.theme,
         materialType: payload.materialType,
@@ -1313,6 +1334,19 @@ function ContentDetailPage() {
                   selectLabel={t("project.detail.selectCtaPreset")}
                   emptyPresetsLabel={t("project.detail.noCtaPresets")}
                   labelVariant="highlight"
+                  create={
+                    presetsAllowed
+                      ? {
+                          onCreate: (value) => persistTextPreset("cta", value),
+                          label: t("project.detail.newCta"),
+                          title: t("project.detail.newCtaTitle"),
+                          hint: t("project.detail.newCtaHint"),
+                          placeholder: t("project.detail.ctaPlaceholder"),
+                          saveLabel: t("common.save"),
+                          cancelLabel: t("common.cancel"),
+                        }
+                      : undefined
+                  }
                 />
                 {!isPrintPiece ? (
                   <PresetField
@@ -1326,6 +1360,19 @@ function ContentDetailPage() {
                     emptyPresetsLabel={t("project.detail.noHashtagPresets")}
                     multiple
                     labelVariant="highlight"
+                    create={
+                      presetsAllowed
+                        ? {
+                            onCreate: (value) => persistTextPreset("hashtags", value),
+                            label: t("project.detail.newHashtags"),
+                            title: t("project.detail.newHashtagsTitle"),
+                            hint: t("project.detail.newHashtagsHint"),
+                            placeholder: t("project.detail.hashtagsPlaceholder"),
+                            saveLabel: t("common.save"),
+                            cancelLabel: t("common.cancel"),
+                          }
+                        : undefined
+                    }
                   />
                 ) : null}
               </div>
@@ -1349,11 +1396,13 @@ function ContentDetailPage() {
               ) : null}
               {isAdmin ? (
                 <>
-                  {isYoutubePiece ? (
+                  {usesDedicatedThumbnail ? (
                     <div className="space-y-3">
-                      <Label variant="highlight">{t("project.detail.thumbnail")}</Label>
+                      <Label variant="highlight">
+                        {t(isReelsPiece ? "project.detail.cover" : "project.detail.thumbnail")}
+                      </Label>
                       <p className="text-xs text-muted-foreground">
-                        {t("project.detail.thumbnailHint")}
+                        {t(isReelsPiece ? "project.detail.coverHint" : "project.detail.thumbnailHint")}
                       </p>
                       <input
                         ref={thumbnailFileInputRef}
@@ -1364,7 +1413,13 @@ function ContentDetailPage() {
                           const file = e.target.files?.[0] ?? null;
                           if (file) {
                             if (!file.type.startsWith("image/")) {
-                              toast.error(t("project.detail.thumbnailImageOnly"));
+                              toast.error(
+                                t(
+                                  isReelsPiece
+                                    ? "project.detail.coverImageOnly"
+                                    : "project.detail.thumbnailImageOnly",
+                                ),
+                              );
                             } else {
                               setThumbnailFromFile(file);
                             }
@@ -1379,7 +1434,7 @@ function ContentDetailPage() {
                           size="sm"
                           onClick={() => thumbnailFileInputRef.current?.click()}
                         >
-                          {t("project.detail.thumbnailUpload")}
+                          {t(isReelsPiece ? "project.detail.coverUpload" : "project.detail.thumbnailUpload")}
                         </Button>
                         {previewThumbnailUrl ? (
                           <Button
@@ -1391,7 +1446,7 @@ function ContentDetailPage() {
                               setThumbnailUrl("");
                             }}
                           >
-                            {t("project.detail.thumbnailRemove")}
+                            {t(isReelsPiece ? "project.detail.coverRemove" : "project.detail.thumbnailRemove")}
                           </Button>
                         ) : null}
                       </div>
@@ -1400,7 +1455,10 @@ function ContentDetailPage() {
                           <img
                             src={previewThumbnailUrl}
                             alt=""
-                            className="aspect-video max-h-40 w-full object-cover"
+                            className={cn(
+                              "w-full object-cover",
+                              isReelsPiece ? "aspect-[4/5] max-h-56" : "aspect-video max-h-40",
+                            )}
                           />
                         </div>
                       ) : null}

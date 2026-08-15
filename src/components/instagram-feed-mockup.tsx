@@ -70,6 +70,8 @@ function mergeVisibleListOrder(
 }
 
 function coverUrl(item: ContentItem) {
+  const dedicated = item.thumbnail_url?.trim();
+  if (dedicated) return dedicated;
   return resolveContentMediaUrls(item)[0] ?? null;
 }
 

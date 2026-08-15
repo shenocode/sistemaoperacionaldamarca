@@ -1,15 +1,34 @@
-import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
+type PresetCreateConfig = {
+  onCreate: (value: string) => void | Promise<void>;
+  label: string;
+  title: string;
+  hint: string;
+  placeholder: string;
+  saveLabel: string;
+  cancelLabel: string;
+};
 
 type PresetFieldProps = {
   id: string;
@@ -24,6 +43,7 @@ type PresetFieldProps = {
   /** When true, presets can be toggled on/off and combined in the value. */
   multiple?: boolean;
   labelVariant?: "default" | "highlight";
+  create?: PresetCreateConfig;
 };
 
 function normalizeSpaces(text: string) {
@@ -55,6 +75,12 @@ function togglePreset(value: string, preset: string, checked: boolean) {
   );
 }
 
+function isExistingPreset(presets: string[], value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return presets.some((preset) => preset.trim().toLowerCase() === normalized);
+}
+
 export function PresetField({
   id,
   label,
@@ -67,8 +93,41 @@ export function PresetField({
   emptyPresetsLabel,
   multiple = false,
   labelVariant = "default",
+  create,
 }: PresetFieldProps) {
-  const hasPresets = presets.length > 0;
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [creating, setCreating] = useState(false);
+  const canCreate = Boolean(create) && !disabled;
+  const showMenu = presets.length > 0 || canCreate;
+
+  const openCreate = () => {
+    const trimmed = value.trim();
+    setDraft(trimmed && !isExistingPreset(presets, trimmed) ? trimmed : "");
+    setDialogOpen(true);
+  };
+
+  const closeCreate = () => {
+    if (creating) return;
+    setDialogOpen(false);
+    setDraft("");
+  };
+
+  const submitCreate = async () => {
+    const next = draft.trim();
+    if (!next || !create) return;
+    setCreating(true);
+    try {
+      await create.onCreate(next);
+      onChange(multiple ? togglePreset(value, next, true) : next);
+      setDialogOpen(false);
+      setDraft("");
+    } catch {
+      // Parent surfaces the error; keep the dialog open to retry.
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="space-y-1.5">
@@ -82,9 +141,9 @@ export function PresetField({
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
           disabled={disabled}
-          className={cn(hasPresets && "rounded-r-none")}
+          className={cn(showMenu && "rounded-r-none")}
         />
-        {hasPresets ? (
+        {showMenu ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -122,12 +181,71 @@ export function PresetField({
                       {preset}
                     </DropdownMenuItem>
                   ))}
+              {canCreate && create ? (
+                <>
+                  {presets.length > 0 ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuItem onSelect={openCreate}>
+                    <Plus className="h-4 w-4" />
+                    {create.label}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
       </div>
-      {!hasPresets && !disabled ? (
+      {presets.length === 0 && !disabled ? (
         <p className="text-xs text-muted-foreground">{emptyPresetsLabel}</p>
+      ) : null}
+
+      {create ? (
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            if (!open) closeCreate();
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{create.title}</DialogTitle>
+            </DialogHeader>
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitCreate();
+              }}
+            >
+              <div className="space-y-1.5">
+                <Label htmlFor={`${id}-new-preset`}>{label}</Label>
+                <Input
+                  id={`${id}-new-preset`}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={create.placeholder}
+                  autoFocus
+                  required
+                  disabled={creating}
+                />
+                <p className="text-xs text-muted-foreground">{create.hint}</p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={creating}
+                  onClick={closeCreate}
+                >
+                  {create.cancelLabel}
+                </Button>
+                <Button type="submit" disabled={creating || !draft.trim()}>
+                  <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {create.saveLabel}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );

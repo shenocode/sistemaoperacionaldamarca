@@ -405,7 +405,7 @@ function ContentListPage() {
                         <GripVertical className="h-4 w-4" aria-hidden="true" />
                       </span>
                     ) : null}
-                    {r.media_url ? (
+                    {r.thumbnail_url || r.media_url ? (
                       <button
                         type="button"
                         onClick={() => openMediaLightbox(r)}
@@ -413,7 +413,7 @@ function ContentListPage() {
                         className="shrink-0 cursor-zoom-in rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <img
-                          src={r.media_url}
+                          src={r.thumbnail_url?.trim() || r.media_url || ""}
                           alt=""
                           className="h-12 w-12 rounded-md object-cover"
                         />
@@ -565,7 +565,7 @@ function ContentListPage() {
                         </td>
                       ) : null}
                       <td className="px-4 py-3">
-                        {r.media_url ? (
+                        {r.thumbnail_url || r.media_url ? (
                           <button
                             type="button"
                             onClick={() => openMediaLightbox(r)}
@@ -573,7 +573,7 @@ function ContentListPage() {
                             className="cursor-zoom-in rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <img
-                              src={r.media_url}
+                              src={r.thumbnail_url?.trim() || r.media_url || ""}
                               alt=""
                               className="h-10 w-10 rounded-md object-cover"
                             />
