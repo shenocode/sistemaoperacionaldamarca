@@ -59,6 +59,7 @@ export {
   setLocalizedField,
   mergeRowI18n,
   buildLocalizedFieldFromSource,
+  isLocalizedField,
   getLocalizedAnswer,
   setLocalizedAnswer,
   getLocalizedPresetList,

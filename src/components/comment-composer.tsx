@@ -70,6 +70,7 @@ export function CommentComposer({
       ) : recorder.status === "recorded" && recorder.previewUrl ? (
         <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-background px-2 py-1.5">
           <audio
+            key={recorder.previewUrl}
             controls
             preload="metadata"
             src={recorder.previewUrl}
@@ -94,10 +95,11 @@ export function CommentComposer({
             aria-label={t("project.detail.send")}
             disabled={busy || !canSendAudio}
             onClick={() => {
-              if (!recorder.audioBlob) return;
+              const blob = recorder.audioBlob;
+              if (!blob) return;
               void (async () => {
                 try {
-                  await onSubmitAudio(recorder.audioBlob!);
+                  await onSubmitAudio(blob);
                   recorder.reset();
                 } catch {
                   /* parent shows toast */
@@ -169,6 +171,7 @@ export function CommentBody({ body, audioUrl, className }: CommentBodyProps) {
     <div className={cn("space-y-2", className)}>
       {audio ? (
         <audio
+          key={audio}
           controls
           preload="metadata"
           src={audio}

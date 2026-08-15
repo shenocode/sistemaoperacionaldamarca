@@ -101,6 +101,7 @@ import {
   translateTextField,
   translateManyFields,
   buildLocalizedFieldFromSource,
+  isLocalizedField,
   type ContentFormat,
   type ContentVersion,
   type CommentWithAuthor,
@@ -138,6 +139,20 @@ type MediaEntry =
 
 function createMediaId() {
   return crypto.randomUUID();
+}
+
+function fileNameFromStoredMediaUrl(url: string) {
+  const raw = url.trim();
+  if (!raw) return "";
+  let last = raw;
+  try {
+    last = decodeURIComponent(new URL(raw).pathname.split("/").filter(Boolean).pop() ?? raw);
+  } catch {
+    last = decodeURIComponent(raw.split("/").filter(Boolean).pop() ?? raw);
+  }
+  return (
+    last.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, "") || last
+  );
 }
 
 function mediaEntriesFromUrls(urls: string[]): MediaEntry[] {
@@ -329,6 +344,9 @@ function ContentDetailPage() {
   }, [themePresets, theme, i18n.language]);
   const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
   const previewThumbnailUrl = thumbnailBlobUrl || thumbnailUrl.trim() || null;
+  const coverFileName =
+    thumbnailFile?.name ||
+    (thumbnailUrl.trim() ? fileNameFromStoredMediaUrl(thumbnailUrl) : "");
   const previewItems: PreviewMediaItem[] = mediaItems
     .map((item) => {
       if (item.kind === "url") return { url: item.url };
@@ -548,24 +566,69 @@ function ContentDetailPage() {
     }
   };
 
+  const themePresetBlock = (display: string): LocalizedField | null => {
+    const index = themePresets.findIndex((preset) => preset === display);
+    if (index < 0) return null;
+    const raw = projectI18n.theme_presets;
+    if (!Array.isArray(raw)) return null;
+    const item = raw[index];
+    return isLocalizedField(item) ? item : null;
+  };
+
   const translatePresetField = async (field: "cta" | "hashtags" | "theme", value: string) => {
     try {
       const block = await translateTextField({ text: value });
-      const merged = setLocalizedField(rowI18n, field, block);
-      setRowI18n(merged);
-      const display = getLocalizedText(merged, field, value, uiLocale);
+      setRowI18n((prev) => setLocalizedField(prev, field, block));
+      const display = getLocalizedText({ [field]: block }, field, value, uiLocale);
       if (field === "cta") setCta(display);
       if (field === "hashtags") setHashtags(display);
       if (field === "theme") setTheme(display);
     } catch {
-      const block = buildLocalizedFieldFromSource(value, uiLocale);
-      setRowI18n(setLocalizedField(rowI18n, field, block));
+      setRowI18n((prev) =>
+        setLocalizedField(prev, field, buildLocalizedFieldFromSource(value, uiLocale)),
+      );
     }
+  };
+
+  const applyThemeSelection = (nextDisplay: string) => {
+    const trimmed = nextDisplay.trim();
+    setTheme(trimmed);
+    if (!trimmed) {
+      setRowI18n((prev) => {
+        const { theme: _omit, ...rest } = prev;
+        return rest;
+      });
+      return;
+    }
+    const presetBlock = themePresetBlock(trimmed);
+    if (presetBlock) {
+      setRowI18n((prev) => setLocalizedField(prev, "theme", presetBlock));
+      return;
+    }
+    setRowI18n((prev) =>
+      setLocalizedField(prev, "theme", buildLocalizedFieldFromSource(trimmed, uiLocale)),
+    );
+    void translatePresetField("theme", trimmed);
   };
 
   const buildSavePayload = () => {
     // versionNote is only for change_note on new versions — never persist on content.i18n
-    const { versionNote: _omitVersionNote, ...i18nPayload } = rowI18n;
+    const { versionNote: _omitVersionNote, ...baseI18n } = rowI18n;
+    const displayTheme = theme.trim();
+    const i18nThemeDisplay = getLocalizedText(baseI18n, "theme", "", uiLocale).trim();
+    let i18nPayload = baseI18n;
+    if (displayTheme !== i18nThemeDisplay) {
+      if (!displayTheme) {
+        const { theme: _omitTheme, ...rest } = i18nPayload;
+        i18nPayload = rest;
+      } else {
+        i18nPayload = setLocalizedField(
+          i18nPayload,
+          "theme",
+          themePresetBlock(displayTheme) ?? buildLocalizedFieldFromSource(displayTheme, uiLocale),
+        );
+      }
+    }
     const parsedWidth = parseCmInput(widthCm);
     const parsedHeight = parseCmInput(heightCm);
     return {
@@ -575,7 +638,9 @@ function ContentDetailPage() {
       hashtags: isPrintPiece ? "" : getCanonicalText(i18nPayload, "hashtags", hashtags),
       locucao: getCanonicalText(i18nPayload, "locucao", locucao),
       roteiro: getCanonicalText(i18nPayload, "roteiro", roteiro),
-      theme: getCanonicalText(i18nPayload, "theme", theme.trim()) || null,
+      theme: displayTheme
+        ? getCanonicalText(i18nPayload, "theme", displayTheme) || null
+        : null,
       materialType: isPrintPiece ? materialType : null,
       widthCm: isPrintPiece ? parsedWidth : null,
       heightCm: isPrintPiece ? parsedHeight : null,
@@ -745,7 +810,7 @@ function ContentDetailPage() {
       return nextTheme;
     },
     onSuccess: (nextTheme) => {
-      setTheme(nextTheme);
+      applyThemeSelection(nextTheme);
       setThemeDialogOpen(false);
       setNewTheme("");
       queryClient.invalidateQueries({ queryKey: ["projects", "detail", projectId] });
@@ -839,8 +904,11 @@ function ContentDetailPage() {
 
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: string) => deleteComment(commentId),
-    onSuccess: () => {
+    onSuccess: (_void, commentId) => {
       setDeleteCommentId(null);
+      queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
+        (prev ?? []).filter((c) => c.id !== commentId),
+      );
       invalidateAll();
       toast.success(t("project.detail.commentDeleted"));
     },
@@ -1207,7 +1275,7 @@ function ContentDetailPage() {
                           setThemeDialogOpen(true);
                           return;
                         }
-                        setTheme(value === NONE_THEME_VALUE ? "" : value);
+                        applyThemeSelection(value === NONE_THEME_VALUE ? "" : value);
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -1451,16 +1519,19 @@ function ContentDetailPage() {
                         ) : null}
                       </div>
                       {previewThumbnailUrl ? (
-                        <div className="overflow-hidden rounded-lg border bg-muted/20">
-                          <img
-                            src={previewThumbnailUrl}
-                            alt=""
-                            className={cn(
-                              "w-full object-cover",
-                              isReelsPiece ? "aspect-[4/5] max-h-56" : "aspect-video max-h-40",
-                            )}
-                          />
-                        </div>
+                        isReelsPiece ? (
+                          <p className="truncate text-xs text-muted-foreground" title={coverFileName}>
+                            {coverFileName}
+                          </p>
+                        ) : (
+                          <div className="overflow-hidden rounded-lg border bg-muted/20">
+                            <img
+                              src={previewThumbnailUrl}
+                              alt=""
+                              className="aspect-video max-h-40 w-full object-cover"
+                            />
+                          </div>
+                        )
                       ) : null}
                     </div>
                   ) : null}
