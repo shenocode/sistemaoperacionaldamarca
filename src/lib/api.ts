@@ -313,6 +313,7 @@ export function normalizeProjectCategories(values?: string[] | null): ProjectCat
 }
 
 export const CONTENT_MEDIA_BUCKET = "content-media";
+export const MEDIA_MAX_BYTES = 150 * 1024 * 1024;
 export const CLIENT_LOGOS_BUCKET = "client-logos";
 export const GESTOR_LOGOS_BUCKET = "gestor-logos";
 export const PROPOSAL_COVERS_BUCKET = "proposal-covers";
@@ -355,6 +356,9 @@ function sanitizeFileName(name: string) {
 }
 
 export async function uploadContentMedia(projectId: string, file: File) {
+  if (file.size > MEDIA_MAX_BYTES) {
+    throw new Error("O arquivo deve ter no máximo 150 MB.");
+  }
   const safeName = sanitizeFileName(file.name || "arquivo");
   const storagePath = `${projectId}/${crypto.randomUUID()}-${safeName}`;
   const { error } = await supabase.storage.from(CONTENT_MEDIA_BUCKET).upload(storagePath, file, {
@@ -3664,6 +3668,7 @@ export async function generateSitePrd(
 // —— Library ——
 
 export const LIBRARY_BUCKET = "library-assets";
+export const LIBRARY_MAX_BYTES = MEDIA_MAX_BYTES;
 
 export const LIBRARY_ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.heic,.heif,.mp4,.webm,.mov,.avi,.txt,.md,.csv,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,image/*,video/*,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -3709,6 +3714,9 @@ export async function listLibraryAssets(clientId: string) {
 }
 
 async function uploadLibraryFile(clientId: string, file: File) {
+  if (file.size > LIBRARY_MAX_BYTES) {
+    throw new Error("O arquivo deve ter no máximo 150 MB.");
+  }
   const safeName = sanitizeFileName(file.name || "arquivo");
   const storagePath = `${clientId}/${crypto.randomUUID()}-${safeName}`;
   const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
