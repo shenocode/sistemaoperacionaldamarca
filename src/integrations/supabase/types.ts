@@ -1116,15 +1116,15 @@ export type Database = {
       }
       save_client_content_version: {
         Args: {
-          _caption: string
-          _change_note?: string
+          _caption?: string | null
+          _change_note?: string | null
           _content_id: string
-          _cta: string
-          _format?: Database["public"]["Enums"]["content_format"]
-          _hashtags: string
-          _locucao?: string
-          _theme?: string
-          _title?: string
+          _cta?: string | null
+          _format?: Database["public"]["Enums"]["content_format"] | null
+          _hashtags?: string | null
+          _locucao?: string | null
+          _theme?: string | null
+          _title?: string | null
         }
         Returns: {
           calendar_block_id: string | null

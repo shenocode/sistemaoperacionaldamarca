@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +50,16 @@ function normalizeSpaces(text: string) {
   return text.trim().replace(/\s+/g, " ");
 }
 
+function tokensOf(text: string) {
+  return normalizeSpaces(text).split(" ").filter(Boolean);
+}
+
 function isPresetSelected(value: string, preset: string) {
   const normalizedPreset = normalizeSpaces(preset);
   if (!normalizedPreset) return false;
+  if (!normalizedPreset.includes(" ")) {
+    return tokensOf(value).includes(normalizedPreset);
+  }
   return ` ${normalizeSpaces(value)} `.includes(` ${normalizedPreset} `);
 }
 
@@ -60,6 +67,15 @@ function togglePreset(value: string, preset: string, checked: boolean) {
   const normalizedValue = normalizeSpaces(value);
   const normalizedPreset = normalizeSpaces(preset);
   if (!normalizedPreset) return normalizedValue;
+
+  if (!normalizedPreset.includes(" ")) {
+    const tokens = tokensOf(normalizedValue);
+    const has = tokens.includes(normalizedPreset);
+    if (checked) {
+      return has ? normalizedValue : [...tokens, normalizedPreset].join(" ");
+    }
+    return tokens.filter((token) => token !== normalizedPreset).join(" ");
+  }
 
   if (checked) {
     if (isPresetSelected(normalizedValue, normalizedPreset)) return normalizedValue;
@@ -98,8 +114,15 @@ export function PresetField({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [creating, setCreating] = useState(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const canCreate = Boolean(create) && !disabled;
   const showMenu = presets.length > 0 || canCreate;
+
+  const applyValue = (next: string) => {
+    valueRef.current = next;
+    onChange(next);
+  };
 
   const openCreate = () => {
     const trimmed = value.trim();
@@ -119,7 +142,7 @@ export function PresetField({
     setCreating(true);
     try {
       await create.onCreate(next);
-      onChange(multiple ? togglePreset(value, next, true) : next);
+      applyValue(multiple ? togglePreset(valueRef.current, next, true) : next);
       setDialogOpen(false);
       setDraft("");
     } catch {
@@ -138,7 +161,7 @@ export function PresetField({
         <Input
           id={id}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => applyValue(e.target.value)}
           onBlur={onBlur}
           disabled={disabled}
           className={cn(showMenu && "rounded-r-none")}
@@ -165,7 +188,9 @@ export function PresetField({
                       className="whitespace-normal break-words"
                       checked={isPresetSelected(value, preset)}
                       onCheckedChange={(checked) =>
-                        onChange(togglePreset(value, preset, checked === true))
+                        applyValue(
+                          togglePreset(valueRef.current, preset, checked === true),
+                        )
                       }
                       onSelect={(event) => event.preventDefault()}
                     >
@@ -176,7 +201,7 @@ export function PresetField({
                     <DropdownMenuItem
                       key={preset}
                       className="whitespace-normal break-words"
-                      onSelect={() => onChange(preset)}
+                      onSelect={() => applyValue(preset)}
                     >
                       {preset}
                     </DropdownMenuItem>

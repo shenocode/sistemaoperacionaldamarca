@@ -38,6 +38,8 @@ import {
 } from "@/components/content-media-preview";
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { ContentDesignAssistant } from "@/components/content-design-assistant";
+import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
+import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
 import { CommentBody, CommentComposer } from "@/components/comment-composer";
 import { PresetField } from "@/components/preset-field";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
@@ -73,7 +75,10 @@ import {
   getClient,
   getContent,
   getGraphicArtsMaterialPreset,
+  getPrimaryProjectCategory,
   getProject,
+  listContent,
+  projectCategoryConfig,
   GRAPHIC_ARTS_MATERIAL_TYPES,
   contentUsesDedicatedThumbnail,
   isPrintMaterialFormat,
@@ -103,6 +108,7 @@ import {
   buildLocalizedFieldFromSource,
   isLocalizedField,
   type ContentFormat,
+  type ContentItem,
   type ContentVersion,
   type CommentWithAuthor,
   type GraphicArtsMaterialType,
@@ -220,6 +226,26 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
   return next;
 }
 
+/** If the visible field diverged from i18n (e.g. hashtag toggles without blur), persist the display. */
+function syncI18nDisplayField(
+  payload: RowI18n,
+  field: string,
+  display: string,
+  locale: string,
+): RowI18n {
+  const i18nDisplay = getLocalizedText(payload, field, "", locale);
+  if (display === i18nDisplay) return payload;
+  if (!display.trim()) {
+    const { [field]: _omit, ...rest } = payload;
+    return rest;
+  }
+  return setLocalizedField(
+    payload,
+    field,
+    buildLocalizedFieldFromSource(display, locale),
+  );
+}
+
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/content/$contentId",
 )({
@@ -274,6 +300,11 @@ function ContentDetailPage() {
   const [viewingVersion, setViewingVersion] = useState<ContentVersion | null>(null);
   const mediaFileInputRef = useRef<HTMLInputElement>(null);
   const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
+  const presetTranslateSeq = useRef({ cta: 0, hashtags: 0, theme: 0 });
+  const ctaRef = useRef(cta);
+  const hashtagsRef = useRef(hashtags);
+  ctaRef.current = cta;
+  hashtagsRef.current = hashtags;
 
   const contentQuery = useQuery({
     queryKey: ["content", "detail", contentId],
@@ -305,6 +336,11 @@ function ContentDetailPage() {
     queryFn: () => getProject(projectId),
   });
 
+  const projectContentQuery = useQuery({
+    queryKey: ["content", projectId],
+    queryFn: () => listContent(projectId),
+  });
+
   const content = contentQuery.data;
   const client = clientQuery.data;
   const projectI18n = parseRowI18n(projectQuery.data?.i18n);
@@ -328,6 +364,19 @@ function ContentDetailPage() {
     uiLocale,
   );
   const allowedFormats = contentFormatsForProject(projectQuery.data?.categories);
+  const showFeedMockup =
+    Boolean(projectQuery.data) &&
+    projectCategoryConfig(projectQuery.data?.categories).tabs.includes("feed");
+  const isVideosProject =
+    getPrimaryProjectCategory(projectQuery.data?.categories) === "videos";
+  const feedItems = useMemo(() => {
+    return [...(projectContentQuery.data ?? [])].sort((a: ContentItem, b: ContentItem) => {
+      const aOrder = a.sort_order ?? 0;
+      const bOrder = b.sort_order ?? 0;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.title.localeCompare(b.title);
+    });
+  }, [projectContentQuery.data]);
   const canManage = manageQuery.data ?? false;
   const status = (content?.status ?? "draft") as ContentStatus;
   const isPrintPiece = isPrintMaterialFormat(formatType);
@@ -575,15 +624,30 @@ function ContentDetailPage() {
     return isLocalizedField(item) ? item : null;
   };
 
+  const handlePresetChange = (field: "cta" | "hashtags", value: string) => {
+    presetTranslateSeq.current[field] += 1;
+    const block = buildLocalizedFieldFromSource(value, uiLocale);
+    onFieldI18nCommit({
+      field,
+      display: value,
+      canonical: value,
+      block,
+      i18n: setLocalizedField(rowI18n, field, block),
+    });
+  };
+
   const translatePresetField = async (field: "cta" | "hashtags" | "theme", value: string) => {
+    const seq = ++presetTranslateSeq.current[field];
     try {
       const block = await translateTextField({ text: value });
+      if (seq !== presetTranslateSeq.current[field]) return;
       setRowI18n((prev) => setLocalizedField(prev, field, block));
       const display = getLocalizedText({ [field]: block }, field, value, uiLocale);
       if (field === "cta") setCta(display);
       if (field === "hashtags") setHashtags(display);
       if (field === "theme") setTheme(display);
     } catch {
+      if (seq !== presetTranslateSeq.current[field]) return;
       setRowI18n((prev) =>
         setLocalizedField(prev, field, buildLocalizedFieldFromSource(value, uiLocale)),
       );
@@ -629,6 +693,10 @@ function ContentDetailPage() {
         );
       }
     }
+    i18nPayload = syncI18nDisplayField(i18nPayload, "cta", cta, uiLocale);
+    i18nPayload = isPrintPiece
+      ? syncI18nDisplayField(i18nPayload, "hashtags", "", uiLocale)
+      : syncI18nDisplayField(i18nPayload, "hashtags", hashtags, uiLocale);
     const parsedWidth = parseCmInput(widthCm);
     const parsedHeight = parseCmInput(heightCm);
     return {
@@ -1396,8 +1464,8 @@ function ContentDetailPage() {
                       : t("project.detail.cta")
                   }
                   value={cta}
-                  onChange={setCta}
-                  onBlur={() => void translatePresetField("cta", cta)}
+                  onChange={(value) => handlePresetChange("cta", value)}
+                  onBlur={() => void translatePresetField("cta", ctaRef.current)}
                   presets={ctaPresets}
                   selectLabel={t("project.detail.selectCtaPreset")}
                   emptyPresetsLabel={t("project.detail.noCtaPresets")}
@@ -1421,8 +1489,8 @@ function ContentDetailPage() {
                     id="hashtags"
                     label={t("project.detail.hashtags")}
                     value={hashtags}
-                    onChange={setHashtags}
-                    onBlur={() => void translatePresetField("hashtags", hashtags)}
+                    onChange={(value) => handlePresetChange("hashtags", value)}
+                    onBlur={() => void translatePresetField("hashtags", hashtagsRef.current)}
                     presets={hashtagPresets}
                     selectLabel={t("project.detail.selectHashtagPreset")}
                     emptyPresetsLabel={t("project.detail.noHashtagPresets")}
@@ -1724,72 +1792,96 @@ function ContentDetailPage() {
           </Card>
         </div>
 
-        <Card className="h-fit rounded-xl">
-          <CardHeader>
-            <CardTitle className="text-base">{t("project.detail.versions")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-3">
-              {(versionsQuery.data ?? []).map((v) => {
-                const isCurrent = v.version_number === content.current_version;
-                const isViewing = viewingVersion?.id === v.id;
-                return (
-                  <li
-                    key={v.id}
-                    className={cn(
-                      "overflow-hidden rounded-md border text-sm transition-colors",
-                      isViewing && "border-primary bg-muted/30",
-                    )}
-                  >
-                    <button
-                      type="button"
-                      aria-label={t("project.detail.viewVersionAria", {
-                        number: v.version_number,
-                      })}
-                      className="w-full space-y-2 p-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
-                      onClick={() => setViewingVersion(v)}
+        <div className="space-y-6">
+          <Card className="h-fit rounded-xl">
+            <CardHeader>
+              <CardTitle className="text-base">{t("project.detail.versions")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="space-y-3">
+                {(versionsQuery.data ?? []).map((v) => {
+                  const isCurrent = v.version_number === content.current_version;
+                  const isViewing = viewingVersion?.id === v.id;
+                  return (
+                    <li
+                      key={v.id}
+                      className={cn(
+                        "overflow-hidden rounded-md border text-sm transition-colors",
+                        isViewing && "border-primary bg-muted/30",
+                      )}
                     >
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                        <span className="min-w-0 font-medium">
-                          {t("project.detail.version")} {v.version_number}
-                          {isCurrent ? (
-                            <span className="ml-2 text-xs text-primary">
-                              ({t("project.detail.current")})
-                            </span>
-                          ) : null}
+                      <button
+                        type="button"
+                        aria-label={t("project.detail.viewVersionAria", {
+                          number: v.version_number,
+                        })}
+                        className="w-full space-y-2 p-3 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                        onClick={() => setViewingVersion(v)}
+                      >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                          <span className="min-w-0 font-medium">
+                            {t("project.detail.version")} {v.version_number}
+                            {isCurrent ? (
+                              <span className="ml-2 text-xs text-primary">
+                                ({t("project.detail.current")})
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {format(new Date(v.created_at), "dd MMM yyyy HH:mm", { locale })}
+                          </span>
+                        </div>
+                        {v.change_note ? (
+                          <p className="text-xs text-muted-foreground">{v.change_note}</p>
+                        ) : null}
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                          {t("project.detail.viewVersion")}
                         </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {format(new Date(v.created_at), "dd MMM yyyy HH:mm", { locale })}
-                        </span>
-                      </div>
-                      {v.change_note ? (
-                        <p className="text-xs text-muted-foreground">{v.change_note}</p>
+                      </button>
+                      {isAdmin && !isCurrent ? (
+                        <div className="border-t px-3 py-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            disabled={restoreMutation.isPending}
+                            onClick={() => restoreMutation.mutate(v)}
+                          >
+                            {t("project.detail.restore")}
+                          </Button>
+                        </div>
                       ) : null}
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                        {t("project.detail.viewVersion")}
-                      </span>
-                    </button>
-                    {isAdmin && !isCurrent ? (
-                      <div className="border-t px-3 py-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2"
-                          disabled={restoreMutation.isPending}
-                          onClick={() => restoreMutation.mutate(v)}
-                        >
-                          {t("project.detail.restore")}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ol>
-          </CardContent>
-        </Card>
+                    </li>
+                  );
+                })}
+              </ol>
+            </CardContent>
+          </Card>
+
+          {showFeedMockup ? (
+            isVideosProject ? (
+              <YouTubeChannelMockup
+                items={feedItems}
+                clientId={clientId}
+                projectId={projectId}
+                username={client?.name}
+                avatarUrl={client?.logo_url}
+                className="mx-auto w-full"
+              />
+            ) : (
+              <InstagramFeedMockup
+                items={feedItems}
+                clientId={clientId}
+                projectId={projectId}
+                username={client?.name}
+                avatarUrl={client?.logo_url}
+                className="mx-auto w-full"
+              />
+            )
+          ) : null}
+        </div>
       </div>
 
       <Dialog

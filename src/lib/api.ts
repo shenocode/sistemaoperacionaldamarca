@@ -4384,14 +4384,14 @@ export async function saveClientContentVersion(input: {
 }): Promise<ContentItem> {
   const { data, error } = await supabase.rpc("save_client_content_version", {
     _content_id: input.contentId,
-    _caption: input.caption,
-    _cta: input.cta,
-    _hashtags: input.hashtags,
-    _change_note: input.changeNote?.trim() || undefined,
-    ...(input.title !== undefined ? { _title: input.title } : {}),
-    ...(input.format !== undefined ? { _format: input.format } : {}),
-    ...(input.theme !== undefined ? { _theme: input.theme?.trim() ?? "" } : {}),
-    ...(input.locucao !== undefined ? { _locucao: input.locucao } : {}),
+    _caption: input.caption ?? null,
+    _cta: input.cta ?? null,
+    _hashtags: input.hashtags ?? null,
+    _change_note: input.changeNote?.trim() || null,
+    _title: input.title ?? null,
+    _format: input.format ?? null,
+    _theme: input.theme !== undefined ? (input.theme?.trim() ?? "") : null,
+    _locucao: input.locucao ?? null,
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");
