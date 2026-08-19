@@ -84,9 +84,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ? t("nav.roleGestor")
         : t("nav.roleClient");
 
-  const roleBadge = roleLabel ? (
-    <p className="mt-3 text-xs tracking-wide text-muted-foreground">{roleLabel}</p>
-  ) : null;
+  const profileLinkClass =
+    "mt-3 -mx-1 inline-flex items-center gap-2 rounded-md px-1 py-1.5 text-xs tracking-wide text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+  const profileLinkActiveClass =
+    "mt-3 -mx-1 inline-flex items-center gap-2 rounded-md bg-sidebar-accent px-1 py-1.5 text-xs tracking-wide text-sidebar-accent-foreground hover:bg-sidebar-accent";
+
+  const profileLabel = roleLabel
+    ? t("nav.profileWithRole", { role: roleLabel })
+    : null;
+
+  const profileLink = !profileLabel ? null : isAdmin ? (
+    <Link
+      to="/profile"
+      onClick={closeMobileNav}
+      className={profileLinkClass}
+      activeProps={{ className: profileLinkActiveClass }}
+    >
+      <User className="h-3.5 w-3.5 shrink-0" />
+      {profileLabel}
+    </Link>
+  ) : (
+    <Link
+      to="/settings"
+      onClick={closeMobileNav}
+      className={profileLinkClass}
+      activeProps={{ className: profileLinkActiveClass }}
+    >
+      <User className="h-3.5 w-3.5 shrink-0" />
+      {profileLabel}
+    </Link>
+  );
 
   const navLinks = (
     <>
@@ -126,14 +153,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <UserPlus className="h-4 w-4" /> {t("nav.team")}
             </Link>
           ) : null}
-          <Link
-            to="/profile"
-            onClick={closeMobileNav}
-            className={navClass}
-            activeProps={{ className: navActiveClass }}
-          >
-            <User className="h-4 w-4" /> {t("nav.settings")}
-          </Link>
           <Link
             to="/settings"
             onClick={closeMobileNav}
@@ -205,14 +224,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           )}
           <Link
-            to="/settings"
-            onClick={closeMobileNav}
-            className={navClass}
-            activeProps={{ className: navActiveClass }}
-          >
-            <Settings className="h-4 w-4" /> {t("nav.settings")}
-          </Link>
-          <Link
             to="/help"
             onClick={closeMobileNav}
             className={navClass}
@@ -239,7 +250,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-60 shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col">
         <div className="border-b px-6 py-4">
           {brandLogo}
-          {roleBadge}
+          {profileLink}
           <LanguageSwitcher className="mt-3 w-full" />
         </div>
         <nav className="flex-1 space-y-1 p-3">{navLinks}</nav>
@@ -279,7 +290,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
               </SheetTitle>
               <SheetDescription className="sr-only">{t("app.fullName")}</SheetDescription>
-              {roleBadge}
+              {profileLink}
               <LanguageSwitcher className="mt-3 w-full" />
             </SheetHeader>
             <nav className="flex-1 space-y-1 overflow-y-auto p-3">{navLinks}</nav>

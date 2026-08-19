@@ -19,7 +19,8 @@
     "openMenu": "Abrir menú",
     "roleClient": "Cliente",
     "roleGestor": "Gestor",
-    "roleAdmin": "Admin"
+    "roleAdmin": "Admin",
+    "profileWithRole": "Mi perfil / {{role}}"
   },
   "auth": {
     "signIn": "Entrar",
