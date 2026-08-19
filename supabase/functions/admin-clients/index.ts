@@ -17,6 +17,7 @@ import {
   isEmailAlreadyRegistered,
   pickActiveSubscription,
   requireAuthedUser,
+  setAuthUserPassword,
   type SubscriptionRow,
 } from "../_shared/admin-clients.ts";
 
@@ -36,11 +37,7 @@ async function ensureAuthUser(
   let userId = await findUserIdByEmail(admin, email);
 
   if (userId) {
-    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
-      password,
-      email_confirm: true,
-    });
-    if (updateError) throw new Error(updateError.message);
+    await setAuthUserPassword(admin, userId, password);
     return { userId, created: false };
   }
 
@@ -59,11 +56,7 @@ async function ensureAuthUser(
     if (!userId) {
       throw new Error("Usuário já existe, mas não foi possível localizá-lo.");
     }
-    const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
-      password,
-      email_confirm: true,
-    });
-    if (updateError) throw new Error(updateError.message);
+    await setAuthUserPassword(admin, userId, password);
     return { userId, created: false };
   }
 

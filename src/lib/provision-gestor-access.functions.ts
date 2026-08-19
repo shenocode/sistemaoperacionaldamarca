@@ -6,6 +6,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const provisionInput = z.object({
   email: z.string().trim().email(),
   password: z.string().min(6),
+  userId: z.string().uuid().optional(),
   fullName: z.string().trim().optional(),
   whatsapp: z
     .string()

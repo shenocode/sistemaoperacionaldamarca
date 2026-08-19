@@ -25,23 +25,51 @@ export function createClients(authHeader: string) {
   return { supabase, admin };
 }
 
+function userEmailMatches(user: any, target: string): boolean {
+  if ((user?.email ?? "").toLowerCase() === target) return true;
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+  return identities.some(
+    (identity: any) => (identity?.identity_data?.email ?? "").toLowerCase() === target,
+  );
+}
+
 export async function findUserIdByEmail(
   admin: AnyClient,
   email: string,
 ): Promise<string | null> {
   const target = email.trim().toLowerCase();
+  const adminApi = admin.auth.admin as any;
+  if (typeof adminApi.getUserByEmail === "function") {
+    const { data, error } = await adminApi.getUserByEmail(target);
+    if (!error && data?.user?.id) return data.user.id;
+  }
+
+  const perPage = 200;
   let page = 1;
   for (;;) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
     if (error) throw new Error(error.message);
-    const match = data.users.find(
-      (user: any) => (user.email ?? "").toLowerCase() === target,
-    );
+    const users = data.users ?? [];
+    const match = users.find((user: any) => userEmailMatches(user, target));
     if (match?.id) return match.id;
-    const lastPage = (data as any).lastPage ?? page;
-    if (page >= lastPage || data.users.length === 0) return null;
+    if (users.length < perPage) return null;
     page += 1;
+    if (page > 50) return null;
   }
+}
+
+/** Password reset must also confirm e-mail and clear a temporary Auth ban. */
+export async function setAuthUserPassword(
+  admin: AnyClient,
+  userId: string,
+  password: string,
+): Promise<void> {
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    password,
+    email_confirm: true,
+    ban_duration: "none",
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function findUserById(admin: AnyClient, userId: string): Promise<any | null> {

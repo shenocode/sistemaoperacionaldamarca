@@ -211,7 +211,7 @@
       },
       "studio": {
         "name": "Studio",
-        "price": "247",
+        "price": "347",
         "desc": "Para studios e gestores com carteira ativa.",
         "features": [
           "Até 3 usuários",
@@ -224,11 +224,11 @@
       },
       "agency": {
         "name": "Agência",
-        "price": "597",
+        "price": "697",
         "desc": "Para agências que operam várias marcas em paralelo.",
         "features": [
           "Até 10 usuários",
-          "Até 10 clientes (consulte para mais clientes)",
+          "Até 5 clientes (consulte para mais clientes)",
           "Tudo do Studio",
           "Onboarding guiado",
           "Suporte prioritário"
@@ -910,11 +910,11 @@
       "expandBlockHint": "Mostra as publicações deste calendário.",
       "approvalsSummary": {
         "button": "Resumo das aprovações",
-        "hint": "Abre um documento com imagem e legenda pronta para publicar no Instagram.",
+        "hint": "Abre um documento com mídia para baixar e legenda pronta para publicar no Instagram.",
         "emptyHint": "Nenhum conteúdo aprovado neste período ainda.",
         "title": "Resumo das aprovações",
-        "description": "Imagem e texto prontos para copiar e colar no Instagram.",
-        "descriptionWithPeriod": "{{period}} — imagem e texto prontos para copiar e colar no Instagram.",
+        "description": "Baixe a mídia, copie a legenda e publique no Instagram.",
+        "descriptionWithPeriod": "{{period}} — baixe a mídia, copie a legenda e publique no Instagram.",
         "empty": "Nenhum conteúdo aprovado neste período.",
         "itemLabel": "Aprovado {{n}} de {{total}}",
         "captionLabel": "Legenda para publicar",
@@ -926,7 +926,16 @@
         "noMedia": "Sem mídia anexada",
         "openMedia": "Abrir mídia",
         "openMediaN": "Abrir arquivo {{n}}",
-        "mediaCount": "{{count}} arquivos de mídia"
+        "mediaCount": "{{count}} arquivos de mídia",
+        "downloadMedia": "Baixar mídia",
+        "downloadMediaN": "Baixar arquivo {{n}}",
+        "downloadAll": "Baixar todas ({{count}})",
+        "downloadAllPeriod": "Baixar todas as mídias",
+        "downloading": "Baixando…",
+        "downloadStarted": "Download iniciado.",
+        "downloadShared": "Escolha salvar na galeria ou abrir no Instagram.",
+        "downloadError": "Não foi possível baixar a mídia.",
+        "noDownloadableMedia": "Nenhuma mídia para baixar."
       },
       "selectPeriod": "Período",
       "untitledPeriod": "Período sem título",

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -90,6 +90,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [invalidCredentials, setInvalidCredentials] = useState(false);
+  const loginInFlightRef = useRef(false);
 
   const nextPath = nextFromSearch ?? readAuthNext() ?? undefined;
 
@@ -98,50 +99,59 @@ function AuthPage() {
   }, [nextFromSearch]);
 
   const denyAccess = async () => {
+    loginInFlightRef.current = false;
     await supabase.auth.signOut();
     setInvalidCredentials(false);
     setAccessDenied(true);
   };
 
   const goAfterLogin = async () => {
-    const rawNext = nextPath && isSafeAppPath(nextPath) ? nextPath : null;
-    // Always land on Feed for project links (WhatsApp / deep links), never the last tab.
-    const destination = rawNext ? toClientProjectFeedPath(rawNext) : null;
-    const access = rawNext ? extractAccessTokenFromPath(rawNext) : null;
+    if (loginInFlightRef.current) return;
+    loginInFlightRef.current = true;
 
-    if (access) {
-      try {
-        await claimClientAccess(access);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : String(err));
+    try {
+      const rawNext = nextPath && isSafeAppPath(nextPath) ? nextPath : null;
+      // Always land on Feed for project links (WhatsApp / deep links), never the last tab.
+      const destination = rawNext ? toClientProjectFeedPath(rawNext) : null;
+      const access = rawNext ? extractAccessTokenFromPath(rawNext) : null;
+
+      if (access) {
+        try {
+          await claimClientAccess(access);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : String(err));
+        }
       }
-    }
 
-    const allowed = await hasPlatformAccess();
-    if (!allowed) {
-      await denyAccess();
-      return;
-    }
+      const allowed = await hasPlatformAccess();
+      if (!allowed) {
+        await denyAccess();
+        return;
+      }
 
-    clearAuthNext();
-    setAccessDenied(false);
-    setInvalidCredentials(false);
+      clearAuthNext();
+      setAccessDenied(false);
+      setInvalidCredentials(false);
 
-    if (destination) {
-      router.history.push(destination);
-      return;
-    }
+      if (destination) {
+        router.history.push(destination);
+        return;
+      }
 
-    const dest = await resolvePostLoginPath();
-    if (dest.to === "/clients/$clientId/projects/$projectId/feed") {
-      router.navigate({
-        to: dest.to,
-        params: dest.params,
-        search: dest.search,
-        replace: true,
-      });
-    } else {
-      router.navigate({ to: dest.to, replace: true });
+      const dest = await resolvePostLoginPath();
+      if (dest.to === "/clients/$clientId/projects/$projectId/feed") {
+        router.navigate({
+          to: dest.to,
+          params: dest.params,
+          search: dest.search,
+          replace: true,
+        });
+      } else {
+        router.navigate({ to: dest.to, replace: true });
+      }
+    } catch (err) {
+      loginInFlightRef.current = false;
+      throw err;
     }
   };
 
@@ -239,7 +249,10 @@ function AuthPage() {
     setInvalidCredentials(false);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
         if (error) {
           if (isUnauthorizedLoginError(error.message)) {
             setInvalidCredentials(true);
@@ -247,9 +260,12 @@ function AuthPage() {
           }
           throw error;
         }
+        // Wait a tick so onAuthStateChange releases the auth lock before RPCs.
+        // SIGNED_IN also calls goAfterLogin; the in-flight gate keeps a single run.
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
         await goAfterLogin();
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
           redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;

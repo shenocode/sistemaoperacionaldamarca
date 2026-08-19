@@ -1204,6 +1204,7 @@ export async function setAssinanteStatus(input: {
 export async function provisionGestorAccess(input: {
   email: string;
   password: string;
+  userId?: string;
   fullName?: string;
   whatsapp?: string;
   plan?: import("./plan-entitlements").AssignablePlan;
@@ -1213,6 +1214,7 @@ export async function provisionGestorAccess(input: {
     data: {
       email: input.email,
       password: input.password,
+      userId: input.userId,
       fullName: input.fullName,
       whatsapp: input.whatsapp,
       plan: input.plan ?? "courtesy",

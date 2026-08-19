@@ -152,12 +152,14 @@ function AssinantesPage() {
 
   const resetMutation = useMutation({
     mutationFn: (input: {
+      userId: string;
       email: string;
       fullName?: string;
       password: string;
       plan?: AssignablePlan;
     }) =>
       provisionGestorAccess({
+        userId: input.userId,
         email: input.email,
         password: input.password,
         fullName: input.fullName,
@@ -519,6 +521,7 @@ function AssinantesPage() {
                         e.preventDefault();
                         if (resetPassword.trim().length < 6) return;
                         resetMutation.mutate({
+                          userId: settingsFromQuery.userId,
                           email: settingsFromQuery.email,
                           fullName: settingsFromQuery.fullName ?? undefined,
                           password: resetPassword.trim(),

@@ -16,6 +16,7 @@ import {
   isEmailAlreadyRegistered,
   pickActiveSubscription,
   requireAuthedUser,
+  setAuthUserPassword,
   type SubscriptionRow,
 } from "../_shared/admin-clients.ts";
 
@@ -212,11 +213,7 @@ async function provisionTeamMember(supabase: any, admin: any, ownerId: string, p
       );
     }
 
-    const { error } = await admin.auth.admin.updateUserById(userId, {
-      password,
-      email_confirm: true,
-    });
-    if (error) throw new Error(error.message);
+    await setAuthUserPassword(admin, userId, password);
   } else {
     const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
       email,
@@ -228,11 +225,7 @@ async function provisionTeamMember(supabase: any, admin: any, ownerId: string, p
       if (!isEmailAlreadyRegistered(createError.message)) throw new Error(createError.message);
       userId = await findUserIdByEmail(admin, email);
       if (!userId) throw new Error("Usuário já existe, mas não foi possível localizá-lo.");
-      const { error } = await admin.auth.admin.updateUserById(userId, {
-        password,
-        email_confirm: true,
-      });
-      if (error) throw new Error(error.message);
+      await setAuthUserPassword(admin, userId, password);
     } else {
       if (!createdUser.user) throw new Error("Não foi possível criar o usuário.");
       userId = createdUser.user.id;
@@ -352,11 +345,7 @@ async function resetMemberPassword(supabase: any, admin: any, ownerId: string, p
   if (password.length < 6) throw new Error("Senha muito curta.");
   await assertMemberOnTeam(admin, ownerId, memberUserId);
 
-  const { error } = await admin.auth.admin.updateUserById(memberUserId, {
-    password,
-    email_confirm: true,
-  });
-  if (error) throw new Error(error.message);
+  await setAuthUserPassword(admin, memberUserId, password);
 
   return { memberUserId };
 }

@@ -211,7 +211,7 @@
       },
       "studio": {
         "name": "Studio",
-        "price": "247",
+        "price": "347",
         "desc": "For studios and managers with an active roster.",
         "features": [
           "Up to 3 users",
@@ -224,11 +224,11 @@
       },
       "agency": {
         "name": "Agency",
-        "price": "597",
+        "price": "697",
         "desc": "For agencies running multiple brands in parallel.",
         "features": [
           "Up to 10 users",
-          "Up to 10 clients (contact us for more)",
+          "Up to 5 clients (contact us for more)",
           "Everything in Studio",
           "Guided onboarding",
           "Priority support"
@@ -910,11 +910,11 @@
       "expandBlockHint": "Show this calendar’s posts.",
       "approvalsSummary": {
         "button": "Approvals summary",
-        "hint": "Opens a document with image and caption ready to publish on Instagram.",
+        "hint": "Opens a document with media to download and a caption ready to publish on Instagram.",
         "emptyHint": "No approved content in this period yet.",
         "title": "Approvals summary",
-        "description": "Image and text ready to copy and paste into Instagram.",
-        "descriptionWithPeriod": "{{period}} — image and text ready to copy and paste into Instagram.",
+        "description": "Download the media, copy the caption, and publish on Instagram.",
+        "descriptionWithPeriod": "{{period}} — download the media, copy the caption, and publish on Instagram.",
         "empty": "No approved content in this period.",
         "itemLabel": "Approved {{n}} of {{total}}",
         "captionLabel": "Caption to publish",
@@ -926,7 +926,16 @@
         "noMedia": "No media attached",
         "openMedia": "Open media",
         "openMediaN": "Open file {{n}}",
-        "mediaCount": "{{count}} media files"
+        "mediaCount": "{{count}} media files",
+        "downloadMedia": "Download media",
+        "downloadMediaN": "Download file {{n}}",
+        "downloadAll": "Download all ({{count}})",
+        "downloadAllPeriod": "Download all media",
+        "downloading": "Downloading…",
+        "downloadStarted": "Download started.",
+        "downloadShared": "Choose Save to Photos or open in Instagram.",
+        "downloadError": "Could not download the media.",
+        "noDownloadableMedia": "No media to download."
       },
       "selectPeriod": "Period",
       "untitledPeriod": "Untitled period",

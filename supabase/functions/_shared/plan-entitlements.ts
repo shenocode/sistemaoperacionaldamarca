@@ -43,7 +43,7 @@ const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMa
     designAi: true,
   },
   agency: {
-    maxClients: 10,
+    maxClients: 5,
     maxUsers: 10,
     brandBriefing: true,
     library: true,

@@ -4,8 +4,8 @@ import { ASSIGNABLE_PLANS } from "@/lib/plan-entitlements";
 /** Display prices from landing (BRL/month). Not Stripe invoice amounts. */
 export const PLAN_MONTHLY_PRICE_BRL: Record<PaidPlan, number> = {
   solo: 97,
-  studio: 247,
-  agency: 597,
+  studio: 347,
+  agency: 697,
 };
 
 export type DashboardAssinanteInput = {

@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ClipboardCopy, ExternalLink, FileText, Play } from "lucide-react";
+import {
+  Check,
+  ClipboardCopy,
+  Download,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Play,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +25,11 @@ import {
   type ContentFormat,
   type ContentItem,
 } from "@/lib/api";
+import {
+  fileNameFromMediaUrl,
+  shareOrDownloadFiles,
+  type ShareOrDownloadResult,
+} from "@/lib/download-image";
 import { composePublishCaption } from "@/lib/publish-caption";
 import {
   getLocalizedText,
@@ -54,6 +67,25 @@ async function copyText(text: string) {
   document.body.removeChild(el);
 }
 
+function notifyDownloadResult(
+  result: ShareOrDownloadResult,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  if (result === "shared") {
+    toast.success(t("project.calendar.approvalsSummary.downloadShared"));
+  } else if (result === "downloaded") {
+    toast.success(t("project.calendar.approvalsSummary.downloadStarted"));
+  }
+}
+
+function mediaDownloadItems(urls: string[], title: string) {
+  const fallback = title.trim() || "conteudo";
+  return urls.map((url, i) => ({
+    url,
+    name: fileNameFromMediaUrl(url, `${fallback}-${i + 1}`),
+  }));
+}
+
 function ApprovedItemRow({
   item,
   index,
@@ -65,6 +97,7 @@ function ApprovedItemRow({
 }) {
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const rowI18n = parseRowI18n(item.i18n);
   const title = getLocalizedText(rowI18n, "title", item.title, uiLocale);
@@ -76,6 +109,7 @@ function ApprovedItemRow({
   const primaryUrl = mediaUrls[0] ?? null;
   const primaryKind = primaryUrl ? mediaKind(primaryUrl) : null;
   const formatKey = (item.format ?? "static_feed") as ContentFormat;
+  const isDownloading = downloadingKey !== null;
 
   async function handleCopy() {
     if (!publishText.trim()) {
@@ -89,6 +123,22 @@ function ApprovedItemRow({
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error(t("project.calendar.approvalsSummary.copyFailed"));
+    }
+  }
+
+  async function handleDownload(urls: string[], key: string) {
+    if (urls.length === 0) {
+      toast.error(t("project.calendar.approvalsSummary.noDownloadableMedia"));
+      return;
+    }
+    setDownloadingKey(key);
+    try {
+      const result = await shareOrDownloadFiles(mediaDownloadItems(urls, title));
+      notifyDownloadResult(result, t);
+    } catch {
+      toast.error(t("project.calendar.approvalsSummary.downloadError"));
+    } finally {
+      setDownloadingKey(null);
     }
   }
 
@@ -159,6 +209,29 @@ function ApprovedItemRow({
               {t("project.calendar.approvalsSummary.noMedia")}
             </div>
           )}
+          {mediaUrls.length > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-2 w-full"
+              disabled={isDownloading}
+              onClick={() => void handleDownload(mediaUrls, "all")}
+            >
+              {downloadingKey === "all" ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              {downloadingKey === "all"
+                ? t("project.calendar.approvalsSummary.downloading")
+                : mediaUrls.length > 1
+                  ? t("project.calendar.approvalsSummary.downloadAll", {
+                      count: mediaUrls.length,
+                    })
+                  : t("project.calendar.approvalsSummary.downloadMedia")}
+            </Button>
+          ) : null}
           {mediaUrls.length > 1 ? (
             <ul className="mt-2 space-y-1">
               <li className="text-xs text-muted-foreground">
@@ -167,16 +240,31 @@ function ApprovedItemRow({
                 })}
               </li>
               {mediaUrls.map((url, i) => (
-                <li key={url}>
+                <li key={url} className="flex items-center justify-between gap-2">
                   <a
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
+                    className="inline-flex min-w-0 items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
                   >
-                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
                     {t("project.calendar.approvalsSummary.openMediaN", { n: i + 1 })}
                   </a>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-xs"
+                    disabled={isDownloading}
+                    onClick={() => void handleDownload([url], url)}
+                  >
+                    {downloadingKey === url ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Download className="mr-1 h-3 w-3" aria-hidden="true" />
+                    )}
+                    {t("project.calendar.approvalsSummary.downloadMediaN", { n: i + 1 })}
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -236,12 +324,42 @@ export function ApprovalsSummaryDialog({
   blockTitle,
   items,
 }: ApprovalsSummaryDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
+  const periodMedia = items.flatMap((item, itemIndex) => {
+    const title =
+      getLocalizedText(parseRowI18n(item.i18n), "title", item.title, uiLocale).trim() ||
+      `conteudo-${itemIndex + 1}`;
+    return mediaDownloadItems(resolveContentMediaUrls(item), title).map((file, fileIndex) => ({
+      ...file,
+      name: `${title}-${fileIndex + 1}-${file.name}`,
+    }));
+  });
+
+  async function handleDownloadPeriod() {
+    if (periodMedia.length === 0) {
+      toast.error(t("project.calendar.approvalsSummary.noDownloadableMedia"));
+      return;
+    }
+    setDownloadingAll(true);
+    try {
+      const result = await shareOrDownloadFiles(
+        periodMedia,
+        blockTitle.trim() || "midias-aprovadas",
+      );
+      notifyDownloadResult(result, t);
+    } catch {
+      toast.error(t("project.calendar.approvalsSummary.downloadError"));
+    } finally {
+      setDownloadingAll(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4 text-left">
+        <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4 pr-12 text-left">
           <DialogTitle>{t("project.calendar.approvalsSummary.title")}</DialogTitle>
           <DialogDescription>
             {blockTitle.trim()
@@ -250,6 +368,26 @@ export function ApprovalsSummaryDialog({
                 })
               : t("project.calendar.approvalsSummary.description")}
           </DialogDescription>
+          {periodMedia.length > 0 ? (
+            <div className="pt-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={downloadingAll}
+                onClick={() => void handleDownloadPeriod()}
+              >
+                {downloadingAll ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {downloadingAll
+                  ? t("project.calendar.approvalsSummary.downloading")
+                  : t("project.calendar.approvalsSummary.downloadAllPeriod")}
+              </Button>
+            </div>
+          ) : null}
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6">

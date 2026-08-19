@@ -17,6 +17,7 @@ import {
   pickPrimarySubscription,
   isSubscriptionActiveStatus,
   requireAuthedUser,
+  setAuthUserPassword,
   type SubscriptionRow,
 } from "../_shared/admin-clients.ts";
 
@@ -180,15 +181,14 @@ async function provisionGestor(supabase: any, admin: any, callerId: string, payl
     throw new Error("Não é possível alterar o acesso do administrador por aqui.");
   }
 
-  let userId = await findUserIdByEmail(admin, email);
+  const requestedId = String(payload?.userId ?? "").trim();
+  let userId = requestedId || (await findUserIdByEmail(admin, email));
   let created = false;
 
   if (userId) {
-    const { error } = await admin.auth.admin.updateUserById(userId, {
-      password,
-      email_confirm: true,
-    });
-    if (error) throw new Error(error.message);
+    const existing = await findUserById(admin, userId);
+    if (!existing) throw new Error("Usuário não encontrado.");
+    await setAuthUserPassword(admin, userId, password);
   } else {
     const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
       email,
@@ -200,11 +200,7 @@ async function provisionGestor(supabase: any, admin: any, callerId: string, payl
       if (!isEmailAlreadyRegistered(createError.message)) throw new Error(createError.message);
       userId = await findUserIdByEmail(admin, email);
       if (!userId) throw new Error("Usuário já existe, mas não foi possível localizá-lo.");
-      const { error } = await admin.auth.admin.updateUserById(userId, {
-        password,
-        email_confirm: true,
-      });
-      if (error) throw new Error(error.message);
+      await setAuthUserPassword(admin, userId, password);
     } else {
       if (!createdUser.user) throw new Error("Não foi possível criar o usuário.");
       userId = createdUser.user.id;
