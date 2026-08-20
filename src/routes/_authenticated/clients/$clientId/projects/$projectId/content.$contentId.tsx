@@ -816,7 +816,7 @@ function ContentDetailPage() {
         throw new Error(t("project.graphicArts.invalidDimensions"));
       }
       const noteCanonical = getCanonicalText(rowI18n, "versionNote", versionNote);
-      // Clients save title/format/theme/copy via RPC; admins save full content as a new version.
+      // Clients save title/format/theme/copy/roteiro via RPC; admins save full content as a new version.
       if (!isAdmin) {
         return saveClientContentVersion({
           contentId,
@@ -827,6 +827,7 @@ function ContentDetailPage() {
           cta: payload.cta,
           hashtags: payload.hashtags,
           locucao: payload.locucao,
+          roteiro: payload.roteiro,
           format: formatType,
           theme: payload.theme,
           changeNote: noteCanonical,
@@ -1122,7 +1123,7 @@ function ContentDetailPage() {
     );
   }
 
-  // Same form for admin and client. Clients edit title/format/theme/copy; media stays admin-only.
+  // Same form for admin and client. Clients edit title/format/theme/copy/roteiro; media stays admin-only.
   // Clients always get approve / production-adjustment actions on content they can open
   // (draft is already redirected away above).
   const statusButtons = isAdmin ? CONTENT_STATUSES : CLIENT_REVIEW_STATUSES;
@@ -1449,7 +1450,8 @@ function ContentDetailPage() {
                     i18n={rowI18n}
                     fallback={roteiro}
                     rows={6}
-                    disabled={!isAdmin}
+                    autoResize
+                    className="min-h-[10rem]"
                     placeholder={t("project.detail.roteiroPlaceholder")}
                     onI18nCommit={onFieldI18nCommit}
                   />

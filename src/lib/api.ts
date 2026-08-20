@@ -4367,7 +4367,7 @@ export async function resolvePostLoginPath(): Promise<
   return { to: "/home" };
 }
 
-/** Client: bump version updating title/format/theme/copy; keep media/status. */
+/** Client: bump version updating title/format/theme/copy/roteiro; keep media/status. */
 export async function saveClientContentVersion(input: {
   contentId: string;
   clientId: string;
@@ -4381,6 +4381,8 @@ export async function saveClientContentVersion(input: {
   theme?: string | null;
   /** Omit to leave unchanged. */
   locucao?: string;
+  /** Omit to leave unchanged. */
+  roteiro?: string;
   changeNote?: string;
   i18n?: RowI18n;
 }): Promise<ContentItem> {
@@ -4394,6 +4396,7 @@ export async function saveClientContentVersion(input: {
     _format: input.format ?? null,
     _theme: input.theme !== undefined ? (input.theme?.trim() ?? "") : null,
     _locucao: input.locucao ?? null,
+    _roteiro: input.roteiro ?? null,
   });
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Resposta vazia do servidor");

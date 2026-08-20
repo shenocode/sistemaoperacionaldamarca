@@ -1123,6 +1123,7 @@ export type Database = {
           _format?: Database["public"]["Enums"]["content_format"] | null
           _hashtags?: string | null
           _locucao?: string | null
+          _roteiro?: string | null
           _theme?: string | null
           _title?: string | null
         }
