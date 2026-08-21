@@ -559,6 +559,7 @@ export type ClientProjectSummary = {
   name: string;
   updated_at: string;
   last_update_at: string;
+  categories?: string[] | null;
   i18n?: unknown;
 };
 
@@ -801,6 +802,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         id,
         name,
         i18n,
+        categories,
         updated_at,
         content_items ( updated_at )
       )
@@ -832,6 +834,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         name: string;
         updated_at: string;
         i18n?: unknown;
+        categories?: string[] | null;
         content_items?: Array<{ updated_at: string }> | null;
       }) => {
         const last_update_at =
@@ -844,6 +847,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
           id: project.id,
           name: project.name,
           i18n: project.i18n,
+          categories: project.categories,
           updated_at: project.updated_at,
           last_update_at,
         };
@@ -877,6 +881,8 @@ export type BrandColor = {
   hex: string;
 };
 
+export const MAX_BRAND_COLORS = 24;
+
 export type BrandFonts = {
   primary?: string;
   secondary?: string;
@@ -895,6 +901,7 @@ export type ClientContactInput = {
   logo_url?: string | null;
   brand_colors?: BrandColor[];
   brand_fonts?: BrandFonts;
+  brand_guidance?: string;
   i18n?: RowI18n;
 };
 
@@ -910,7 +917,7 @@ export function parseBrandColors(value: unknown): BrandColor[] {
       return { name, hex };
     })
     .filter((entry): entry is BrandColor => Boolean(entry))
-    .slice(0, 6);
+    .slice(0, MAX_BRAND_COLORS);
 }
 
 export function parseBrandFonts(value: unknown): BrandFonts {
@@ -923,13 +930,19 @@ export function parseBrandFonts(value: unknown): BrandFonts {
   };
 }
 
+export function parseBrandGuidance(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 export function brandKitFromClient(client: {
   brand_colors?: unknown;
   brand_fonts?: unknown;
-}): { brand_colors: BrandColor[]; brand_fonts: BrandFonts } {
+  brand_guidance?: unknown;
+}): { brand_colors: BrandColor[]; brand_fonts: BrandFonts; brand_guidance: string } {
   return {
     brand_colors: parseBrandColors(client.brand_colors),
     brand_fonts: parseBrandFonts(client.brand_fonts),
+    brand_guidance: parseBrandGuidance(client.brand_guidance),
   };
 }
 
@@ -1007,6 +1020,8 @@ export async function updateClient(clientId: string, input: ClientContactInput):
     input.brand_colors !== undefined ? parseBrandColors(input.brand_colors) : null;
   const brandFonts =
     input.brand_fonts !== undefined ? parseBrandFonts(input.brand_fonts) : null;
+  const brandGuidance =
+    input.brand_guidance === undefined ? null : input.brand_guidance.trim() || "";
   const i18n = parseRowI18n(input.i18n);
   const name = getCanonicalText(i18n, "name", input.name).trim();
   const notes = normalizeOptionalText(getCanonicalText(i18n, "notes", input.notes));
@@ -1032,6 +1047,7 @@ export async function updateClient(clientId: string, input: ClientContactInput):
     ...withLogoArgs,
     _brand_colors: brandColors as unknown as Json,
     _brand_fonts: brandFonts as unknown as Json,
+    ...(input.brand_guidance !== undefined ? { _brand_guidance: brandGuidance } : {}),
   };
 
   let { data, error } = await supabase.rpc(
@@ -1087,10 +1103,14 @@ export async function updateClient(clientId: string, input: ClientContactInput):
         logo_url?: string | null;
         brand_colors?: Json;
         brand_fonts?: Json;
+        brand_guidance?: string | null;
         website?: string | null;
       } = {};
       if (brandColors !== null) patch.brand_colors = brandColors as unknown as Json;
       if (brandFonts !== null) patch.brand_fonts = brandFonts as unknown as Json;
+      if (input.brand_guidance !== undefined) {
+        patch.brand_guidance = brandGuidance || null;
+      }
       if (input.logo_url !== undefined) {
         patch.logo_url = normalizeOptionalText(input.logo_url ?? undefined);
       }
@@ -1707,6 +1727,10 @@ export async function countProjects() {
 
 // —— Content ——
 
+function isMissingMediaOverlaysColumn(message: string) {
+  return /media_overlays/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
 function isMissingSortOrderColumn(message: string) {
   return /sort_order/i.test(message) && /column|schema cache|does not exist/i.test(message);
 }
@@ -1918,6 +1942,7 @@ export async function duplicateContent(input: {
     roteiro: source.roteiro ?? "",
     media_url: mediaUrls[0] ?? null,
     media_urls: mediaUrls,
+    media_overlays: (source as ContentItem & { media_overlays?: Json }).media_overlays ?? [],
     thumbnail_url: source.thumbnail_url ?? null,
     format: source.format,
     material_type: source.material_type,
@@ -1946,6 +1971,16 @@ export async function duplicateContent(input: {
     const retry = await supabase
       .from("content_items")
       .insert({ ...withoutBlock, sort_order: sortOrder })
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingMediaOverlaysColumn(error.message)) {
+    const { media_overlays: _ignoredOverlays, ...withoutOverlays } = baseInsert;
+    const retry = await supabase
+      .from("content_items")
+      .insert({ ...withoutOverlays, sort_order: sortOrder })
       .select("*")
       .single();
     data = retry.data;
@@ -2010,6 +2045,7 @@ export async function saveContentAsNewVersion(input: {
   productionNotes?: string;
   changeNote?: string;
   i18n?: RowI18n;
+  mediaOverlays?: Json;
 }): Promise<ContentItem> {
   const userId = await requireUserId();
   const current = await getContent(input.contentId);
@@ -2049,9 +2085,7 @@ export async function saveContentAsNewVersion(input: {
       : (current.production_notes ?? "");
   const nextI18n = input.i18n ?? parseRowI18n(current.i18n);
 
-  const { data, error } = await supabase
-    .from("content_items")
-    .update({
+  const versionPatch = {
       title: input.title.trim(),
       caption: input.caption,
       cta: input.cta,
@@ -2070,10 +2104,26 @@ export async function saveContentAsNewVersion(input: {
       current_version: nextVersion,
       status: nextStatus,
       i18n: toI18nJson(nextI18n),
+  };
+  let { data, error } = await supabase
+    .from("content_items")
+    .update({
+      ...versionPatch,
+      ...(input.mediaOverlays !== undefined ? { media_overlays: input.mediaOverlays } : {}),
     })
     .eq("id", input.contentId)
     .select("*")
     .single();
+  if (error && input.mediaOverlays !== undefined && isMissingMediaOverlaysColumn(error.message)) {
+    const retry = await supabase
+      .from("content_items")
+      .update(versionPatch)
+      .eq("id", input.contentId)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
   const row = ensureData(data, error);
 
   const versionInsert = await supabase.from("content_versions").insert({
@@ -2127,15 +2177,14 @@ export async function updateContentFields(input: {
   heightCm?: number | null;
   productionNotes?: string;
   i18n?: RowI18n;
+  mediaOverlays?: Json;
 }): Promise<ContentItem> {
   const mediaUrls =
     input.mediaUrls?.filter((url) => url.trim()) ??
     (input.mediaUrl?.trim() ? [input.mediaUrl.trim()] : []);
   const mediaUrl = mediaUrls[0] ?? null;
 
-  const { data, error } = await supabase
-    .from("content_items")
-    .update({
+  const fieldsPatch = {
       title: input.title.trim(),
       caption: input.caption,
       cta: input.cta,
@@ -2158,10 +2207,27 @@ export async function updateContentFields(input: {
         ? { production_notes: input.productionNotes }
         : {}),
       ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
+  };
+
+  let { data, error } = await supabase
+    .from("content_items")
+    .update({
+      ...fieldsPatch,
+      ...(input.mediaOverlays !== undefined ? { media_overlays: input.mediaOverlays } : {}),
     })
     .eq("id", input.contentId)
     .select("*")
     .single();
+  if (error && input.mediaOverlays !== undefined && isMissingMediaOverlaysColumn(error.message)) {
+    const retry = await supabase
+      .from("content_items")
+      .update(fieldsPatch)
+      .eq("id", input.contentId)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
   return ensureData(data, error);
 }
 
@@ -2983,7 +3049,7 @@ export async function generateDesign(input: {
   format: DesignTemplateFormat;
   provider?: DesignProvider;
   templateUrl: string;
-  photoUrl: string;
+  photoUrl?: string;
   overlayText: string;
   secondaryText?: string;
   guidance?: string;
@@ -2991,10 +3057,9 @@ export async function generateDesign(input: {
   const overlayText = input.overlayText.trim();
   const secondaryText = input.secondaryText?.trim() || "";
   const templateUrl = input.templateUrl.trim();
-  const photoUrl = input.photoUrl.trim();
+  const photoUrl = input.photoUrl?.trim() || "";
   const provider = input.provider === "gemini" ? "gemini" : "openai";
   if (!templateUrl) throw new Error("Informe o template de referência");
-  if (!photoUrl) throw new Error("Informe a imagem da arte");
   if (!overlayText) throw new Error("Informe o texto da arte");
 
   const { data, error } = await supabase.functions.invoke("generate-design", {
@@ -3005,7 +3070,7 @@ export async function generateDesign(input: {
       format: input.format,
       provider,
       templateUrl,
-      photoUrl,
+      photoUrl: photoUrl || undefined,
       overlayText,
       secondaryText: secondaryText || undefined,
       guidance: input.guidance?.trim() || undefined,
@@ -3717,6 +3782,29 @@ export async function generateSitePrd(
 
 export const LIBRARY_BUCKET = "library-assets";
 export const LIBRARY_MAX_BYTES = MEDIA_MAX_BYTES;
+export const LIBRARY_MAX_MB = Math.round(LIBRARY_MAX_BYTES / 1024 / 1024);
+
+export function formatLibraryFileSize(bytes: number) {
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+export function isLibraryFileTooLarge(file: File) {
+  return file.size > LIBRARY_MAX_BYTES;
+}
+
+export class PartialLibraryUploadError extends Error {
+  readonly created: LibraryAsset[];
+  readonly errors: string[];
+
+  constructor(created: LibraryAsset[], errors: string[]) {
+    super(
+      `${created.length} enviado(s), ${errors.length} falhou(aram): ${errors[0]}`,
+    );
+    this.name = "PartialLibraryUploadError";
+    this.created = created;
+    this.errors = errors;
+  }
+}
 
 export const LIBRARY_ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.gif,.webp,.svg,.heic,.heif,.mp4,.webm,.mov,.avi,.txt,.md,.csv,.rtf,.doc,.docx,.odt,.xls,.xlsx,.ods,image/*,video/*,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -3761,9 +3849,13 @@ export async function listLibraryAssets(clientId: string) {
   return data ?? [];
 }
 
+function libraryFileTooLargeMessage(file: File) {
+  return `O arquivo "${file.name}" (${formatLibraryFileSize(file.size)}) deve ter no máximo ${LIBRARY_MAX_MB} MB.`;
+}
+
 async function uploadLibraryFile(clientId: string, file: File) {
-  if (file.size > LIBRARY_MAX_BYTES) {
-    throw new Error("O arquivo deve ter no máximo 150 MB.");
+  if (isLibraryFileTooLarge(file)) {
+    throw new Error(libraryFileTooLargeMessage(file));
   }
   const safeName = sanitizeFileName(file.name || "arquivo");
   const storagePath = `${clientId}/${crypto.randomUUID()}-${safeName}`;
@@ -3772,7 +3864,12 @@ async function uploadLibraryFile(clientId: string, file: File) {
     contentType: file.type || undefined,
     upsert: false,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/maximum allowed size|payload too large|exceeded the maximum|file size limit|413/i.test(error.message)) {
+      throw new Error(libraryFileTooLargeMessage(file));
+    }
+    throw new Error(error.message);
+  }
 
   const { data } = supabase.storage.from(LIBRARY_BUCKET).getPublicUrl(storagePath);
   return {
@@ -3872,7 +3969,9 @@ export async function createLibraryAssets(
     try {
       created.push(await createLibraryAsset(input));
     } catch (err) {
-      errors.push(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      const label = input.file?.name || input.name;
+      errors.push(label ? `${label}: ${message}` : message);
     }
   }
 
@@ -3881,9 +3980,7 @@ export async function createLibraryAssets(
   }
 
   if (errors.length > 0) {
-    throw new Error(
-      `${created.length} enviado(s), ${errors.length} falhou(aram): ${errors[0]}`,
-    );
+    throw new PartialLibraryUploadError(created, errors);
   }
 
   return created;

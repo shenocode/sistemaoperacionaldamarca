@@ -5,6 +5,7 @@ import {
   ExternalLink,
   FileText,
   Heart,
+  Loader2,
   MessageCircle,
   MoreHorizontal,
   Play,
@@ -27,7 +28,9 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { PrintMaterialPreview } from "@/components/print-material-preview";
+import { ArtTextEditorPanel, ArtTextOverlayView } from "@/components/art-text-editor";
 import { cn } from "@/lib/utils";
 import {
   isImageUrl,
@@ -35,17 +38,26 @@ import {
   isVideoUrl,
   isYoutubeShortFormat,
   isYoutubeVideoFormat,
+  type BrandColor,
   type ContentFormat,
 } from "@/lib/api";
 import {
   YouTubeShortsMockup,
   YouTubeWatchMockup,
 } from "@/components/youtube-notebook-mockup";
+import { createDefaultOverlay, type MediaTextOverlay } from "@/lib/media-text-overlay";
 
 export type PreviewMediaItem = {
   url: string;
   kind?: "image" | "video" | "file";
   name?: string;
+  overlay?: MediaTextOverlay | null;
+};
+
+export type MediaTextEditorConfig = {
+  brandFonts: { primary?: string; secondary?: string };
+  colors: BrandColor[];
+  onSave: (index: number, overlay: MediaTextOverlay) => Promise<void>;
 };
 
 type ContentMediaPreviewProps = {
@@ -67,6 +79,7 @@ type ContentMediaPreviewProps = {
   onHashtagsChange?: (value: string) => void;
   onCtaChange?: (value: string) => void;
   className?: string;
+  textEditor?: MediaTextEditorConfig;
 };
 
 function resolveKind(item: PreviewMediaItem): "image" | "video" | "file" {
@@ -227,22 +240,49 @@ export function MediaLightbox({
   items,
   title,
   initialIndex = 0,
+  textEditor,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: PreviewMediaItem[];
   title: string;
   initialIndex?: number;
+  textEditor?: MediaTextEditorConfig;
 }) {
   const { t } = useTranslation();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(initialIndex);
+  const [drafts, setDrafts] = useState<Array<MediaTextOverlay | null>>([]);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const isCarousel = items.length > 1;
+  const currentItem = items[current] ?? items[0];
+  const canEdit =
+    Boolean(textEditor) &&
+    currentItem &&
+    resolveKind(currentItem) === "image";
 
   useEffect(() => {
     if (!open) return;
     setCurrent(Math.min(Math.max(initialIndex, 0), Math.max(items.length - 1, 0)));
-  }, [open, initialIndex, items.length]);
+    setDrafts(
+      items.map((item) =>
+        item.overlay
+          ? item.overlay
+          : resolveKind(item) === "image"
+            ? createDefaultOverlay({
+                baseUrl: item.url,
+                overlayText: "",
+                primaryFont: textEditor?.brandFonts.primary,
+                secondaryFont: textEditor?.brandFonts.secondary,
+                colors: textEditor?.colors,
+              })
+            : null,
+      ),
+    );
+    // Snapshot overlays when the lightbox opens so in-progress edits are not reset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!api || !open) return;
@@ -255,64 +295,156 @@ export function MediaLightbox({
     };
   }, [api, open, initialIndex, items.length]);
 
+  useEffect(() => {
+    const overlay = drafts[current];
+    setSelectedLayerId((id) =>
+      overlay?.layers.some((layer) => layer.id === id)
+        ? id
+        : overlay?.layers[0]?.id ?? null,
+    );
+  }, [current, drafts]);
+
   if (items.length === 0) return null;
+
+  const draft = drafts[current] ?? null;
+
+  function updateDraft(next: MediaTextOverlay) {
+    setDrafts((prev) => prev.map((item, index) => (index === current ? next : item)));
+  }
+
+  async function handleSave() {
+    if (!textEditor || !draft) return;
+    setSaving(true);
+    try {
+      await textEditor.onSave(current, draft);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex h-[min(92vh,960px)] w-[min(96vw,1100px)] max-w-none flex-col gap-0 overflow-hidden border-0 bg-black p-0 text-white shadow-2xl sm:rounded-xl"
+        className={cn(
+          "flex max-w-none flex-col gap-0 overflow-hidden border-0 bg-black p-0 text-white shadow-2xl sm:rounded-xl",
+          canEdit
+            ? "h-[min(94vh,980px)] w-[min(98vw,1280px)]"
+            : "h-[min(92vh,960px)] w-[min(96vw,1100px)]",
+        )}
         aria-describedby={undefined}
       >
         <DialogTitle className="sr-only">{t("project.detail.mediaViewer")}</DialogTitle>
         <DialogDescription className="sr-only">{title}</DialogDescription>
 
-        <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black px-4 py-10 sm:px-12">
-          {isCarousel ? (
-            <Carousel setApi={setApi} opts={{ loop: false, startIndex: initialIndex }} className="h-full w-full">
-              <CarouselContent className="ml-0 h-full">
-                {items.map((item, index) => (
-                  <CarouselItem key={`${item.url}-lightbox-${index}`} className="basis-full pl-0">
-                    <div className="flex h-full min-h-[50vh] items-center justify-center">
-                      <LightboxMedia
-                        item={item}
-                        title={`${title} ${index + 1}`}
-                        autoPlay={open && index === current && resolveKind(item) === "video"}
-                      />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="left-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
-              <CarouselNext className="right-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
-            </Carousel>
-          ) : (
-            <LightboxMedia
-              item={items[0]}
-              title={title}
-              autoPlay={open && resolveKind(items[0]) === "video"}
-            />
-          )}
+        <div className={cn("flex min-h-0 flex-1", canEdit && "flex-col lg:flex-row")}>
+          <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-black px-4 py-10 sm:px-12">
+            {isCarousel ? (
+              <Carousel setApi={setApi} opts={{ loop: false, startIndex: initialIndex }} className="h-full w-full">
+                <CarouselContent className="ml-0 h-full">
+                  {items.map((item, index) => (
+                    <CarouselItem key={`${item.url}-lightbox-${index}`} className="basis-full pl-0">
+                      <div className="flex h-full min-h-[50vh] items-center justify-center">
+                        {canEdit && drafts[index] && resolveKind(item) === "image" && index === current ? (
+                          <ArtTextOverlayView
+                            overlay={drafts[index]!}
+                            selectedId={selectedLayerId}
+                            interactive
+                            onSelect={setSelectedLayerId}
+                            onMove={(id, x, y) => {
+                              const currentDraft = drafts[index];
+                              if (!currentDraft) return;
+                              updateDraft({
+                                ...currentDraft,
+                                layers: currentDraft.layers.map((layer) =>
+                                  layer.id === id ? { ...layer, x, y } : layer,
+                                ),
+                              });
+                            }}
+                            className="h-full w-full"
+                          />
+                        ) : (
+                          <LightboxMedia
+                            item={item}
+                            title={`${title} ${index + 1}`}
+                            autoPlay={open && index === current && resolveKind(item) === "video"}
+                          />
+                        )}
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
+                <CarouselNext className="right-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
+              </Carousel>
+            ) : canEdit && draft ? (
+              <ArtTextOverlayView
+                overlay={draft}
+                selectedId={selectedLayerId}
+                interactive
+                onSelect={setSelectedLayerId}
+                onMove={(id, x, y) => {
+                  updateDraft({
+                    ...draft,
+                    layers: draft.layers.map((layer) => (layer.id === id ? { ...layer, x, y } : layer)),
+                  });
+                }}
+                className="h-full w-full"
+              />
+            ) : (
+              <LightboxMedia
+                item={items[0]}
+                title={title}
+                autoPlay={open && resolveKind(items[0]) === "video"}
+              />
+            )}
 
-          {isCarousel ? (
-            <>
-              <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5">
-                {items.map((_, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    aria-label={`${t("project.detail.slide")} ${index + 1}`}
-                    className={cn(
-                      "h-1.5 rounded-full transition-all",
-                      index === current ? "w-4 bg-white" : "w-1.5 bg-white/50",
-                    )}
-                    onClick={() => api?.scrollTo(index)}
-                  />
-                ))}
+            {isCarousel ? (
+              <>
+                <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-1.5">
+                  {items.map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      aria-label={`${t("project.detail.slide")} ${index + 1}`}
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        index === current ? "w-4 bg-white" : "w-1.5 bg-white/50",
+                      )}
+                      onClick={() => api?.scrollTo(index)}
+                    />
+                  ))}
+                </div>
+                <span className="absolute left-4 top-4 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+                  {current + 1}/{items.length}
+                </span>
+              </>
+            ) : null}
+          </div>
+
+          {canEdit && draft && textEditor ? (
+            <div className="flex w-full shrink-0 flex-col border-t border-white/10 bg-background lg:w-[340px] lg:border-l lg:border-t-0">
+              <ArtTextEditorPanel
+                overlay={draft}
+                selectedId={selectedLayerId}
+                onSelect={setSelectedLayerId}
+                onChange={updateDraft}
+                brandFonts={textEditor.brandFonts}
+                colors={textEditor.colors}
+              />
+              <div className="border-t p-4">
+                <Button type="button" className="w-full" disabled={saving} onClick={() => void handleSave()}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      {t("project.detail.artText.saving")}
+                    </>
+                  ) : (
+                    t("project.detail.artText.save")
+                  )}
+                </Button>
               </div>
-              <span className="absolute left-4 top-4 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
-                {current + 1}/{items.length}
-              </span>
-            </>
+            </div>
           ) : null}
         </div>
       </DialogContent>
@@ -534,6 +666,7 @@ export function ContentMediaPreview({
   onHashtagsChange,
   onCtaChange,
   className,
+  textEditor,
 }: ContentMediaPreviewProps) {
   const { t } = useTranslation();
   const [api, setApi] = useState<CarouselApi>();
@@ -685,6 +818,7 @@ export function ContentMediaPreview({
       items={items}
       title={title}
       initialIndex={lightboxIndex}
+      textEditor={textEditor}
     />
   );
 
@@ -863,7 +997,7 @@ export function ContentMediaPreview({
               : t("project.detail.formats.static_feed")
           }
         />
-        {mediaFrame(t("project.detail.noPreview"), "aspect-[4/5]")}
+        {mediaFrame(t("project.detail.noPreview"), "aspect-[3/4]")}
         <ActionBar />
         <CaptionBlock
           username={handle}

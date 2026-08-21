@@ -288,7 +288,7 @@ Deno.serve(async (req) => {
         .select("id, name, description, client_id, theme_presets, cta_presets, hashtag_presets")
         .eq("id", body.projectId)
         .maybeSingle(),
-      supabase.from("clients").select("id, name").eq("id", body.clientId).maybeSingle(),
+      supabase.from("clients").select("id, name, brand_guidance").eq("id", body.clientId).maybeSingle(),
       supabase
         .from("brand_briefings")
         .select("guide_markdown, status")
@@ -296,14 +296,21 @@ Deno.serve(async (req) => {
         .maybeSingle(),
     ]);
 
+    let clientRow = client as { id: string; name: string; brand_guidance?: unknown } | null;
+    if (clientError && /brand_guidance/i.test(clientError.message)) {
+      const retry = await supabase.from("clients").select("id, name").eq("id", body.clientId).maybeSingle();
+      if (retry.error) return jsonResponse({ error: retry.error.message }, 500);
+      clientRow = retry.data;
+    } else if (clientError) {
+      return jsonResponse({ error: clientError.message }, 500);
+    }
     if (contentError) return jsonResponse({ error: contentError.message }, 500);
     if (projectError) return jsonResponse({ error: projectError.message }, 500);
-    if (clientError) return jsonResponse({ error: clientError.message }, 500);
     if (brandBriefingError) return jsonResponse({ error: brandBriefingError.message }, 500);
-    if (!content || !project || !client) {
+    if (!content || !project || !clientRow) {
       return jsonResponse({ error: "Conteúdo, projeto ou cliente não encontrado" }, 404);
     }
-    if (content.project_id !== project.id || project.client_id !== client.id) {
+    if (content.project_id !== project.id || project.client_id !== clientRow.id) {
       return jsonResponse({ error: "Conteúdo não pertence a este projeto/cliente" }, 400);
     }
 
@@ -328,11 +335,16 @@ Deno.serve(async (req) => {
       typeof brandBriefing?.guide_markdown === "string"
         ? brandBriefing.guide_markdown.trim().slice(0, 12000)
         : "";
+    const brandGuidance =
+      typeof clientRow.brand_guidance === "string"
+        ? clientRow.brand_guidance.trim().slice(0, 2000)
+        : "";
 
     const systemPrompt = [
       "Você é um copywriter de Instagram para agências de marca.",
       languageInstruction(body.locale),
       "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits.",
+      "When there are brand kit guidelines (orientações gerais), treat them as mandatory operational rules for every text.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
       '{"title":"...","caption":"...","cta":"...","hashtags":"...","theme":"...|null","locucao":"...","roteiro":"..."}',
       "Regras:",
@@ -351,9 +363,10 @@ Deno.serve(async (req) => {
     ].join("\n");
 
     const userPrompt = [
-      `Cliente: ${client.name}`,
+      `Cliente: ${clientRow.name}`,
       `Projeto: ${project.name}`,
       project.description ? `Descrição do projeto: ${project.description}` : null,
+      brandGuidance ? `Orientações gerais da marca (obrigatórias):\n${brandGuidance}` : null,
       brandGuide ? `Guia de marca:\n${brandGuide}` : null,
       `Formato do post: ${format}`,
       content.theme ? `Tema atual: ${content.theme}` : null,

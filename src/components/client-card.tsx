@@ -5,8 +5,9 @@ import { ptBR, enUS, es } from "date-fns/locale";
 import { Flag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ProjectCategoryIcon } from "@/components/project-category-icon";
 import { useUnreadClientUpdates } from "@/hooks/use-unread-client-updates";
-import type { ClientWithProjects } from "@/lib/api";
+import { getPrimaryProjectCategory, type ClientWithProjects } from "@/lib/api";
 import { markClientUpdatesSeen } from "@/lib/client-updates-seen";
 import { getLocalizedText, normalizeAppLocale } from "@/lib/i18n-content";
 import type { LanguageCode } from "@/i18n";
@@ -25,6 +26,7 @@ export function ClientCard({
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const clientName = getLocalizedText(client.i18n, "name", client.name, uiLocale);
+  const lastActivityAt = client.last_update_at ?? client.created_at;
   const lastUpdateLabel = client.last_update_at
     ? format(new Date(client.last_update_at), "dd/MM/yyyy", { locale })
     : null;
@@ -61,9 +63,12 @@ export function ClientCard({
                 {clientName}
               </Link>
               <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(client.created_at), {
-                  addSuffix: true,
-                  locale,
+                {t("clients.updatedAgo", {
+                  defaultValue: "Atualizado {{time}}",
+                  time: formatDistanceToNow(new Date(lastActivityAt), {
+                    addSuffix: true,
+                    locale,
+                  }),
                 })}
               </p>
               {hasClientUpdates ? (
@@ -101,8 +106,14 @@ export function ClientCard({
                   key={project.id}
                   className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
                 >
-                  <span className="truncate text-sm">
-                    {getLocalizedText(project.i18n, "name", project.name, uiLocale)}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ProjectCategoryIcon
+                      category={getPrimaryProjectCategory(project.categories)}
+                      size="sm"
+                    />
+                    <span className="truncate text-sm">
+                      {getLocalizedText(project.i18n, "name", project.name, uiLocale)}
+                    </span>
                   </span>
                   <Button asChild size="sm" variant="secondary" className="shrink-0">
                     <Link

@@ -280,6 +280,7 @@ export type Database = {
           access_token: string
           brand_colors: Json
           brand_fonts: Json
+          brand_guidance: string | null
           created_at: string
           created_by: string | null
           email: string | null
@@ -298,6 +299,7 @@ export type Database = {
           access_token?: string
           brand_colors?: Json
           brand_fonts?: Json
+          brand_guidance?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           access_token?: string
           brand_colors?: Json
           brand_fonts?: Json
+          brand_guidance?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -457,6 +460,7 @@ export type Database = {
           id: string
           locucao: string
           material_type: string | null
+          media_overlays: Json
           media_url: string | null
           media_urls: string[]
           production_notes: string
@@ -485,6 +489,7 @@ export type Database = {
           id?: string
           locucao?: string
           material_type?: string | null
+          media_overlays?: Json
           media_url?: string | null
           media_urls?: string[]
           production_notes?: string
@@ -513,6 +518,7 @@ export type Database = {
           id?: string
           locucao?: string
           material_type?: string | null
+          media_overlays?: Json
           media_url?: string | null
           media_urls?: string[]
           production_notes?: string
@@ -1167,6 +1173,7 @@ export type Database = {
         Args: {
           _brand_colors?: Json
           _brand_fonts?: Json
+          _brand_guidance?: string
           _client_id: string
           _email?: string
           _instagram?: string
@@ -1181,6 +1188,7 @@ export type Database = {
           access_token: string
           brand_colors: Json
           brand_fonts: Json
+          brand_guidance: string | null
           created_at: string
           created_by: string | null
           email: string | null

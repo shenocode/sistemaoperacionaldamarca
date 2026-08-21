@@ -8,6 +8,9 @@ const corsHeaders: Record<string, string> = {
 
 const CONTENT_MEDIA_BUCKET = "content-media";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const FEED_ASPECT_RATIO = "3:4";
+const OPENAI_FEED_SIZE_GPT_IMAGE_1 = "1024x1536";
+const OPENAI_FEED_SIZE_EXACT_3_4 = "1152x1536";
 
 type DesignFormat = "static_feed" | "carousel";
 type DesignProvider = "openai" | "gemini";
@@ -19,7 +22,7 @@ type GenerateRequest = {
   format?: DesignFormat;
   provider?: DesignProvider;
   templateUrl: string;
-  photoUrl: string;
+  photoUrl?: string;
   overlayText: string;
   secondaryText?: string;
   guidance?: string;
@@ -120,17 +123,23 @@ function normalizeProvider(value: unknown): DesignProvider {
   return value === "gemini" ? "gemini" : "openai";
 }
 
+function openaiFeedSize(model: string): string {
+  return /gpt-image-2/i.test(model) ? OPENAI_FEED_SIZE_EXACT_3_4 : OPENAI_FEED_SIZE_GPT_IMAGE_1;
+}
+
 async function generateWithOpenAI(input: {
   prompt: string;
   templateImage: RefImage;
-  photoImage: RefImage;
+  photoImage?: RefImage | null;
   apiKey: string;
 }): Promise<Uint8Array> {
   const form = new FormData();
-  form.append("model", Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1");
+  const model = Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1";
+  form.append("model", model);
   form.append("prompt", input.prompt);
   form.append("n", "1");
-  form.append("size", "1024x1024");
+  form.append("size", openaiFeedSize(model));
+  form.append("quality", "high");
   form.append("input_fidelity", "high");
   const normalizeMime = (mime: string) => {
     const m = (mime || "").toLowerCase();
@@ -144,11 +153,13 @@ async function generateWithOpenAI(input: {
     new Blob([input.templateImage.bytes], { type: normalizeMime(input.templateImage.mime) }),
     input.templateImage.fileName || "template.png",
   );
-  form.append(
-    "image[]",
-    new Blob([input.photoImage.bytes], { type: normalizeMime(input.photoImage.mime) }),
-    input.photoImage.fileName || "photo.png",
-  );
+  if (input.photoImage) {
+    form.append(
+      "image[]",
+      new Blob([input.photoImage.bytes], { type: normalizeMime(input.photoImage.mime) }),
+      input.photoImage.fileName || "photo.png",
+    );
+  }
 
   const openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
@@ -189,12 +200,31 @@ async function generateWithOpenAI(input: {
 async function generateWithGemini(input: {
   prompt: string;
   templateImage: RefImage;
-  photoImage: RefImage;
+  photoImage?: RefImage | null;
   apiKey: string;
 }): Promise<Uint8Array> {
   const model = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image";
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
+
+  const imageParts = [
+    {
+      inline_data: {
+        mime_type: input.templateImage.mime,
+        data: bytesToBase64(input.templateImage.bytes),
+      },
+    },
+    ...(input.photoImage
+      ? [
+          {
+            inline_data: {
+              mime_type: input.photoImage.mime,
+              data: bytesToBase64(input.photoImage.bytes),
+            },
+          },
+        ]
+      : []),
+  ];
 
   const geminiRes = await fetch(url, {
     method: "POST",
@@ -203,26 +233,12 @@ async function generateWithGemini(input: {
       contents: [
         {
           role: "user",
-          parts: [
-            { text: input.prompt },
-            {
-              inline_data: {
-                mime_type: input.templateImage.mime,
-                data: bytesToBase64(input.templateImage.bytes),
-              },
-            },
-            {
-              inline_data: {
-                mime_type: input.photoImage.mime,
-                data: bytesToBase64(input.photoImage.bytes),
-              },
-            },
-          ],
+          parts: [{ text: input.prompt }, ...imageParts],
         },
       ],
       generationConfig: {
         responseModalities: ["TEXT", "IMAGE"],
-        imageConfig: { aspectRatio: "1:1" },
+        imageConfig: { aspectRatio: FEED_ASPECT_RATIO },
       },
     }),
   });
@@ -324,8 +340,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Parâmetros inválidos" }, 400);
     }
     if (!templateUrl) return jsonResponse({ error: "Informe o template de referência" }, 400);
-    if (!photoUrl) return jsonResponse({ error: "Informe a imagem da arte" }, 400);
     if (!overlayText) return jsonResponse({ error: "Informe o texto da arte" }, 400);
+    void overlayText;
+    void secondaryText;
 
     const { apiKey, source: keySource } = await resolveAiKey(admin, user.id, provider);
     if (!apiKey) {
@@ -336,14 +353,14 @@ Deno.serve(async (req) => {
     const [
       { data: content, error: contentError },
       { data: project, error: projectError },
-      { data: client, error: clientError },
+      clientResult,
       { data: brandBriefing, error: brandBriefingError },
     ] = await Promise.all([
       supabase.from("content_items").select("id, project_id, title, format").eq("id", body.contentId).maybeSingle(),
       supabase.from("projects").select("id, name, client_id").eq("id", body.projectId).maybeSingle(),
       supabase
         .from("clients")
-        .select("id, name, logo_url, brand_colors, brand_fonts")
+        .select("id, name, logo_url, brand_colors, brand_fonts, brand_guidance")
         .eq("id", body.clientId)
         .maybeSingle(),
       supabase
@@ -352,6 +369,26 @@ Deno.serve(async (req) => {
         .eq("client_id", body.clientId)
         .maybeSingle(),
     ]);
+
+    let client = clientResult.data as {
+      id: string;
+      name: string;
+      logo_url?: string | null;
+      brand_colors?: unknown;
+      brand_fonts?: unknown;
+      brand_guidance?: unknown;
+    } | null;
+    let clientError = clientResult.error;
+
+    if (clientError && /brand_guidance/i.test(clientError.message)) {
+      const retry = await supabase
+        .from("clients")
+        .select("id, name, logo_url, brand_colors, brand_fonts")
+        .eq("id", body.clientId)
+        .maybeSingle();
+      client = retry.data;
+      clientError = retry.error;
+    }
 
     if (contentError) return jsonResponse({ error: contentError.message }, 500);
     if (projectError) return jsonResponse({ error: projectError.message }, 500);
@@ -373,32 +410,36 @@ Deno.serve(async (req) => {
       typeof brandBriefing?.guide_markdown === "string"
         ? brandBriefing.guide_markdown.trim().slice(0, 4000)
         : "";
+    const brandGuidance =
+      typeof client.brand_guidance === "string" ? client.brand_guidance.trim().slice(0, 2000) : "";
 
-    const [templateImage, photoImage] = await Promise.all([
-      fetchImage(templateUrl),
-      fetchImage(photoUrl),
-    ]);
+    const templateImage = await fetchImage(templateUrl);
+    const photoImage = photoUrl ? await fetchImage(photoUrl) : null;
 
     const prompt = [
       "Você é um diretor de arte de Instagram.",
-      "Crie UMA arte quadrada de feed (1:1) em português do Brasil.",
-      "A primeira imagem é o TEMPLATE de layout: preserve a composição, hierarquia, áreas de texto e estilo visual o máximo possível.",
-      "A segunda imagem é a FOTO/ASSET que deve ser usada como elemento principal da arte (substitua a foto do template por esta, mantendo enquadramento coerente).",
-      "Use exatamente os textos fornecidos (não invente frases extras).",
-      "Quando houver texto secundário, use-o como texto explicativo/apoio (menor hierarquia visual).",
-      "Respeite as cores e fontes do kit de marca quando informadas.",
+      `Crie UMA arte de feed em retrato ${FEED_ASPECT_RATIO} (três por quatro, vertical).`,
+      `Proporção obrigatória: ${FEED_ASPECT_RATIO}. Não gere arte quadrada (1:1), 4:5 nem 9:16.`,
+      "A primeira imagem é o TEMPLATE de layout: preserve a composição, hierarquia, áreas de texto (vazias) e estilo visual o máximo possível, adaptando o layout à proporção 3:4 se o template for diferente.",
+      photoImage
+        ? "A segunda imagem é a FOTO/ASSET que deve ser usada como elemento principal da arte (substitua a foto do template por esta, mantendo enquadramento coerente)."
+        : "Não foi enviada foto/asset extra: siga o template e o kit de marca. Não invente fotografias, pessoas ou assets que não estejam no template.",
+      "TEXTO — regra crítica:",
+      "NÃO desenhe letras, números, palavras, hashtags, CTA, marcas d'água nem placeholders.",
+      "Apague qualquer texto visível no template e deixe as áreas de título/apoio vazias, com o fundo do layout.",
+      "O sistema vai aplicar o texto depois, com a fonte verdadeira da marca.",
+      "Respeite as cores do kit de marca quando informadas.",
       "Não adicione logos inventados; se houver logo na referência, mantenha o estilo, não invente marcas.",
-      "Resultado final: peça pronta para publicar, limpa, legível, profissional.",
+      "Resultado final: fundo/layout pronto para receber texto, limpo, profissional, em 3:4.",
       "",
       `Cliente: ${client.name}`,
       `Projeto: ${project.name}`,
-      `Formato: ${format}`,
+      `Formato: ${format} (arte ${FEED_ASPECT_RATIO})`,
       `Cores da marca: ${formatBrandColors(client.brand_colors)}`,
-      `Fontes da marca: ${formatBrandFonts(client.brand_fonts)}`,
+      `Fontes da marca (não desenhe as letras; só o estilo do layout): ${formatBrandFonts(client.brand_fonts)}`,
+      brandGuidance ? `Orientações gerais da marca (obrigatórias):\n${brandGuidance}` : null,
       brandGuide ? `Trecho do guia de marca:\n${brandGuide}` : null,
-      `Texto em destaque / frase principal (exato):\n${overlayText}`,
-      secondaryText ? `Texto secundário / explicativo (exato):\n${secondaryText}` : null,
-      guidance ? `Orientações adicionais:\n${guidance}` : null,
+      guidance ? `Orientações adicionais deste pedido:\n${guidance}` : null,
     ]
       .filter(Boolean)
       .join("\n");

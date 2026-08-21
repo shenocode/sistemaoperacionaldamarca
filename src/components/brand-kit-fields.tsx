@@ -1,16 +1,30 @@
+import { useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { BrandColor, BrandFonts } from "@/lib/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { MAX_BRAND_COLORS, type BrandColor, type BrandFonts } from "@/lib/api";
+import {
+  brandFontFamilyCss,
+  fontOptionsForSelect,
+  loadBrandFonts,
+} from "@/lib/brand-fonts";
 
-const MAX_COLORS = 6;
+const FONT_NONE = "__none__";
 
 export type BrandKitValue = {
   brand_colors: BrandColor[];
   brand_fonts: BrandFonts;
+  brand_guidance: string;
 };
 
 export function BrandKitFields({
@@ -27,6 +41,12 @@ export function BrandKitFields({
   const { t } = useTranslation();
   const colors = value.brand_colors ?? [];
   const fonts = value.brand_fonts ?? {};
+  const primaryOptions = fontOptionsForSelect(fonts.primary);
+  const secondaryOptions = fontOptionsForSelect(fonts.secondary);
+
+  useEffect(() => {
+    void loadBrandFonts([fonts.primary ?? "", fonts.secondary ?? ""]);
+  }, [fonts.primary, fonts.secondary]);
 
   function setColors(next: BrandColor[]) {
     onChange({ ...value, brand_colors: next });
@@ -56,7 +76,7 @@ export function BrandKitFields({
             type="button"
             variant="outline"
             size="sm"
-            disabled={colors.length >= MAX_COLORS}
+            disabled={colors.length >= MAX_BRAND_COLORS}
             onClick={() =>
               setColors([...colors, { name: "", hex: "#000000" }])
             }
@@ -124,23 +144,55 @@ export function BrandKitFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-font-primary`}>{t("clients.brandKit.fontPrimary")}</Label>
-          <Input
-            id={`${idPrefix}-font-primary`}
-            value={fonts.primary ?? ""}
-            onChange={(e) => setFonts({ primary: e.target.value })}
-            placeholder="Montserrat"
-          />
+          <Select
+            value={fonts.primary?.trim() || FONT_NONE}
+            onValueChange={(next) =>
+              setFonts({ primary: next === FONT_NONE ? "" : next })
+            }
+          >
+            <SelectTrigger id={`${idPrefix}-font-primary`}>
+              <SelectValue placeholder={t("clients.brandKit.fontSelect")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FONT_NONE}>{t("clients.brandKit.fontNone")}</SelectItem>
+              {primaryOptions.map((font) => (
+                <SelectItem
+                  key={font.id}
+                  value={font.family}
+                  style={{ fontFamily: brandFontFamilyCss(font.family) }}
+                >
+                  {font.family}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-font-secondary`}>
             {t("clients.brandKit.fontSecondary")}
           </Label>
-          <Input
-            id={`${idPrefix}-font-secondary`}
-            value={fonts.secondary ?? ""}
-            onChange={(e) => setFonts({ secondary: e.target.value })}
-            placeholder="Georgia"
-          />
+          <Select
+            value={fonts.secondary?.trim() || FONT_NONE}
+            onValueChange={(next) =>
+              setFonts({ secondary: next === FONT_NONE ? "" : next })
+            }
+          >
+            <SelectTrigger id={`${idPrefix}-font-secondary`}>
+              <SelectValue placeholder={t("clients.brandKit.fontSelect")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FONT_NONE}>{t("clients.brandKit.fontNone")}</SelectItem>
+              {secondaryOptions.map((font) => (
+                <SelectItem
+                  key={font.id}
+                  value={font.family}
+                  style={{ fontFamily: brandFontFamilyCss(font.family) }}
+                >
+                  {font.family}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="space-y-1.5">
@@ -151,6 +203,17 @@ export function BrandKitFields({
           value={fonts.notes ?? ""}
           onChange={(e) => setFonts({ notes: e.target.value })}
           placeholder={t("clients.brandKit.fontNotesPlaceholder")}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-guidance`}>{t("clients.brandKit.guidance")}</Label>
+        <p className="text-xs text-muted-foreground">{t("clients.brandKit.guidanceHint")}</p>
+        <Textarea
+          id={`${idPrefix}-guidance`}
+          rows={4}
+          value={value.brand_guidance ?? ""}
+          onChange={(e) => onChange({ ...value, brand_guidance: e.target.value })}
+          placeholder={t("clients.brandKit.guidancePlaceholder")}
         />
       </div>
     </div>

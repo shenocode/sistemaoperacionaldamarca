@@ -14,16 +14,18 @@ export const SUPPORTED_LANGUAGES = [
 
 export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]["code"];
 
+const resources = {
+  "pt-BR": { translation: ptBR },
+  "en-US": { translation: enUS },
+  "es-ES": { translation: esES },
+} as const;
+
 if (!i18n.isInitialized) {
   i18n
     .use(LanguageDetector)
     .use(initReactI18next)
     .init({
-      resources: {
-        "pt-BR": { translation: ptBR },
-        "en-US": { translation: enUS },
-        "es-ES": { translation: esES },
-      },
+      resources,
       fallbackLng: "pt-BR",
       supportedLngs: SUPPORTED_LANGUAGES.map((l) => l.code),
       interpolation: { escapeValue: false },
@@ -33,6 +35,10 @@ if (!i18n.isInitialized) {
         caches: ["localStorage"],
       },
     });
+} else {
+  for (const [lng, bundle] of Object.entries(resources)) {
+    i18n.addResourceBundle(lng, "translation", bundle.translation, true, true);
+  }
 }
 
 export default i18n;

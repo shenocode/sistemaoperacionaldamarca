@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Download, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, Download, Expand, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -21,14 +21,24 @@ import {
 } from "@/components/ui/select";
 import {
   DESIGN_TEMPLATE_ACCEPT,
+  brandKitFromClient,
   generateDesign,
+  getClient,
   listDesignTemplates,
   saveGeneratedArtToLibrary,
   uploadContentMedia,
   type DesignProvider,
+  type DesignTemplate,
   type DesignTemplateFormat,
 } from "@/lib/api";
+import { MediaLightbox } from "@/components/content-media-preview";
 import { downloadImageFromUrl } from "@/lib/download-image";
+import { cn } from "@/lib/utils";
+import {
+  createDefaultOverlay,
+  flattenOverlayToFile,
+  type MediaTextOverlay,
+} from "@/lib/media-text-overlay";
 
 const MAX_SLIDES = 8;
 const NONE_TEMPLATE = "__none__";
@@ -44,7 +54,77 @@ type SlideDraft = {
   templateId: string;
   templateFile: File | null;
   resultUrl: string | null;
+  overlay: MediaTextOverlay | null;
 };
+
+function TemplateOptionLabel({
+  name,
+  imageUrl,
+}: {
+  name: string;
+  imageUrl?: string | null;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="pointer-events-none h-12 w-9 shrink-0 rounded-md border bg-muted object-cover"
+        />
+      ) : (
+        <span className="h-12 w-9 shrink-0 rounded-md border bg-muted" aria-hidden="true" />
+      )}
+      <span className="truncate">{name}</span>
+    </span>
+  );
+}
+
+function TemplateSelectItems({ templates }: { templates: DesignTemplate[] }) {
+  return (
+    <>
+      {templates.map((template) => (
+        <SelectItem key={template.id} value={template.id} className="h-auto py-1.5">
+          <TemplateOptionLabel name={template.name} imageUrl={template.file_url} />
+        </SelectItem>
+      ))}
+    </>
+  );
+}
+
+function GeneratedArtPreview({
+  src,
+  alt,
+  onExpand,
+  className,
+  imgClassName,
+}: {
+  src: string;
+  alt: string;
+  onExpand: () => void;
+  className?: string;
+  imgClassName?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      aria-label={t("project.detail.expandMedia")}
+      className={cn(
+        "group relative cursor-zoom-in overflow-hidden rounded-md",
+        className,
+      )}
+    >
+      <img src={src} alt={alt} className={cn("block", imgClassName)} />
+      <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/55 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+        <Expand className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+    </button>
+  );
+}
 
 function createSlide(overlayText = "", secondaryText = ""): SlideDraft {
   return {
@@ -55,6 +135,7 @@ function createSlide(overlayText = "", secondaryText = ""): SlideDraft {
     templateId: NONE_TEMPLATE,
     templateFile: null,
     resultUrl: null,
+    overlay: null,
   };
 }
 
@@ -94,7 +175,7 @@ export function ContentDesignAssistant({
   title: string;
   caption: string;
   roteiro: string;
-  onApply: (urls: string[]) => void;
+  onApply: (items: Array<{ url: string; overlay?: MediaTextOverlay }>) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -107,6 +188,12 @@ export function ContentDesignAssistant({
   });
   const templates = templatesQuery.data ?? [];
 
+  const clientQuery = useQuery({
+    queryKey: ["clients", clientId],
+    queryFn: () => getClient(clientId),
+  });
+  const kit = brandKitFromClient(clientQuery.data ?? {});
+
   const [templateSource, setTemplateSource] = useState<TemplateSource>("library");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [templateFile, setTemplateFile] = useState<File | null>(null);
@@ -115,8 +202,12 @@ export function ContentDesignAssistant({
   const [secondaryText, setSecondaryText] = useState("");
   const [guidance, setGuidance] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultOverlay, setResultOverlay] = useState<MediaTextOverlay | null>(null);
   const [slides, setSlides] = useState<SlideDraft[]>([createSlide()]);
   const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ items: { url: string }[]; index: number } | null>(
+    null,
+  );
   const [provider, setProvider] = useState<DesignProvider>("openai");
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
@@ -174,6 +265,25 @@ export function ContentDesignAssistant({
     return raw.replace(/[^\w.\-()+ ]+/g, "_").slice(0, 80);
   }, [title]);
 
+  async function composeGeneratedArt(
+    baseUrl: string,
+    overlayTextValue: string,
+    secondaryTextValue: string,
+    label: string,
+  ) {
+    const overlay = createDefaultOverlay({
+      baseUrl,
+      overlayText: overlayTextValue,
+      secondaryText: secondaryTextValue,
+      primaryFont: kit.brand_fonts.primary,
+      secondaryFont: kit.brand_fonts.secondary,
+      colors: kit.brand_colors,
+    });
+    const file = await flattenOverlayToFile(overlay, `${label}.png`);
+    const url = await uploadContentMedia(projectId, file);
+    return { url, overlay };
+  }
+
   async function persistGeneratedArt(imageUrl: string, label: string) {
     try {
       await saveGeneratedArtToLibrary({
@@ -200,10 +310,9 @@ export function ContentDesignAssistant({
         templateId: selectedTemplateId,
         file: templateFile,
       });
-      if (!photoFile) throw new Error(t("project.detail.designAssistant.needPhoto"));
       if (!overlayText.trim()) throw new Error(t("project.detail.designAssistant.needText"));
-      const photoUrl = await uploadContentMedia(projectId, photoFile);
-      return generateDesign({
+      const photoUrl = photoFile ? await uploadContentMedia(projectId, photoFile) : undefined;
+      const result = await generateDesign({
         contentId,
         projectId,
         clientId,
@@ -215,10 +324,12 @@ export function ContentDesignAssistant({
         secondaryText,
         guidance,
       });
+      return composeGeneratedArt(result.imageUrl, overlayText, secondaryText, artBaseName);
     },
-    onSuccess: async (result) => {
-      setResultUrl(result.imageUrl);
-      await persistGeneratedArt(result.imageUrl, artBaseName);
+    onSuccess: async (composed) => {
+      setResultUrl(composed.url);
+      setResultOverlay(composed.overlay);
+      await persistGeneratedArt(composed.url, artBaseName);
       toast.success(t("project.detail.designAssistant.generated"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -236,10 +347,11 @@ export function ContentDesignAssistant({
       templateId: slideTemplateId,
       file: slideTemplateFile ?? (useUpload ? templateFile : null),
     });
-    if (!slide.photoFile) throw new Error(t("project.detail.designAssistant.needPhoto"));
     if (!slide.overlayText.trim()) throw new Error(t("project.detail.designAssistant.needText"));
 
-    const photoUrl = await uploadContentMedia(projectId, slide.photoFile);
+    const photoUrl = slide.photoFile
+      ? await uploadContentMedia(projectId, slide.photoFile)
+      : undefined;
     const result = await generateDesign({
       contentId,
       projectId,
@@ -252,7 +364,13 @@ export function ContentDesignAssistant({
       secondaryText: slide.secondaryText,
       guidance,
     });
-    return result.imageUrl;
+    const composed = await composeGeneratedArt(
+      result.imageUrl,
+      slide.overlayText,
+      slide.secondaryText,
+      `${artBaseName}-slide`,
+    );
+    return composed;
   }
 
   const generateSlideMutation = useMutation({
@@ -260,16 +378,18 @@ export function ContentDesignAssistant({
       const slide = slides.find((item) => item.id === slideId);
       if (!slide) throw new Error("Slide não encontrado");
       setGeneratingSlideId(slideId);
-      const imageUrl = await generateOneSlide(slide);
-      return { slideId, imageUrl };
+      const composed = await generateOneSlide(slide);
+      return { slideId, ...composed };
     },
-    onSuccess: async ({ slideId, imageUrl }) => {
+    onSuccess: async ({ slideId, url, overlay }) => {
       setSlides((prev) =>
-        prev.map((slide) => (slide.id === slideId ? { ...slide, resultUrl: imageUrl } : slide)),
+        prev.map((slide) =>
+          slide.id === slideId ? { ...slide, resultUrl: url, overlay } : slide,
+        ),
       );
       const index = slides.findIndex((item) => item.id === slideId);
       await persistGeneratedArt(
-        imageUrl,
+        url,
         `${artBaseName}-slide-${Math.max(index, 0) + 1}`,
       );
       toast.success(t("project.detail.designAssistant.generated"));
@@ -283,12 +403,16 @@ export function ContentDesignAssistant({
       const urls: string[] = [];
       for (const [index, slide] of slides.entries()) {
         setGeneratingSlideId(slide.id);
-        const imageUrl = await generateOneSlide(slide);
-        urls.push(imageUrl);
+        const composed = await generateOneSlide(slide);
+        urls.push(composed.url);
         setSlides((prev) =>
-          prev.map((item) => (item.id === slide.id ? { ...item, resultUrl: imageUrl } : item)),
+          prev.map((item) =>
+            item.id === slide.id
+              ? { ...item, resultUrl: composed.url, overlay: composed.overlay }
+              : item,
+          ),
         );
-        await persistGeneratedArt(imageUrl, `${artBaseName}-slide-${index + 1}`);
+        await persistGeneratedArt(composed.url, `${artBaseName}-slide-${index + 1}`);
       }
       return urls;
     },
@@ -306,14 +430,16 @@ export function ContentDesignAssistant({
 
   const handleApplyStatic = () => {
     if (!resultUrl) return;
-    onApply([resultUrl]);
+    onApply([{ url: resultUrl, overlay: resultOverlay ?? undefined }]);
     toast.success(t("project.detail.designAssistant.applied"));
   };
 
   const handleApplyCarousel = () => {
-    const urls = slides.map((slide) => slide.resultUrl).filter((url): url is string => Boolean(url));
-    if (urls.length === 0) return;
-    onApply(urls);
+    const items = slides
+      .filter((slide): slide is SlideDraft & { resultUrl: string } => Boolean(slide.resultUrl))
+      .map((slide) => ({ url: slide.resultUrl, overlay: slide.overlay ?? undefined }));
+    if (items.length === 0) return;
+    onApply(items);
     toast.success(t("project.detail.designAssistant.applied"));
   };
 
@@ -327,6 +453,7 @@ export function ContentDesignAssistant({
   }
 
   return (
+    <>
     <Collapsible open={open} onOpenChange={setOpen}>
       <Card className="rounded-xl">
         <CollapsibleTrigger asChild>
@@ -423,15 +550,11 @@ export function ContentDesignAssistant({
               </p>
             ) : (
               <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-auto min-h-14 py-1.5 [&>span]:line-clamp-none">
                   <SelectValue placeholder={t("project.detail.designAssistant.templateSelect")} />
                 </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-80">
+                  <TemplateSelectItems templates={templates} />
                 </SelectContent>
               </Select>
             )
@@ -546,10 +669,12 @@ export function ContentDesignAssistant({
                 <p className="text-sm font-medium">
                   {t("project.detail.designAssistant.previewTitle")}
                 </p>
-                <img
+                <GeneratedArtPreview
                   src={resultUrl}
-                  alt=""
-                  className="mx-auto max-h-80 w-full max-w-sm rounded-md object-contain"
+                  alt={t("project.detail.designAssistant.previewTitle")}
+                  onExpand={() => setLightbox({ items: [{ url: resultUrl }], index: 0 })}
+                  className="mx-auto w-full max-w-sm aspect-[3/4] bg-muted/40"
+                  imgClassName="h-full w-full object-contain"
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" onClick={handleApplyStatic}>
@@ -571,7 +696,7 @@ export function ContentDesignAssistant({
                     <Download className="size-4" />
                     {t("project.detail.designAssistant.downloadJpg")}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setResultUrl(null)}>
+                  <Button type="button" variant="outline" onClick={() => { setResultUrl(null); setResultOverlay(null); }}>
                     {t("project.detail.designAssistant.discard")}
                   </Button>
                 </div>
@@ -753,18 +878,19 @@ export function ContentDesignAssistant({
                           )
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-auto min-h-14 py-1.5 [&>span]:line-clamp-none">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE_TEMPLATE}>
-                            {t("project.detail.designAssistant.defaultTemplate")}
+                        <SelectContent className="max-h-80">
+                          <SelectItem value={NONE_TEMPLATE} className="h-auto py-1.5">
+                            <TemplateOptionLabel
+                              name={t("project.detail.designAssistant.defaultTemplate")}
+                              imageUrl={
+                                templates.find((item) => item.id === selectedTemplateId)?.file_url
+                              }
+                            />
                           </SelectItem>
-                          {templates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name}
-                            </SelectItem>
-                          ))}
+                          <TemplateSelectItems templates={templates} />
                         </SelectContent>
                       </Select>
                       <input
@@ -806,10 +932,18 @@ export function ContentDesignAssistant({
 
                     {slide.resultUrl ? (
                       <div className="space-y-2">
-                        <img
+                        <GeneratedArtPreview
                           src={slide.resultUrl}
-                          alt=""
-                          className="h-40 w-40 rounded-md border object-cover"
+                          alt={t("project.detail.designAssistant.slide", { n: index + 1 })}
+                          onExpand={() => {
+                            const items = slides
+                              .filter((item) => item.resultUrl)
+                              .map((item) => ({ url: item.resultUrl! }));
+                            const start = items.findIndex((item) => item.url === slide.resultUrl);
+                            setLightbox({ items, index: Math.max(start, 0) });
+                          }}
+                          className="w-40 aspect-[3/4] border bg-muted/40"
+                          imgClassName="h-full w-full object-contain"
                         />
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -860,7 +994,7 @@ export function ContentDesignAssistant({
                     type="button"
                     variant="outline"
                     onClick={() =>
-                      setSlides((prev) => prev.map((slide) => ({ ...slide, resultUrl: null })))
+                      setSlides((prev) => prev.map((slide) => ({ ...slide, resultUrl: null, overlay: null })))
                     }
                   >
                     {t("project.detail.designAssistant.discard")}
@@ -877,5 +1011,15 @@ export function ContentDesignAssistant({
         </CollapsibleContent>
       </Card>
     </Collapsible>
+    <MediaLightbox
+      open={Boolean(lightbox)}
+      onOpenChange={(open) => {
+        if (!open) setLightbox(null);
+      }}
+      items={lightbox?.items ?? []}
+      title={t("project.detail.designAssistant.previewTitle")}
+      initialIndex={lightbox?.index ?? 0}
+    />
+    </>
   );
 }

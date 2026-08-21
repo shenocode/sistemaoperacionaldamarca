@@ -114,7 +114,15 @@ import {
   type GraphicArtsMaterialType,
   type LocalizedField,
   type RowI18n,
+  brandKitFromClient,
 } from "@/lib/api";
+import type { Json } from "@/integrations/supabase/types";
+import {
+  flattenOverlayToFile,
+  parseMediaOverlays,
+  serializeMediaOverlays,
+  type MediaTextOverlay,
+} from "@/lib/media-text-overlay";
 import type { LanguageCode } from "@/i18n";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
@@ -141,7 +149,8 @@ const NEW_THEME_VALUE = "__new_theme__";
 type SourceMode = "file" | "url";
 
 type MediaEntry =
-  { id: string; kind: "url"; url: string } | { id: string; kind: "file"; file: File };
+  | { id: string; kind: "url"; url: string; overlay?: MediaTextOverlay | null }
+  | { id: string; kind: "file"; file: File; overlay?: MediaTextOverlay | null };
 
 function createMediaId() {
   return crypto.randomUUID();
@@ -161,19 +170,28 @@ function fileNameFromStoredMediaUrl(url: string) {
   );
 }
 
-function mediaEntriesFromUrls(urls: string[]): MediaEntry[] {
-  return urls.filter(Boolean).map((url) => ({ id: createMediaId(), kind: "url" as const, url }));
+function mediaEntriesFromUrls(
+  urls: string[],
+  overlays: Array<MediaTextOverlay | null> = [],
+): MediaEntry[] {
+  return urls.filter(Boolean).map((url, index) => ({
+    id: createMediaId(),
+    kind: "url" as const,
+    url,
+    overlay: overlays[index] ?? null,
+  }));
 }
 
 function serializeMediaForDirty(items: MediaEntry[]) {
   return items.map((item) =>
     item.kind === "url"
-      ? { kind: "url" as const, url: item.url }
+      ? { kind: "url" as const, url: item.url, overlay: item.overlay ?? null }
       : {
           kind: "file" as const,
           name: item.file.name,
           size: item.file.size,
           type: item.file.type,
+          overlay: item.overlay ?? null,
         },
   );
 }
@@ -398,12 +416,13 @@ function ContentDetailPage() {
     (thumbnailUrl.trim() ? fileNameFromStoredMediaUrl(thumbnailUrl) : "");
   const previewItems: PreviewMediaItem[] = mediaItems
     .map((item) => {
-      if (item.kind === "url") return { url: item.url };
+      if (item.kind === "url") return { url: item.url, overlay: item.overlay ?? null };
       const url = blobUrls[item.id] ?? "";
       return {
         url,
         kind: guessMediaKind(item.file),
         name: item.file.name,
+        overlay: item.overlay ?? null,
       };
     })
     .filter((item) => item.url);
@@ -440,7 +459,10 @@ function ContentDetailPage() {
     const nextWidthCm = String(row.width_cm ?? nextPreset.widthCm);
     const nextHeightCm = String(row.height_cm ?? nextPreset.heightCm);
     const nextProductionNotes = row.production_notes ?? "";
-    const nextMedia = mediaEntriesFromUrls(resolveContentMediaUrls(row));
+    const nextMedia = mediaEntriesFromUrls(
+      resolveContentMediaUrls(row),
+      parseMediaOverlays((row as ContentItem).media_overlays),
+    );
     const nextThumbnail = row.thumbnail_url?.trim() || "";
     setRowI18n(nextI18n);
     setTitle(nextTitle);
@@ -755,14 +777,17 @@ function ContentDetailPage() {
       ? await uploadContentMediaFiles(projectId, pendingFiles)
       : [];
     let fileIndex = 0;
-    const urls = mediaItems
+    const resolved = mediaItems
       .map((item) => {
-        if (item.kind === "url") return item.url;
-        return uploaded[fileIndex++] ?? "";
+        const url = item.kind === "url" ? item.url : uploaded[fileIndex++] ?? "";
+        return url ? { url, overlay: item.overlay ?? null } : null;
       })
-      .filter(Boolean);
-    if (!isCarousel) return urls.slice(0, 1);
-    return urls;
+      .filter((item): item is { url: string; overlay: MediaTextOverlay | null } => Boolean(item));
+    const sliced = isCarousel ? resolved : resolved.slice(0, 1);
+    return {
+      urls: sliced.map((item) => item.url),
+      overlays: serializeMediaOverlays(sliced.map((item) => item.overlay)) as Json,
+    };
   };
 
   const resolveThumbnailForSave = async () => {
@@ -774,7 +799,7 @@ function ContentDetailPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const urls = await resolveMediaForSave();
+      const { urls, overlays } = await resolveMediaForSave();
       const nextThumbnail = usesDedicatedThumbnail ? await resolveThumbnailForSave() : null;
       const payload = buildSavePayload();
       if (isPrintPiece && (payload.widthCm == null || payload.heightCm == null)) {
@@ -789,6 +814,7 @@ function ContentDetailPage() {
         locucao: payload.locucao,
         roteiro: payload.roteiro,
         mediaUrls: urls,
+        mediaOverlays: overlays,
         thumbnailUrl: usesDedicatedThumbnail ? nextThumbnail : null,
         format: formatType,
         theme: payload.theme,
@@ -834,7 +860,7 @@ function ContentDetailPage() {
           i18n: payload.i18n,
         });
       }
-      const urls = await resolveMediaForSave();
+      const { urls, overlays } = await resolveMediaForSave();
       const nextThumbnail = usesDedicatedThumbnail ? await resolveThumbnailForSave() : null;
       return saveContentAsNewVersion({
         contentId,
@@ -847,6 +873,7 @@ function ContentDetailPage() {
         locucao: payload.locucao,
         roteiro: payload.roteiro,
         mediaUrls: urls,
+        mediaOverlays: overlays,
         thumbnailUrl: usesDedicatedThumbnail ? nextThumbnail : null,
         format: formatType,
         theme: payload.theme,
@@ -1169,6 +1196,38 @@ function ContentDetailPage() {
                 materialType={materialType}
                 widthCm={parseCmInput(widthCm)}
                 heightCm={parseCmInput(heightCm)}
+                textEditor={
+                  isAdmin && (formatType === "static_feed" || formatType === "carousel")
+                    ? {
+                        brandFonts: brandKitFromClient(client ?? {}).brand_fonts,
+                        colors: brandKitFromClient(client ?? {}).brand_colors,
+                        onSave: async (index, overlay) => {
+                          try {
+                            const file = await flattenOverlayToFile(
+                              overlay,
+                              `${title.trim() || "arte"}-texto.png`,
+                            );
+                            const url = await uploadContentMedia(projectId, file);
+                            setMediaItems((prev) =>
+                              prev.map((item, i) =>
+                                i === index
+                                  ? { id: item.id, kind: "url", url, overlay }
+                                  : item,
+                              ),
+                            );
+                            toast.success(t("project.detail.artText.saved"));
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error
+                                ? err.message
+                                : t("project.detail.artText.saveError"),
+                            );
+                            throw err;
+                          }
+                        },
+                      }
+                    : undefined
+                }
               />
             </CardContent>
           </Card>
@@ -1225,11 +1284,18 @@ function ContentDetailPage() {
               title={title}
               caption={caption}
               roteiro={roteiro}
-              onApply={(urls) => {
-                setMediaItems(mediaEntriesFromUrls(urls));
+              onApply={(items) => {
+                setMediaItems(
+                  items.map((item) => ({
+                    id: createMediaId(),
+                    kind: "url" as const,
+                    url: item.url,
+                    overlay: item.overlay ?? null,
+                  })),
+                );
                 if (
                   formatType !== "carousel" &&
-                  urls.length > 1 &&
+                  items.length > 1 &&
                   allowedFormats.includes("carousel")
                 ) {
                   setFormatType("carousel");

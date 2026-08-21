@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ProjectCategoriesField } from "@/components/project-categories-field";
+import { ProjectCategoryIcon } from "@/components/project-category-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -152,19 +153,25 @@ function ClientDetailPage() {
                 className="block"
               >
                 <Card className="rounded-xl transition-colors hover:bg-muted/40">
-                  <CardContent className="space-y-2 p-5">
-                    <p className="font-medium tracking-tight">{projectName}</p>
-                    {projectDescription ? (
-                      <p className="line-clamp-2 text-sm text-muted-foreground">{projectDescription}</p>
-                    ) : null}
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
-                      {t(`clients.categories.${primaryCategory}.label`)}
-                    </p>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {project.status === "archived"
-                        ? t("clients.archived")
-                        : t("clients.active")}
-                    </p>
+                  <CardContent className="flex items-start gap-4 p-5">
+                    <ProjectCategoryIcon
+                      category={primaryCategory}
+                      className={project.status === "archived" ? "opacity-50" : undefined}
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <p className="font-medium tracking-tight">{projectName}</p>
+                      {projectDescription ? (
+                        <p className="line-clamp-2 text-sm text-muted-foreground">{projectDescription}</p>
+                      ) : null}
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {t(`clients.categories.${primaryCategory}.label`)}
+                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {project.status === "archived"
+                          ? t("clients.archived")
+                          : t("clients.active")}
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>

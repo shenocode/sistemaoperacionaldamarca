@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ProjectCategoryIcon } from "@/components/project-category-icon";
 import { PROJECT_CATEGORIES, type ProjectCategory } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ export function ProjectCategoriesField({
               )}
             >
               <RadioGroupItem id={id} value={category} className="mt-0.5" />
+              <ProjectCategoryIcon category={category} size="sm" className="mt-0.5" />
               <span className="min-w-0 space-y-0.5">
                 <span className="block text-sm font-medium leading-none">
                   {t(`clients.categories.${category}.label`)}

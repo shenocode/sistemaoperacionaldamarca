@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -54,6 +54,8 @@ import {
   DESIGN_TEMPLATE_ACCEPT,
   DESIGN_TEMPLATE_FORMATS,
   LIBRARY_ACCEPT,
+  LIBRARY_MAX_MB,
+  PartialLibraryUploadError,
   brandKitFromClient,
   canManageClient,
   createDesignTemplate,
@@ -62,9 +64,11 @@ import {
   deleteDesignTemplate,
   ensureBrandBriefing,
   ensureProjectSite,
+  formatLibraryFileSize,
   getClient,
   getPrimaryProjectCategory,
   guessLibraryCategory,
+  isLibraryFileTooLarge,
   listDesignTemplates,
   listLibraryAssets,
   listProjects,
@@ -150,9 +154,11 @@ export function ClientLibraryView({
   const [downloading, setDownloading] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [brandKitOpen, setBrandKitOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [brandKit, setBrandKit] = useState<BrandKitValue>({
     brand_colors: [],
     brand_fonts: {},
+    brand_guidance: "",
   });
 
   const clientQuery = useQuery({
@@ -248,6 +254,7 @@ export function ClientLibraryView({
         website: client.website ?? undefined,
         brand_colors: brandKit.brand_colors,
         brand_fonts: brandKit.brand_fonts,
+        brand_guidance: brandKit.brand_guidance,
         i18n: client.i18n as RowI18n | undefined,
       });
     },
@@ -286,9 +293,25 @@ export function ClientLibraryView({
         ];
       }
 
+      const oversized = files.filter((item) => isLibraryFileTooLarge(item.file));
+      const valid = files.filter((item) => !isLibraryFileTooLarge(item.file));
+      if (oversized.length > 0) {
+        setFiles(valid);
+        const tooLargeMessage = t("project.library.fileTooLarge", {
+          count: oversized.length,
+          names: oversized
+            .map((item) => `${item.file.name} (${formatLibraryFileSize(item.file.size)})`)
+            .join(", "),
+        });
+        if (valid.length === 0) {
+          throw new Error(tooLargeMessage);
+        }
+        toast.error(tooLargeMessage);
+      }
+
       return createLibraryAssets(
         await Promise.all(
-          files.map(async (item) => {
+          valid.map(async (item) => {
             let block;
             try {
               block = await translateTextField({ text: item.name });
@@ -315,7 +338,16 @@ export function ClientLibraryView({
         created.length === 1 ? t("project.library.addedOne") : t("project.library.added"),
       );
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      toast.error(err.message);
+      if (err instanceof PartialLibraryUploadError) {
+        queryClient.invalidateQueries({ queryKey: ["library", clientId] });
+        const uploadedNames = new Set(
+          err.created.map((asset) => asset.file_name).filter(Boolean),
+        );
+        setFiles((prev) => prev.filter((item) => !uploadedNames.has(item.file.name)));
+      }
+    },
   });
 
   const createTemplateMutation = useMutation({
@@ -440,7 +472,7 @@ export function ClientLibraryView({
 
   const canSubmit =
     source === "file"
-      ? files.length > 0
+      ? files.some((item) => !isLibraryFileTooLarge(item.file))
       : Boolean(fileUrl.trim()) && Boolean(name.trim() || fileUrl.trim());
 
   const briefing = briefingQuery.data;
@@ -549,18 +581,6 @@ export function ClientLibraryView({
                     value={brandKit}
                     onChange={setBrandKit}
                   />
-                  {manageQuery.data ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={saveBrandKitMutation.isPending || clientQuery.isLoading}
-                      onClick={() => saveBrandKitMutation.mutate()}
-                    >
-                      {saveBrandKitMutation.isPending
-                        ? t("common.loading")
-                        : t("project.library.brandKit.save")}
-                    </Button>
-                  ) : null}
 
                   <Separator />
 
@@ -604,7 +624,7 @@ export function ClientLibraryView({
                               <img
                                 src={template.file_url}
                                 alt=""
-                                className="h-16 w-16 shrink-0 rounded-md object-cover"
+                                className="h-[4.5rem] w-12 shrink-0 rounded-md object-cover"
                               />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium" title={template.name}>
@@ -711,6 +731,17 @@ export function ClientLibraryView({
                       </div>
                     );
                   })}
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={saveBrandKitMutation.isPending || clientQuery.isLoading}
+                    onClick={() => saveBrandKitMutation.mutate()}
+                  >
+                    {saveBrandKitMutation.isPending
+                      ? t("common.loading")
+                      : t("project.library.brandKit.save")}
+                  </Button>
                 </CardContent>
               </CollapsibleContent>
             </Card>
@@ -792,10 +823,10 @@ export function ClientLibraryView({
                               <img
                                 src={asset.file_url}
                                 alt=""
-                                className="h-16 w-16 shrink-0 rounded-md object-cover"
+                                className="h-[4.5rem] w-12 shrink-0 rounded-md object-cover"
                               />
                             ) : (
-                              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted">
+                              <div className="flex h-[4.5rem] w-12 shrink-0 items-center justify-center rounded-md bg-muted">
                                 <ImageIcon className="h-5 w-5 text-muted-foreground" />
                               </div>
                             )}
@@ -935,60 +966,114 @@ export function ClientLibraryView({
               <TabsContent value="file" className="space-y-3 pt-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="asset-files">{t("project.library.file")}</Label>
-                  <Input
-                    id="asset-files"
-                    type="file"
-                    accept={LIBRARY_ACCEPT}
-                    multiple
-                    className="min-w-0 max-w-full"
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.files ?? []);
-                      setFiles(
-                        selected.map((file) => ({
-                          id: crypto.randomUUID(),
-                          file,
-                          name: fileTitle(file.name),
-                          category: guessLibraryCategory(file),
-                        })),
-                      );
-                      e.target.value = "";
-                    }}
-                  />
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      id="asset-files"
+                      type="file"
+                      accept={LIBRARY_ACCEPT}
+                      multiple
+                      className="sr-only"
+                      disabled={createMutation.isPending}
+                      onChange={(e) => {
+                        const selected = Array.from(e.target.files ?? []);
+                        const accepted: PendingFile[] = [];
+                        const rejected: File[] = [];
+                        for (const file of selected) {
+                          if (isLibraryFileTooLarge(file)) {
+                            rejected.push(file);
+                            continue;
+                          }
+                          accepted.push({
+                            id: crypto.randomUUID(),
+                            file,
+                            name: fileTitle(file.name),
+                            category: guessLibraryCategory(file),
+                          });
+                        }
+                        if (rejected.length > 0) {
+                          toast.error(
+                            t("project.library.fileTooLarge", {
+                              count: rejected.length,
+                              names: rejected
+                                .map((file) => `${file.name} (${formatLibraryFileSize(file.size)})`)
+                                .join(", "),
+                            }),
+                          );
+                        }
+                        if (accepted.length > 0) {
+                          setFiles((prev) => {
+                            const existing = new Set(
+                              prev.map((item) => `${item.file.name}:${item.file.size}`),
+                            );
+                            return [
+                              ...prev,
+                              ...accepted.filter(
+                                (item) => !existing.has(`${item.file.name}:${item.file.size}`),
+                              ),
+                            ];
+                          });
+                        }
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={createMutation.isPending}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {t("project.library.chooseFiles")}
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      {files.length > 0
+                        ? t("project.library.filesSelected", { count: files.length })
+                        : t("project.library.noFilesChosen")}
+                    </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">{t("project.library.fileHint")}</p>
                 </div>
 
                 {files.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      {t("project.library.filesSelected", { count: files.length })}
-                    </p>
-                    <ul className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-2">
-                      {files.map((item) => (
-                        <li
-                          key={item.id}
-                          className="flex items-start justify-between gap-3 rounded-md bg-muted/40 px-2 py-1.5 text-xs"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{item.name}</p>
-                            <p className="text-muted-foreground">
-                              {t(`project.library.categories.${item.category}`)}
-                              {" · "}
-                              {(item.file.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className="shrink-0 text-muted-foreground hover:text-foreground"
-                            onClick={() =>
-                              setFiles((prev) => prev.filter((f) => f.id !== item.id))
-                            }
+                  <ul className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-2">
+                    {[...files]
+                      .sort((a, b) => b.file.size - a.file.size)
+                      .map((item) => {
+                        const tooLarge = isLibraryFileTooLarge(item.file);
+                        return (
+                          <li
+                            key={item.id}
+                            className="flex items-start justify-between gap-3 rounded-md bg-muted/40 px-2 py-1.5 text-xs"
                           >
-                            ×
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{item.name}</p>
+                              <p
+                                className={
+                                  tooLarge ? "text-destructive" : "text-muted-foreground"
+                                }
+                              >
+                                {t(`project.library.categories.${item.category}`)}
+                                {" · "}
+                                {formatLibraryFileSize(item.file.size)}
+                                {tooLarge
+                                  ? ` · ${t("project.library.fileTooLargeBadge", { max: LIBRARY_MAX_MB })}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="shrink-0 text-muted-foreground hover:text-foreground"
+                              disabled={createMutation.isPending}
+                              onClick={() =>
+                                setFiles((prev) => prev.filter((f) => f.id !== item.id))
+                              }
+                            >
+                              ×
+                            </button>
+                          </li>
+                        );
+                      })}
+                  </ul>
                 ) : null}
               </TabsContent>
 
