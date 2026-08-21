@@ -4,6 +4,12 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, Download, Expand, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
@@ -144,18 +150,53 @@ function parseRoteiroSlides(roteiro: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const slides: string[] = [];
+  if (lines.length === 0) return [];
+
+  const numbered: string[] = [];
+  let usedNumbered = false;
   for (const line of lines) {
-    const match = line.match(/^slide\s*(\d+)\s*[:\-–]\s*(.+)$/i);
+    const match = line.match(/^slide\s*(\d+)\s*[:\-–]\s*(.*)$/i);
     if (match) {
+      usedNumbered = true;
       const index = Number(match[1]) - 1;
       if (index >= 0 && index < MAX_SLIDES) {
-        slides[index] = match[2].trim();
+        numbered[index] = match[2].trim();
       }
     }
   }
-  const compact = slides.filter((text): text is string => typeof text === "string" && text.length > 0);
-  return compact.length > 0 ? compact : lines.slice(0, MAX_SLIDES);
+  if (usedNumbered) {
+    const length = Math.min(Math.max(numbered.length, 1), MAX_SLIDES);
+    return Array.from({ length }, (_, i) => numbered[i] ?? "");
+  }
+  return lines.slice(0, MAX_SLIDES);
+}
+
+function formatRoteiroFromSlides(slides: SlideDraft[]): string {
+  return slides
+    .map((slide, index) => {
+      const text = slide.overlayText.replace(/\s+/g, " ").trim();
+      return text ? `Slide ${index + 1}: ${text}` : `Slide ${index + 1}:`;
+    })
+    .join("\n");
+}
+
+function mergeSlidesFromRoteiro(prev: SlideDraft[], texts: string[]): SlideDraft[] {
+  if (texts.length === 0) {
+    if (prev.length === 0) return [createSlide()];
+    let changed = false;
+    const next = prev.map((slide) => {
+      if (!slide.overlayText) return slide;
+      changed = true;
+      return { ...slide, overlayText: "" };
+    });
+    return changed ? next : prev;
+  }
+  return texts.map((text, index) => {
+    const existing = prev[index];
+    if (!existing) return createSlide(text);
+    if (existing.overlayText === text) return existing;
+    return { ...existing, overlayText: text };
+  });
 }
 
 export function ContentDesignAssistant({
@@ -166,6 +207,7 @@ export function ContentDesignAssistant({
   title,
   caption,
   roteiro,
+  onRoteiroChange,
   onApply,
 }: {
   contentId: string;
@@ -175,6 +217,7 @@ export function ContentDesignAssistant({
   title: string;
   caption: string;
   roteiro: string;
+  onRoteiroChange?: (roteiro: string) => void;
   onApply: (items: Array<{ url: string; overlay?: MediaTextOverlay }>) => void;
 }) {
   const { t } = useTranslation();
@@ -204,6 +247,8 @@ export function ContentDesignAssistant({
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultOverlay, setResultOverlay] = useState<MediaTextOverlay | null>(null);
   const [slides, setSlides] = useState<SlideDraft[]>([createSlide()]);
+  const [openSlideId, setOpenSlideId] = useState("");
+  const lastEmittedRoteiroRef = useRef<string | null>(null);
   const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ items: { url: string }[]; index: number } | null>(
     null,
@@ -228,13 +273,30 @@ export function ContentDesignAssistant({
 
   useEffect(() => {
     if (!isCarousel) return;
-    const fromRoteiro = parseRoteiroSlides(roteiro);
-    if (fromRoteiro.length > 0) {
-      setSlides(fromRoteiro.map((text) => createSlide(text)));
+    if (lastEmittedRoteiroRef.current !== null && lastEmittedRoteiroRef.current === roteiro) {
       return;
     }
-    setSlides((prev) => (prev.length > 0 ? prev : [createSlide(defaultOverlay)]));
+    lastEmittedRoteiroRef.current = roteiro;
+    const fromRoteiro = parseRoteiroSlides(roteiro);
+    setSlides((prev) => {
+      if (fromRoteiro.length === 0) {
+        if (prev.length === 0) return [createSlide(defaultOverlay)];
+        return mergeSlidesFromRoteiro(prev, []);
+      }
+      const merged = mergeSlidesFromRoteiro(prev, fromRoteiro);
+      const unchanged =
+        merged.length === prev.length &&
+        merged.every((slide, index) => slide.id === prev[index].id && slide.overlayText === prev[index].overlayText);
+      return unchanged ? prev : merged;
+    });
   }, [isCarousel, roteiro, defaultOverlay]);
+
+  function applySlides(next: SlideDraft[]) {
+    setSlides(next);
+    const formatted = formatRoteiroFromSlides(next);
+    lastEmittedRoteiroRef.current = formatted;
+    if (formatted !== roteiro) onRoteiroChange?.(formatted);
+  }
 
   useEffect(() => {
     if (templates.length === 0) {
@@ -721,7 +783,9 @@ export function ContentDesignAssistant({
                       toast.error(t("project.detail.designAssistant.maxSlides", { count: MAX_SLIDES }));
                       return;
                     }
-                    setSlides((prev) => [...prev, createSlide()]);
+                    const slide = createSlide();
+                    applySlides([...slides, slide]);
+                    setOpenSlideId(slide.id);
                   }}
                 >
                   <Plus className="mr-1 size-4" />
@@ -745,19 +809,46 @@ export function ContentDesignAssistant({
               </div>
             </div>
 
-            <div className="space-y-4">
+            <Accordion
+              type="single"
+              collapsible
+              value={openSlideId || undefined}
+              onValueChange={(value) => setOpenSlideId(value ?? "")}
+              className="space-y-3"
+            >
               {slides.map((slide, index) => {
                 const slideBusy = generatingSlideId === slide.id;
+                const preview = slide.overlayText.replace(/\s+/g, " ").trim();
                 return (
-                  <div
+                  <AccordionItem
                     key={slide.id}
-                    className="space-y-3 rounded-lg border border-border p-4"
+                    value={slide.id}
+                    className="border-b-0 rounded-lg border border-border px-4"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium">
-                        {t("project.detail.designAssistant.slide", { n: index + 1 })}
-                      </p>
-                      <div className="flex gap-1">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                      <AccordionTrigger
+                        className="w-full items-start py-3 hover:no-underline [&[data-state=open]_svg.slide-chevron]:rotate-180 [&>svg:last-child]:hidden"
+                      >
+                        <span className="flex min-w-0 items-start gap-2 text-left">
+                          <ChevronDown
+                            className="slide-chevron mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200"
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-base font-semibold">
+                              {t("project.detail.designAssistant.slide", { n: index + 1 })}
+                            </span>
+                            {preview ? (
+                              <span className="mt-0.5 block truncate text-sm font-normal text-muted-foreground">
+                                {preview}
+                              </span>
+                            ) : null}
+                          </span>
+                        </span>
+                      </AccordionTrigger>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 py-2.5">
                         <Button
                           type="button"
                           size="sm"
@@ -778,9 +869,10 @@ export function ContentDesignAssistant({
                             variant="ghost"
                             disabled={busy}
                             aria-label={t("project.detail.designAssistant.removeSlide")}
-                            onClick={() =>
-                              setSlides((prev) => prev.filter((item) => item.id !== slide.id))
-                            }
+                            onClick={() => {
+                              applySlides(slides.filter((item) => item.id !== slide.id));
+                              setOpenSlideId((current) => (current === slide.id ? "" : current));
+                            }}
                           >
                             <Trash2 className="size-4" />
                           </Button>
@@ -788,6 +880,7 @@ export function ContentDesignAssistant({
                       </div>
                     </div>
 
+                    <AccordionContent className="space-y-3">
                     <div className="space-y-1.5">
                       <input
                         ref={(node) => {
@@ -834,8 +927,8 @@ export function ContentDesignAssistant({
                         value={slide.overlayText}
                         onChange={(e) => {
                           const value = e.target.value;
-                          setSlides((prev) =>
-                            prev.map((item) =>
+                          applySlides(
+                            slides.map((item) =>
                               item.id === slide.id ? { ...item, overlayText: value } : item,
                             ),
                           );
@@ -979,10 +1072,11 @@ export function ContentDesignAssistant({
                         </div>
                       </div>
                     ) : null}
-                  </div>
+                    </AccordionContent>
+                  </AccordionItem>
                 );
               })}
-            </div>
+            </Accordion>
 
             {slides.some((slide) => slide.resultUrl) ? (
               <div className="space-y-2">

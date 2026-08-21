@@ -1284,6 +1284,16 @@ function ContentDetailPage() {
               title={title}
               caption={caption}
               roteiro={roteiro}
+              onRoteiroChange={(next) => {
+                const block = buildLocalizedFieldFromSource(next, uiLocale);
+                onFieldI18nCommit({
+                  field: "roteiro",
+                  display: next,
+                  canonical: next,
+                  block,
+                  i18n: setLocalizedField(rowI18n, "roteiro", block),
+                });
+              }}
               onApply={(items) => {
                 setMediaItems(
                   items.map((item) => ({
