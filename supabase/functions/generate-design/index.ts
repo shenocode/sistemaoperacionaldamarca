@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { missingKeyMessage, resolveAiKey } from "../_shared/admin-ai-keys.ts";
+import { isAdminMasterEmail } from "../_shared/admin-master.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -8,9 +9,8 @@ const corsHeaders: Record<string, string> = {
 
 const CONTENT_MEDIA_BUCKET = "content-media";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-const FEED_ASPECT_RATIO = "3:4";
-const OPENAI_FEED_SIZE_GPT_IMAGE_1 = "1024x1536";
-const OPENAI_FEED_SIZE_EXACT_3_4 = "1152x1536";
+const FEED_ASPECT_RATIO = "4:5";
+const OPENAI_FEED_SIZE = "1024x1536";
 
 type DesignFormat = "static_feed" | "carousel";
 type DesignProvider = "openai" | "gemini";
@@ -123,8 +123,9 @@ function normalizeProvider(value: unknown): DesignProvider {
   return value === "gemini" ? "gemini" : "openai";
 }
 
-function openaiFeedSize(model: string): string {
-  return /gpt-image-2/i.test(model) ? OPENAI_FEED_SIZE_EXACT_3_4 : OPENAI_FEED_SIZE_GPT_IMAGE_1;
+function openaiFeedSize(_model: string): string {
+  void _model;
+  return OPENAI_FEED_SIZE;
 }
 
 async function generateWithOpenAI(input: {
@@ -207,24 +208,26 @@ async function generateWithGemini(input: {
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
 
-  const imageParts = [
-    {
-      inline_data: {
-        mime_type: input.templateImage.mime,
-        data: bytesToBase64(input.templateImage.bytes),
-      },
+  const imagePart = (image: RefImage) => ({
+    inline_data: {
+      mime_type: image.mime,
+      data: bytesToBase64(image.bytes),
     },
-    ...(input.photoImage
-      ? [
-          {
-            inline_data: {
-              mime_type: input.photoImage.mime,
-              data: bytesToBase64(input.photoImage.bytes),
-            },
-          },
-        ]
-      : []),
-  ];
+  });
+
+  // Foto primeiro (se houver); template por último para o Gemini herdar a proporção dele,
+  // e não a de uma foto quadrada — a API usa a última imagem quando as razões divergem.
+  const parts: Array<Record<string, unknown>> = [{ text: input.prompt }];
+  if (input.photoImage) {
+    parts.push({
+      text: "FOTO/ASSET — use somente no recorte de imagem do template. Não mude a proporção do canvas para caber esta foto.",
+    });
+    parts.push(imagePart(input.photoImage));
+  }
+  parts.push({
+    text: `TEMPLATE — edite ESTA arte. Saída obrigatória ${FEED_ASPECT_RATIO}. Não redesenhe o layout.`,
+  });
+  parts.push(imagePart(input.templateImage));
 
   const geminiRes = await fetch(url, {
     method: "POST",
@@ -233,11 +236,11 @@ async function generateWithGemini(input: {
       contents: [
         {
           role: "user",
-          parts: [{ text: input.prompt }, ...imageParts],
+          parts,
         },
       ],
       generationConfig: {
-        responseModalities: ["TEXT", "IMAGE"],
+        responseModalities: ["IMAGE"],
         imageConfig: { aspectRatio: FEED_ASPECT_RATIO },
       },
     }),
@@ -275,8 +278,8 @@ async function generateWithGemini(input: {
     }>;
   };
 
-  const parts = geminiJson.candidates?.[0]?.content?.parts ?? [];
-  for (const part of parts) {
+  const responseParts = geminiJson.candidates?.[0]?.content?.parts ?? [];
+  for (const part of responseParts) {
     const data = part.inlineData?.data || part.inline_data?.data;
     if (data) return base64ToBytes(data);
   }
@@ -324,8 +327,8 @@ Deno.serve(async (req) => {
     if (adminError) {
       return jsonResponse({ error: adminError.message }, 500);
     }
-    if (!isAdmin) {
-      return jsonResponse({ error: "Apenas administradores podem usar o assistente de design" }, 403);
+    if (!isAdmin || !isAdminMasterEmail(user.email)) {
+      return jsonResponse({ error: "Apenas o administrador master pode usar o assistente de design" }, 403);
     }
 
     const body = (await req.json()) as GenerateRequest;
@@ -417,20 +420,22 @@ Deno.serve(async (req) => {
     const photoImage = photoUrl ? await fetchImage(photoUrl) : null;
 
     const prompt = [
-      "Você é um diretor de arte de Instagram.",
-      `Crie UMA arte de feed em retrato ${FEED_ASPECT_RATIO} (três por quatro, vertical).`,
-      `Proporção obrigatória: ${FEED_ASPECT_RATIO}. Não gere arte quadrada (1:1), 4:5 nem 9:16.`,
-      "A primeira imagem é o TEMPLATE de layout: preserve a composição, hierarquia, áreas de texto (vazias) e estilo visual o máximo possível, adaptando o layout à proporção 3:4 se o template for diferente.",
+      "TAREFA: edição de imagem (image edit). NÃO crie uma arte nova. NÃO reinterpretar o design.",
+      `Saída: UMA arte de feed Instagram em retrato ${FEED_ASPECT_RATIO} (quatro por cinco, 1080×1350).`,
+      `Proporção obrigatória: ${FEED_ASPECT_RATIO}. Proibido 1:1, 3:4 e 9:16. Canvas vertical 4:5.`,
+      "A última imagem anexada é o TEMPLATE oficial. Trave o layout: mesmas cores, margens, hierarquia, blocos, rodapé gráfico e fundo.",
+      "Não redesenhe, não estilize, não invente blocos extras, não duplique frases, não mude a tipografia desenhada em formas.",
       photoImage
-        ? "A segunda imagem é a FOTO/ASSET que deve ser usada como elemento principal da arte (substitua a foto do template por esta, mantendo enquadramento coerente)."
-        : "Não foi enviada foto/asset extra: siga o template e o kit de marca. Não invente fotografias, pessoas ou assets que não estejam no template.",
-      "TEXTO — regra crítica:",
-      "NÃO desenhe letras, números, palavras, hashtags, CTA, marcas d'água nem placeholders.",
-      "Apague qualquer texto visível no template e deixe as áreas de título/apoio vazias, com o fundo do layout.",
-      "O sistema vai aplicar o texto depois, com a fonte verdadeira da marca.",
+        ? "Há uma FOTO/ASSET anexada antes do template: substitua só a foto do template por essa, no mesmo recorte. Ignore a proporção da foto."
+        : "Não há foto extra: não invente fotografias, pessoas nem assets que não estejam no template.",
+      "TEXTO — regra absoluta:",
+      "Não renderize letra, número, palavra, handle, hashtag, CTA, crédito, marca d'água nem placeholder.",
+      "Apague/inpaint TODO o texto visível do template (título, apoio, @, rodapé escrito) e deixe o fundo contínuo nessas áreas.",
+      "Se copiar o texto do template — mesmo com erro de digitação — a arte está ERRADA.",
+      "O app aplica o copy depois, com a fonte verdadeira da marca; a sua saída é só o fundo/layout vazio.",
       "Respeite as cores do kit de marca quando informadas.",
-      "Não adicione logos inventados; se houver logo na referência, mantenha o estilo, não invente marcas.",
-      "Resultado final: fundo/layout pronto para receber texto, limpo, profissional, em 3:4.",
+      "Não adicione logos inventados.",
+      `Resultado: o mesmo template, limpo, sem letras, em ${FEED_ASPECT_RATIO}.`,
       "",
       `Cliente: ${client.name}`,
       `Projeto: ${project.name}`,

@@ -166,7 +166,7 @@ function GridTile({
       }}
       aria-label={`${displayTitle} — ${statusLabel}`}
       className={cn(
-        "group relative aspect-[3/4] bg-neutral-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/50",
+        "group relative aspect-[4/5] bg-neutral-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/50",
         canReorder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         isDragging && "opacity-50",
         isDropTarget && "ring-2 ring-inset ring-neutral-900/40",

@@ -277,7 +277,7 @@ function ContentDetailPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
-  const { isAdmin, isClient, loading: roleLoading } = useAppRole();
+  const { isAdmin, isAdminMaster, isClient, loading: roleLoading } = useAppRole();
   const { entitlements } = useEntitlements();
   const presetsAllowed = isClient || entitlements.presets;
   const { user } = useAuth();
@@ -1275,7 +1275,7 @@ function ContentDetailPage() {
             />
           ) : null}
 
-          {isAdmin && (formatType === "static_feed" || formatType === "carousel") ? (
+          {isAdminMaster && (formatType === "static_feed" || formatType === "carousel") ? (
             <ContentDesignAssistant
               contentId={contentId}
               projectId={projectId}

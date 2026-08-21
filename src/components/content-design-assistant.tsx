@@ -735,7 +735,7 @@ export function ContentDesignAssistant({
                   src={resultUrl}
                   alt={t("project.detail.designAssistant.previewTitle")}
                   onExpand={() => setLightbox({ items: [{ url: resultUrl }], index: 0 })}
-                  className="mx-auto w-full max-w-sm aspect-[3/4] bg-muted/40"
+                  className="mx-auto w-full max-w-sm aspect-[4/5] bg-muted/40"
                   imgClassName="h-full w-full object-contain"
                 />
                 <div className="flex flex-wrap gap-2">
@@ -1035,7 +1035,7 @@ export function ContentDesignAssistant({
                             const start = items.findIndex((item) => item.url === slide.resultUrl);
                             setLightbox({ items, index: Math.max(start, 0) });
                           }}
-                          className="w-40 aspect-[3/4] border bg-muted/40"
+                          className="w-40 aspect-[4/5] border bg-muted/40"
                           imgClassName="h-full w-full object-contain"
                         />
                         <div className="flex flex-wrap gap-2">
