@@ -227,6 +227,7 @@ export type Database = {
           access_token: string
           brand_colors: Json
           brand_fonts: Json
+          brand_guidance: string | null
           created_at: string
           created_by: string | null
           email: string | null
@@ -238,12 +239,14 @@ export type Database = {
           notes: string | null
           phone: string | null
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         Insert: {
           access_token?: string
           brand_colors?: Json
           brand_fonts?: Json
+          brand_guidance?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -255,12 +258,14 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Update: {
           access_token?: string
           brand_colors?: Json
           brand_fonts?: Json
+          brand_guidance?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -272,9 +277,69 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Relationships: []
+      }
+      commercial_proposals: {
+        Row: {
+          client_id: string
+          commercial_terms: Json
+          cover_image_url: string | null
+          created_at: string
+          created_by: string
+          id: string
+          investment_items: Json
+          proposal_month: string
+          scope_summary: string
+          sections: Json
+          status: Database["public"]["Enums"]["commercial_proposal_status"]
+          subtitle: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          commercial_terms?: Json
+          cover_image_url?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          investment_items?: Json
+          proposal_month?: string
+          scope_summary?: string
+          sections?: Json
+          status?: Database["public"]["Enums"]["commercial_proposal_status"]
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          commercial_terms?: Json
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          investment_items?: Json
+          proposal_month?: string
+          scope_summary?: string
+          sections?: Json
+          status?: Database["public"]["Enums"]["commercial_proposal_status"]
+          subtitle?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_leads: {
         Row: {
@@ -378,6 +443,7 @@ export type Database = {
           id: string
           locucao: string
           material_type: string | null
+          media_overlays: Json
           media_url: string | null
           media_urls: string[]
           production_notes: string
@@ -406,6 +472,7 @@ export type Database = {
           id?: string
           locucao?: string
           material_type?: string | null
+          media_overlays?: Json
           media_url?: string | null
           media_urls?: string[]
           production_notes?: string
@@ -434,6 +501,7 @@ export type Database = {
           id?: string
           locucao?: string
           material_type?: string | null
+          media_overlays?: Json
           media_url?: string | null
           media_urls?: string[]
           production_notes?: string
@@ -739,35 +807,103 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          company_name: string | null
           created_at: string
           full_name: string | null
           i18n: Json
           id: string
           locale: string
+          logo_url: string | null
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
+          company_name?: string | null
           created_at?: string
           full_name?: string | null
           i18n?: Json
           id: string
           locale?: string
+          logo_url?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
+          company_name?: string | null
           created_at?: string
           full_name?: string | null
           i18n?: Json
           id?: string
           locale?: string
+          logo_url?: string | null
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Relationships: []
+      }
+      project_site: {
+        Row: {
+          briefing_answers: Json
+          briefing_status: string
+          briefing_template: Json
+          created_at: string
+          manager_notes: string | null
+          prd_generated_at: string | null
+          prd_markdown: string | null
+          project_id: string
+          prototype_change_requests: string | null
+          prototype_notes: string | null
+          prototype_status: string
+          prototype_url: string | null
+          schedule: Json
+          updated_at: string
+        }
+        Insert: {
+          briefing_answers?: Json
+          briefing_status?: string
+          briefing_template?: Json
+          created_at?: string
+          manager_notes?: string | null
+          prd_generated_at?: string | null
+          prd_markdown?: string | null
+          project_id: string
+          prototype_change_requests?: string | null
+          prototype_notes?: string | null
+          prototype_status?: string
+          prototype_url?: string | null
+          schedule?: Json
+          updated_at?: string
+        }
+        Update: {
+          briefing_answers?: Json
+          briefing_status?: string
+          briefing_template?: Json
+          created_at?: string
+          manager_notes?: string | null
+          prd_generated_at?: string | null
+          prd_markdown?: string | null
+          project_id?: string
+          prototype_change_requests?: string | null
+          prototype_notes?: string | null
+          prototype_status?: string
+          prototype_url?: string | null
+          schedule?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_site_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
@@ -966,6 +1102,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["subscription_plan"]
       }
       can_access_client: { Args: { _client_id: string }; Returns: boolean }
+      can_access_commercial_proposal: {
+        Args: { _proposal_id: string }
+        Returns: boolean
+      }
       can_access_content: { Args: { _content_id: string }; Returns: boolean }
       can_access_library_storage: {
         Args: { object_name: string }
@@ -993,6 +1133,11 @@ export type Database = {
         Args: { object_name: string }
         Returns: string
       }
+      gestor_logo_storage_user_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
+      get_client_gestor_contact: { Args: { _client_id: string }; Returns: Json }
       get_client_platform_login: {
         Args: { _client_id: string }
         Returns: string
@@ -1028,13 +1173,22 @@ export type Database = {
         Args: { object_name: string }
         Returns: string
       }
+      proposal_cover_storage_user_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
       save_client_content_version: {
         Args: {
-          _caption: string
+          _caption?: string
           _change_note?: string
           _content_id: string
-          _cta: string
-          _hashtags: string
+          _cta?: string
+          _format?: Database["public"]["Enums"]["content_format"]
+          _hashtags?: string
+          _locucao?: string
+          _roteiro?: string
+          _theme?: string
+          _title?: string
         }
         Returns: {
           calendar_block_id: string | null
@@ -1050,6 +1204,7 @@ export type Database = {
           id: string
           locucao: string
           material_type: string | null
+          media_overlays: Json
           media_url: string | null
           media_urls: string[]
           production_notes: string
@@ -1075,6 +1230,7 @@ export type Database = {
         Args: {
           _brand_colors?: Json
           _brand_fonts?: Json
+          _brand_guidance?: string
           _client_id: string
           _email?: string
           _instagram?: string
@@ -1082,12 +1238,14 @@ export type Database = {
           _name: string
           _notes?: string
           _phone?: string
+          _website?: string
           _whatsapp?: string
         }
         Returns: {
           access_token: string
           brand_colors: Json
           brand_fonts: Json
+          brand_guidance: string | null
           created_at: string
           created_by: string | null
           email: string | null
@@ -1099,6 +1257,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         SetofOptions: {
@@ -1127,6 +1286,7 @@ export type Database = {
       app_role: "admin" | "client"
       brand_briefing_status: "draft" | "in_progress" | "completed"
       client_member_role: "owner" | "member"
+      commercial_proposal_status: "draft" | "ready"
       contact_lead_intent: "trial" | "human"
       contact_lead_niche: "agency" | "social_media" | "brand_owner"
       content_format:
@@ -1302,6 +1462,7 @@ export const Constants = {
       app_role: ["admin", "client"],
       brand_briefing_status: ["draft", "in_progress", "completed"],
       client_member_role: ["owner", "member"],
+      commercial_proposal_status: ["draft", "ready"],
       contact_lead_intent: ["trial", "human"],
       contact_lead_niche: ["agency", "social_media", "brand_owner"],
       content_format: [
