@@ -19,7 +19,7 @@ type GenerateRequest = {
   format?: DesignFormat;
   provider?: DesignProvider;
   templateUrl: string;
-  photoUrl: string;
+  photoUrl?: string;
   overlayText: string;
   secondaryText?: string;
   guidance?: string;
@@ -123,7 +123,7 @@ function normalizeProvider(value: unknown): DesignProvider {
 async function generateWithOpenAI(input: {
   prompt: string;
   templateImage: RefImage;
-  photoImage: RefImage;
+  photoImage?: RefImage;
   apiKey: string;
 }): Promise<Uint8Array> {
   const form = new FormData();
@@ -144,11 +144,13 @@ async function generateWithOpenAI(input: {
     new Blob([input.templateImage.bytes], { type: normalizeMime(input.templateImage.mime) }),
     input.templateImage.fileName || "template.png",
   );
-  form.append(
-    "image[]",
-    new Blob([input.photoImage.bytes], { type: normalizeMime(input.photoImage.mime) }),
-    input.photoImage.fileName || "photo.png",
-  );
+  if (input.photoImage) {
+    form.append(
+      "image[]",
+      new Blob([input.photoImage.bytes], { type: normalizeMime(input.photoImage.mime) }),
+      input.photoImage.fileName || "photo.png",
+    );
+  }
 
   const openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
@@ -189,12 +191,30 @@ async function generateWithOpenAI(input: {
 async function generateWithGemini(input: {
   prompt: string;
   templateImage: RefImage;
-  photoImage: RefImage;
+  photoImage?: RefImage;
   apiKey: string;
 }): Promise<Uint8Array> {
   const model = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image";
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
+
+  const parts: Array<Record<string, unknown>> = [
+    { text: input.prompt },
+    {
+      inline_data: {
+        mime_type: input.templateImage.mime,
+        data: bytesToBase64(input.templateImage.bytes),
+      },
+    },
+  ];
+  if (input.photoImage) {
+    parts.push({
+      inline_data: {
+        mime_type: input.photoImage.mime,
+        data: bytesToBase64(input.photoImage.bytes),
+      },
+    });
+  }
 
   const geminiRes = await fetch(url, {
     method: "POST",
@@ -203,21 +223,7 @@ async function generateWithGemini(input: {
       contents: [
         {
           role: "user",
-          parts: [
-            { text: input.prompt },
-            {
-              inline_data: {
-                mime_type: input.templateImage.mime,
-                data: bytesToBase64(input.templateImage.bytes),
-              },
-            },
-            {
-              inline_data: {
-                mime_type: input.photoImage.mime,
-                data: bytesToBase64(input.photoImage.bytes),
-              },
-            },
-          ],
+          parts,
         },
       ],
       generationConfig: {
@@ -259,8 +265,8 @@ async function generateWithGemini(input: {
     }>;
   };
 
-  const parts = geminiJson.candidates?.[0]?.content?.parts ?? [];
-  for (const part of parts) {
+  const partsRes = geminiJson.candidates?.[0]?.content?.parts ?? [];
+  for (const part of partsRes) {
     const data = part.inlineData?.data || part.inline_data?.data;
     if (data) return base64ToBytes(data);
   }
@@ -324,7 +330,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Parâmetros inválidos" }, 400);
     }
     if (!templateUrl) return jsonResponse({ error: "Informe o template de referência" }, 400);
-    if (!photoUrl) return jsonResponse({ error: "Informe a imagem da arte" }, 400);
     if (!overlayText) return jsonResponse({ error: "Informe o texto da arte" }, 400);
 
     const { apiKey, source: keySource } = await resolveAiKey(admin, user.id, provider);
@@ -374,16 +379,16 @@ Deno.serve(async (req) => {
         ? brandBriefing.guide_markdown.trim().slice(0, 4000)
         : "";
 
-    const [templateImage, photoImage] = await Promise.all([
-      fetchImage(templateUrl),
-      fetchImage(photoUrl),
-    ]);
+    const templateImage = await fetchImage(templateUrl);
+    const photoImage = photoUrl ? await fetchImage(photoUrl) : undefined;
 
     const prompt = [
       "Você é um diretor de arte de Instagram.",
       "Crie UMA arte quadrada de feed (1:1) em português do Brasil.",
       "A primeira imagem é o TEMPLATE de layout: preserve a composição, hierarquia, áreas de texto e estilo visual o máximo possível.",
-      "A segunda imagem é a FOTO/ASSET que deve ser usada como elemento principal da arte (substitua a foto do template por esta, mantendo enquadramento coerente).",
+      photoImage
+        ? "A segunda imagem é a FOTO/ASSET que deve ser usada como elemento principal da arte (substitua a foto do template por esta, mantendo enquadramento coerente)."
+        : "Nenhuma foto/asset adicional foi fornecida: use apenas os elementos, textos e estilo do template. Não invente fotografias, pessoas, ilustrações ou assets que não estejam no template.",
       "Use exatamente os textos fornecidos (não invente frases extras).",
       "Quando houver texto secundário, use-o como texto explicativo/apoio (menor hierarquia visual).",
       "Respeite as cores e fontes do kit de marca quando informadas.",
