@@ -17,7 +17,7 @@ export function SiteFooter({ className }: SiteFooterProps) {
 
   return (
     <footer
-      className={cn("border-t border-neutral-900/10 bg-white px-6 py-12", className)}
+      className={cn("border-t border-neutral-900/10 bg-white px-4 py-12 sm:px-6", className)}
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
         <SomLogo

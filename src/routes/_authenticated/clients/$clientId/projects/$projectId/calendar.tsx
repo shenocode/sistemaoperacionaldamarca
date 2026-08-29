@@ -1195,7 +1195,7 @@ function ProjectCalendarPage() {
               updateBlockTitleMutation.mutate({ blockId: block.id, title, i18n: nextI18n })
             }
           />
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             <Button
               type="button"
               variant="outline"

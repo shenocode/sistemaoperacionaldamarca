@@ -288,7 +288,7 @@ export function ClientSettingsDialog({
         if (!open) closeSettings();
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[min(90dvh,calc(100vh-2rem))] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("clients.settings")}</DialogTitle>
         </DialogHeader>

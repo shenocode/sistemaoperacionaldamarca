@@ -59,9 +59,6 @@ export function PrintMaterialPreview({
   const frameWidth = isLandscape
     ? maxW
     : Math.min(maxW, Math.round(maxH * aspect));
-  const frameHeight = isLandscape
-    ? Math.min(maxH, Math.round(maxW / aspect))
-    : maxH;
 
   const materialLabel = materialType
     ? t(`project.graphicArts.materials.${materialType}`, {
@@ -87,9 +84,8 @@ export function PrintMaterialPreview({
       <div
         className="relative mx-auto overflow-hidden rounded-sm border border-neutral-300 bg-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.35),0_2px_8px_-2px_rgba(0,0,0,0.12)]"
         style={{
-          width: frameWidth,
-          height: frameHeight,
-          maxWidth: "100%",
+          width: "100%",
+          maxWidth: frameWidth,
           aspectRatio: `${width} / ${height}`,
         }}
       >
@@ -139,7 +135,7 @@ export function PrintMaterialPreview({
       </div>
 
       <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
-        <DialogContent className="max-w-4xl border-0 bg-transparent p-0 shadow-none">
+        <DialogContent className="max-h-[min(90dvh,calc(100vh-2rem))] w-[calc(100%-2rem)] max-w-4xl border-0 bg-transparent p-0 shadow-none">
           <DialogTitle className="sr-only">{title}</DialogTitle>
           <DialogDescription className="sr-only">
             {materialLabel} — {sizeLabel}

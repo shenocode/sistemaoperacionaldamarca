@@ -266,7 +266,7 @@ function ProjectPrototypePage() {
               <SelectTrigger
                 aria-label={t("project.site.prototype.statusLabel")}
                 className={cn(
-                  "h-8 w-[11.5rem] border px-2 text-xs font-medium shadow-sm focus:ring-1",
+                  "h-8 w-full max-w-full border px-2 text-xs font-medium shadow-sm focus:ring-1 sm:w-[11.5rem]",
                   prototypeStatusStyles[prototypeStatus],
                 )}
               >

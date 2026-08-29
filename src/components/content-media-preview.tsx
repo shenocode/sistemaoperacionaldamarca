@@ -327,10 +327,10 @@ export function MediaLightbox({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "flex max-w-none flex-col gap-0 overflow-hidden border-0 bg-black p-0 text-white shadow-2xl sm:rounded-xl",
+          "flex max-w-none flex-col gap-0 overflow-hidden overflow-y-hidden border-0 bg-black p-0 text-white shadow-2xl sm:rounded-xl",
           canEdit
-            ? "h-[min(94vh,980px)] w-[min(98vw,1280px)]"
-            : "h-[min(92vh,960px)] w-[min(96vw,1100px)]",
+            ? "h-[100dvh] w-[100vw] max-h-[100dvh] rounded-none sm:h-[min(94dvh,980px)] sm:w-[min(98vw,1280px)] sm:rounded-xl"
+            : "h-[100dvh] w-[100vw] max-h-[100dvh] rounded-none sm:h-[min(92dvh,960px)] sm:w-[min(96vw,1100px)] sm:rounded-xl",
         )}
         aria-describedby={undefined}
       >
@@ -423,7 +423,7 @@ export function MediaLightbox({
           </div>
 
           {canEdit && draft && textEditor ? (
-            <div className="flex w-full shrink-0 flex-col border-t border-white/10 bg-background lg:w-[340px] lg:border-l lg:border-t-0">
+            <div className="flex w-full min-h-0 max-h-[42dvh] shrink-0 flex-col overflow-y-auto border-t border-white/10 bg-background lg:max-h-none lg:w-[340px] lg:border-l lg:border-t-0">
               <ArtTextEditorPanel
                 overlay={draft}
                 selectedId={selectedLayerId}

@@ -1968,7 +1968,7 @@ function ContentDetailPage() {
           if (!open) setViewingVersion(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[min(90dvh,calc(100vh-2rem))] max-w-2xl overflow-y-auto">
           {viewingVersion && versionPreview ? (
             <>
               <DialogHeader>

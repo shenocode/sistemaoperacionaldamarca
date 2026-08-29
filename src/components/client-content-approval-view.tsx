@@ -267,7 +267,7 @@ export function ClientContentApprovalView({
   const busy = versionMutation.isPending || statusMutation.isPending;
 
   return (
-    <div className="-mx-4 -mt-6 min-h-[calc(100vh-8rem)] bg-gradient-to-b from-neutral-100 via-neutral-50 to-background sm:-mx-6 md:-mx-8">
+    <div className="-mx-4 -mt-6 min-h-[calc(100dvh-8rem)] bg-gradient-to-b from-neutral-100 via-neutral-50 to-background sm:-mx-6 md:-mx-8">
       <div className="mx-auto flex max-w-3xl flex-col px-4 pb-10 pt-4 sm:px-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
@@ -283,9 +283,9 @@ export function ClientContentApprovalView({
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {t(CONTENT_TAB_ENABLED ? "project.tabs.content" : "project.tabs.calendar")}
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <StatusBadge status={status} asButton />
-            <span className="text-sm font-medium text-foreground">{title}</span>
+            <span className="min-w-0 break-words text-sm font-medium text-foreground">{title}</span>
           </div>
         </div>
 

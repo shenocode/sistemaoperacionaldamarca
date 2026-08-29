@@ -358,7 +358,7 @@ export function ApprovalsSummaryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[min(90dvh,calc(100vh-2rem))] max-w-2xl flex-col gap-0 overflow-hidden overflow-y-hidden p-0">
         <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4 pr-12 text-left">
           <DialogTitle>{t("project.calendar.approvalsSummary.title")}</DialogTitle>
           <DialogDescription>

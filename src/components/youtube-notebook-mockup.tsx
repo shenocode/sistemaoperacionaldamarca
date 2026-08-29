@@ -71,7 +71,7 @@ export function NotebookChrome({
           <div className="flex h-full min-h-0 flex-col">{children}</div>
         </div>
       </div>
-      <div className="relative mx-auto h-3 w-[102%] max-w-none -translate-x-[1%] rounded-b-2xl border border-neutral-700 bg-gradient-to-b from-neutral-700 to-neutral-800">
+      <div className="relative mx-auto h-3 w-full rounded-b-2xl border border-neutral-700 bg-gradient-to-b from-neutral-700 to-neutral-800">
         <div className="absolute left-1/2 top-1 h-1 w-16 -translate-x-1/2 rounded-full bg-neutral-600" />
       </div>
     </div>

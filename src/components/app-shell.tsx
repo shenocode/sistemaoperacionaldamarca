@@ -246,23 +246,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-dvh bg-background">
       <aside className="hidden w-60 shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col">
         <div className="border-b px-6 py-4">
           {brandLogo}
           {profileLink}
-          <LanguageSwitcher className="mt-3 w-full" />
+          <LanguageSwitcher className="mt-3 w-full sm:w-full" />
         </div>
         <nav className="flex-1 space-y-1 p-3">{navLinks}</nav>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
+        <header className="fixed inset-x-0 top-0 z-40 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 overflow-hidden border-b bg-background/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="-ml-1"
+            className="-ml-1 shrink-0"
             onClick={() => setMobileNavOpen(true)}
             aria-label={t("nav.openMenu")}
           >
@@ -270,7 +270,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Button>
           <SomMark
             title={t("app.fullName")}
-            className="h-8 w-auto"
+            className="h-8 w-auto max-h-8"
             linkClassName="flex min-w-0 items-center gap-2"
           />
         </header>
@@ -278,7 +278,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent
             side="left"
-            className="flex w-[min(100%,20rem)] flex-col bg-sidebar p-0 text-sidebar-foreground"
+            className="flex h-full w-[min(100%,20rem)] max-h-dvh flex-col overflow-y-auto bg-sidebar p-0 text-sidebar-foreground"
           >
             <SheetHeader className="border-b px-6 py-4 text-left">
               <SheetTitle className="p-0 text-sidebar-foreground">
@@ -291,13 +291,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </SheetTitle>
               <SheetDescription className="sr-only">{t("app.fullName")}</SheetDescription>
               {profileLink}
-              <LanguageSwitcher className="mt-3 w-full" />
+              <LanguageSwitcher className="mt-3 w-full sm:w-full" />
             </SheetHeader>
             <nav className="flex-1 space-y-1 overflow-y-auto p-3">{navLinks}</nav>
           </SheetContent>
         </Sheet>
 
-        <main className="min-w-0 flex-1 pt-14 md:pt-0">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-clip pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-0">{children}</main>
         <SiteFooter className="mt-auto" />
       </div>
     </div>

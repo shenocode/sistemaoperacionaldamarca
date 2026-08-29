@@ -113,7 +113,7 @@ export function BriefingCoachSheet({
         if (!next) reset();
       }}
     >
-      <SheetContent side="right" className="flex w-full flex-col gap-0 sm:max-w-md">
+      <SheetContent side="right" className="flex h-full w-full max-h-dvh flex-col gap-0 overflow-hidden sm:max-w-md">
         <SheetHeader className="border-b pb-4 text-left">
           <SheetTitle className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" aria-hidden="true" />

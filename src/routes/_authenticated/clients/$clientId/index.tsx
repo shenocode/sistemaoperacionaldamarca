@@ -188,7 +188,7 @@ function ClientDetailPage() {
           if (!next) resetForm();
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[min(90dvh,calc(100vh-2rem))] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("clients.newProject")}</DialogTitle>
           </DialogHeader>

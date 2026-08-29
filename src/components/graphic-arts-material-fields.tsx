@@ -78,7 +78,7 @@ export function GraphicArtsMaterialFields({
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${idPrefix}-width`}>{t("project.graphicArts.widthCm")}</Label>
           <Input
             id={`${idPrefix}-width`}
@@ -92,7 +92,7 @@ export function GraphicArtsMaterialFields({
             onChange={(e) => onWidthCmChange(e.target.value)}
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${idPrefix}-height`}>{t("project.graphicArts.heightCm")}</Label>
           <Input
             id={`${idPrefix}-height`}

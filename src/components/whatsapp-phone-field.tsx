@@ -77,7 +77,7 @@ export function WhatsAppPhoneField({
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={`${idPrefix}-whatsapp`}>{label}</Label>
-      <div className="flex gap-2">
+      <div className="flex min-w-0 gap-2">
         <Select
           value={countryDial}
           onValueChange={(next) => {
@@ -88,7 +88,7 @@ export function WhatsAppPhoneField({
         >
           <SelectTrigger
             aria-label={countryLabel}
-            className={cn("w-[7.5rem] shrink-0", inputClassName)}
+            className={cn("w-[5.75rem] shrink-0 sm:w-[7.5rem]", inputClassName)}
           >
             <SelectValue />
           </SelectTrigger>

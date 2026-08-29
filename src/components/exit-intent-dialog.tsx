@@ -111,7 +111,7 @@ export function ExitIntentDialog({ enabled = true }: ExitIntentDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="theme-mono max-h-[90vh] max-w-lg overflow-y-auto border-neutral-900/10 bg-[hsl(40_20%_97%)] sm:rounded-lg">
+      <DialogContent className="theme-mono max-h-[min(90dvh,calc(100vh-2rem))] max-w-lg overflow-y-auto border-neutral-900/10 bg-[hsl(40_20%_97%)] sm:rounded-lg">
         <DialogHeader className="text-left">
           <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-neutral-900">
             {t("landing.exitIntentTitle")}

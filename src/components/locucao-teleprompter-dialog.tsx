@@ -23,7 +23,7 @@ export function LocucaoTeleprompterDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-[min(100vw-2rem,48rem)] max-w-3xl flex-col gap-4 overflow-hidden">
+      <DialogContent className="flex max-h-[min(90dvh,calc(100vh-2rem))] w-[min(100vw-2rem,48rem)] max-w-3xl flex-col gap-4 overflow-hidden overflow-y-hidden">
         <DialogHeader>
           <DialogTitle>{t("project.detail.teleprompterTitle")}</DialogTitle>
           <DialogDescription className="sr-only">

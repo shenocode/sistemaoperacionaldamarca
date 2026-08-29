@@ -817,11 +817,11 @@ export function LandingPage() {
   return (
     <div className="theme-mono landing-atmosphere relative min-h-screen overflow-x-hidden">
       <div id="topo" className="landing-hero-plane">
-        <header className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+        <header className="relative z-20 mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 sm:px-6 sm:py-5">
           <SomMark
-            className="h-9 w-auto"
+            className="h-8 w-auto shrink-0 sm:h-9"
             title={t("app.fullName")}
-            linkClassName="inline-flex items-center"
+            linkClassName="inline-flex min-w-0 items-center"
           />
           <nav className="hidden items-center gap-7 text-sm text-neutral-500 md:flex">
             <a href="#produto" className="transition-colors hover:text-neutral-900">
@@ -840,7 +840,7 @@ export function LandingPage() {
               {t("landing.navContact")}
             </a>
           </nav>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher />
             {authLoading ? (
               <span className="inline-block h-8 w-8 sm:w-20" aria-hidden />
@@ -869,14 +869,14 @@ export function LandingPage() {
                 <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
               </Button>
             )}
-            <Button asChild size="sm" className="bg-neutral-900 text-white hover:bg-neutral-800">
+            <Button asChild size="sm" className="hidden bg-neutral-900 text-white hover:bg-neutral-800 sm:inline-flex">
               <a href="#contato">{t("landing.cta")}</a>
             </Button>
           </div>
         </header>
 
         {/* Hero — brand + mockup */}
-        <section className="relative mx-auto grid max-w-6xl gap-12 px-6 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-14">
+        <section className="relative mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 pb-20 pt-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-8 lg:pb-28 lg:pt-14">
           <div>
             <div className="landing-rise max-w-xl">
               <SomLogo size="hero" priority title={t("app.fullName")} />
@@ -915,7 +915,7 @@ export function LandingPage() {
       <main>
         {/* Problem */}
         <section className="landing-wave-ink border-b border-white/10">
-          <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:py-20">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16 text-center sm:py-20">
             <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.problemTitle")}
             </h2>
@@ -926,7 +926,7 @@ export function LandingPage() {
         </section>
 
         {/* How it works */}
-        <section id="como" className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+        <section id="como" className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
           <h2 className="max-w-xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             {t("landing.howTitle")}
           </h2>
@@ -947,7 +947,7 @@ export function LandingPage() {
 
         {/* Content assets */}
         <section id="ativos" className="landing-wave-mist border-y border-neutral-900/10">
-          <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
             <h2 className="max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.assetsTitle")}
             </h2>
@@ -982,7 +982,7 @@ export function LandingPage() {
 
         {/* Features */}
         <section id="produto" className="border-b border-neutral-900/10 bg-white">
-          <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
             <h2 className="max-w-xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.featuresTitle")}
             </h2>
@@ -1010,7 +1010,7 @@ export function LandingPage() {
 
         {/* Pricing — cards only for plan selection */}
         <section id="planos" className="landing-wave-mist border-y border-neutral-900/10">
-          <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
             <div className="max-w-2xl">
               <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
                 {t("landing.pricingTitle")}
@@ -1105,7 +1105,7 @@ export function LandingPage() {
 
         {/* Final CTA */}
         <section className="landing-wave-ink border-t border-white/10">
-          <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-16 sm:flex-row sm:items-center sm:justify-between sm:py-20">
+          <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col items-stretch gap-6 px-4 py-16 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-20">
             <div className="max-w-xl">
               <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
                 {t("landing.finalTitle")}
@@ -1114,7 +1114,7 @@ export function LandingPage() {
             <Button
               asChild
               size="lg"
-              className="bg-white text-neutral-900 hover:bg-white/90"
+              className="h-auto w-full max-w-full whitespace-normal bg-white px-5 py-3 text-center text-neutral-900 hover:bg-white/90 sm:w-auto"
             >
               <a href="#contato">{t("landing.finalCta")}</a>
             </Button>
@@ -1123,7 +1123,7 @@ export function LandingPage() {
 
         {/* Contact */}
         <section id="contato" className="landing-wave-mist border-y border-neutral-900/10">
-          <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16 sm:py-24">
             <h2 className="text-center font-display text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("landing.contactTitle")}
             </h2>
