@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { clientIp, consumeRateLimit } from "../_shared/rate-limit.ts";
 
 type ContactLeadIntent = "trial" | "human";
 type ContactLeadNiche = "agency" | "social_media" | "brand_owner";
@@ -65,6 +66,16 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
+    const allowed = await consumeRateLimit(
+      admin,
+      `lead:${clientIp(req)}:${email}`,
+      6,
+      600,
+    );
+    if (!allowed) {
+      return jsonResponse({ error: "Muitas tentativas. Aguarde alguns minutos." }, 429);
+    }
+
     const { data, error } = await admin
       .from("contact_leads")
       .insert({

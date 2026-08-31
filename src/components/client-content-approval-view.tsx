@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -18,7 +18,7 @@ import {
   ContentMediaPreview,
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
-import { CommentBody, CommentComposer } from "@/components/comment-composer";
+import { CommentComposer, CommentThreadItem } from "@/components/comment-composer";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ import {
   listComments,
   saveClientContentVersion,
   setContentStatus,
-  updateCommentI18n,
+  updateComment,
   uploadCommentAudio,
   type CommentWithAuthor,
   type ContentFormat,
@@ -45,7 +45,7 @@ import {
   translateTextField,
   type RowI18n,
 } from "@/lib/i18n-content";
-import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
+import { useAuth } from "@/hooks/use-auth";
 import type { LanguageCode } from "@/i18n";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -108,6 +108,7 @@ export function ClientContentApprovalView({
   onCtaChange,
 }: ClientContentApprovalViewProps) {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
@@ -123,37 +124,6 @@ export function ClientContentApprovalView({
     queryKey: ["comments", contentId],
     queryFn: () => listComments(contentId),
   });
-
-  useEffect(() => {
-    const comments = commentsQuery.data;
-    if (!comments?.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: comments,
-        locale: uiLocale,
-        getKey: (c) => c.id,
-        getI18n: (c) => c.i18n,
-        getFields: (c) => ({ body: c.body }),
-        persist: async (c, nextI18n) => {
-          const row = await updateCommentI18n(c.id, nextI18n);
-          if (cancelled) return;
-          queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
-            (prev ?? []).map((item) =>
-              item.id === row.id ? { ...item, ...row, profiles: item.profiles } : item,
-            ),
-          );
-        },
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["comments", contentId] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [commentsQuery.data, contentId, queryClient, uiLocale]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["content"] });
@@ -236,6 +206,30 @@ export function ClientContentApprovalView({
         return [...list, next];
       });
       invalidateAll();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const updateCommentMutation = useMutation({
+    mutationFn: async (input: { commentId: string; body: string }) => {
+      const text = input.body.trim();
+      const payload = text
+        ? await buildCommentI18n(text, uiLocale)
+        : { body: "", i18n: {} as RowI18n };
+      return updateComment({
+        commentId: input.commentId,
+        body: payload.body,
+        i18n: payload.i18n,
+      });
+    },
+    onSuccess: (row) => {
+      queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
+        (prev ?? []).map((item) =>
+          item.id === row.id ? { ...item, ...row, profiles: item.profiles } : item,
+        ),
+      );
+      invalidateAll();
+      toast.success(t("project.detail.commentUpdated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -386,23 +380,22 @@ export function ClientContentApprovalView({
               ) : (commentsQuery.data ?? []).length > 0 ? (
                 <ul className="space-y-3">
                   {(commentsQuery.data ?? []).map((c) => (
-                    <li key={c.id} className="rounded-md border p-3 text-sm">
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="font-medium">
-                          {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(c.created_at), {
-                            addSuffix: true,
-                            locale,
-                          })}
-                        </span>
-                      </div>
-                      <CommentBody
-                        body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
-                        audioUrl={c.audio_url}
-                      />
-                    </li>
+                    <CommentThreadItem
+                      key={c.id}
+                      authorName={c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
+                      createdAtLabel={formatDistanceToNow(new Date(c.created_at), {
+                        addSuffix: true,
+                        locale,
+                      })}
+                      body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                      audioUrl={c.audio_url}
+                      canEdit={c.user_id === user?.id}
+                      isSaving={
+                        updateCommentMutation.isPending &&
+                        updateCommentMutation.variables?.commentId === c.id
+                      }
+                      onSave={(body) => updateCommentMutation.mutateAsync({ commentId: c.id, body })}
+                    />
                   ))}
                 </ul>
               ) : null}

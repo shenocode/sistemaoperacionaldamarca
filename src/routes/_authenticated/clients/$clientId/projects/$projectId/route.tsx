@@ -12,6 +12,7 @@ import {
   getClient,
   getLocalizedField,
   getLocalizedText,
+  getPrimaryProjectCategory,
   getProject,
   localizedFieldNeedsTranslation,
   normalizeAppLocale,
@@ -227,11 +228,15 @@ function ProjectLayout() {
   // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
   // Conteúdo: oculto para cliente, gestor e admin (ver CONTENT_TAB_ENABLED).
   // Temas: visível para o cliente com acesso aos recursos/referências.
+  const isVideosProject = getPrimaryProjectCategory(projectQuery.data?.categories) === "videos";
   const tabs = categoryConfig.tabs
     .map((tabId) => ({
       id: tabId,
       to: TAB_PATHS[tabId],
-      label: t(`project.tabs.${tabId}`),
+      label:
+        tabId === "feed" && isVideosProject
+          ? t("project.tabs.simulation")
+          : t(`project.tabs.${tabId}`),
       requiresLibrary: tabId === "library",
     }))
     .filter((tab) => {

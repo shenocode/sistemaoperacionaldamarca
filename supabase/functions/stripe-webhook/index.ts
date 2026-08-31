@@ -1,6 +1,10 @@
 import Stripe from "https://esm.sh/stripe@14.25.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { isPlanKey, planFromPriceId, type PlanKey } from "../_shared/stripe-plans.ts";
+import {
+  findUserIdByEmail,
+  isSubscriptionActiveStatus,
+} from "../_shared/admin-clients.ts";
 
 const ADMIN_MASTER_EMAIL = "sherocha03@gmail.com";
 
@@ -9,25 +13,6 @@ function json(body: unknown, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-async function findUserIdByEmail(
-  admin: ReturnType<typeof createClient>,
-  email: string,
-): Promise<string | null> {
-  const normalized = email.toLowerCase();
-  let page = 1;
-  for (;;) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw new Error(error.message);
-
-    const match = data.users.find((user) => (user.email ?? "").toLowerCase() === normalized);
-    if (match?.id) return match.id;
-
-    const lastPage = data.lastPage ?? page;
-    if (page >= lastPage || data.users.length === 0) return null;
-    page += 1;
-  }
 }
 
 async function ensureGestorAccess(
@@ -44,7 +29,6 @@ async function ensureGestorAccess(
       redirectTo: `${siteUrl}/reset-password`,
     });
     if (error) {
-      // Race: user may have been created between list and invite.
       userId = await findUserIdByEmail(admin, normalized);
       if (!userId) throw new Error(error.message);
     } else {
@@ -82,6 +66,16 @@ async function revokeGestorAccessIfNeeded(
   if (!userId) return;
   if (email.trim().toLowerCase() === ADMIN_MASTER_EMAIL) return;
 
+  const { data: stillActive } = await admin
+    .from("subscriptions")
+    .select("id, status, current_period_end")
+    .eq("user_id", userId);
+
+  const hasOther = (stillActive ?? []).some((row) =>
+    isSubscriptionActiveStatus(row.status, row.current_period_end),
+  );
+  if (hasOther) return;
+
   const { error } = await admin.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
   if (error) console.error("revoke admin role:", error.message);
 }
@@ -102,6 +96,113 @@ function periodEnd(subscription: Stripe.Subscription): string | null {
   const end = subscription.current_period_end;
   if (!end) return null;
   return new Date(end * 1000).toISOString();
+}
+
+async function upsertStripeSubscription(
+  admin: ReturnType<typeof createClient>,
+  input: {
+    userId: string | null;
+    email: string;
+    plan: PlanKey;
+    status: string;
+    customerId: string;
+    subscriptionId: string;
+    priceId: string | null;
+    periodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+  },
+) {
+  const { data: existing } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("stripe_subscription_id", input.subscriptionId)
+    .maybeSingle();
+
+  const row = {
+    user_id: input.userId,
+    email: input.email,
+    plan: input.plan,
+    status: input.status,
+    source: "stripe",
+    stripe_customer_id: input.customerId,
+    stripe_subscription_id: input.subscriptionId,
+    stripe_price_id: input.priceId,
+    current_period_end: input.periodEnd,
+    cancel_at_period_end: input.cancelAtPeriodEnd,
+  };
+
+  if (existing) {
+    const { error } = await admin.from("subscriptions").update(row).eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { error } = await admin.from("subscriptions").insert(row);
+  if (error) throw new Error(error.message);
+}
+
+async function syncStripeSubscription(
+  admin: ReturnType<typeof createClient>,
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+  siteUrl: string,
+  statusOverride?: string,
+) {
+  const customerId =
+    typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
+  const plan = resolvePlan(subscription);
+  const priceId = subscription.items.data[0]?.price?.id ?? null;
+  const status = statusOverride ?? subscription.status;
+  const endedAt = periodEnd(subscription);
+
+  const { data: existing } = await admin
+    .from("subscriptions")
+    .select("id, user_id, email")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+
+  let email = existing?.email ?? "";
+  let userId = existing?.user_id ?? null;
+
+  if (!email) {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!customer.deleted) {
+      email = (customer.email ?? "").toLowerCase();
+    }
+  }
+
+  if (email && !userId) {
+    userId = await findUserIdByEmail(admin, email);
+  }
+
+  if (isSubscriptionActiveStatus(status, endedAt) && email) {
+    const ensured = await ensureGestorAccess(admin, email, siteUrl);
+    userId = ensured.userId;
+  }
+
+  if (existing || email) {
+    await upsertStripeSubscription(admin, {
+      userId,
+      email: email || existing?.email || "",
+      plan,
+      status,
+      customerId,
+      subscriptionId: subscription.id,
+      priceId,
+      periodEnd: endedAt,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
+    });
+  }
+
+  const inactive =
+    status === "canceled" ||
+    status === "unpaid" ||
+    status === "incomplete_expired" ||
+    (status === "past_due" && !isSubscriptionActiveStatus(status, endedAt));
+
+  if (inactive) {
+    await revokeGestorAccessIfNeeded(admin, userId, email);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -141,6 +242,17 @@ Deno.serve(async (req) => {
     return json({ error: `Webhook Error: ${message}` }, 400);
   }
 
+  const { error: claimError } = await admin.from("stripe_webhook_events").insert({
+    id: event.id,
+    event_type: event.type,
+  });
+  if (claimError?.code === "23505") {
+    return json({ received: true, duplicate: true });
+  }
+  if (claimError) {
+    console.error("stripe_webhook_events insert:", claimError.message);
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {
@@ -170,95 +282,38 @@ Deno.serve(async (req) => {
         const plan = resolvePlan(subscription, session.metadata?.plan);
         const { userId } = await ensureGestorAccess(admin, email, siteUrl);
 
-        const { error } = await admin.from("subscriptions").upsert(
-          {
-            user_id: userId,
-            email,
-            plan,
-            status: subscription.status,
-            source: "stripe",
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            stripe_price_id: subscription.items.data[0]?.price?.id ?? null,
-            current_period_end: periodEnd(subscription),
-            cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-          },
-          { onConflict: "stripe_subscription_id" },
-        );
-        if (error) throw new Error(error.message);
+        await upsertStripeSubscription(admin, {
+          userId,
+          email,
+          plan,
+          status: subscription.status,
+          customerId,
+          subscriptionId,
+          priceId: subscription.items.data[0]?.price?.id ?? null,
+          periodEnd: periodEnd(subscription),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
+        });
         break;
       }
 
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const customerId =
-          typeof subscription.customer === "string"
-            ? subscription.customer
-            : subscription.customer.id;
-        const plan = resolvePlan(subscription);
-        const priceId = subscription.items.data[0]?.price?.id ?? null;
+        const status =
+          event.type === "customer.subscription.deleted" ? "canceled" : subscription.status;
+        await syncStripeSubscription(admin, stripe, subscription, siteUrl, status);
+        break;
+      }
 
-        const { data: existing } = await admin
-          .from("subscriptions")
-          .select("id, user_id, email")
-          .eq("stripe_subscription_id", subscription.id)
-          .maybeSingle();
-
-        let email = existing?.email ?? "";
-        let userId = existing?.user_id ?? null;
-
-        if (!email) {
-          const customer = await stripe.customers.retrieve(customerId);
-          if (!customer.deleted) {
-            email = (customer.email ?? "").toLowerCase();
-          }
-        }
-
-        if (email && !userId) {
-          userId = await findUserIdByEmail(admin, email);
-        }
-
-        const status = event.type === "customer.subscription.deleted" ? "canceled" : subscription.status;
-
-        if (existing) {
-          const { error } = await admin
-            .from("subscriptions")
-            .update({
-              user_id: userId,
-              email: email || existing.email,
-              plan,
-              status,
-              source: "stripe",
-              stripe_customer_id: customerId,
-              stripe_price_id: priceId,
-              current_period_end: periodEnd(subscription),
-              cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-            })
-            .eq("stripe_subscription_id", subscription.id);
-          if (error) throw new Error(error.message);
-        } else if (email) {
-          const { error } = await admin.from("subscriptions").insert({
-            user_id: userId,
-            email,
-            plan,
-            status,
-            source: "stripe",
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscription.id,
-            stripe_price_id: priceId,
-            current_period_end: periodEnd(subscription),
-            cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-          });
-          if (error) throw new Error(error.message);
-        }
-
-        const inactive = status === "canceled" || status === "unpaid" || status === "incomplete_expired";
-        if (inactive) {
-          await revokeGestorAccessIfNeeded(admin, userId, email);
-        } else if (status === "active" || status === "trialing" || status === "past_due") {
-          if (email) await ensureGestorAccess(admin, email, siteUrl);
-        }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId =
+          typeof invoice.subscription === "string"
+            ? invoice.subscription
+            : invoice.subscription?.id;
+        if (!subscriptionId) break;
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await syncStripeSubscription(admin, stripe, subscription, siteUrl);
         break;
       }
 
@@ -268,6 +323,9 @@ Deno.serve(async (req) => {
 
     return json({ received: true });
   } catch (err) {
+    if (!claimError) {
+      await admin.from("stripe_webhook_events").delete().eq("id", event.id);
+    }
     const message = err instanceof Error ? err.message : String(err);
     console.error("stripe-webhook handler:", message);
     return json({ error: message }, 500);

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { ADMIN_MASTER_EMAIL } from "../_shared/admin-master.ts";
+import { findUserIdByEmail } from "../_shared/admin-clients.ts";
 
 const BUCKET = "help-attachments";
 const MAX_MESSAGE = 5000;
@@ -110,13 +111,9 @@ async function userIsAdmin(userClient: ReturnType<typeof createClient>, userId: 
 }
 
 async function resolveAdminMasterUserId(admin: ReturnType<typeof createClient>): Promise<string> {
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  if (error) throw new Error(error.message);
-  const match = (data.users ?? []).find(
-    (u) => (u.email ?? "").trim().toLowerCase() === ADMIN_MASTER_EMAIL,
-  );
-  if (!match?.id) throw new Error("Administrador da plataforma não encontrado.");
-  return match.id;
+  const id = await findUserIdByEmail(admin, ADMIN_MASTER_EMAIL);
+  if (!id) throw new Error("Administrador da plataforma não encontrado.");
+  return id;
 }
 
 async function resolveClientGestorUserId(

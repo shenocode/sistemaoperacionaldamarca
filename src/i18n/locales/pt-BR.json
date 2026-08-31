@@ -241,6 +241,8 @@
     "finalCta": "Quer testar? Entre em contato conosco.",
     "footerTag": "Sistema Operacional da Marca",
     "footerWhatsapp": "WhatsApp {{number}}",
+    "footerTerms": "Termos de uso",
+    "footerPrivacy": "Privacidade",
     "mockCalendar": {
       "blockTitle": "Julho — 20/07 a 20/08",
       "blockHint": "{{count}} publicações neste período",
@@ -390,6 +392,9 @@
   "subscription": {
     "successTitle": "Pagamento confirmado",
     "successBody": "Seu acesso está sendo liberado. Confira o e-mail usado no checkout para definir a senha (ou entre com a conta que já tinha) e faça login.",
+    "successPending": "Confirmando o pagamento… isso costuma levar alguns segundos.",
+    "successReady": "Assinatura ativa. Defina a senha no e-mail do checkout (ou entre com a conta que já tinha).",
+    "successFailed": "Não encontramos a confirmação ainda. Se o valor foi cobrado, aguarde o e-mail ou fale com o suporte.",
     "successCta": "Ir para o login",
     "cancelTitle": "Checkout cancelado",
     "cancelBody": "Nenhuma cobrança foi feita. Você pode escolher um plano novamente quando quiser.",
@@ -496,7 +501,8 @@
     "sent": "Pedido enviado. Em breve você receberá retorno.",
     "sendError": "Não foi possível enviar o pedido.",
     "adminMasterHint": "Esta conta é a administradora da plataforma — os pedidos de ajuda dos gestores chegam aqui na caixa de entrada.",
-    "adminMasterInbox": "Para testar o envio, use uma conta de gestor (não a conta master) ou de cliente."
+    "adminMasterInbox": "Para testar o envio, use uma conta de gestor (não a conta master) ou de cliente.",
+    "legalLinksHint": "Cobrança, cancelamento, limites do plano e uso de dados:"
   },
   "helpInbox": {
     "title": "Solicitações de ajuda",
@@ -544,7 +550,61 @@
     "passwordMismatch": "As senhas não coincidem.",
     "passwordUpdated": "Senha atualizada.",
     "savePassword": "Salvar senha",
-    "helpLinkPrefix": "Problemas ou dúvidas?"
+    "helpLinkPrefix": "Problemas ou dúvidas?",
+    "subscription": {
+      "title": "Assinatura",
+      "subtitle": "Plano atual, limites de uso e opções de upgrade.",
+      "currentPlan": "Plano atual",
+      "noPlan": "Sem plano",
+      "noPlanBody": "Assine um plano para liberar limites e recursos da plataforma.",
+      "masterBody": "Esta conta de administrador tem todos os recursos, sem limites de plano.",
+      "collaboratorBody": "Você usa o plano {{plan}} gerenciado pelo dono da equipe. Upgrades ficam com ele.",
+      "collaboratorNoPlan": "A equipe ainda não tem um plano ativo. Fale com o dono da conta.",
+      "courtesyBody": "Plano de cortesia para avaliação, com recursos amplos. Para converter em plano pago, envie um pedido.",
+      "agencyMaxBody": "Você já está no plano mais completo. Precisa de mais clientes? Fale conosco.",
+      "usageTitle": "Uso do plano",
+      "clients": "Clientes",
+      "users": "Usuários",
+      "unlimited": "ilimitado",
+      "usageCount": "{{used}} de {{max}}",
+      "usageUnlimited": "{{used}} · ilimitado",
+      "includedTitle": "Incluído neste plano",
+      "features": {
+        "brandBriefing": "Brand briefing e guia de marca",
+        "library": "Biblioteca de arquivos",
+        "presets": "Presets de projeto",
+        "designAi": "IA de design"
+      },
+      "upgradesTitle": "Atualizar plano",
+      "upgradesHint": "A troca é proporcional no Stripe. Cartão, faturas e cancelamento ficam no portal de cobrança.",
+      "subscribeTitle": "Escolha um plano",
+      "requestUpgrade": "Pedir {{plan}}",
+      "upgradeTo": "Atualizar para {{plan}}",
+      "upgrading": "Atualizando…",
+      "upgradeSuccess": "Plano atualizado para {{plan}}.",
+      "upgradeError": "Não foi possível atualizar o plano.",
+      "manageBilling": "Gerenciar assinatura",
+      "openingPortal": "Abrindo…",
+      "portalError": "Não foi possível abrir o portal de cobrança.",
+      "subscribe": "Assinar {{plan}}",
+      "seeAllPlans": "Ver comparação dos planos",
+      "requestMore": "Pedir mais capacidade",
+      "convertCourtesy": "Converter em plano pago",
+      "planLimits": "Até {{clients}} clientes · até {{users}} usuários",
+      "upgradeHelpMessage": "Quero atualizar minha assinatura para o plano {{plan}}.",
+      "moreCapacityHelpMessage": "Estou no plano Agência e preciso de mais clientes do que o limite atual.",
+      "convertCourtesyHelpMessage": "Tenho um plano Cortesia e quero converter para um plano pago (Solo, Studio ou Agência).",
+      "checkoutError": "Não foi possível iniciar o checkout.",
+      "billingFaqTitle": "Cobrança e cancelamento",
+      "billingFaq": {
+        "cancelQ": "Posso cancelar quando quiser?",
+        "cancelA": "Sim. Use Gerenciar assinatura. O acesso segue até o fim do período já pago.",
+        "lateQ": "E se o cartão atrasar?",
+        "lateA": "Há 3 dias de graça. Depois o acesso de gestor pode ser suspenso até o pagamento.",
+        "aiQ": "A IA usa a minha chave?",
+        "aiA": "Prefira a sua chave em Configurações. Sem ela, há uma cota diária limitada da plataforma."
+      }
+    }
   },
   "proposals": {
     "title": "Propostas comerciais",
@@ -740,6 +800,7 @@
     "back": "Voltar",
     "tabs": {
       "feed": "Feed",
+      "simulation": "Simulação",
       "themes": "Temas",
       "library": "Biblioteca",
       "content": "Conteúdo",
@@ -1200,6 +1261,14 @@
       "teleprompter": "Teleprompter",
       "teleprompterTitle": "Teleprompter",
       "teleprompterEmpty": "Nenhum texto de locução para exibir.",
+      "teleprompterPlay": "Reproduzir",
+      "teleprompterPause": "Pausar",
+      "teleprompterStop": "Parar e voltar ao início",
+      "teleprompterSpeed": "Velocidade",
+      "teleprompterFontDecrease": "Diminuir texto",
+      "teleprompterFontIncrease": "Aumentar texto",
+      "teleprompterFullscreen": "Tela cheia",
+      "teleprompterExitFullscreen": "Sair da tela cheia",
       "roteiro": "Roteiro do carrossel",
       "roteiroHint": "Texto por slide para o designer montar as artes.",
       "roteiroPlaceholder": "Slide 1: …\nSlide 2: …\nSlide 3: …",
@@ -1358,6 +1427,8 @@
       "submitReview": "Enviar para revisão",
       "publish": "Publicar",
       "leaveComment": "Deixe um comentário...",
+      "editComment": "Editar",
+      "commentUpdated": "Comentário atualizado.",
       "send": "Enviar",
       "recordComment": "Gravar comentário em áudio",
       "stopRecording": "Parar gravação",
@@ -1439,6 +1510,40 @@
       "useAnswer": "Usar esta resposta",
       "dismiss": "Fechar",
       "applied": "Resposta aplicada ao briefing."
+    }
+  },
+  "legal": {
+    "termsTitle": "Termos de uso",
+    "privacyTitle": "Política de privacidade",
+    "backHome": "Voltar ao início",
+    "updated": "Atualizado em 31 de agosto de 2026.",
+    "terms": {
+      "serviceTitle": "Serviço",
+      "serviceBody": "O SOM (Sistema Operacional da Marca) é uma plataforma de operação de conteúdo para gestores e agências. Ao assinar um plano, você concorda em usar o serviço conforme estes termos.",
+      "billingTitle": "Cobrança",
+      "billingBody": "A assinatura é mensal, cobrada pelo Stripe no cartão informado no checkout. Preços, limites e o que cada plano inclui estão na página inicial e no seu perfil — não neste documento.",
+      "cancelTitle": "Cancelamento",
+      "cancelBody": "Você pode cancelar a qualquer momento no portal de cobrança (Gerenciar assinatura, no perfil). O acesso segue até o fim do período já pago. Não há reembolso proporcional do período em curso, salvo obrigação legal.",
+      "lateTitle": "Atraso de pagamento",
+      "lateBody": "Se o cartão recusar, há 3 dias de graça. Depois disso o acesso de gestor pode ser suspenso até a cobrança ser regularizada.",
+      "limitsTitle": "Limites do plano",
+      "limitsBody": "Clientes, usuários da equipe e recursos (biblioteca, briefing, IA de design e outros) seguem o plano contratado. Ultrapassar o limite é recusado no produto. A comparação dos planos fica na landing e no perfil.",
+      "dataTitle": "Seus dados e os dos clientes",
+      "dataBody": "Conteúdo, arquivos e dados dos seus clientes pertencem a você. O SOM processa esses dados só para prestar o serviço. Clientes finais acessam apenas o workspace ao qual foram convidados.",
+      "aiTitle": "Inteligência artificial",
+      "aiBody": "Funções de IA usam primeiro a chave que você cadastrou (BYOK). Sem chave própria, pode haver uma cota diária limitada da plataforma. Não nos responsabilizamos pelo uso que você faz dos textos e artes gerados, nem pelos custos da sua própria chave.",
+      "accountTitle": "Encerramento",
+      "accountBody": "Podemos encerrar contas em caso de abuso, inadimplência persistente ou violação destes termos."
+    },
+    "privacy": {
+      "collectTitle": "O que coletamos",
+      "collectBody": "Coletamos nome, e-mail, dados de cobrança (via Stripe) e o conteúdo que você e seus clientes enviam à plataforma (textos, mídia, comentários).",
+      "useTitle": "Como usamos",
+      "useBody": "Usamos esses dados para autenticar, prestar o serviço, cobrar a assinatura e melhorar o produto. Não vendemos dados pessoais.",
+      "providersTitle": "Stripe e provedores de IA",
+      "providersBody": "Pagamentos são processados pelo Stripe. Provedores de IA (cota da plataforma ou a sua própria chave) recebem o texto ou a imagem necessários para gerar a resposta, sem autorização extra para treinar modelos com o seu conteúdo além do contrato deles.",
+      "deleteTitle": "Exclusão e acesso",
+      "deleteBody": "Você pode pedir exclusão da conta e dos dados pelo e-mail de suporte. Clientes finais acessam apenas o workspace ao qual foram convidados."
     }
   }
 }

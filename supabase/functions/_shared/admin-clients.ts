@@ -38,6 +38,13 @@ export async function findUserIdByEmail(
   email: string,
 ): Promise<string | null> {
   const target = email.trim().toLowerCase();
+  if (!target) return null;
+
+  const { data: byEmail, error: rpcError } = await admin.rpc("auth_user_id_by_email", {
+    _email: target,
+  });
+  if (!rpcError && typeof byEmail === "string" && byEmail) return byEmail;
+
   const adminApi = admin.auth.admin as any;
   if (typeof adminApi.getUserByEmail === "function") {
     const { data, error } = await adminApi.getUserByEmail(target);
@@ -94,11 +101,26 @@ export type SubscriptionRow = {
   status: string;
   source: string | null;
   updated_at: string;
+  current_period_end?: string | null;
 };
+
+const PAST_DUE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
+export function isSubscriptionActiveStatus(
+  status: string | null | undefined,
+  periodEnd?: string | null,
+): boolean {
+  if (status === "active" || status === "trialing") return true;
+  if (status !== "past_due") return false;
+  if (!periodEnd) return false;
+  const end = new Date(periodEnd).getTime();
+  if (Number.isNaN(end)) return false;
+  return end > Date.now() - PAST_DUE_GRACE_MS;
+}
 
 export function pickActiveSubscription(rows: SubscriptionRow[]): SubscriptionRow | null {
   const active = rows
-    .filter((row) => row.status === "active" || row.status === "trialing")
+    .filter((row) => isSubscriptionActiveStatus(row.status, row.current_period_end))
     .sort((a, b) => {
       if (a.source === "manual" && b.source !== "manual") return -1;
       if (b.source === "manual" && a.source !== "manual") return 1;
@@ -111,10 +133,6 @@ export function pickPrimarySubscription(rows: SubscriptionRow[]): SubscriptionRo
   const active = pickActiveSubscription(rows);
   if (active) return active;
   return [...rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0] ?? null;
-}
-
-export function isSubscriptionActiveStatus(status: string | null | undefined): boolean {
-  return status === "active" || status === "trialing";
 }
 
 export async function requireAuthedUser(supabase: AnyClient): Promise<any> {

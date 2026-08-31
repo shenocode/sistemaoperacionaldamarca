@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>SOM — LOC0</title>
+    <style>
+      @font-face {
+        font-family: Figtree;
+        font-weight: 400;
+        src: url("fonts/figtree-400.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: Figtree;
+        font-weight: 500;
+        src: url("fonts/figtree-500.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: Figtree;
+        font-weight: 600;
+        src: url("fonts/figtree-600.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: Syne;
+        font-weight: 600;
+        src: url("fonts/syne-600.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: Syne;
+        font-weight: 700;
+        src: url("fonts/syne-700.ttf") format("truetype");
+      }
+
+      html,
+      body {
+        margin: 0;
+        background: #000;
+        color: #f3f3f3;
+        font-family: Figtree, ui-sans-serif, system-ui, sans-serif;
+        overflow: hidden;
+      }
+
+      body.preview {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+      }
+
+      #stage {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        background: #050505;
+        overflow: hidden;
+        transform-origin: top left;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .kicker {
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.42em;
+        text-transform: uppercase;
+        color: rgba(243, 243, 243, 0.46);
+        margin: 0 0 28px;
+      }
+
+      h1,
+      h2 {
+        font-family: Syne, ui-sans-serif, sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 0.95;
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 92px;
+      }
+      h2 {
+        font-size: 72px;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: min(1480px, 86%);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 36px;
+      }
+
+      .mark {
+        width: 92px;
+        height: auto;
+        mix-blend-mode: screen;
+      }
+
+      .logo {
+        width: 520px;
+        height: auto;
+        mix-blend-mode: screen;
+      }
+
+      .hairline {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.18);
+        transform-origin: left center;
+      }
+
+      .card {
+        width: 280px;
+        min-height: 196px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 28px;
+        padding: 28px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 18px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .idx {
+        font-size: 13px;
+        letter-spacing: 0.28em;
+        color: rgba(243, 243, 243, 0.4);
+        font-weight: 600;
+      }
+
+      .card b {
+        font-family: Syne, sans-serif;
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      .ghost {
+        width: 220px;
+        height: 220px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 22px;
+        display: grid;
+        place-items: center;
+        position: relative;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .label {
+        margin-top: 16px;
+        font-size: 15px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: rgba(243, 243, 243, 0.5);
+        font-weight: 600;
+      }
+
+      .strike {
+        position: absolute;
+        inset: 18% 12%;
+        height: 2px;
+        background: #fff;
+        transform-origin: left center;
+        top: 50%;
+      }
+
+      .muted {
+        color: rgba(243, 243, 243, 0.55);
+      }
+
+      .wave-bg {
+        position: absolute;
+        inset: -8%;
+        opacity: 0.07;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='160' viewBox='0 0 280 160' fill='none'%3E%3Cpath d='M0 80 C35 48 70 48 105 80 C140 112 175 112 210 80 C245 48 280 48 315 80' stroke='white' stroke-width='1.4'/%3E%3Cpath d='M0 108 C35 76 70 76 105 108 C140 140 175 140 210 108 C245 76 280 76 315 108' stroke='white' stroke-width='1.2'/%3E%3Cpath d='M0 52 C35 20 70 20 105 52 C140 84 175 84 210 52 C245 20 280 20 315 52' stroke='white' stroke-width='1.2'/%3E%3C/svg%3E");
+        background-size: 280px 160px;
+      }
+
+      #progress {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        bottom: 48px;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      #progress > i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: #fff;
+      }
+
+      #corner {
+        position: absolute;
+        top: 48px;
+        left: 64px;
+        width: 42px;
+        mix-blend-mode: screen;
+        opacity: 0.28;
+      }
+
+      .icon {
+        width: 44px;
+        height: 44px;
+        stroke: #fff;
+        fill: none;
+        stroke-width: 1.6;
+      }
+
+      .format {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .format span {
+        position: absolute;
+        left: 14px;
+        bottom: 12px;
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(243, 243, 243, 0.55);
+      }
+
+      .check {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1.5px solid #fff;
+        display: grid;
+        place-items: center;
+      }
+
+      .rings {
+        position: absolute;
+        width: 720px;
+        height: 720px;
+      }
+
+      .rings i {
+        position: absolute;
+        inset: 0;
+        border: 1.5px solid rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        margin: auto;
+      }
+
+      .merged {
+        min-width: 640px;
+        height: 168px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 40px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        font-family: Syne, sans-serif;
+        font-size: 42px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+      }
+
+      audio {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <audio id="vo" src="audio/LOC0.mp3" preload="auto"></audio>
+    <div id="stage">
+      <div class="wave-bg" id="waveBg"></div>
+      <img id="corner" class="mark" src="assets/som-mark-on-dark.png" alt="" />
+
+      <section class="scene" id="s1">
+        <div class="stack">
+          <p class="kicker" data-a="kicker">operação de conteúdo</p>
+          <div class="row" style="gap: 48px">
+            <h1 data-a="left">Do briefing</h1>
+            <div class="hairline" data-a="line" style="width: 180px"></div>
+            <h1 data-a="right">à aprovação</h1>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s2">
+        <div class="stack">
+          <p class="kicker" data-a="kicker">o ruído</p>
+          <div class="row" style="gap: 120px; align-items: flex-end">
+            <div data-a="sheet">
+              <div class="ghost">
+                <svg viewBox="0 0 64 64" width="88" height="88">
+                  <rect x="10" y="8" width="44" height="48" rx="4" fill="none" stroke="#fff" stroke-width="1.6" />
+                  <path d="M10 20h44M24 8v48M38 8v48M10 34h44M10 46h44" stroke="#fff" stroke-width="1.2" opacity="0.7" />
+                </svg>
+                <div class="strike" data-a="x1"></div>
+              </div>
+              <div class="label">planilha</div>
+            </div>
+            <h2 data-a="copy" style="max-width: 520px">sem planilha<br /><span class="muted">e sem WhatsApp eterno</span></h2>
+            <div data-a="chat">
+              <div class="ghost">
+                <svg viewBox="0 0 64 64" width="88" height="88">
+                  <rect x="8" y="12" width="36" height="22" rx="8" fill="none" stroke="#fff" stroke-width="1.6" />
+                  <rect x="20" y="30" width="36" height="22" rx="8" fill="none" stroke="#fff" stroke-width="1.6" opacity="0.7" />
+                </svg>
+                <div class="strike" data-a="x2"></div>
+              </div>
+              <div class="label">whatsapp</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s3">
+        <div class="stack">
+          <p class="kicker" data-a="kicker">sistema operacional da marca</p>
+          <div class="row" style="gap: 28px; margin-top: 12px">
+            <article class="card" data-a="c1">
+              <svg class="icon" viewBox="0 0 44 44">
+                <rect x="6" y="10" width="32" height="26" rx="4" />
+                <path d="M6 18h32M16 6v8M28 6v8" />
+              </svg>
+              <span class="idx">01</span>
+              <b>planejar</b>
+            </article>
+            <article class="card" data-a="c2">
+              <svg class="icon" viewBox="0 0 44 44">
+                <path d="M8 32 L22 8 L36 32 Z" />
+                <circle cx="22" cy="24" r="3" fill="#fff" stroke="none" />
+              </svg>
+              <span class="idx">02</span>
+              <b>criar</b>
+            </article>
+            <article class="card" data-a="c3">
+              <svg class="icon" viewBox="0 0 44 44">
+                <rect x="7" y="9" width="30" height="26" rx="4" />
+                <path d="M18 18l10 8-10 8V18z" />
+              </svg>
+              <span class="idx">03</span>
+              <b>produzir</b>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s4">
+        <div class="stack">
+          <p class="kicker" data-a="kicker">um fluxo só</p>
+          <div class="merged" data-a="box">tudo em um só lugar</div>
+        </div>
+      </section>
+
+      <section class="scene" id="s5">
+        <div class="stack">
+          <p class="kicker" data-a="kicker">com o cliente</p>
+          <h2 data-a="title" style="margin-bottom: 48px">Materiais alinhados</h2>
+          <div class="row" style="gap: 28px; align-items: flex-end">
+            <div class="format" data-a="f1" style="width: 168px; height: 168px">
+              <span>feed</span>
+            </div>
+            <div class="format" data-a="f2" style="width: 150px; height: 188px">
+              <span>carrossel</span>
+            </div>
+            <div class="format" data-a="f3" style="width: 112px; height: 198px">
+              <span>reels</span>
+            </div>
+            <div data-a="person" style="margin-left: 36px; text-align: left">
+              <div class="check" style="width: 72px; height: 72px; border-width: 1.5px">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="1.8">
+                  <circle cx="12" cy="8" r="3.2" />
+                  <path d="M5.5 19c1.2-3.2 3.4-4.8 6.5-4.8S17.3 15.8 18.5 19" />
+                </svg>
+              </div>
+              <div class="label" style="margin-top: 14px">cliente</div>
+            </div>
+            <div class="check" data-a="ok" style="margin-left: 8px">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.2">
+                <path d="M5 12.5l4.2 4.2L19 7.5" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene" id="s6">
+        <div class="rings" id="rings">
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <div class="stack" style="position: relative">
+          <img class="mark" data-a="mark" src="assets/som-mark-on-dark.png" alt="" style="width: 120px; margin-bottom: 28px" />
+          <h2 data-a="title">alto e bom som</h2>
+        </div>
+      </section>
+
+      <section class="scene" id="s7">
+        <div class="stack">
+          <img class="logo" data-a="logo" src="assets/som-logo-on-dark.png" alt="SOM — Sistema Operacional da Marca" />
+        </div>
+      </section>
+
+      <div id="progress"><i></i></div>
+    </div>
+
+    <script>
+      const DURATION = 17.998313;
+      const $ = (sel, el = document) => el.querySelector(sel);
+      const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+      const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const easeOut = (t) => 1 - (1 - t) ** 3;
+      const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+      const vis = (t, t0, t1, fadeIn = 0.22, fadeOut = 0.22) => {
+        const inn = easeOut(clamp((t - t0) / fadeIn));
+        const out = easeOut(clamp((t1 - t) / fadeOut));
+        return inn * out;
+      };
+      const step = (t, t0, dur = 0.35) => easeOut(clamp((t - t0) / dur));
+
+      const stage = $("#stage");
+      const progress = $("#progress > i");
+      const waveBg = $("#waveBg");
+      const corner = $("#corner");
+      const rings = $$("#rings i");
+      const renderMode = new URLSearchParams(location.search).has("render");
+
+      function setLayer(el, a, y = 18) {
+        el.style.opacity = a;
+        el.style.transform = `translateY(${(1 - a) * y}px)`;
+      }
+
+      function child(scene, name) {
+        return scene.querySelector(`[data-a="${name}"]`);
+      }
+
+      function apply(t) {
+        const a1 = vis(t, 0.0, 1.58, 0.18, 0.18);
+        const a2 = vis(t, 1.52, 5.48, 0.22, 0.22);
+        const a3 = vis(t, 5.4, 9.88, 0.24, 0.2);
+        const a4 = vis(t, 9.82, 11.72, 0.18, 0.18);
+        const a5 = vis(t, 11.66, 13.78, 0.2, 0.18);
+        const a6 = vis(t, 13.72, 15.72, 0.2, 0.22);
+        const a7 = vis(t, 15.55, 18.1, 0.28, 0.2);
+
+        const s1 = $("#s1");
+        const s2 = $("#s2");
+        const s3 = $("#s3");
+        const s4 = $("#s4");
+        const s5 = $("#s5");
+        const s6 = $("#s6");
+        const s7 = $("#s7");
+
+        setLayer(s1, a1, 14);
+        setLayer(s2, a2, 16);
+        setLayer(s3, a3, 20);
+        setLayer(s4, a4, 10);
+        setLayer(s5, a5, 16);
+        setLayer(s6, a6, 8);
+        setLayer(s7, a7, 8);
+
+        const l = step(t, 0.08, 0.32);
+        const line = step(t, 0.55, 0.38);
+        const r = step(t, 0.85, 0.32);
+        child(s1, "kicker").style.opacity = String(l);
+        child(s1, "left").style.opacity = String(l);
+        child(s1, "left").style.transform = `translateX(${(1 - l) * -24}px)`;
+        child(s1, "line").style.transform = `scaleX(${line})`;
+        child(s1, "right").style.opacity = String(r);
+        child(s1, "right").style.transform = `translateX(${(1 - r) * 24}px)`;
+
+        const sheet = step(t, 1.68, 0.4);
+        const copy = step(t, 2.15, 0.4);
+        const chat = step(t, 2.7, 0.4);
+        const x = step(t, 3.55, 0.45);
+        child(s2, "kicker").style.opacity = String(sheet);
+        child(s2, "sheet").style.opacity = String(sheet);
+        child(s2, "sheet").style.transform = `translateY(${(1 - sheet) * 20}px)`;
+        child(s2, "copy").style.opacity = String(copy);
+        child(s2, "chat").style.opacity = String(chat);
+        child(s2, "chat").style.transform = `translateY(${(1 - chat) * 20}px)`;
+        child(s2, "x1").style.transform = `scaleX(${x}) rotate(-18deg)`;
+        child(s2, "x2").style.transform = `scaleX(${x}) rotate(-18deg)`;
+        child(s2, "sheet").style.filter = `grayscale(1) brightness(${lerp(1, 0.55, x)})`;
+        child(s2, "chat").style.filter = `grayscale(1) brightness(${lerp(1, 0.55, x)})`;
+
+        const c1 = step(t, 5.7, 0.38);
+        const c2 = step(t, 6.55, 0.38);
+        const c3 = step(t, 7.45, 0.38);
+        child(s3, "kicker").style.opacity = String(c1);
+        [["c1", c1], ["c2", c2], ["c3", c3]].forEach(([name, v]) => {
+          const el = child(s3, name);
+          el.style.opacity = String(v);
+          el.style.transform = `translateY(${(1 - v) * 28}px)`;
+        });
+
+        const box = step(t, 10.02, 0.32);
+        child(s4, "kicker").style.opacity = String(box);
+        child(s4, "box").style.opacity = String(box);
+        child(s4, "box").style.transform = `scale(${lerp(0.92, 1, box)})`;
+
+        const t5 = step(t, 11.86, 0.3);
+        child(s5, "kicker").style.opacity = String(t5);
+        child(s5, "title").style.opacity = String(t5);
+        ["f1", "f2", "f3"].forEach((name, i) => {
+          const v = step(t, 12.1 + i * 0.16, 0.28);
+          const el = child(s5, name);
+          el.style.opacity = String(v);
+          el.style.transform = `translateY(${(1 - v) * 18}px)`;
+        });
+        const person = step(t, 12.55, 0.28);
+        child(s5, "person").style.opacity = String(person);
+        const ok = step(t, 12.95, 0.22);
+        child(s5, "ok").style.opacity = String(ok);
+        child(s5, "ok").style.transform = `scale(${lerp(0.6, 1, ok)})`;
+
+        const m6 = step(t, 13.9, 0.28);
+        child(s6, "mark").style.opacity = String(m6);
+        child(s6, "title").style.opacity = String(m6);
+        rings.forEach((ring, i) => {
+          const phase = clamp((t - 13.88 - i * 0.18) / 1.15);
+          const shown = a6 * (1 - phase);
+          ring.style.opacity = String(shown * 0.7);
+          ring.style.transform = `scale(${lerp(0.18, 1.08, phase)})`;
+        });
+
+        const lg = step(t, 15.78, 0.42);
+        child(s7, "logo").style.opacity = String(lg);
+        child(s7, "logo").style.transform = `scale(${lerp(0.94, 1, lg)})`;
+
+        progress.style.width = `${clamp(t / DURATION) * 100}%`;
+        waveBg.style.opacity = String(lerp(0.05, 0.16, a6));
+        waveBg.style.backgroundPosition = `${t * 28}px ${Math.sin(t * 0.9) * 8}px`;
+        corner.style.opacity = String(t > 15.6 ? lerp(0.28, 0, clamp((t - 15.6) / 0.3)) : 0.28);
+      }
+
+      window.__setTime = apply;
+      window.__duration = DURATION;
+
+      const audio = $("#vo");
+      let playing = false;
+
+      function fit() {
+        if (renderMode) {
+          document.body.classList.remove("preview");
+          stage.style.transform = "none";
+          return;
+        }
+        document.body.classList.add("preview");
+        const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        stage.style.transform = `scale(${s})`;
+      }
+
+      function tick() {
+        if (playing) apply(audio.currentTime || 0);
+        requestAnimationFrame(tick);
+      }
+
+      window.addEventListener("resize", fit);
+      fit();
+
+      if (renderMode) {
+        apply(0);
+      } else {
+        apply(0);
+        audio.addEventListener("play", () => {
+          playing = true;
+        });
+        audio.addEventListener("pause", () => {
+          playing = false;
+        });
+        audio.addEventListener("timeupdate", () => apply(audio.currentTime));
+        const start = () => {
+          audio.currentTime = 0;
+          audio.play();
+        };
+        window.addEventListener("click", start, { once: true });
+        start().catch(() => {});
+        tick();
+      }
+    </script>
+  </body>
+</html>

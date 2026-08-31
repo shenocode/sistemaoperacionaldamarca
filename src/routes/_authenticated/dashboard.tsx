@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { FolderKanban, Users, Clock } from "lucide-react";
 import { Route as AuthLayout } from "./route";
@@ -15,21 +15,12 @@ import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import {
-  countProjects,
-  ensureFieldsTranslated,
-  getCanonicalText,
   isAdmin,
   listClients,
   listPendingApprovals,
   resolvePostLoginPath,
-  updateProject,
   type ClientWithProjects,
 } from "@/lib/api";
-import {
-  fieldsNeedLocaleBackfill,
-  normalizeAppLocale,
-  parseRowI18n,
-} from "@/lib/i18n-content";
 import { useAppRole } from "@/hooks/use-app-role";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -53,19 +44,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function DashboardPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = AuthLayout.useRouteContext();
-  const queryClient = useQueryClient();
   const { isAdminMaster, loading: roleLoading } = useAppRole();
-  const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const settingsDialog = useClientSettingsDialog();
 
   const clientsQuery = useQuery({ queryKey: ["clients"], queryFn: listClients });
-  const projectsCountQuery = useQuery({
-    queryKey: ["dashboard", "projects-count"],
-    queryFn: countProjects,
-    enabled: !roleLoading && !isAdminMaster,
-  });
   const pendingQuery = useQuery({
     queryKey: ["dashboard", "pending"],
     queryFn: listPendingApprovals,
@@ -74,50 +58,10 @@ function DashboardPage() {
 
   const clients = clientsQuery.data ?? [];
   const pending = pendingQuery.data ?? [];
-
-  const projectBackfillKey = useMemo(
-    () =>
-      clients
-        .flatMap((c) => c.projects.map((p) => `${p.id}:${p.updated_at}`))
-        .join("|"),
+  const projectCount = useMemo(
+    () => clients.reduce((sum, client) => sum + client.projects.length, 0),
     [clients],
   );
-
-  // Backfill project names shown on client cards.
-  useEffect(() => {
-    if (!clients.length) return;
-    let cancelled = false;
-    void (async () => {
-      let improved = 0;
-      for (const client of clients) {
-        for (const project of client.projects) {
-          if (!fieldsNeedLocaleBackfill(project.i18n, { name: project.name }, uiLocale)) {
-            continue;
-          }
-          try {
-            const nextI18n = await ensureFieldsTranslated(parseRowI18n(project.i18n), {
-              name: project.name,
-            });
-            if (!fieldsNeedLocaleBackfill(nextI18n, { name: project.name }, uiLocale)) {
-              await updateProject(project.id, {
-                name: getCanonicalText(nextI18n, "name", project.name),
-                i18n: nextI18n,
-              });
-              improved += 1;
-            }
-          } catch {
-            // Skip; AI or RLS may be unavailable.
-          }
-        }
-      }
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["clients"] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectBackfillKey, queryClient, uiLocale, clients]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
@@ -139,7 +83,7 @@ function DashboardPage() {
           />
           <StatCard
             label={t("dashboard.projects")}
-            value={projectsCountQuery.data ?? 0}
+            value={projectCount}
             icon={FolderKanban}
           />
         </div>

@@ -33,17 +33,20 @@ import { PrintMaterialPreview } from "@/components/print-material-preview";
 import { ArtTextEditorPanel, ArtTextOverlayView } from "@/components/art-text-editor";
 import { cn } from "@/lib/utils";
 import {
+  extractYoutubeVideoId,
   isImageUrl,
+  isPlayableVideoUrl,
   isPrintMaterialFormat,
-  isVideoUrl,
   isYoutubeShortFormat,
   isYoutubeVideoFormat,
+  youtubeThumbnailUrl,
   type BrandColor,
   type ContentFormat,
 } from "@/lib/api";
 import {
   YouTubeShortsMockup,
   YouTubeWatchMockup,
+  YoutubeEmbedFrame,
 } from "@/components/youtube-notebook-mockup";
 import { createDefaultOverlay, type MediaTextOverlay } from "@/lib/media-text-overlay";
 
@@ -83,11 +86,19 @@ type ContentMediaPreviewProps = {
 };
 
 function resolveKind(item: PreviewMediaItem): "image" | "video" | "file" {
-  if (item.kind) return item.kind;
-  if (isVideoUrl(item.url)) return "video";
+  if (item.kind) {
+    if (item.kind === "image" && extractYoutubeVideoId(item.url)) return "video";
+    return item.kind;
+  }
+  if (isPlayableVideoUrl(item.url)) return "video";
   if (isImageUrl(item.url)) return "image";
   if (/\.(pdf|docx?|xlsx?|csv|txt|md|rtf|od[ts])(\?|$)/i.test(item.url)) return "file";
   return "image";
+}
+
+function previewThumbFromVideoUrl(url: string) {
+  const youtubeId = extractYoutubeVideoId(url);
+  return youtubeId ? youtubeThumbnailUrl(youtubeId) : `${url}#t=0.1`;
 }
 
 function toHandle(value: string) {
@@ -119,6 +130,7 @@ function MediaSlide({
 }) {
   const { t } = useTranslation();
   const kind = resolveKind(item);
+  const youtubeId = extractYoutubeVideoId(item.url);
 
   if (kind === "file") {
     return (
@@ -139,15 +151,23 @@ function MediaSlide({
 
   const media =
     kind === "video" ? (
-      <video
-        src={item.url}
-        controls={!autoPlay && !expandable}
-        autoPlay={autoPlay}
-        muted={muted ?? autoPlay}
-        loop={autoPlay}
-        playsInline
-        className={cn("h-full w-full object-cover", !expandable && className)}
-      />
+      youtubeId ? (
+        <img
+          src={youtubeThumbnailUrl(youtubeId)}
+          alt={title}
+          className={cn("h-full w-full object-cover", !expandable && className)}
+        />
+      ) : (
+        <video
+          src={item.url}
+          controls={!autoPlay && !expandable}
+          autoPlay={autoPlay}
+          muted={muted ?? autoPlay}
+          loop={autoPlay}
+          playsInline
+          className={cn("h-full w-full object-cover", !expandable && className)}
+        />
+      )
     ) : (
       <img
         src={item.url}
@@ -198,6 +218,14 @@ function LightboxMedia({
   const kind = resolveKind(item);
 
   if (kind === "video") {
+    const youtubeId = extractYoutubeVideoId(item.url);
+    if (youtubeId) {
+      return (
+        <div className="aspect-video w-full max-w-full max-h-[min(85vh,900px)] overflow-hidden bg-black">
+          <YoutubeEmbedFrame id={youtubeId} title={title} autoPlay={autoPlay} />
+        </div>
+      );
+    }
     return (
       <video
         key={item.url}
@@ -707,7 +735,14 @@ export function ContentMediaPreview({
     const thumb =
       thumbnailUrl?.trim() ||
       imageFromMedia ||
-      (videoUrl ? `${videoUrl}#t=0.1` : null);
+      (videoUrl ? previewThumbFromVideoUrl(videoUrl) : null);
+    const lightboxItems =
+      items.length > 0 ? items : videoUrl ? [{ url: videoUrl, kind: "video" as const }] : [];
+    const openYoutubeLightbox = () => {
+      if (lightboxItems.length === 0) return;
+      setLightboxIndex(0);
+      setLightboxOpen(true);
+    };
     const shared = {
       title,
       caption,
@@ -719,11 +754,24 @@ export function ContentMediaPreview({
       videoUrl,
       size,
       className,
+      onExpand: lightboxItems.length > 0 ? openYoutubeLightbox : undefined,
     };
-    if (isYoutubeShortFormat(format)) {
-      return <YouTubeShortsMockup {...shared} />;
-    }
-    return <YouTubeWatchMockup {...shared} />;
+    return (
+      <>
+        {isYoutubeShortFormat(format) ? (
+          <YouTubeShortsMockup {...shared} />
+        ) : (
+          <YouTubeWatchMockup {...shared} />
+        )}
+        <MediaLightbox
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+          items={lightboxItems}
+          title={title}
+          initialIndex={lightboxIndex}
+        />
+      </>
+    );
   }
 
   const handle = toHandle(username || title || "marca");

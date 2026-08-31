@@ -85,6 +85,7 @@ import {
   getProject,
   getLocalizedText,
   getLocalizedPresetList,
+  isPlayableVideoUrl,
   isVideoUrl,
   normalizeAppLocale,
   parseRowI18n,
@@ -94,7 +95,6 @@ import {
   resolveContentThumbnail,
   updateCalendarBlockTitle,
   updateContentCalendar,
-  updateContentI18n,
   type CalendarBlock,
   type ContentFormat,
   type ContentItem,
@@ -107,7 +107,6 @@ import {
   translateTextField,
   type RowI18n,
 } from "@/lib/i18n-content";
-import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import {
   readCollapsedCalendarBlockIds,
   writeCollapsedCalendarBlockIds,
@@ -224,12 +223,12 @@ function previewItemsForContent(item: ContentItem): PreviewMediaItem[] {
   if (urls.length > 0) {
     return urls.map((url) => ({
       url,
-      kind: isVideoUrl(url) ? "video" : "image",
+      kind: isPlayableVideoUrl(url) ? "video" : "image",
     }));
   }
   const thumb = item.thumbnail_url?.trim();
   if (!thumb) return [];
-  return [{ url: thumb, kind: isVideoUrl(thumb) ? "video" : "image" }];
+  return [{ url: thumb, kind: isPlayableVideoUrl(thumb) ? "video" : "image" }];
 }
 
 function CalendarLayoutThumb({
@@ -504,56 +503,6 @@ function ProjectCalendarPage() {
   useEffect(() => {
     setLocalRows(null);
   }, [contentQuery.dataUpdatedAt]);
-
-  useEffect(() => {
-    if (!serverRows.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: serverRows,
-        locale: uiLocale,
-        getKey: (r) => r.id,
-        getI18n: (r) => r.i18n,
-        getFields: (r) => ({ title: r.title, theme: r.theme }),
-        persist: (r, nextI18n) => updateContentI18n(r.id, nextI18n).then(() => undefined),
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["content", projectId] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, queryClient, serverRows, uiLocale]);
-
-  useEffect(() => {
-    if (!blocks.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: blocks,
-        locale: uiLocale,
-        getKey: (b) => b.id,
-        getI18n: (b) => b.i18n,
-        getFields: (b) => ({ title: b.title }),
-        persist: async (b, nextI18n) => {
-          await updateCalendarBlockTitle(
-            b.id,
-            getCanonicalText(nextI18n, "title", b.title),
-            nextI18n,
-          );
-        },
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [blocks, projectId, queryClient, uiLocale]);
 
   function handleSendUpdates() {
     const client = clientQuery.data;

@@ -1,7 +1,8 @@
-import { Mic, Send, Square, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Mic, Pencil, Send, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { formatRecordingTime, useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,11 @@ export function CommentComposer({
 
   const canSendText = value.trim().length > 0 && recorder.status === "idle";
   const canSendAudio = recorder.status === "recorded" && Boolean(recorder.audioBlob);
+
+  const submitText = () => {
+    if (!canSendText || busy) return;
+    void onSubmitText();
+  };
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -112,17 +118,26 @@ export function CommentComposer({
         </div>
       ) : (
         <form
-          className="flex gap-2"
+          className="flex items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!canSendText || busy) return;
-            onSubmitText();
+            submitText();
           }}
         >
-          <Input
-            className={cn("min-w-0 flex-1 bg-background", inputClassName)}
+          <Textarea
+            className={cn(
+              "min-h-[4.5rem] min-w-0 flex-1 resize-y bg-background whitespace-pre-wrap",
+              inputClassName,
+            )}
+            rows={3}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                submitText();
+              }
+            }}
             placeholder={t("project.detail.leaveComment")}
             aria-label={t("project.detail.leaveComment")}
             disabled={busy}
@@ -179,7 +194,142 @@ export function CommentBody({ body, audioUrl, className }: CommentBodyProps) {
           aria-label={t("project.detail.audioComment")}
         />
       ) : null}
-      {text ? <p className="whitespace-pre-wrap text-muted-foreground">{text}</p> : null}
+      {text ? (
+        <div className="whitespace-pre-wrap break-words text-muted-foreground">{text}</div>
+      ) : null}
     </div>
+  );
+}
+
+type CommentThreadItemProps = {
+  authorName: string;
+  createdAtLabel: string;
+  body: string;
+  audioUrl?: string | null;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  isSaving?: boolean;
+  isDeleting?: boolean;
+  onSave?: (body: string) => void | Promise<unknown>;
+  onDelete?: () => void;
+  className?: string;
+};
+
+export function CommentThreadItem({
+  authorName,
+  createdAtLabel,
+  body,
+  audioUrl,
+  canEdit = false,
+  canDelete = false,
+  isSaving = false,
+  isDeleting = false,
+  onSave,
+  onDelete,
+  className,
+}: CommentThreadItemProps) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(body);
+  const hasAudio = Boolean(audioUrl?.trim());
+  const canSave = (editValue.trim().length > 0 || hasAudio) && !isSaving;
+
+  const startEdit = () => {
+    setEditValue(body);
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditValue(body);
+    setEditing(false);
+  };
+
+  const saveEdit = async () => {
+    if (!onSave || !canSave) return;
+    try {
+      await onSave(editValue);
+      setEditing(false);
+    } catch {
+      /* parent shows toast */
+    }
+  };
+
+  return (
+    <li className={cn("rounded-md border p-3 text-sm", className)}>
+      <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate font-medium">{authorName}</span>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          <span className="text-xs text-muted-foreground">{createdAtLabel}</span>
+          {canEdit && !editing ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-muted-foreground"
+              disabled={isSaving || isDeleting}
+              onClick={startEdit}
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              {t("project.detail.editComment")}
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              aria-label={t("project.detail.deleteComment")}
+              disabled={isDeleting || isSaving}
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {editing ? (
+        <div className="space-y-2">
+          {hasAudio ? (
+            <audio
+              key={audioUrl}
+              controls
+              preload="metadata"
+              src={audioUrl ?? undefined}
+              className="h-9 w-full max-w-full"
+              aria-label={t("project.detail.audioComment")}
+            />
+          ) : null}
+          <Textarea
+            className="min-h-[4.5rem] resize-y whitespace-pre-wrap bg-background"
+            rows={4}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void saveEdit();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                cancelEdit();
+              }
+            }}
+            disabled={isSaving}
+            aria-label={t("project.detail.editComment")}
+          />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={cancelEdit}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="button" size="sm" disabled={!canSave} loading={isSaving} onClick={() => void saveEdit()}>
+              {t("common.save")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <CommentBody body={body} audioUrl={audioUrl} />
+      )}
+    </li>
   );
 }

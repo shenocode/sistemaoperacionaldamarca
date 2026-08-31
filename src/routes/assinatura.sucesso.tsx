@@ -1,9 +1,14 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { getCheckoutSessionStatus, type CheckoutSessionStatus } from "@/lib/api";
 
 export const Route = createFileRoute("/assinatura/sucesso")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    session_id: typeof search.session_id === "string" ? search.session_id : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Assinatura confirmada — SOM" },
@@ -15,14 +20,53 @@ export const Route = createFileRoute("/assinatura/sucesso")({
 
 function AssinaturaSucessoPage() {
   const { t } = useTranslation();
+  const { session_id: sessionId } = Route.useSearch();
+  const [status, setStatus] = useState<CheckoutSessionStatus>(sessionId ? "pending" : "ready");
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const result = await getCheckoutSessionStatus(sessionId);
+        if (cancelled) return;
+        setStatus(result.status);
+        if (result.status === "pending" && attempts < 20) {
+          attempts += 1;
+          window.setTimeout(() => void poll(), 1500);
+        }
+      } catch {
+        if (!cancelled && attempts < 20) {
+          attempts += 1;
+          window.setTimeout(() => void poll(), 2000);
+        } else if (!cancelled) {
+          setStatus("failed");
+        }
+      }
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  const body =
+    status === "ready"
+      ? t("subscription.successReady")
+      : status === "failed" || status === "invalid"
+        ? t("subscription.successFailed")
+        : t("subscription.successPending");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
       <div className="w-full max-w-md space-y-6 rounded-lg border bg-card p-8 text-center shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight">{t("subscription.successTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subscription.successBody")}</p>
+        <p className="text-sm text-muted-foreground">{body}</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-          <Button asChild>
+          <Button asChild disabled={status === "pending"}>
             <Link to="/auth">{t("subscription.successCta")}</Link>
           </Button>
           <Button asChild variant="outline">

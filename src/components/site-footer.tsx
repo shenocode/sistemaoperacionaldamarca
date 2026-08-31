@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "@tanstack/react-router";
 import {
   COMPANY_NAME,
   COMPANY_URL,
@@ -43,6 +44,18 @@ export function SiteFooter({ className }: SiteFooterProps) {
           >
             {t("landing.footerWhatsapp", { number: CONTACT_WHATSAPP_DISPLAY })}
           </a>
+          <Link
+            to="/termos"
+            className="underline-offset-4 hover:underline"
+          >
+            {t("landing.footerTerms")}
+          </Link>
+          <Link
+            to="/privacidade"
+            className="underline-offset-4 hover:underline"
+          >
+            {t("landing.footerPrivacy")}
+          </Link>
         </div>
       </div>
     </footer>

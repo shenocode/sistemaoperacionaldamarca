@@ -62,13 +62,13 @@ import {
   getGraphicArtsMaterialPreset,
   getPrimaryProjectCategory,
   getProject,
-  isVideoUrl,
+  isPlayableVideoUrl,
   listContent,
   projectCategoryConfig,
   reorderContentItems,
   resolveContentMediaUrls,
+  resolveContentThumbnail,
   updateContentCalendar,
-  updateContentI18n,
   getLocalizedText,
   normalizeAppLocale,
   type ContentFormat,
@@ -77,7 +77,6 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
-import { backfillRowsForLocale } from "@/hooks/use-i18n-backfill";
 import { validateContentSearch } from "./content";
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
@@ -263,36 +262,10 @@ function ContentListPage() {
     setLocalRows(null);
   }, [contentQuery.dataUpdatedAt]);
 
-  useEffect(() => {
-    if (!serverRows.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: serverRows,
-        locale: uiLocale,
-        getKey: (r) => r.id,
-        getI18n: (r) => r.i18n,
-        getFields: (r) => ({
-          title: r.title,
-          caption: r.caption,
-          theme: r.theme,
-        }),
-        persist: (r, nextI18n) => updateContentI18n(r.id, nextI18n).then(() => undefined),
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["content", projectId] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, queryClient, serverRows, uiLocale]);
-
   const openMediaLightbox = (item: ContentItem) => {
     const items: PreviewMediaItem[] = resolveContentMediaUrls(item).map((url) => ({
       url,
-      kind: isVideoUrl(url) ? "video" : "image",
+      kind: isPlayableVideoUrl(url) ? "video" : "image",
     }));
     if (items.length === 0) return;
     setLightbox({ items, title: localizedTitle(item) });
@@ -405,7 +378,7 @@ function ContentListPage() {
                         <GripVertical className="h-4 w-4" aria-hidden="true" />
                       </span>
                     ) : null}
-                    {r.thumbnail_url || r.media_url ? (
+                    {resolveContentThumbnail(r) ? (
                       <button
                         type="button"
                         onClick={() => openMediaLightbox(r)}
@@ -413,7 +386,7 @@ function ContentListPage() {
                         className="shrink-0 cursor-zoom-in rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <img
-                          src={r.thumbnail_url?.trim() || r.media_url || ""}
+                          src={resolveContentThumbnail(r) ?? ""}
                           alt=""
                           className="h-12 w-12 rounded-md object-cover"
                         />
@@ -565,7 +538,7 @@ function ContentListPage() {
                         </td>
                       ) : null}
                       <td className="px-4 py-3">
-                        {r.thumbnail_url || r.media_url ? (
+                        {resolveContentThumbnail(r) ? (
                           <button
                             type="button"
                             onClick={() => openMediaLightbox(r)}
@@ -573,7 +546,7 @@ function ContentListPage() {
                             className="cursor-zoom-in rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <img
-                              src={r.thumbnail_url?.trim() || r.media_url || ""}
+                              src={resolveContentThumbnail(r) ?? ""}
                               alt=""
                               className="h-10 w-10 rounded-md object-cover"
                             />

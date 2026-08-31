@@ -40,6 +40,15 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+[functions.checkout-session-status]
+verify_jwt = false
+
+[functions.create-billing-portal-session]
+verify_jwt = true
+
+[functions.update-subscription-plan]
+verify_jwt = true
+
 [functions.submit-contact-lead]
 verify_jwt = false
 

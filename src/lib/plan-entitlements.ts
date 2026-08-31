@@ -149,3 +149,17 @@ export function canInviteAnotherTeamMember(
   if (entitlements.maxUsers === null) return true;
   return currentSeatCount < entitlements.maxUsers;
 }
+
+const PAID_PLAN_ORDER = ["solo", "studio", "agency"] as const satisfies readonly PaidPlan[];
+
+/** Paid tiers above the current plan (empty for courtesy, agency, or no plan). */
+export function nextPaidPlans(plan: AssignablePlan | null): PaidPlan[] {
+  if (!plan || plan === "courtesy") return [];
+  const index = PAID_PLAN_ORDER.indexOf(plan);
+  if (index < 0) return [];
+  return PAID_PLAN_ORDER.slice(index + 1);
+}
+
+export function allPaidPlans(): PaidPlan[] {
+  return [...PAID_PLAN_ORDER];
+}

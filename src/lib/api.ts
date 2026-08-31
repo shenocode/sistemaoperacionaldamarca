@@ -324,6 +324,47 @@ export function normalizeProjectCategories(values?: string[] | null): ProjectCat
 }
 
 export const CONTENT_MEDIA_BUCKET = "content-media";
+
+function storagePathFromPublicUrl(url: string, bucket: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const marker = `/object/public/${bucket}/`;
+    const idx = parsed.pathname.indexOf(marker);
+    if (idx < 0) return null;
+    return decodeURIComponent(parsed.pathname.slice(idx + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+function contentMediaStoragePaths(
+  item: {
+    media_url?: string | null;
+    media_urls?: string[] | null;
+    thumbnail_url?: string | null;
+    media_overlays?: unknown;
+  },
+  projectId: string,
+): string[] {
+  const urls = [...resolveContentMediaUrls(item)];
+  if (item.thumbnail_url?.trim()) urls.push(item.thumbnail_url.trim());
+  if (Array.isArray(item.media_overlays)) {
+    for (const overlay of item.media_overlays) {
+      if (overlay && typeof overlay === "object" && "baseUrl" in overlay) {
+        const baseUrl = (overlay as { baseUrl?: unknown }).baseUrl;
+        if (typeof baseUrl === "string" && baseUrl.trim()) urls.push(baseUrl.trim());
+      }
+    }
+  }
+  const paths = new Set<string>();
+  for (const url of urls) {
+    const path = storagePathFromPublicUrl(url, CONTENT_MEDIA_BUCKET);
+    if (path && (path.startsWith(`${projectId}/`) || path.includes(`/${projectId}/`))) {
+      paths.add(path);
+    }
+  }
+  return [...paths];
+}
 export const MEDIA_MAX_BYTES = 150 * 1024 * 1024;
 export const CLIENT_LOGOS_BUCKET = "client-logos";
 export const GESTOR_LOGOS_BUCKET = "gestor-logos";
@@ -348,16 +389,21 @@ export function resolveContentMediaUrls(item: {
   return [];
 }
 
-/** Thumbnail dedicada; se ausente e a mídia for vídeo, usa frame inicial (#t=0.1). */
+/** Thumbnail dedicada; YouTube usa capa oficial; vídeo direto usa frame inicial (#t=0.1). */
 export function resolveContentThumbnail(item: {
   thumbnail_url?: string | null;
   media_url?: string | null;
   media_urls?: string[] | null;
 }): string | null {
   const dedicated = item.thumbnail_url?.trim();
-  if (dedicated) return dedicated;
+  if (dedicated) {
+    const youtubeFromDedicated = extractYoutubeVideoId(dedicated);
+    return youtubeFromDedicated ? youtubeThumbnailUrl(youtubeFromDedicated) : dedicated;
+  }
   const media = resolveContentMediaUrls(item)[0];
   if (!media) return null;
+  const youtubeId = extractYoutubeVideoId(media);
+  if (youtubeId) return youtubeThumbnailUrl(youtubeId);
   if (isVideoUrl(media)) return `${media}#t=0.1`;
   return media;
 }
@@ -505,6 +551,61 @@ export function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov|avi)$/i.test(path) || url.includes("video/");
 }
 
+const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+
+export function extractYoutubeVideoId(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  const candidates = /^[a-z][a-z0-9+.-]*:/i.test(value) ? [value] : [`https://${value}`, value];
+  for (const candidate of candidates) {
+    try {
+      const url = new URL(candidate);
+      const host = url.hostname.replace(/^www\./, "");
+      let id: string | null = null;
+      if (host === "youtu.be") {
+        id = url.pathname.split("/").filter(Boolean)[0] ?? null;
+      } else if (
+        host === "youtube.com" ||
+        host === "m.youtube.com" ||
+        host === "music.youtube.com" ||
+        host === "youtube-nocookie.com"
+      ) {
+        if (url.pathname === "/watch") id = url.searchParams.get("v");
+        else {
+          const parts = url.pathname.split("/").filter(Boolean);
+          if (parts[0] === "shorts" || parts[0] === "embed" || parts[0] === "live") {
+            id = parts[1] ?? null;
+          }
+        }
+      }
+      const normalized = id?.split("?")[0]?.trim() ?? "";
+      if (YOUTUBE_VIDEO_ID.test(normalized)) return normalized;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
+export function youtubeThumbnailUrl(id: string) {
+  return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
+
+export function youtubeEmbedUrl(id: string, autoplay = false) {
+  const params = new URLSearchParams({
+    rel: "0",
+    modestbranding: "1",
+    playsinline: "1",
+  });
+  if (autoplay) params.set("autoplay", "1");
+  return `https://www.youtube.com/embed/${id}?${params.toString()}`;
+}
+
+/** Arquivo de vídeo direto ou página/embed do YouTube. */
+export function isPlayableVideoUrl(url: string) {
+  return isVideoUrl(url) || Boolean(extractYoutubeVideoId(url));
+}
+
 export function isImageUrl(url: string) {
   return /\.(jpe?g|png|gif|webp|svg|heic|heif)(\?|$)/i.test(url) || /\/image\//i.test(url);
 }
@@ -570,39 +671,25 @@ export type ClientWithProjects = Client & {
   client_updates_at: string | null;
 };
 
-const CLIENT_UPDATE_ACTIVITY_TYPES: ActivityType[] = [
-  "approved",
-  "changes_requested",
-  "comment_added",
-  "version_created",
-];
-
-async function fetchLatestClientUpdatesByClient(): Promise<Map<string, string>> {
-  const [adminsRes, eventsRes] = await Promise.all([
-    supabase.from("user_roles").select("user_id").eq("role", "admin"),
-    supabase
-      .from("activity_events")
-      .select("client_id, actor_id, created_at")
-      .in("type", CLIENT_UPDATE_ACTIVITY_TYPES)
-      .not("client_id", "is", null)
-      .not("actor_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(500),
-  ]);
-
-  if (adminsRes.error) throw new Error(adminsRes.error.message);
-  if (eventsRes.error) throw new Error(eventsRes.error.message);
-
-  const adminIds = new Set((adminsRes.data ?? []).map((row) => row.user_id));
+async function fetchLatestClientUpdatesByClient(
+  clientIds: string[],
+): Promise<Map<string, string>> {
   const latest = new Map<string, string>();
+  if (clientIds.length === 0) return latest;
 
-  for (const event of eventsRes.data ?? []) {
-    if (!event.client_id || !event.actor_id) continue;
-    if (adminIds.has(event.actor_id)) continue;
-    if (latest.has(event.client_id)) continue;
-    latest.set(event.client_id, event.created_at);
+  const { data, error } = await supabase.rpc("latest_client_updates", {
+    _client_ids: clientIds,
+  });
+  if (error) {
+    console.error("latest_client_updates:", error.message);
+    return latest;
   }
 
+  for (const row of data ?? []) {
+    if (row.client_id && row.created_at) {
+      latest.set(row.client_id, row.created_at);
+    }
+  }
   return latest;
 }
 
@@ -803,8 +890,7 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         name,
         i18n,
         categories,
-        updated_at,
-        content_items ( updated_at )
+        updated_at
       )
     `,
     )
@@ -814,16 +900,15 @@ export async function listClients(): Promise<ClientWithProjects[]> {
     clientsQuery = clientsQuery.eq("created_by", user.id);
   }
 
-  const [clientsRes, clientUpdates] = await Promise.all([
-    clientsQuery,
-    fetchLatestClientUpdatesByClient(),
-  ]);
+  const clientsRes = await clientsQuery;
 
   if (clientsRes.error) throw new Error(clientsRes.error.message);
   const data = clientsRes.data ?? [];
-  const libraryDatesByClient = await fetchLibraryAssetDatesByClient(
-    data.map((client) => client.id),
-  );
+  const clientIds = data.map((client) => client.id);
+  const [clientUpdates, libraryDatesByClient] = await Promise.all([
+    fetchLatestClientUpdatesByClient(clientIds),
+    fetchLibraryAssetDatesByClient(clientIds),
+  ]);
 
   return data.map((client) => {
     const libraryAssetDates = libraryDatesByClient.get(client.id) ?? [];
@@ -835,14 +920,9 @@ export async function listClients(): Promise<ClientWithProjects[]> {
         updated_at: string;
         i18n?: unknown;
         categories?: string[] | null;
-        content_items?: Array<{ updated_at: string }> | null;
       }) => {
         const last_update_at =
-          maxIsoDate([
-            project.updated_at,
-            ...(project.content_items ?? []).map((item) => item.updated_at),
-            ...libraryAssetDates,
-          ]) ?? project.updated_at;
+          maxIsoDate([project.updated_at, ...libraryAssetDates]) ?? project.updated_at;
         return {
           id: project.id,
           name: project.name,
@@ -1735,25 +1815,42 @@ function isMissingSortOrderColumn(message: string) {
   return /sort_order/i.test(message) && /column|schema cache|does not exist/i.test(message);
 }
 
+const CONTENT_LIST_COLUMNS =
+  "id, project_id, title, status, format, theme, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, created_at, updated_at, current_version, created_by";
+
+function asListContentItem(row: Record<string, unknown>): ContentItem {
+  return {
+    caption: "",
+    cta: "",
+    hashtags: "",
+    locucao: "",
+    roteiro: "",
+    production_notes: "",
+    ...row,
+  } as ContentItem;
+}
+
 export async function listContent(projectId: string) {
   const ordered = await supabase
     .from("content_items")
-    .select("*")
+    .select(CONTENT_LIST_COLUMNS)
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
-  if (!ordered.error) return ordered.data ?? [];
+  if (!ordered.error) {
+    return (ordered.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
+  }
 
   // Migration `content_sort_order` may not be applied yet on the remote DB.
   // Fall back so the calendar/list don't look "empty" when the query fails.
   if (isMissingSortOrderColumn(ordered.error.message)) {
     const fallback = await supabase
       .from("content_items")
-      .select("*")
+      .select(CONTENT_LIST_COLUMNS)
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
     if (fallback.error) throw new Error(fallback.error.message);
-    return fallback.data ?? [];
+    return (fallback.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
   }
 
   throw new Error(ordered.error.message);
@@ -2020,8 +2117,12 @@ export async function deleteContent(input: {
   if (current.project_id !== input.projectId) {
     throw new Error("Conteúdo não pertence a este projeto");
   }
+  const storagePaths = contentMediaStoragePaths(current, input.projectId);
   const { error } = await supabase.from("content_items").delete().eq("id", input.contentId);
   if (error) throw new Error(error.message);
+  if (storagePaths.length > 0) {
+    await supabase.storage.from(CONTENT_MEDIA_BUCKET).remove(storagePaths);
+  }
 }
 
 export async function saveContentAsNewVersion(input: {
@@ -2047,11 +2148,9 @@ export async function saveContentAsNewVersion(input: {
   i18n?: RowI18n;
   mediaOverlays?: Json;
 }): Promise<ContentItem> {
-  const userId = await requireUserId();
   const current = await getContent(input.contentId);
   if (!current) throw new Error("Conteúdo não encontrado");
 
-  const nextVersion = current.current_version + 1;
   const nextStatus =
     current.status === "approved" ||
     current.status === "published" ||
@@ -2085,50 +2184,8 @@ export async function saveContentAsNewVersion(input: {
       : (current.production_notes ?? "");
   const nextI18n = input.i18n ?? parseRowI18n(current.i18n);
 
-  const versionPatch = {
-      title: input.title.trim(),
-      caption: input.caption,
-      cta: input.cta,
-      hashtags: input.hashtags,
-      locucao,
-      roteiro,
-      media_url: mediaUrl,
-      media_urls: mediaUrls,
-      thumbnail_url: thumbnailUrl,
-      format,
-      theme,
-      material_type: materialType,
-      width_cm: widthCm,
-      height_cm: heightCm,
-      production_notes: productionNotes,
-      current_version: nextVersion,
-      status: nextStatus,
-      i18n: toI18nJson(nextI18n),
-  };
-  let { data, error } = await supabase
-    .from("content_items")
-    .update({
-      ...versionPatch,
-      ...(input.mediaOverlays !== undefined ? { media_overlays: input.mediaOverlays } : {}),
-    })
-    .eq("id", input.contentId)
-    .select("*")
-    .single();
-  if (error && input.mediaOverlays !== undefined && isMissingMediaOverlaysColumn(error.message)) {
-    const retry = await supabase
-      .from("content_items")
-      .update(versionPatch)
-      .eq("id", input.contentId)
-      .select("*")
-      .single();
-    data = retry.data;
-    error = retry.error;
-  }
-  const row = ensureData(data, error);
-
-  const versionInsert = await supabase.from("content_versions").insert({
-    content_id: input.contentId,
-    version_number: nextVersion,
+  const patch: Record<string, unknown> = {
+    title: input.title.trim(),
     caption: input.caption,
     cta: input.cta,
     hashtags: input.hashtags,
@@ -2138,25 +2195,32 @@ export async function saveContentAsNewVersion(input: {
     media_urls: mediaUrls,
     thumbnail_url: thumbnailUrl,
     format,
+    theme,
     material_type: materialType,
     width_cm: widthCm,
     height_cm: heightCm,
     production_notes: productionNotes,
-    change_note: input.changeNote?.trim() || `Versão ${nextVersion}`,
-    created_by: userId,
+    status: nextStatus,
     i18n: toI18nJson(nextI18n),
-  });
-  if (versionInsert.error) throw new Error(versionInsert.error.message);
+  };
+  if (input.mediaOverlays !== undefined) {
+    patch.media_overlays = input.mediaOverlays;
+  }
 
-  logActivity({
-    type: "version_created",
-    summary: `${row.title} — v${nextVersion}`,
-    clientId: input.clientId,
-    projectId: input.projectId,
-    contentId: input.contentId,
+  const { data, error } = await supabase.rpc("save_gestor_content_version", {
+    _content_id: input.contentId,
+    _patch: patch as Json,
+    _change_note: input.changeNote?.trim() || null,
   });
-
-  return row;
+  if (error) {
+    if (/schema cache|could not find the function|PGRST202|does not exist/i.test(error.message)) {
+      throw new Error(
+        "Aplique a migration de versionamento atômico no SQL Editor do Supabase (save_gestor_content_version) e recarregue.",
+      );
+    }
+    throw new Error(error.message);
+  }
+  return data as ContentItem;
 }
 
 export async function updateContentFields(input: {
@@ -3288,6 +3352,34 @@ export async function addComment(input: {
   return row;
 }
 
+export async function updateComment(input: {
+  commentId: string;
+  body: string;
+  i18n?: RowI18n;
+}): Promise<ContentComment> {
+  const body = input.body.trim();
+  const { data: current, error: currentError } = await supabase
+    .from("content_comments")
+    .select("audio_url")
+    .eq("id", input.commentId)
+    .maybeSingle();
+  if (currentError) throw new Error(currentError.message);
+  const hasAudio = Boolean(current?.audio_url?.trim());
+  if (!body && !hasAudio) {
+    throw new Error("Comentário vazio.");
+  }
+  const { data, error } = await supabase
+    .from("content_comments")
+    .update({
+      body,
+      i18n: toI18nJson(input.i18n),
+    })
+    .eq("id", input.commentId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
 export async function deleteComment(commentId: string): Promise<void> {
   const { data: row } = await supabase
     .from("content_comments")
@@ -4153,6 +4245,45 @@ export async function startSubscriptionCheckout(
   if (!payload?.url) throw new Error("Não foi possível iniciar o checkout.");
 
   window.location.assign(payload.url);
+}
+
+export async function changeSubscriptionPlan(plan: SubscriptionPlanKey): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("update-subscription-plan", {
+    body: { plan },
+  });
+  const payload = data as { plan?: string; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+}
+
+export async function openBillingPortal(returnPath = "/profile"): Promise<void> {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const { data, error } = await supabase.functions.invoke("create-billing-portal-session", {
+    body: { returnUrl: `${origin}${returnPath}` },
+  });
+  const payload = data as { url?: string; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+  if (!payload?.url) throw new Error("Não foi possível abrir o portal de cobrança.");
+  window.location.assign(payload.url);
+}
+
+export type CheckoutSessionStatus = "ready" | "pending" | "failed" | "invalid";
+
+export async function getCheckoutSessionStatus(
+  sessionId: string,
+): Promise<{ status: CheckoutSessionStatus; email?: string }> {
+  const { data, error } = await supabase.functions.invoke("checkout-session-status", {
+    body: { sessionId },
+  });
+  const payload = data as { status?: CheckoutSessionStatus; email?: string; error?: string } | null;
+  if (payload?.error) throw new Error(payload.error);
+  if (error) throw new Error(error.message);
+  const status = payload?.status;
+  if (status !== "ready" && status !== "pending" && status !== "failed" && status !== "invalid") {
+    return { status: "pending" };
+  }
+  return { status, email: payload?.email };
 }
 
 export type ContactLeadIntent = "trial" | "human";

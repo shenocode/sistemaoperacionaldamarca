@@ -1100,6 +1100,13 @@ export type Database = {
         }[]
       }
       get_team_owner_id: { Args: never; Returns: string }
+      latest_client_updates: {
+        Args: { _client_ids: string[] }
+        Returns: {
+          client_id: string
+          created_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1162,6 +1169,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_gestor_content_version: {
+        Args: {
+          _change_note?: string | null
+          _content_id: string
+          _patch: Json
+        }
+        Returns: Database["public"]["Tables"]["content_items"]["Row"]
       }
       get_client_gestor_contact: {
         Args: {

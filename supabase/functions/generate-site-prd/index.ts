@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -120,13 +121,10 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
       return jsonResponse({ error: "Supabase env missing" }, 500);
-    }
-    if (!openaiKey) {
-      return jsonResponse({ error: "OPENAI_API_KEY não configurada" }, 500);
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -145,6 +143,14 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return jsonResponse({ error: "Não autenticado" }, 401);
     }
+
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const resolved = await resolveAiKeyWithBudget(admin, user.id, "openai", 2);
+    const keyError = resolvedKeyError(resolved, "openai");
+    if (keyError || !resolved.apiKey) {
+      return jsonResponse({ error: keyError ?? "Configure sua chave de IA." }, 400);
+    }
+    const openaiKey = resolved.apiKey;
 
     const body = (await req.json()) as GenerateRequest;
     if (!body.projectId) {

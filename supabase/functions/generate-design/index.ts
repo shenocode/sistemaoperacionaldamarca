@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { missingKeyMessage, resolveAiKey } from "../_shared/admin-ai-keys.ts";
-import { isAdminMasterEmail } from "../_shared/admin-master.ts";
+import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
+import { loadCallerEntitlements } from "../_shared/caller-entitlements.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -327,8 +327,16 @@ Deno.serve(async (req) => {
     if (adminError) {
       return jsonResponse({ error: adminError.message }, 500);
     }
-    if (!isAdmin || !isAdminMasterEmail(user.email)) {
-      return jsonResponse({ error: "Apenas o administrador master pode usar o assistente de design" }, 403);
+    if (!isAdmin) {
+      return jsonResponse({ error: "Apenas gestores podem usar o assistente de design" }, 403);
+    }
+
+    const entitlements = await loadCallerEntitlements(admin, user.id, user.email);
+    if (!entitlements.designAi) {
+      return jsonResponse(
+        { error: "IA de design não está incluída no seu plano. Atualize para Studio ou Agência." },
+        403,
+      );
     }
 
     const body = (await req.json()) as GenerateRequest;
@@ -347,9 +355,10 @@ Deno.serve(async (req) => {
     void overlayText;
     void secondaryText;
 
-    const { apiKey, source: keySource } = await resolveAiKey(admin, user.id, provider);
-    if (!apiKey) {
-      return jsonResponse({ error: missingKeyMessage(provider) }, 400);
+    const { apiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 5);
+    const keyError = resolvedKeyError({ apiKey, source: keySource }, provider);
+    if (keyError) {
+      return jsonResponse({ error: keyError }, 400);
     }
     void keySource;
 

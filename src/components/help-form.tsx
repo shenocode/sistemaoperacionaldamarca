@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ type HelpFormProps = {
   onClientIdChange?: (clientId: string) => void;
   /** When false, page header owns title/hint (dedicated /help route). */
   showIntro?: boolean;
+  initialMessage?: string;
 };
 
 function resolveAttachmentContentType(file: File): string {
@@ -81,18 +82,21 @@ export function HelpForm({
   clients,
   onClientIdChange,
   showIntro = true,
+  initialMessage,
 }: HelpFormProps) {
   const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage ?? "");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
 
+  useEffect(() => {
+    if (initialMessage) setMessage(initialMessage);
+  }, [initialMessage]);
+
   const resolvedClientId =
-    audience === "client"
-      ? clientId ?? (clients?.length === 1 ? clients[0].id : "")
-      : undefined;
+    audience === "client" ? (clientId ?? (clients?.length === 1 ? clients[0].id : "")) : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

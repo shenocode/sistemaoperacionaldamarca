@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { resolveAiKey } from "../_shared/admin-ai-keys.ts";
+import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -254,15 +254,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Apenas administradores podem usar o assistente" }, 403);
     }
 
-    const { apiKey: openaiKey } = serviceRoleKey
-      ? await resolveAiKey(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
-      : { apiKey: Deno.env.get("OPENAI_API_KEY") ?? null };
+    const { apiKey: openaiKey, source } = serviceRoleKey
+      ? await resolveAiKeyWithBudget(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
+      : { apiKey: null as string | null, source: "none" as const };
+    if (source === "quota") {
+      return jsonResponse({ error: resolvedKeyError({ apiKey: null, source }, "openai") }, 400);
+    }
     if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
       return jsonResponse(
-        {
-          error:
-            "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
-        },
+        { error: resolvedKeyError({ apiKey: openaiKey, source }, "openai") ?? "Configure sua chave de IA." },
         400,
       );
     }

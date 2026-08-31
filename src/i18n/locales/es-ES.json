@@ -241,6 +241,8 @@
     "finalCta": "Ver planes",
     "footerTag": "Sistema Operativo de la Marca",
     "footerWhatsapp": "WhatsApp {{number}}",
+    "footerTerms": "Términos de uso",
+    "footerPrivacy": "Privacidad",
     "mockCalendar": {
       "blockTitle": "Julio — 20/07 a 20/08",
       "blockHint": "{{count}} publicaciones en este periodo",
@@ -390,6 +392,9 @@
   "subscription": {
     "successTitle": "Pago confirmado",
     "successBody": "Tu acceso se está liberando. Revisa el correo usado en el checkout para definir la contraseña (o entra con la cuenta que ya tenías).",
+    "successPending": "Confirmando el pago… suele tardar unos segundos.",
+    "successReady": "Suscripción activa. Define la contraseña en el correo del checkout (o entra con la cuenta que ya tenías).",
+    "successFailed": "Aún no encontramos la confirmación. Si el cobro se hizo, espera el correo o habla con soporte.",
     "successCta": "Ir al inicio de sesión",
     "cancelTitle": "Checkout cancelado",
     "cancelBody": "No se realizó ningún cobro. Puedes elegir un plan de nuevo cuando quieras.",
@@ -496,7 +501,8 @@
     "sent": "Solicitud enviada. Pronto recibirás respuesta.",
     "sendError": "No se pudo enviar la solicitud.",
     "adminMasterHint": "Esta cuenta es la administradora de la plataforma — las solicitudes de ayuda de los gestores llegan a tu bandeja.",
-    "adminMasterInbox": "Para probar el envío, usa una cuenta de gestor (no la cuenta master) o de cliente."
+    "adminMasterInbox": "Para probar el envío, usa una cuenta de gestor (no la cuenta master) o de cliente.",
+    "legalLinksHint": "Cobro, cancelación, límites del plan y uso de datos:"
   },
   "helpInbox": {
     "title": "Solicitudes de ayuda",
@@ -544,7 +550,61 @@
     "passwordMismatch": "Las contraseñas no coinciden.",
     "passwordUpdated": "Contraseña actualizada.",
     "savePassword": "Guardar contraseña",
-    "helpLinkPrefix": "¿Problemas o dudas?"
+    "helpLinkPrefix": "¿Problemas o dudas?",
+    "subscription": {
+      "title": "Suscripción",
+      "subtitle": "Plan actual, límites de uso y opciones de upgrade.",
+      "currentPlan": "Plan actual",
+      "noPlan": "Sin plan",
+      "noPlanBody": "Suscríbete a un plan para liberar límites y funciones de la plataforma.",
+      "masterBody": "Esta cuenta de administrador tiene todos los recursos, sin límites de plan.",
+      "collaboratorBody": "Usas el plan {{plan}} gestionado por el dueño del equipo. Los upgrades quedan con él.",
+      "collaboratorNoPlan": "El equipo aún no tiene un plan activo. Habla con el dueño de la cuenta.",
+      "courtesyBody": "Plan de cortesía para evaluación, con acceso amplio. Envía una solicitud para convertirlo en un plan de pago.",
+      "agencyMaxBody": "Ya estás en el plan más completo. ¿Necesitas más clientes? Habla con nosotros.",
+      "usageTitle": "Uso del plan",
+      "clients": "Clientes",
+      "users": "Usuarios",
+      "unlimited": "ilimitado",
+      "usageCount": "{{used}} de {{max}}",
+      "usageUnlimited": "{{used}} · ilimitado",
+      "includedTitle": "Incluido en este plan",
+      "features": {
+        "brandBriefing": "Brand briefing y guía de marca",
+        "library": "Biblioteca de archivos",
+        "presets": "Presets de proyecto",
+        "designAi": "IA de diseño"
+      },
+      "upgradesTitle": "Actualizar plan",
+      "upgradesHint": "El cambio es proporcional en Stripe. Tarjeta, facturas y cancelación están en el portal de cobros.",
+      "subscribeTitle": "Elige un plan",
+      "requestUpgrade": "Pedir {{plan}}",
+      "upgradeTo": "Actualizar a {{plan}}",
+      "upgrading": "Actualizando…",
+      "upgradeSuccess": "Plan actualizado a {{plan}}.",
+      "upgradeError": "No se pudo actualizar el plan.",
+      "manageBilling": "Gestionar suscripción",
+      "openingPortal": "Abriendo…",
+      "portalError": "No se pudo abrir el portal de cobros.",
+      "subscribe": "Suscribirse a {{plan}}",
+      "seeAllPlans": "Ver comparación de planes",
+      "requestMore": "Pedir más capacidad",
+      "convertCourtesy": "Convertir a plan de pago",
+      "planLimits": "Hasta {{clients}} clientes · hasta {{users}} usuarios",
+      "upgradeHelpMessage": "Quiero actualizar mi suscripción al plan {{plan}}.",
+      "moreCapacityHelpMessage": "Estoy en el plan Agencia y necesito más clientes que el límite actual.",
+      "convertCourtesyHelpMessage": "Tengo un plan Cortesía y quiero convertirlo a un plan de pago (Solo, Studio o Agencia).",
+      "checkoutError": "No se pudo iniciar el checkout.",
+      "billingFaqTitle": "Cobro y cancelación",
+      "billingFaq": {
+        "cancelQ": "¿Puedo cancelar cuando quiera?",
+        "cancelA": "Sí. Usa Gestionar suscripción. El acceso sigue hasta el final del período ya pagado.",
+        "lateQ": "¿Y si la tarjeta falla?",
+        "lateA": "Hay 3 días de gracia. Después, el acceso de gestor puede suspenderse hasta que el pago se regularice.",
+        "aiQ": "¿La IA usa mi propia clave?",
+        "aiA": "Prefiere tu clave en Ajustes. Sin ella, hay una cuota diaria limitada de la plataforma."
+      }
+    }
   },
   "proposals": {
     "title": "Propuestas comerciales",
@@ -740,6 +800,7 @@
     "back": "Volver",
     "tabs": {
       "feed": "Feed",
+      "simulation": "Simulación",
       "themes": "Temas",
       "library": "Biblioteca",
       "content": "Contenido",
@@ -1200,6 +1261,14 @@
       "teleprompter": "Teleprompter",
       "teleprompterTitle": "Teleprompter",
       "teleprompterEmpty": "No hay texto de locución para mostrar.",
+      "teleprompterPlay": "Reproducir",
+      "teleprompterPause": "Pausar",
+      "teleprompterStop": "Parar y volver al inicio",
+      "teleprompterSpeed": "Velocidad",
+      "teleprompterFontDecrease": "Reducir texto",
+      "teleprompterFontIncrease": "Aumentar texto",
+      "teleprompterFullscreen": "Pantalla completa",
+      "teleprompterExitFullscreen": "Salir de pantalla completa",
       "roteiro": "Guion del carrusel",
       "roteiroHint": "Texto por slide para que el diseñador arme las artes.",
       "roteiroPlaceholder": "Slide 1: …\nSlide 2: …\nSlide 3: …",
@@ -1358,6 +1427,8 @@
       "submitReview": "Enviar a revisión",
       "publish": "Publicar",
       "leaveComment": "Deja un comentario...",
+      "editComment": "Editar",
+      "commentUpdated": "Comentario actualizado.",
       "send": "Enviar",
       "recordComment": "Grabar comentario de audio",
       "stopRecording": "Detener grabación",
@@ -1439,6 +1510,40 @@
       "useAnswer": "Usar esta respuesta",
       "dismiss": "Cerrar",
       "applied": "Respuesta aplicada al briefing."
+    }
+  },
+  "legal": {
+    "termsTitle": "Términos de uso",
+    "privacyTitle": "Política de privacidad",
+    "backHome": "Volver al inicio",
+    "updated": "Actualizado el 31 de agosto de 2026.",
+    "terms": {
+      "serviceTitle": "Servicio",
+      "serviceBody": "SOM (Sistema Operacional de la Marca) es una plataforma de operación de contenido para gestores y agencias. Al suscribirte, aceptas usar el servicio según estos términos.",
+      "billingTitle": "Cobro",
+      "billingBody": "La suscripción es mensual y la cobra Stripe en la tarjeta indicada en el checkout. Precios, límites y lo que incluye cada plan están en la página de inicio y en tu perfil — no en este documento.",
+      "cancelTitle": "Cancelación",
+      "cancelBody": "Puedes cancelar en cualquier momento en el portal de cobros (Gestionar suscripción, en tu perfil). El acceso sigue hasta el final del período ya pagado. No hay reembolso proporcional del período en curso, salvo obligación legal.",
+      "lateTitle": "Impago",
+      "lateBody": "Si la tarjeta es rechazada, hay 3 días de gracia. Después, el acceso de gestor puede suspenderse hasta regularizar el cobro.",
+      "limitsTitle": "Límites del plan",
+      "limitsBody": "Clientes, usuarios del equipo y funciones (biblioteca, briefing, IA de diseño y otras) siguen el plan contratado. Superar el límite se rechaza en el producto. La comparación de planes está en la landing y en tu perfil.",
+      "dataTitle": "Tus datos y los de los clientes",
+      "dataBody": "El contenido, archivos y datos de tus clientes te pertenecen. SOM los procesa solo para prestar el servicio. Los clientes finales solo acceden al espacio al que fueron invitados.",
+      "aiTitle": "Inteligencia artificial",
+      "aiBody": "Las funciones de IA usan primero la clave que guardaste (BYOK). Sin clave propia, puede haber una cuota diaria limitada de la plataforma. No somos responsables del uso de los textos e imágenes generados ni de los costes de tu propia clave.",
+      "accountTitle": "Cierre de cuenta",
+      "accountBody": "Podemos cerrar cuentas por abuso, impago persistente o incumplimiento de estos términos."
+    },
+    "privacy": {
+      "collectTitle": "Qué recopilamos",
+      "collectBody": "Recopilamos nombre, correo, datos de cobro (vía Stripe) y el contenido que tú y tus clientes envían (textos, medios, comentarios).",
+      "useTitle": "Cómo lo usamos",
+      "useBody": "Usamos estos datos para autenticar, prestar el servicio, cobrar la suscripción y mejorar el producto. No vendemos datos personales.",
+      "providersTitle": "Stripe y proveedores de IA",
+      "providersBody": "Los pagos los procesa Stripe. Los proveedores de IA (cuota de la plataforma o tu propia clave) reciben el texto o la imagen necesarios para generar la respuesta, sin derecho extra a entrenar con tu contenido más allá de su contrato.",
+      "deleteTitle": "Eliminación y acceso",
+      "deleteBody": "Puedes pedir la eliminación de la cuenta y de los datos por el correo de soporte. Los clientes finales solo acceden al espacio al que fueron invitados."
     }
   }
 }

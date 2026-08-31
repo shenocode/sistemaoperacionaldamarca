@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { GestorSubscriptionCard } from "@/components/gestor-subscription-card";
 import { PageHeader } from "@/components/page-header";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
@@ -171,6 +172,10 @@ function GestorProfilePage() {
     <div className="mx-auto max-w-lg space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <UnsavedChangesGuard isDirty={isDirty} />
       <PageHeader title={t("gestorProfile.title")} description={t("gestorProfile.subtitle")} />
+
+      <GestorSubscriptionCard email={profileQuery.data?.email} />
+
+      <Separator />
 
       {profileQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>

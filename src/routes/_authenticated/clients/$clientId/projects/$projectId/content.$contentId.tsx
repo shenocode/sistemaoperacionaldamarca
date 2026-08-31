@@ -11,7 +11,6 @@ import {
   Plus,
   Save,
   History,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,7 +39,7 @@ import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { ContentDesignAssistant } from "@/components/content-design-assistant";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
-import { CommentBody, CommentComposer } from "@/components/comment-composer";
+import { CommentComposer, CommentThreadItem } from "@/components/comment-composer";
 import { PresetField } from "@/components/preset-field";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,7 +91,7 @@ import {
   setContentStatus,
   updateContentFields,
   updateContentI18n,
-  updateCommentI18n,
+  updateComment,
   uploadCommentAudio,
   uploadContentMedia,
   uploadContentMediaFiles,
@@ -127,7 +126,7 @@ import type { LanguageCode } from "@/i18n";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { useAuth } from "@/hooks/use-auth";
-import { backfillRowsForLocale, useI18nBackfill } from "@/hooks/use-i18n-backfill";
+import { useI18nBackfill } from "@/hooks/use-i18n-backfill";
 import {
   Dialog,
   DialogContent,
@@ -277,7 +276,7 @@ function ContentDetailPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
-  const { isAdmin, isAdminMaster, isClient, loading: roleLoading } = useAppRole();
+  const { isAdmin, isClient, loading: roleLoading } = useAppRole();
   const { entitlements } = useEntitlements();
   const presetsAllowed = isClient || entitlements.presets;
   const { user } = useAuth();
@@ -572,37 +571,6 @@ function ContentDetailPage() {
       applyContentToForm({ ...content, i18n: nextI18n as typeof content.i18n });
     },
   });
-
-  useEffect(() => {
-    const comments = commentsQuery.data;
-    if (!comments?.length) return;
-    let cancelled = false;
-    void (async () => {
-      const improved = await backfillRowsForLocale({
-        rows: comments,
-        locale: uiLocale,
-        getKey: (c) => c.id,
-        getI18n: (c) => c.i18n,
-        getFields: (c) => ({ body: c.body }),
-        persist: async (c, nextI18n) => {
-          const row = await updateCommentI18n(c.id, nextI18n);
-          if (cancelled) return;
-          queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
-            (prev ?? []).map((item) =>
-              item.id === row.id ? { ...item, ...row, profiles: item.profiles } : item,
-            ),
-          );
-        },
-        concurrency: 2,
-      });
-      if (!cancelled && improved > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["comments", contentId] });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [commentsQuery.data, contentId, queryClient, uiLocale]);
 
   const onFieldI18nCommit = (payload: {
     field: string;
@@ -998,6 +966,37 @@ function ContentDetailPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const updateCommentMutation = useMutation({
+    mutationFn: async (input: { commentId: string; body: string }) => {
+      const text = input.body.trim();
+      let commentI18n: RowI18n = {};
+      if (text) {
+        try {
+          const block = await translateTextField({ text });
+          commentI18n = { body: block };
+        } catch {
+          commentI18n = { body: buildLocalizedFieldFromSource(text, uiLocale) };
+        }
+      }
+      const bodyCanonical = text ? getCanonicalText(commentI18n, "body", text) : "";
+      return updateComment({
+        commentId: input.commentId,
+        body: bodyCanonical,
+        i18n: commentI18n,
+      });
+    },
+    onSuccess: (row) => {
+      queryClient.setQueryData<CommentWithAuthor[]>(["comments", contentId], (prev) =>
+        (prev ?? []).map((item) =>
+          item.id === row.id ? { ...item, ...row, profiles: item.profiles } : item,
+        ),
+      );
+      invalidateAll();
+      toast.success(t("project.detail.commentUpdated"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const deleteCommentMutation = useMutation({
     mutationFn: (commentId: string) => deleteComment(commentId),
     onSuccess: (_void, commentId) => {
@@ -1193,6 +1192,7 @@ function ContentDetailPage() {
                 username={client?.name ?? title}
                 avatarUrl={client?.logo_url}
                 thumbnailUrl={previewThumbnailUrl}
+                size="lg"
                 materialType={materialType}
                 widthCm={parseCmInput(widthCm)}
                 heightCm={parseCmInput(heightCm)}
@@ -1275,7 +1275,7 @@ function ContentDetailPage() {
             />
           ) : null}
 
-          {isAdminMaster && (formatType === "static_feed" || formatType === "carousel") ? (
+          {isAdmin && entitlements.designAi && (formatType === "static_feed" || formatType === "carousel") ? (
             <ContentDesignAssistant
               contentId={contentId}
               projectId={projectId}
@@ -1328,43 +1328,30 @@ function ContentDetailPage() {
                 <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
               ) : (commentsQuery.data ?? []).length > 0 ? (
                 <ul className="space-y-3">
-                  {(commentsQuery.data ?? []).map((c) => {
-                    const canDeleteComment = canManage || c.user_id === user?.id;
-                    return (
-                      <li key={c.id} className="rounded-md border border-primary/15 bg-background p-3 text-sm">
-                        <div className="mb-1 flex items-start justify-between gap-2">
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
-                          </span>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(c.created_at), {
-                                addSuffix: true,
-                                locale,
-                              })}
-                            </span>
-                            {canDeleteComment ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                aria-label={t("project.detail.deleteComment")}
-                                disabled={deleteCommentMutation.isPending}
-                                onClick={() => setDeleteCommentId(c.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                        <CommentBody
-                          body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
-                          audioUrl={c.audio_url}
-                        />
-                      </li>
-                    );
-                  })}
+                  {(commentsQuery.data ?? []).map((c) => (
+                    <CommentThreadItem
+                      key={c.id}
+                      className="border-primary/15 bg-background"
+                      authorName={c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
+                      createdAtLabel={formatDistanceToNow(new Date(c.created_at), {
+                        addSuffix: true,
+                        locale,
+                      })}
+                      body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                      audioUrl={c.audio_url}
+                      canEdit={c.user_id === user?.id}
+                      canDelete={canManage || c.user_id === user?.id}
+                      isSaving={
+                        updateCommentMutation.isPending &&
+                        updateCommentMutation.variables?.commentId === c.id
+                      }
+                      isDeleting={
+                        deleteCommentMutation.isPending && deleteCommentMutation.variables === c.id
+                      }
+                      onSave={(body) => updateCommentMutation.mutateAsync({ commentId: c.id, body })}
+                      onDelete={() => setDeleteCommentId(c.id)}
+                    />
+                  ))}
                 </ul>
               ) : null}
               <CommentComposer

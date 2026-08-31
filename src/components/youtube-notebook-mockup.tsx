@@ -15,12 +15,15 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
+  extractYoutubeVideoId,
   getLocalizedText,
-  isVideoUrl,
+  isPlayableVideoUrl,
   isYoutubeShortFormat,
   normalizeAppLocale,
   resolveContentMediaUrls,
   resolveContentThumbnail,
+  youtubeEmbedUrl,
+  youtubeThumbnailUrl,
   type ContentItem,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -35,6 +38,30 @@ function toHandle(value: string) {
   return slug || "marca";
 }
 
+export type NotebookSize = "default" | "lg" | "page";
+
+export function YoutubeEmbedFrame({
+  id,
+  title,
+  autoPlay,
+  className,
+}: {
+  id: string;
+  title: string;
+  autoPlay?: boolean;
+  className?: string;
+}) {
+  return (
+    <iframe
+      src={youtubeEmbedUrl(id, autoPlay)}
+      title={title}
+      className={cn("h-full w-full border-0", className)}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+    />
+  );
+}
+
 export function NotebookChrome({
   children,
   className,
@@ -43,7 +70,7 @@ export function NotebookChrome({
 }: {
   children: ReactNode;
   className?: string;
-  size?: "default" | "lg";
+  size?: NotebookSize;
   /** `wide` = modelo Site (16:10); `video` = 16:9 (watch/shorts). */
   aspect?: "wide" | "video";
 }) {
@@ -51,11 +78,20 @@ export function NotebookChrome({
     <div
       className={cn(
         "mx-auto w-full",
-        size === "lg" ? "max-w-[min(100%,960px)]" : "max-w-[min(100%,560px)]",
+        size === "page"
+          ? "max-w-full"
+          : size === "lg"
+            ? "max-w-[min(100%,960px)]"
+            : "max-w-[min(100%,560px)]",
         className,
       )}
     >
-      <div className="rounded-t-xl border border-b-0 border-neutral-700 bg-neutral-800 px-3 pb-0 pt-2 shadow-[0_25px_60px_-20px_rgba(0,0,0,0.45)]">
+      <div
+        className={cn(
+          "rounded-t-xl border border-b-0 border-neutral-700 bg-neutral-800 pb-0 pt-2 shadow-[0_25px_60px_-20px_rgba(0,0,0,0.45)]",
+          size === "page" ? "px-2 sm:px-3" : "px-3",
+        )}
+      >
         <div className="mb-2 flex items-center gap-1.5 px-1">
           <span className="h-2 w-2 rounded-full bg-red-400/90" />
           <span className="h-2 w-2 rounded-full bg-amber-400/90" />
@@ -65,7 +101,11 @@ export function NotebookChrome({
         <div
           className={cn(
             "overflow-hidden rounded-t-md border border-b-0 border-neutral-600 bg-white",
-            aspect === "wide" ? "aspect-[16/10]" : "aspect-video",
+            size === "page"
+              ? "h-[min(70dvh,720px)] sm:h-[min(78dvh,860px)]"
+              : aspect === "wide"
+                ? "aspect-[16/10]"
+                : "aspect-video",
           )}
         >
           <div className="flex h-full min-h-0 flex-col">{children}</div>
@@ -86,9 +126,7 @@ function YoutubeTopBar({ channelName }: { channelName: string }) {
         <span className="flex h-5 w-7 items-center justify-center rounded-sm bg-red-600 text-[9px] font-bold text-white">
           ▶
         </span>
-        <span className="hidden text-[11px] font-semibold text-neutral-900 sm:inline">
-          YouTube
-        </span>
+        <span className="hidden text-[11px] font-semibold text-neutral-900 sm:inline">YouTube</span>
       </div>
       <div className="mx-auto flex max-w-[220px] flex-1 items-center gap-1 rounded-full border border-neutral-300 px-2 py-1 text-[10px] text-neutral-500">
         <Search className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -113,6 +151,7 @@ function ThumbnailOrVideo({
   aspectClass,
   playing,
   onPlay,
+  onExpand,
   className,
 }: {
   thumbnailUrl: string | null;
@@ -121,38 +160,63 @@ function ThumbnailOrVideo({
   aspectClass: string;
   playing: boolean;
   onPlay: () => void;
+  onExpand?: () => void;
   className?: string;
 }) {
   const { t } = useTranslation();
-  // videoUrl só chega aqui quando o parent já identificou mídia de vídeo (inclui blob:).
-  const canPlay = Boolean(videoUrl);
+  const youtubeId =
+    extractYoutubeVideoId(videoUrl ?? "") ?? extractYoutubeVideoId(thumbnailUrl ?? "");
+  const canPlay = Boolean(videoUrl) || Boolean(youtubeId);
   const dedicatedThumb = thumbnailUrl?.trim() || null;
   const thumbIsVideoFrame = Boolean(
     dedicatedThumb &&
-      (dedicatedThumb.includes("#t=") ||
-        (videoUrl && baseMediaUrl(dedicatedThumb) === baseMediaUrl(videoUrl))),
+    !extractYoutubeVideoId(dedicatedThumb) &&
+    (dedicatedThumb.includes("#t=") ||
+      (videoUrl && baseMediaUrl(dedicatedThumb) === baseMediaUrl(videoUrl))),
   );
-  const imageThumb = dedicatedThumb && !thumbIsVideoFrame ? dedicatedThumb : null;
+  const imageThumb =
+    dedicatedThumb && !thumbIsVideoFrame && !extractYoutubeVideoId(dedicatedThumb)
+      ? dedicatedThumb
+      : youtubeId
+        ? youtubeThumbnailUrl(youtubeId)
+        : null;
   const videoPosterSrc =
     thumbIsVideoFrame && dedicatedThumb
       ? dedicatedThumb
-      : videoUrl
+      : videoUrl && !youtubeId
         ? `${baseMediaUrl(videoUrl)}#t=0.1`
         : null;
 
-  if (playing && canPlay && videoUrl) {
-    return (
-      <div className={cn("relative bg-black", aspectClass, className)}>
-        <video
-          src={videoUrl}
-          poster={imageThumb ?? undefined}
-          className="h-full w-full object-contain"
-          controls
-          autoPlay
-          playsInline
-        />
-      </div>
-    );
+  const handleActivate = () => {
+    if (onExpand) {
+      onExpand();
+      return;
+    }
+    if (canPlay) onPlay();
+  };
+
+  if (playing && canPlay && !onExpand) {
+    if (youtubeId) {
+      return (
+        <div className={cn("relative bg-black", aspectClass, className)}>
+          <YoutubeEmbedFrame id={youtubeId} title={title} autoPlay />
+        </div>
+      );
+    }
+    if (videoUrl) {
+      return (
+        <div className={cn("relative bg-black", aspectClass, className)}>
+          <video
+            src={videoUrl}
+            poster={imageThumb ?? undefined}
+            className="h-full w-full object-contain"
+            controls
+            autoPlay
+            playsInline
+          />
+        </div>
+      );
+    }
   }
 
   return (
@@ -162,13 +226,13 @@ function ThumbnailOrVideo({
         "group relative block w-full overflow-hidden bg-neutral-900 text-left",
         aspectClass,
         className,
-        canPlay ? "cursor-pointer" : "cursor-default",
+        canPlay || onExpand ? "cursor-pointer" : "cursor-default",
       )}
       onClick={() => {
-        if (canPlay) onPlay();
+        if (canPlay || onExpand) handleActivate();
       }}
-      aria-label={canPlay ? t("project.youtube.play") : title}
-      disabled={!canPlay && !imageThumb && !videoPosterSrc}
+      aria-label={canPlay || onExpand ? t("project.youtube.play") : title}
+      disabled={!canPlay && !onExpand && !imageThumb && !videoPosterSrc}
     >
       {imageThumb ? (
         <img src={imageThumb} alt="" className="h-full w-full object-cover" />
@@ -185,7 +249,7 @@ function ThumbnailOrVideo({
           {t("project.youtube.noThumbnail")}
         </div>
       )}
-      {canPlay ? (
+      {canPlay || onExpand ? (
         <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition group-hover:bg-black/35">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-lg">
             <Play className="h-5 w-5 fill-current" aria-hidden="true" />
@@ -206,6 +270,7 @@ type WatchProps = {
   thumbnailUrl?: string | null;
   videoUrl?: string | null;
   size?: "default" | "lg";
+  onExpand?: () => void;
   className?: string;
 };
 
@@ -219,6 +284,7 @@ export function YouTubeWatchMockup({
   thumbnailUrl = null,
   videoUrl = null,
   size = "default",
+  onExpand,
   className,
 }: WatchProps) {
   const { t } = useTranslation();
@@ -244,6 +310,7 @@ export function YouTubeWatchMockup({
             aspectClass="aspect-video"
             playing={playing}
             onPlay={() => setPlaying(true)}
+            onExpand={onExpand}
           />
           <h3 className="text-[13px] font-semibold leading-snug text-neutral-900">
             {title.trim() || t("project.youtube.untitled")}
@@ -308,6 +375,7 @@ export function YouTubeShortsMockup({
   thumbnailUrl = null,
   videoUrl = null,
   size = "default",
+  onExpand,
   className,
 }: ShortsProps) {
   const { t } = useTranslation();
@@ -333,9 +401,10 @@ export function YouTubeShortsMockup({
               aspectClass="absolute inset-0 h-full w-full"
               playing={playing}
               onPlay={() => setPlaying(true)}
+              onExpand={onExpand}
               className="rounded-xl"
             />
-            {!playing ? (
+            {!playing || onExpand ? (
               <>
                 <div className="pointer-events-none absolute bottom-3 left-3 right-12 space-y-1 text-white drop-shadow">
                   <p className="text-[11px] font-semibold">@{handle}</p>
@@ -379,6 +448,7 @@ type ChannelProps = {
   avatarUrl?: string | null;
   className?: string;
   showLabel?: boolean;
+  size?: NotebookSize;
 };
 
 export function YouTubeChannelMockup({
@@ -389,6 +459,7 @@ export function YouTubeChannelMockup({
   avatarUrl,
   className,
   showLabel = true,
+  size = "lg",
 }: ChannelProps) {
   const { t, i18n } = useTranslation();
   const [tab, setTab] = useState<"home" | "videos" | "shorts">("home");
@@ -412,13 +483,16 @@ export function YouTubeChannelMockup({
 
   const renderCard = (item: ContentItem, short: boolean) => {
     const urls = resolveContentMediaUrls(item);
-    const media = urls.find((url) => isVideoUrl(url)) ?? null;
+    const media = urls.find((url) => isPlayableVideoUrl(url)) ?? urls[0] ?? null;
     const thumb = resolveContentThumbnail(item);
     const playing = playingId === item.id;
     const title = localizedTitle(item);
 
     return (
-      <div key={item.id} className={cn("min-w-0", short ? "w-[100px] shrink-0" : "w-[180px] shrink-0")}>
+      <div
+        key={item.id}
+        className={cn("min-w-0", short ? "w-[108px] shrink-0 sm:w-[120px]" : "w-full")}
+      >
         <ThumbnailOrVideo
           thumbnailUrl={thumb}
           videoUrl={media}
@@ -433,7 +507,7 @@ export function YouTubeChannelMockup({
               to="/clients/$clientId/projects/$projectId/content/$contentId"
               params={{ clientId, projectId, contentId: item.id }}
               search={{}}
-              className="line-clamp-2 text-xs font-medium leading-snug text-neutral-900 hover:underline"
+              className="line-clamp-2 text-xs font-medium leading-snug text-neutral-900 hover:underline sm:text-sm"
             >
               {title}
             </Link>
@@ -445,19 +519,18 @@ export function YouTubeChannelMockup({
   };
 
   const emptyLabel =
-    tab === "shorts"
-      ? t("project.youtube.emptyShorts")
-      : t("project.youtube.emptyVideos");
+    tab === "shorts" ? t("project.youtube.emptyShorts") : t("project.youtube.emptyVideos");
 
-  const listForTab =
-    tab === "shorts" ? shorts : tab === "videos" ? longForm : null;
+  const listForTab = tab === "shorts" ? shorts : tab === "videos" ? longForm : null;
 
   return (
     <div className={cn("space-y-2", className)}>
       {showLabel ? (
-        <p className="text-center text-xs text-muted-foreground">{t("project.youtube.previewChannel")}</p>
+        <p className="text-center text-xs text-muted-foreground">
+          {t("project.youtube.previewChannel")}
+        </p>
       ) : null}
-      <NotebookChrome size="lg" aspect="wide">
+      <NotebookChrome size={size} aspect="wide">
         <YoutubeTopBar channelName={channel} />
         <div className="min-h-0 flex-1 overflow-y-auto bg-white">
           <div className="h-20 bg-gradient-to-r from-neutral-800 via-neutral-600 to-neutral-400 sm:h-24" />
@@ -517,12 +590,15 @@ export function YouTubeChannelMockup({
                     <h4 className="text-sm font-semibold text-neutral-900">
                       {t("project.youtube.sectionVideos")}
                     </h4>
-                    <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-neutral-400" aria-hidden="true" />
+                    <ChevronDown
+                      className="h-3.5 w-3.5 -rotate-90 text-neutral-400"
+                      aria-hidden="true"
+                    />
                   </div>
                   {longForm.length === 0 ? (
                     <p className="text-xs text-neutral-500">{t("project.youtube.emptyVideos")}</p>
                   ) : (
-                    <div className="flex gap-3 overflow-x-auto pb-1">
+                    <div className="space-y-4">
                       {longForm.map((item) => renderCard(item, false))}
                     </div>
                   )}
@@ -545,9 +621,13 @@ export function YouTubeChannelMockup({
               </>
             ) : listForTab && listForTab.length === 0 ? (
               <p className="text-xs text-neutral-500">{emptyLabel}</p>
+            ) : tab === "shorts" ? (
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {(listForTab ?? []).map((item) => renderCard(item, true))}
+              </div>
             ) : (
-              <div className={cn("flex gap-3 overflow-x-auto pb-1", tab === "shorts" ? "" : "flex-wrap")}>
-                {(listForTab ?? []).map((item) => renderCard(item, tab === "shorts"))}
+              <div className="space-y-4">
+                {(listForTab ?? []).map((item) => renderCard(item, false))}
               </div>
             )}
           </div>

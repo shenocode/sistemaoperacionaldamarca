@@ -90,7 +90,7 @@ async function listAssinantes(supabase: any, admin: any, callerId: string) {
 
   const { data: subscriptions, error: subsError } = await admin
     .from("subscriptions")
-    .select("user_id, plan, status, source, updated_at");
+    .select("user_id, plan, status, source, updated_at, current_period_end");
   if (subsError) throw new Error(subsError.message);
 
   const subsByUser = new Map<string, SubscriptionRow[]>();
@@ -141,7 +141,8 @@ async function listAssinantes(supabase: any, admin: any, callerId: string) {
     const primary = pickPrimarySubscription(subsByUser.get(id) ?? []);
     const plan = primary && isAssignablePlan(primary.plan) ? primary.plan : null;
     const planStatus = isMaster ? "active" : (primary?.status ?? null);
-    const isActive = isMaster || isSubscriptionActiveStatus(planStatus);
+    const isActive =
+      isMaster || isSubscriptionActiveStatus(planStatus, primary?.current_period_end);
     const ownerClients = clientsByOwner.get(id) ?? [];
     const entitlements = entitlementsForPlan(plan, { isMaster, isTeamOwner: true });
 
@@ -293,7 +294,7 @@ async function myEntitlements(supabase: any, admin: any, callerId: string) {
 
   const { data: rows, error } = await admin
     .from("subscriptions")
-    .select("user_id, plan, status, source, updated_at")
+    .select("user_id, plan, status, source, updated_at, current_period_end")
     .eq("user_id", callerId);
   if (error) throw new Error(error.message);
 
@@ -314,7 +315,7 @@ async function myEntitlements(supabase: any, admin: any, callerId: string) {
   if (membership?.owner_user_id) {
     const { data: ownerRows, error: ownerError } = await admin
       .from("subscriptions")
-      .select("user_id, plan, status, source, updated_at")
+      .select("user_id, plan, status, source, updated_at, current_period_end")
       .eq("user_id", membership.owner_user_id);
     if (ownerError) throw new Error(ownerError.message);
     const ownerActive = pickActiveSubscription((ownerRows ?? []) as SubscriptionRow[]);

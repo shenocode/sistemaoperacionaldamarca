@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   isImageUrl,
-  isVideoUrl,
+  isPlayableVideoUrl,
   resolveContentMediaUrls,
   type ContentFormat,
   type ContentItem,
@@ -46,7 +46,7 @@ export type ApprovalsSummaryDialogProps = {
 };
 
 function mediaKind(url: string): "image" | "video" | "file" {
-  if (isVideoUrl(url)) return "video";
+  if (isPlayableVideoUrl(url)) return "video";
   if (isImageUrl(url)) return "image";
   return "file";
 }

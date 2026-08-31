@@ -21,7 +21,7 @@ import {
 } from "@/components/status-badge";
 import {
   isVideoUrl,
-  resolveContentMediaUrls,
+  resolveContentThumbnail,
   getLocalizedText,
   normalizeAppLocale,
   type ContentFormat,
@@ -70,9 +70,7 @@ function mergeVisibleListOrder(
 }
 
 function coverUrl(item: ContentItem) {
-  const dedicated = item.thumbnail_url?.trim();
-  if (dedicated) return dedicated;
-  return resolveContentMediaUrls(item)[0] ?? null;
+  return resolveContentThumbnail(item);
 }
 
 function formatBadge(format: ContentFormat, cover: string | null) {

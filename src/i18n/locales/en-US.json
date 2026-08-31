@@ -241,6 +241,8 @@
     "finalCta": "See plans",
     "footerTag": "BOS - Brand Operating System",
     "footerWhatsapp": "WhatsApp {{number}}",
+    "footerTerms": "Terms of use",
+    "footerPrivacy": "Privacy",
     "mockCalendar": {
       "blockTitle": "July — Jul 20 to Aug 20",
       "blockHint": "{{count}} posts in this period",
@@ -390,6 +392,9 @@
   "subscription": {
     "successTitle": "Payment confirmed",
     "successBody": "Your access is being provisioned. Check the email used at checkout to set your password (or sign in with your existing account).",
+    "successPending": "Confirming payment… this usually takes a few seconds.",
+    "successReady": "Subscription active. Set your password from the checkout email (or sign in with the account you already had).",
+    "successFailed": "We could not confirm the payment yet. If you were charged, wait for the email or contact support.",
     "successCta": "Go to sign in",
     "cancelTitle": "Checkout canceled",
     "cancelBody": "No charge was made. You can pick a plan again whenever you're ready.",
@@ -496,7 +501,8 @@
     "sent": "Request sent. You will hear back soon.",
     "sendError": "Could not send the request.",
     "adminMasterHint": "This account is the platform administrator — help requests from managers arrive in your inbox.",
-    "adminMasterInbox": "To test sending, use a manager account (not the master account) or a client account."
+    "adminMasterInbox": "To test sending, use a manager account (not the master account) or a client account.",
+    "legalLinksHint": "Billing, cancellation, plan limits, and how we use data:"
   },
   "helpInbox": {
     "title": "Help requests",
@@ -544,7 +550,61 @@
     "passwordMismatch": "Passwords do not match.",
     "passwordUpdated": "Password updated.",
     "savePassword": "Save password",
-    "helpLinkPrefix": "Issues or questions?"
+    "helpLinkPrefix": "Issues or questions?",
+    "subscription": {
+      "title": "Subscription",
+      "subtitle": "Current plan, usage limits, and upgrade options.",
+      "currentPlan": "Current plan",
+      "noPlan": "No plan",
+      "noPlanBody": "Subscribe to a plan to unlock platform limits and features.",
+      "masterBody": "This admin account has every feature, with no plan limits.",
+      "collaboratorBody": "You use the {{plan}} plan managed by the team owner. Upgrades stay with them.",
+      "collaboratorNoPlan": "The team does not have an active plan yet. Ask the account owner.",
+      "courtesyBody": "Courtesy plan for evaluation, with broad access. Send a request to convert to a paid plan.",
+      "agencyMaxBody": "You are already on the most complete plan. Need more clients? Contact us.",
+      "usageTitle": "Plan usage",
+      "clients": "Clients",
+      "users": "Users",
+      "unlimited": "unlimited",
+      "usageCount": "{{used}} of {{max}}",
+      "usageUnlimited": "{{used}} · unlimited",
+      "includedTitle": "Included in this plan",
+      "features": {
+        "brandBriefing": "Brand briefing and brand guide",
+        "library": "File library",
+        "presets": "Project presets",
+        "designAi": "Design AI"
+      },
+      "upgradesTitle": "Upgrade plan",
+      "upgradesHint": "Plan changes are prorated in Stripe. Card, invoices, and cancellation are in the billing portal.",
+      "subscribeTitle": "Choose a plan",
+      "requestUpgrade": "Request {{plan}}",
+      "upgradeTo": "Upgrade to {{plan}}",
+      "upgrading": "Updating…",
+      "upgradeSuccess": "Plan updated to {{plan}}.",
+      "upgradeError": "Could not update the plan.",
+      "manageBilling": "Manage subscription",
+      "openingPortal": "Opening…",
+      "portalError": "Could not open the billing portal.",
+      "subscribe": "Subscribe to {{plan}}",
+      "seeAllPlans": "See plan comparison",
+      "requestMore": "Request more capacity",
+      "convertCourtesy": "Convert to a paid plan",
+      "planLimits": "Up to {{clients}} clients · up to {{users}} users",
+      "upgradeHelpMessage": "I want to upgrade my subscription to the {{plan}} plan.",
+      "moreCapacityHelpMessage": "I am on the Agency plan and need more clients than the current limit.",
+      "convertCourtesyHelpMessage": "I have a Courtesy plan and want to convert to a paid plan (Solo, Studio, or Agency).",
+      "checkoutError": "Could not start checkout.",
+      "billingFaqTitle": "Billing and cancellation",
+      "billingFaq": {
+        "cancelQ": "Can I cancel anytime?",
+        "cancelA": "Yes. Use Manage subscription. Access continues until the end of the paid period.",
+        "lateQ": "What if the card payment fails?",
+        "lateA": "There is a 3-day grace period. After that, manager access may be suspended until payment succeeds.",
+        "aiQ": "Does AI use my own key?",
+        "aiA": "Prefer your key in Settings. Without it, there is a limited daily platform quota."
+      }
+    }
   },
   "proposals": {
     "title": "Commercial proposals",
@@ -740,6 +800,7 @@
     "back": "Back",
     "tabs": {
       "feed": "Feed",
+      "simulation": "Simulation",
       "themes": "Themes",
       "library": "Library",
       "content": "Content",
@@ -1200,6 +1261,14 @@
       "teleprompter": "Teleprompter",
       "teleprompterTitle": "Teleprompter",
       "teleprompterEmpty": "No voiceover script to display.",
+      "teleprompterPlay": "Play",
+      "teleprompterPause": "Pause",
+      "teleprompterStop": "Stop and return to start",
+      "teleprompterSpeed": "Speed",
+      "teleprompterFontDecrease": "Decrease text size",
+      "teleprompterFontIncrease": "Increase text size",
+      "teleprompterFullscreen": "Full screen",
+      "teleprompterExitFullscreen": "Exit full screen",
       "roteiro": "Carousel script",
       "roteiroHint": "Per-slide copy for the designer to build the artwork.",
       "roteiroPlaceholder": "Slide 1: …\nSlide 2: …\nSlide 3: …",
@@ -1358,6 +1427,8 @@
       "submitReview": "Submit for review",
       "publish": "Publish",
       "leaveComment": "Leave a comment...",
+      "editComment": "Edit",
+      "commentUpdated": "Comment updated.",
       "send": "Send",
       "recordComment": "Record audio comment",
       "stopRecording": "Stop recording",
@@ -1439,6 +1510,40 @@
       "useAnswer": "Use this answer",
       "dismiss": "Close",
       "applied": "Answer applied to the briefing."
+    }
+  },
+  "legal": {
+    "termsTitle": "Terms of use",
+    "privacyTitle": "Privacy policy",
+    "backHome": "Back to home",
+    "updated": "Updated 31 August 2026.",
+    "terms": {
+      "serviceTitle": "Service",
+      "serviceBody": "SOM (Brand Operating System) is a content operations platform for managers and agencies. By subscribing, you agree to use the service under these terms.",
+      "billingTitle": "Billing",
+      "billingBody": "Subscriptions are monthly and billed by Stripe on the card you provide at checkout. Prices, limits, and what each plan includes are on the home page and in your profile — not in this document.",
+      "cancelTitle": "Cancellation",
+      "cancelBody": "You can cancel anytime in the billing portal (Manage subscription, in your profile). Access continues until the end of the paid period. There is no prorated refund for the current period unless required by law.",
+      "lateTitle": "Failed payments",
+      "lateBody": "If the card is declined, there is a 3-day grace period. After that, manager access may be suspended until billing is brought up to date.",
+      "limitsTitle": "Plan limits",
+      "limitsBody": "Clients, team seats, and features (library, briefing, design AI, and others) follow the contracted plan. Going over the limit is rejected in the product. Plan comparison lives on the landing page and in your profile.",
+      "dataTitle": "Your data and client data",
+      "dataBody": "Content, files, and client data belong to you. SOM processes them only to provide the service. End clients only access the workspace they were invited to.",
+      "aiTitle": "Artificial intelligence",
+      "aiBody": "AI features use your saved key first (BYOK). Without your own key, there may be a limited daily platform quota. We are not responsible for how you use generated copy and artwork, or for costs on your own key.",
+      "accountTitle": "Account closure",
+      "accountBody": "We may close accounts for abuse, persistent non-payment, or breach of these terms."
+    },
+    "privacy": {
+      "collectTitle": "What we collect",
+      "collectBody": "We collect name, email, billing data (via Stripe), and the content you and your clients upload (copy, media, comments).",
+      "useTitle": "How we use it",
+      "useBody": "We use this data to authenticate, provide the service, bill the subscription, and improve the product. We do not sell personal data.",
+      "providersTitle": "Stripe and AI providers",
+      "providersBody": "Payments are processed by Stripe. AI providers (platform quota or your own key) receive the text or image needed to generate a response, with no extra right to train on your content beyond their own terms.",
+      "deleteTitle": "Deletion and access",
+      "deleteBody": "You can request account and data deletion via support email. End clients only access the workspace they were invited to."
     }
   }
 }
