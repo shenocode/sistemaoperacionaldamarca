@@ -34,3 +34,14 @@ dist-ssr
 *.sln
 *.sw?
 .tmp-venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+.stripe-test-setup.json
+
+# Motion render scratch
+videos/loc0/.chrome/
+videos/loc0/frames/
+videos/loc0/preview/

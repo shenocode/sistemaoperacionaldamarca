@@ -179,9 +179,6 @@ Deno.serve(async (req) => {
       cancel_url: cancelUrl,
       allow_promotion_codes: true,
       billing_address_collection: "auto",
-      consent_collection: {
-        terms_of_service: "required",
-      },
       ...(customerId
         ? { customer: customerId }
         : authedEmail

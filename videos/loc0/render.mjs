@@ -26,10 +26,12 @@ await mkdir(outDir, { recursive: true });
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
+  userDataDir: path.join(__dirname, ".chrome"),
   args: [
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
+    "--disable-gpu",
     "--allow-file-access-from-files",
     "--disable-web-security",
     "--hide-scrollbars",
