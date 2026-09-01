@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { ChevronLeft, ImagePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { GestorSubscriptionCard } from "@/components/gestor-subscription-card";
 import { PageHeader } from "@/components/page-header";
 import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard";
 import { WhatsAppPhoneField } from "@/components/whatsapp-phone-field";
@@ -14,36 +13,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Separator } from "@/components/ui/separator";
-import { Link } from "@tanstack/react-router";
 import {
   GESTOR_LOGO_ACCEPT,
   getMyProfile,
-  isAdmin,
-  resolvePostLoginPath,
   updateMyProfile,
   updateOwnPassword,
   uploadGestorLogo,
 } from "@/lib/api";
 import { isValidWhatsAppLocal, splitWhatsAppDigits } from "@/lib/whatsapp-countries";
 
-export const Route = createFileRoute("/_authenticated/profile")({
-  beforeLoad: async () => {
-    if (!(await isAdmin())) {
-      const dest = await resolvePostLoginPath();
-      if (dest.to === "/clients/$clientId/projects/$projectId/feed") {
-        throw redirect({ to: dest.to, params: dest.params, search: dest.search });
-      }
-      throw redirect({ to: dest.to });
-    }
-  },
+export const Route = createFileRoute("/_authenticated/profile/conta")({
   head: () => ({
     meta: [
-      { title: "Meu Perfil — SOM" },
+      { title: "Dados da conta — SOM" },
       { name: "description", content: "Atualize seus dados de acesso e contato." },
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: GestorProfilePage,
+  component: GestorAccountPage,
 });
 
 function serializeProfileForm(input: {
@@ -62,7 +49,7 @@ function serializeProfileForm(input: {
   });
 }
 
-function GestorProfilePage() {
+function GestorAccountPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -169,13 +156,16 @@ function GestorProfilePage() {
   const initials = (fullName.trim().slice(0, 1) || "?").toUpperCase();
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
+    <>
       <UnsavedChangesGuard isDirty={isDirty} />
-      <PageHeader title={t("gestorProfile.title")} description={t("gestorProfile.subtitle")} />
-
-      <GestorSubscriptionCard email={profileQuery.data?.email} />
-
-      <Separator />
+      <Link
+        to="/profile"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        {t("gestorProfile.hub.back")}
+      </Link>
+      <PageHeader title={t("gestorProfile.hub.accountTitle")} description={t("gestorProfile.subtitle")} />
 
       {profileQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
@@ -357,13 +347,6 @@ function GestorProfilePage() {
           {t("gestorProfile.savePassword")}
         </Button>
       </form>
-
-      <p className="text-sm text-muted-foreground">
-        {t("gestorProfile.helpLinkPrefix")}{" "}
-        <Link to="/help" className="font-medium text-foreground underline-offset-2 hover:underline">
-          {t("nav.helpRequest")}
-        </Link>
-      </p>
-    </div>
+    </>
   );
 }

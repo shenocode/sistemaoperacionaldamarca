@@ -23,12 +23,15 @@ import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/h
 import { Route as AuthenticatedHelpInboxRouteImport } from './routes/_authenticated/help-inbox'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedProfileRouteRouteImport } from './routes/_authenticated/profile/route'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AssinaturaCanceladaRouteImport } from './routes/assinatura.cancelada'
 import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura.sucesso'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
+import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
+import { Route as AuthenticatedProfileAssinaturaRouteImport } from './routes/_authenticated/profile/assinatura'
+import { Route as AuthenticatedProfileContaRouteImport } from './routes/_authenticated/profile/conta'
 import { Route as AuthenticatedProposalsIndexRouteImport } from './routes/_authenticated/proposals/index'
 import { Route as AuthenticatedProposalsProposalIdRouteImport } from './routes/_authenticated/proposals/$proposalId'
 import { Route as ShareClientIdProjectIdRouteImport } from './routes/share.$clientId.$projectId'
@@ -122,11 +125,12 @@ const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedProfileRouteRoute =
+  AuthenticatedProfileRouteRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -152,6 +156,24 @@ const AuthenticatedClientsIndexRoute =
     id: '/clients/',
     path: '/clients/',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProfileIndexRoute =
+  AuthenticatedProfileIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileAssinaturaRoute =
+  AuthenticatedProfileAssinaturaRouteImport.update({
+    id: '/assinatura',
+    path: '/assinatura',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileContaRoute =
+  AuthenticatedProfileContaRouteImport.update({
+    id: '/conta',
+    path: '/conta',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
   } as any)
 const AuthenticatedProposalsIndexRoute =
   AuthenticatedProposalsIndexRouteImport.update({
@@ -318,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos': typeof TermosRoute
+  '/profile': typeof AuthenticatedProfileRouteRouteWithChildren
   '/access': typeof AuthenticatedAccessRoute
   '/assinantes': typeof AuthenticatedAssinantesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -325,14 +348,16 @@ export interface FileRoutesByFullPath {
   '/help-inbox': typeof AuthenticatedHelpInboxRoute
   '/home': typeof AuthenticatedHomeRoute
   '/leads': typeof AuthenticatedLeadsRoute
-  '/profile': typeof AuthenticatedProfileRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
+  '/profile/assinatura': typeof AuthenticatedProfileAssinaturaRoute
+  '/profile/conta': typeof AuthenticatedProfileContaRoute
   '/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
+  '/profile/': typeof AuthenticatedProfileIndexRoute
   '/proposals/': typeof AuthenticatedProposalsIndexRoute
   '/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
   '/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
@@ -369,14 +394,16 @@ export interface FileRoutesByTo {
   '/help-inbox': typeof AuthenticatedHelpInboxRoute
   '/home': typeof AuthenticatedHomeRoute
   '/leads': typeof AuthenticatedLeadsRoute
-  '/profile': typeof AuthenticatedProfileRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
+  '/profile/assinatura': typeof AuthenticatedProfileAssinaturaRoute
+  '/profile/conta': typeof AuthenticatedProfileContaRoute
   '/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
+  '/profile': typeof AuthenticatedProfileIndexRoute
   '/proposals': typeof AuthenticatedProposalsIndexRoute
   '/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
   '/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
@@ -405,6 +432,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos': typeof TermosRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRouteRouteWithChildren
   '/_authenticated/access': typeof AuthenticatedAccessRoute
   '/_authenticated/assinantes': typeof AuthenticatedAssinantesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -412,14 +440,16 @@ export interface FileRoutesById {
   '/_authenticated/help-inbox': typeof AuthenticatedHelpInboxRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
-  '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
+  '/_authenticated/profile/assinatura': typeof AuthenticatedProfileAssinaturaRoute
+  '/_authenticated/profile/conta': typeof AuthenticatedProfileContaRoute
   '/_authenticated/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
+  '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
   '/_authenticated/proposals/': typeof AuthenticatedProposalsIndexRoute
   '/_authenticated/clients/$clientId/briefing': typeof AuthenticatedClientsClientIdBriefingRoute
   '/_authenticated/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
@@ -451,6 +481,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/termos'
+    | '/profile'
     | '/access'
     | '/assinantes'
     | '/dashboard'
@@ -458,14 +489,16 @@ export interface FileRouteTypes {
     | '/help-inbox'
     | '/home'
     | '/leads'
-    | '/profile'
     | '/settings'
     | '/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
+    | '/profile/assinatura'
+    | '/profile/conta'
     | '/proposals/$proposalId'
     | '/share/$clientId/$projectId'
     | '/clients/'
+    | '/profile/'
     | '/proposals/'
     | '/clients/$clientId/briefing'
     | '/clients/$clientId/library'
@@ -502,14 +535,16 @@ export interface FileRouteTypes {
     | '/help-inbox'
     | '/home'
     | '/leads'
-    | '/profile'
     | '/settings'
     | '/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
+    | '/profile/assinatura'
+    | '/profile/conta'
     | '/proposals/$proposalId'
     | '/share/$clientId/$projectId'
     | '/clients'
+    | '/profile'
     | '/proposals'
     | '/clients/$clientId/briefing'
     | '/clients/$clientId/library'
@@ -537,6 +572,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/termos'
+    | '/_authenticated/profile'
     | '/_authenticated/access'
     | '/_authenticated/assinantes'
     | '/_authenticated/dashboard'
@@ -544,14 +580,16 @@ export interface FileRouteTypes {
     | '/_authenticated/help-inbox'
     | '/_authenticated/home'
     | '/_authenticated/leads'
-    | '/_authenticated/profile'
     | '/_authenticated/settings'
     | '/_authenticated/team'
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
+    | '/_authenticated/profile/assinatura'
+    | '/_authenticated/profile/conta'
     | '/_authenticated/proposals/$proposalId'
     | '/share/$clientId/$projectId'
     | '/_authenticated/clients/'
+    | '/_authenticated/profile/'
     | '/_authenticated/proposals/'
     | '/_authenticated/clients/$clientId/briefing'
     | '/_authenticated/clients/$clientId/library'
@@ -692,7 +730,7 @@ declare module '@tanstack/react-router' {
       id: '/_authenticated/profile'
       path: '/profile'
       fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      preLoaderRoute: typeof AuthenticatedProfileRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -729,6 +767,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/clients/'
       preLoaderRoute: typeof AuthenticatedClientsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profile/': {
+      id: '/_authenticated/profile/'
+      path: '/'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof AuthenticatedProfileIndexRouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/assinatura': {
+      id: '/_authenticated/profile/assinatura'
+      path: '/assinatura'
+      fullPath: '/profile/assinatura'
+      preLoaderRoute: typeof AuthenticatedProfileAssinaturaRouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/conta': {
+      id: '/_authenticated/profile/conta'
+      path: '/conta'
+      fullPath: '/profile/conta'
+      preLoaderRoute: typeof AuthenticatedProfileContaRouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
     }
     '/_authenticated/proposals/': {
       id: '/_authenticated/proposals/'
@@ -894,6 +953,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedProfileRouteRouteChildren {
+  AuthenticatedProfileAssinaturaRoute: typeof AuthenticatedProfileAssinaturaRoute
+  AuthenticatedProfileContaRoute: typeof AuthenticatedProfileContaRoute
+  AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
+}
+
+const AuthenticatedProfileRouteRouteChildren: AuthenticatedProfileRouteRouteChildren =
+  {
+    AuthenticatedProfileAssinaturaRoute: AuthenticatedProfileAssinaturaRoute,
+    AuthenticatedProfileContaRoute: AuthenticatedProfileContaRoute,
+    AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
+  }
+
+const AuthenticatedProfileRouteRouteWithChildren =
+  AuthenticatedProfileRouteRoute._addFileChildren(
+    AuthenticatedProfileRouteRouteChildren,
+  )
+
 interface AuthenticatedClientsClientIdProjectsProjectIdContentRouteChildren {
   AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentContentIdRoute
   AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentIndexRoute
@@ -979,6 +1056,7 @@ const AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedProfileRouteRoute: typeof AuthenticatedProfileRouteRouteWithChildren
   AuthenticatedAccessRoute: typeof AuthenticatedAccessRoute
   AuthenticatedAssinantesRoute: typeof AuthenticatedAssinantesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -986,7 +1064,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHelpInboxRoute: typeof AuthenticatedHelpInboxRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
-  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedProposalsProposalIdRoute: typeof AuthenticatedProposalsProposalIdRoute
@@ -999,6 +1076,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedProfileRouteRoute: AuthenticatedProfileRouteRouteWithChildren,
   AuthenticatedAccessRoute: AuthenticatedAccessRoute,
   AuthenticatedAssinantesRoute: AuthenticatedAssinantesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
@@ -1006,7 +1084,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHelpInboxRoute: AuthenticatedHelpInboxRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
-  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedProposalsProposalIdRoute: AuthenticatedProposalsProposalIdRoute,

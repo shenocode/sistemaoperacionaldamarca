@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const returnUrl =
       typeof body.returnUrl === "string" && body.returnUrl.startsWith("http")
         ? body.returnUrl
-        : `${siteUrl}/profile`;
+        : `${siteUrl}/profile/assinatura`;
 
     const stripe = new Stripe(stripeSecret, {
       apiVersion: "2023-10-16",

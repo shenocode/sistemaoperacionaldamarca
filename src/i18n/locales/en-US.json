@@ -522,6 +522,13 @@
   "gestorProfile": {
     "title": "My Profile",
     "subtitle": "Update your manager account details.",
+    "hub": {
+      "subtitle": "Choose what you want to manage.",
+      "subscriptionDescription": "Plan, limits, and billing.",
+      "accountTitle": "Account details",
+      "accountDescription": "Name, company, contact, and password.",
+      "back": "My Profile"
+    },
     "loadError": "Could not load your profile.",
     "email": "Login email",
     "emailHint": "Login email cannot be changed here. Ask an administrator if you need to change it.",
@@ -560,7 +567,8 @@
       "masterBody": "This admin account has every feature, with no plan limits.",
       "collaboratorBody": "You use the {{plan}} plan managed by the team owner. Upgrades stay with them.",
       "collaboratorNoPlan": "The team does not have an active plan yet. Ask the account owner.",
-      "courtesyBody": "Courtesy plan for evaluation, with broad access. Send a request to convert to a paid plan.",
+      "courtesyBody": "Courtesy plan for evaluation, with broad access. Choose a paid plan below: courtesy ends when Stripe confirms payment.",
+      "courtesyConvertHint": "Courtesy ends when payment is confirmed. Plan limits apply after that.",
       "agencyMaxBody": "You are already on the most complete plan. Need more clients? Contact us.",
       "usageTitle": "Plan usage",
       "clients": "Clients",

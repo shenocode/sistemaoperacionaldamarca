@@ -58,6 +58,31 @@ async function ensureGestorAccess(
   return { userId, created };
 }
 
+async function expireManualSubscriptions(
+  admin: ReturnType<typeof createClient>,
+  userId: string | null,
+  email: string,
+) {
+  if (email.trim().toLowerCase() === ADMIN_MASTER_EMAIL) return;
+
+  let query = admin
+    .from("subscriptions")
+    .update({ status: "canceled", cancel_at_period_end: false })
+    .eq("source", "manual")
+    .in("status", ["active", "trialing", "past_due", "incomplete"]);
+
+  if (userId) {
+    query = query.eq("user_id", userId);
+  } else if (email.trim()) {
+    query = query.eq("email", email.trim().toLowerCase());
+  } else {
+    return;
+  }
+
+  const { error } = await query;
+  if (error) console.error("expire manual subscriptions:", error.message);
+}
+
 async function revokeGestorAccessIfNeeded(
   admin: ReturnType<typeof createClient>,
   userId: string | null,
@@ -194,6 +219,10 @@ async function syncStripeSubscription(
     });
   }
 
+  if (isSubscriptionActiveStatus(status, endedAt)) {
+    await expireManualSubscriptions(admin, userId, email);
+  }
+
   const inactive =
     status === "canceled" ||
     status === "unpaid" ||
@@ -293,6 +322,9 @@ Deno.serve(async (req) => {
           periodEnd: periodEnd(subscription),
           cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
         });
+        if (isSubscriptionActiveStatus(subscription.status, periodEnd(subscription))) {
+          await expireManualSubscriptions(admin, userId, email);
+        }
         break;
       }
 

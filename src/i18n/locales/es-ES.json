@@ -522,6 +522,13 @@
   "gestorProfile": {
     "title": "Mi Perfil",
     "subtitle": "Actualiza los datos de tu cuenta de gestor.",
+    "hub": {
+      "subtitle": "Elige qué quieres gestionar.",
+      "subscriptionDescription": "Plan, límites y cobro.",
+      "accountTitle": "Datos de la cuenta",
+      "accountDescription": "Nombre, empresa, contacto y contraseña.",
+      "back": "Mi Perfil"
+    },
     "loadError": "No se pudo cargar el perfil.",
     "email": "Correo de acceso",
     "emailHint": "El correo de acceso no se puede cambiar aquí. Pide al administrador si necesitas cambiarlo.",
@@ -560,7 +567,8 @@
       "masterBody": "Esta cuenta de administrador tiene todos los recursos, sin límites de plan.",
       "collaboratorBody": "Usas el plan {{plan}} gestionado por el dueño del equipo. Los upgrades quedan con él.",
       "collaboratorNoPlan": "El equipo aún no tiene un plan activo. Habla con el dueño de la cuenta.",
-      "courtesyBody": "Plan de cortesía para evaluación, con acceso amplio. Envía una solicitud para convertirlo en un plan de pago.",
+      "courtesyBody": "Plan de cortesía para evaluación, con acceso amplio. Elige un plan de pago abajo: la cortesía termina cuando Stripe confirme el pago.",
+      "courtesyConvertHint": "La cortesía acaba al confirmar el pago. Después valen los límites del plan elegido.",
       "agencyMaxBody": "Ya estás en el plan más completo. ¿Necesitas más clientes? Habla con nosotros.",
       "usageTitle": "Uso del plan",
       "clients": "Clientes",

@@ -4256,7 +4256,7 @@ export async function changeSubscriptionPlan(plan: SubscriptionPlanKey): Promise
   if (error) throw new Error(error.message);
 }
 
-export async function openBillingPortal(returnPath = "/profile"): Promise<void> {
+export async function openBillingPortal(returnPath = "/profile/assinatura"): Promise<void> {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const { data, error } = await supabase.functions.invoke("create-billing-portal-session", {
     body: { returnUrl: `${origin}${returnPath}` },

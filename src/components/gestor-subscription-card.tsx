@@ -105,7 +105,9 @@ export function GestorSubscriptionCard({ email }: { email?: string | null }) {
     !entitlements.isTeamOwner &&
     (Boolean(entitlements.plan) || Boolean(membershipQuery.data?.owner_user_id));
   const isOwnerView = entitlements.isTeamOwner && !entitlements.isMaster;
-  const canSubscribe = !entitlements.isMaster && !isCollaborator && !entitlements.plan;
+  const isCourtesy = entitlements.plan === "courtesy";
+  const canSubscribe =
+    !entitlements.isMaster && !isCollaborator && (!entitlements.plan || isCourtesy);
 
   if (loading || membershipQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
@@ -151,7 +153,7 @@ export function GestorSubscriptionCard({ email }: { email?: string | null }) {
   async function handleManageBilling() {
     setPortalLoading(true);
     try {
-      await openBillingPortal();
+      await openBillingPortal("/profile/assinatura");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : t("gestorProfile.subscription.portalError"),
@@ -162,11 +164,6 @@ export function GestorSubscriptionCard({ email }: { email?: string | null }) {
 
   return (
     <section className="space-y-4">
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{t("gestorProfile.subscription.title")}</p>
-        <p className="text-xs text-muted-foreground">{t("gestorProfile.subscription.subtitle")}</p>
-      </div>
-
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">
           {t("gestorProfile.subscription.currentPlan")}
@@ -237,9 +234,16 @@ export function GestorSubscriptionCard({ email }: { email?: string | null }) {
 
       {subscribePlans.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t("gestorProfile.subscription.subscribeTitle")}
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("gestorProfile.subscription.subscribeTitle")}
+            </p>
+            {isCourtesy ? (
+              <p className="text-xs text-muted-foreground">
+                {t("gestorProfile.subscription.courtesyConvertHint")}
+              </p>
+            ) : null}
+          </div>
           <div className="space-y-2">
             {subscribePlans.map((plan) => (
               <PaidPlanRow
@@ -319,14 +323,6 @@ export function GestorSubscriptionCard({ email }: { email?: string | null }) {
         <Button asChild variant="secondary" size="sm">
           <Link to="/help" search={{ intent: "more" }}>
             {t("gestorProfile.subscription.requestMore")}
-          </Link>
-        </Button>
-      ) : null}
-
-      {isOwnerView && entitlements.plan === "courtesy" ? (
-        <Button asChild size="sm">
-          <Link to="/help" search={{ intent: "convert" }}>
-            {t("gestorProfile.subscription.convertCourtesy")}
           </Link>
         </Button>
       ) : null}
