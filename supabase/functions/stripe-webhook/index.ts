@@ -65,16 +65,19 @@ async function expireManualSubscriptions(
 ) {
   if (email.trim().toLowerCase() === ADMIN_MASTER_EMAIL) return;
 
+  const emailNorm = email.trim().toLowerCase();
   let query = admin
     .from("subscriptions")
     .update({ status: "canceled", cancel_at_period_end: false })
     .eq("source", "manual")
     .in("status", ["active", "trialing", "past_due", "incomplete"]);
 
-  if (userId) {
+  if (userId && emailNorm) {
+    query = query.or(`user_id.eq.${userId},email.eq.${emailNorm}`);
+  } else if (userId) {
     query = query.eq("user_id", userId);
-  } else if (email.trim()) {
-    query = query.eq("email", email.trim().toLowerCase());
+  } else if (emailNorm) {
+    query = query.eq("email", emailNorm);
   } else {
     return;
   }

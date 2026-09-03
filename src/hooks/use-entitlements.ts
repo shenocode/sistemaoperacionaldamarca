@@ -12,7 +12,8 @@ export function useEntitlements() {
     queryKey: ["entitlements", "me"],
     queryFn: getMyEntitlements,
     enabled: isAdmin,
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const entitlements: PlanEntitlements = isAdminMaster

@@ -1344,7 +1344,7 @@ export async function reassignClientGestor(input: {
 }
 
 let myEntitlementsCache: { at: number; value: PlanEntitlements } | null = null;
-const MY_ENTITLEMENTS_TTL_MS = 60_000;
+const MY_ENTITLEMENTS_TTL_MS = 5_000;
 
 export async function getMyEntitlements() {
   if (myEntitlementsCache && Date.now() - myEntitlementsCache.at < MY_ENTITLEMENTS_TTL_MS) {

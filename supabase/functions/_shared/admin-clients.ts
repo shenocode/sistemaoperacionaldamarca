@@ -119,11 +119,16 @@ export function isSubscriptionActiveStatus(
 }
 
 export function pickActiveSubscription(rows: SubscriptionRow[]): SubscriptionRow | null {
+  const sourceRank = (source: string | null) => {
+    if (source === "stripe") return 0;
+    if (source === "manual") return 1;
+    return 2;
+  };
   const active = rows
     .filter((row) => isSubscriptionActiveStatus(row.status, row.current_period_end))
     .sort((a, b) => {
-      if (a.source === "manual" && b.source !== "manual") return -1;
-      if (b.source === "manual" && a.source !== "manual") return 1;
+      const bySource = sourceRank(a.source) - sourceRank(b.source);
+      if (bySource !== 0) return bySource;
       return b.updated_at.localeCompare(a.updated_at);
     });
   return active[0] ?? null;
