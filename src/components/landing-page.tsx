@@ -49,6 +49,7 @@ import {
   type ContentFormat,
   type SubscriptionPlanKey,
 } from "@/lib/api";
+import { asStringArray } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -1021,9 +1022,9 @@ export function LandingPage() {
             <div className="mt-12 grid gap-5 lg:grid-cols-3">
               {PLAN_KEYS.map((plan) => {
                 const popular = plan === "studio";
-                const features = t(`landing.plans.${plan}.features`, {
-                  returnObjects: true,
-                }) as string[];
+                const features = asStringArray(
+                  t(`landing.plans.${plan}.features`, { returnObjects: true }),
+                );
 
                 return (
                   <article

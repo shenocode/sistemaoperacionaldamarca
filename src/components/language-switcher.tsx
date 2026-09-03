@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { SUPPORTED_LANGUAGES } from "@/i18n";
+import { normalizeLanguage, SUPPORTED_LANGUAGES } from "@/i18n";
 import {
   Select,
   SelectContent,
@@ -16,7 +16,7 @@ const SHORT_LABEL: Record<string, string> = {
 
 export function LanguageSwitcher({ className }: { className?: string }) {
   const { i18n, t } = useTranslation();
-  const resolved = i18n.resolvedLanguage ?? i18n.language;
+  const resolved = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
   const short = SHORT_LABEL[resolved] ?? resolved.slice(0, 2).toUpperCase();
   const full = SUPPORTED_LANGUAGES.find((lang) => lang.code === resolved)?.label ?? short;
 
