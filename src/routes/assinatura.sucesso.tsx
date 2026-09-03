@@ -55,22 +55,34 @@ function AssinaturaSucessoPage() {
 
   const body =
     status === "ready"
-      ? t("subscription.successReady")
+      ? t("subscription.successReady", {
+          defaultValue:
+            "Assinatura ativa. Defina a senha no e-mail do checkout (ou entre com a conta que já tinha).",
+        })
       : status === "failed" || status === "invalid"
-        ? t("subscription.successFailed")
-        : t("subscription.successPending");
+        ? t("subscription.successFailed", {
+            defaultValue:
+              "Não encontramos a confirmação ainda. Se o valor foi cobrado, aguarde o e-mail ou fale com o suporte.",
+          })
+        : t("subscription.successPending", {
+            defaultValue: "Confirmando o pagamento… isso costuma levar alguns segundos.",
+          });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
       <div className="w-full max-w-md space-y-6 rounded-lg border bg-card p-8 text-center shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("subscription.successTitle")}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("subscription.successTitle", { defaultValue: "Pagamento confirmado" })}
+        </h1>
         <p className="text-sm text-muted-foreground">{body}</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Button asChild disabled={status === "pending"}>
-            <Link to="/auth">{t("subscription.successCta")}</Link>
+            <Link to="/auth">
+              {t("subscription.successCta", { defaultValue: "Ir para o login" })}
+            </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link to="/">{t("subscription.backHome")}</Link>
+            <Link to="/">{t("subscription.backHome", { defaultValue: "Voltar ao início" })}</Link>
           </Button>
         </div>
       </div>
