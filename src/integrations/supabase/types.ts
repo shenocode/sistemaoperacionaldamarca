@@ -102,6 +102,24 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_daily: {
+        Row: {
+          platform_units: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          platform_units?: number
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          platform_units?: number
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       brand_briefings: {
         Row: {
           answers: Json
@@ -657,6 +675,24 @@ export type Database = {
           },
         ]
       }
+      edge_rate_limits: {
+        Row: {
+          hit_count: number
+          rate_key: string
+          window_started_at: string
+        }
+        Insert: {
+          hit_count?: number
+          rate_key: string
+          window_started_at?: string
+        }
+        Update: {
+          hit_count?: number
+          rate_key?: string
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       help_requests: {
         Row: {
           attachment_file_name: string | null
@@ -961,6 +997,24 @@ export type Database = {
           },
         ]
       }
+      stripe_webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          processed_at: string
+        }
+        Insert: {
+          event_type: string
+          id: string
+          processed_at?: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          processed_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean
@@ -1101,6 +1155,7 @@ export type Database = {
         Args: { _user_id?: string }
         Returns: Database["public"]["Enums"]["subscription_plan"]
       }
+      auth_user_id_by_email: { Args: { _email: string }; Returns: string }
       can_access_client: { Args: { _client_id: string }; Returns: boolean }
       can_access_commercial_proposal: {
         Args: { _proposal_id: string }
@@ -1129,6 +1184,10 @@ export type Database = {
         Returns: string
       }
       comment_audio_user_id: { Args: { object_name: string }; Returns: string }
+      consume_edge_rate_limit: {
+        Args: { _key: string; _max_hits: number; _window_seconds: number }
+        Returns: boolean
+      }
       content_storage_project_id: {
         Args: { object_name: string }
         Returns: string
@@ -1165,6 +1224,13 @@ export type Database = {
       is_client_member: { Args: { _client_id: string }; Returns: boolean }
       is_client_owner: { Args: { _client_id: string }; Returns: boolean }
       is_team_owner: { Args: never; Returns: boolean }
+      latest_client_updates: {
+        Args: { _client_ids: string[] }
+        Returns: {
+          client_id: string
+          created_at: string
+        }[]
+      }
       library_storage_project_id: {
         Args: { object_name: string }
         Returns: string
@@ -1172,6 +1238,14 @@ export type Database = {
       library_storage_scope_id: {
         Args: { object_name: string }
         Returns: string
+      }
+      plan_max_clients: {
+        Args: { _plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
+      }
+      plan_max_users: {
+        Args: { _plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
       }
       proposal_cover_storage_user_id: {
         Args: { object_name: string }
@@ -1225,6 +1299,52 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_gestor_content_version: {
+        Args: { _change_note?: string; _content_id: string; _patch: Json }
+        Returns: {
+          calendar_block_id: string | null
+          caption: string
+          created_at: string
+          created_by: string | null
+          cta: string
+          current_version: number
+          format: Database["public"]["Enums"]["content_format"]
+          hashtags: string
+          height_cm: number | null
+          i18n: Json
+          id: string
+          locucao: string
+          material_type: string | null
+          media_overlays: Json
+          media_url: string | null
+          media_urls: string[]
+          production_notes: string
+          project_id: string
+          roteiro: string
+          scheduled_at: string | null
+          sort_order: number
+          status: Database["public"]["Enums"]["content_status"]
+          theme: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          width_cm: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "content_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      subscription_grants_access: {
+        Args: { _period_end: string; _status: string }
+        Returns: boolean
+      }
+      try_consume_platform_ai_quota: {
+        Args: { _daily_max?: number; _units?: number; _user_id: string }
+        Returns: boolean
       }
       update_client_contact: {
         Args: {
@@ -1332,12 +1452,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1361,11 +1481,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1386,11 +1506,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1411,11 +1531,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1428,11 +1548,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
