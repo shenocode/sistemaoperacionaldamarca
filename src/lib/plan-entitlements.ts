@@ -56,7 +56,7 @@ const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMa
     brandBriefing: true,
     library: true,
     presets: true,
-    designAi: true,
+    designAi: false,
   },
 };
 
