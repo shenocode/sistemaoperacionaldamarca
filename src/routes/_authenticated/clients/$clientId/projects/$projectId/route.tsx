@@ -224,10 +224,11 @@ function ProjectLayout() {
     },
   });
 
-  // Clientes veem as mesmas abas do projeto; dashboard e gestão ficam
-  // bloqueados por isAdmin / canManageClient (ações de escrita e rotas admin).
-  // Conteúdo: oculto para cliente, gestor e admin (ver CONTENT_TAB_ENABLED).
-  // Temas: visível para o cliente com acesso aos recursos/referências.
+  // Clientes veem as abas núcleo do projeto (Feed, Temas, Calendário, Pauta,
+  // Configurações e, no site, Protótipo/Briefing/Prompt/Cronograma).
+  // Dashboard e gestão ficam bloqueados por isAdmin / canManageClient.
+  // Conteúdo: oculto para todos (ver CONTENT_TAB_ENABLED).
+  // Biblioteca e demais recursos pagos seguem o plano do gestor da marca.
   const isVideosProject = getPrimaryProjectCategory(projectQuery.data?.categories) === "videos";
   const tabs = categoryConfig.tabs
     .map((tabId) => ({
@@ -242,7 +243,7 @@ function ProjectLayout() {
     .filter((tab) => {
       if (tab.id === "content") return false;
       if (tab.requiresLibrary) {
-        return isClient || entitlements.library;
+        return entitlements.library;
       }
       return true;
     });

@@ -135,7 +135,7 @@ export function ClientLibraryView({
   const queryClient = useQueryClient();
   const { isClient } = useAppRole();
   const { entitlements, loading: entitlementsLoading } = useEntitlements();
-  const libraryAllowed = isClient || entitlements.library;
+  const libraryAllowed = entitlements.library;
   const embedded = variant === "embedded";
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const [open, setOpen] = useState(false);

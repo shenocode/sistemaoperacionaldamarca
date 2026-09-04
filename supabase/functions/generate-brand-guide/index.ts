@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
-import { loadCallerEntitlements } from "../_shared/caller-entitlements.ts";
+import { loadViewerEntitlements } from "../_shared/caller-entitlements.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const entitlements = await loadCallerEntitlements(admin, user.id, user.email);
+    const entitlements = await loadViewerEntitlements(admin, user.id, user.email);
     if (!entitlements.brandBriefing) {
       return jsonResponse(
         { error: "Brand briefing não está incluído no seu plano. Atualize para Studio ou Agência." },

@@ -26,7 +26,6 @@ import {
   type ProjectCategory,
 } from "@/lib/api";
 import { useEntitlements } from "@/hooks/use-entitlements";
-import { useAppRole } from "@/hooks/use-app-role";
 import {
   buildLocalizedFieldFromSource,
   ensureFieldsTranslated,
@@ -154,9 +153,8 @@ function ProjectSettingsPage() {
   const { clientId, projectId } = Route.useParams();
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const { isClient } = useAppRole();
   const { entitlements } = useEntitlements();
-  const presetsAllowed = isClient || entitlements.presets;
+  const presetsAllowed = entitlements.presets;
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const [rowI18n, setRowI18n] = useState<RowI18n>({});
   const [name, setName] = useState("");
@@ -396,14 +394,18 @@ function ProjectSettingsPage() {
         </p>
       ) : null}
 
-      <Button
-        type="submit"
-        loading={saveMutation.isPending}
-        loadingLabel={t("common.saving")}
-        disabled={canManage && !name.trim()}
-      >
-        {t("common.save")}
-      </Button>
+      {canManage || presetsAllowed ? (
+        <Button
+          type="submit"
+          loading={saveMutation.isPending}
+          loadingLabel={t("common.saving")}
+          disabled={canManage && !name.trim()}
+        >
+          {t("common.save")}
+        </Button>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t("project.settings.readOnly")}</p>
+      )}
     </form>
     </>
   );

@@ -141,6 +141,8 @@ import { cn } from "@/lib/utils";
 import { validateContentSearch } from "./content";
 
 const CLIENT_REVIEW_STATUSES: ContentStatus[] = ["approved", "changes"];
+/** Temporarily hidden on the asset page until the overlay editor is ready. */
+const ART_TEXT_EDITOR_ENABLED = false;
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 const NONE_THEME_VALUE = "__none__";
@@ -276,9 +278,9 @@ function ContentDetailPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
-  const { isAdmin, isClient, loading: roleLoading } = useAppRole();
+  const { isAdmin, loading: roleLoading } = useAppRole();
   const { entitlements } = useEntitlements();
-  const presetsAllowed = isClient || entitlements.presets;
+  const presetsAllowed = entitlements.presets;
   const { user } = useAuth();
 
   const [title, setTitle] = useState("");
@@ -1197,7 +1199,9 @@ function ContentDetailPage() {
                 widthCm={parseCmInput(widthCm)}
                 heightCm={parseCmInput(heightCm)}
                 textEditor={
-                  isAdmin && (formatType === "static_feed" || formatType === "carousel")
+                  ART_TEXT_EDITOR_ENABLED &&
+                  isAdmin &&
+                  (formatType === "static_feed" || formatType === "carousel")
                     ? {
                         brandFonts: brandKitFromClient(client ?? {}).brand_fonts,
                         colors: brandKitFromClient(client ?? {}).brand_colors,

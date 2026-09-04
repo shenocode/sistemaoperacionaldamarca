@@ -1356,6 +1356,15 @@ export async function getMyEntitlements() {
   return value;
 }
 
+async function assertPlanFeature(
+  feature: "library" | "brandBriefing" | "presets" | "designAi",
+  message: string,
+) {
+  const entitlements = await getMyEntitlements();
+  if (entitlements.isMaster || entitlements[feature]) return;
+  throw new Error(message);
+}
+
 export async function listMyTeam() {
   const { listMyTeamFn } = await import("./team-access.functions");
   return listMyTeamFn();
@@ -3477,12 +3486,10 @@ export async function getBrandBriefing(clientId: string): Promise<BrandBriefingV
 }
 
 export async function ensureBrandBriefing(clientId: string): Promise<BrandBriefingView> {
-  if (await isAdmin()) {
-    const entitlements = await getMyEntitlements();
-    if (!entitlements.isMaster && !entitlements.brandBriefing) {
-      throw new Error("Brand briefing disponível a partir do plano Studio.");
-    }
-  }
+  await assertPlanFeature(
+    "brandBriefing",
+    "Brand briefing disponível a partir do plano Studio.",
+  );
 
   const existing = await getBrandBriefing(clientId);
   if (existing) return existing;
@@ -3982,6 +3989,7 @@ export async function createLibraryAsset(input: {
   notes?: string;
   i18n?: RowI18n;
 }): Promise<LibraryAsset> {
+  await assertPlanFeature("library", "Biblioteca disponível a partir do plano Studio.");
   const userId = await requireUserId();
   let uploaded:
     | {
@@ -4128,6 +4136,7 @@ export async function createDesignTemplate(input: {
   format: DesignTemplateFormat;
   file: File;
 }): Promise<DesignTemplate> {
+  await assertPlanFeature("library", "Biblioteca disponível a partir do plano Studio.");
   const userId = await requireUserId();
   const uploaded = await uploadDesignTemplateFile(input.clientId, input.file);
   const { data, error } = await supabase

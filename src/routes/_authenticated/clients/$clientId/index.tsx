@@ -31,7 +31,6 @@ import {
   projectDefaultRoute,
   type ProjectCategory,
 } from "@/lib/api";
-import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/")({
@@ -45,9 +44,8 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const { isClient } = useAppRole();
   const { entitlements } = useEntitlements();
-  const libraryAllowed = isClient || entitlements.library;
+  const libraryAllowed = entitlements.library;
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");

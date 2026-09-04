@@ -6,12 +6,12 @@ import { useAppRole } from "@/hooks/use-app-role";
 const EMPTY: PlanEntitlements = entitlementsForPlan(null);
 
 export function useEntitlements() {
-  const { isAdmin, isAdminMaster, loading: roleLoading } = useAppRole();
+  const { isAdminMaster, loading: roleLoading } = useAppRole();
 
   const query = useQuery({
     queryKey: ["entitlements", "me"],
     queryFn: getMyEntitlements,
-    enabled: isAdmin,
+    enabled: !roleLoading && !isAdminMaster,
     staleTime: 0,
     refetchOnMount: "always",
   });
@@ -22,7 +22,7 @@ export function useEntitlements() {
 
   return {
     entitlements,
-    loading: roleLoading || (isAdmin && !isAdminMaster && query.isLoading),
+    loading: roleLoading || (!isAdminMaster && query.isLoading),
     error: query.error,
     refetch: query.refetch,
   };

@@ -9,11 +9,13 @@ import {
   type AssignablePlan,
 } from "../_shared/plan-entitlements.ts";
 import {
+  loadViewerEntitlements,
+} from "../_shared/caller-entitlements.ts";
+import {
   createClients,
   findUserById,
   findUserIdByEmail,
   isEmailAlreadyRegistered,
-  pickActiveSubscription,
   pickPrimarySubscription,
   isSubscriptionActiveStatus,
   requireAuthedUser,
@@ -282,48 +284,9 @@ async function setPlan(supabase: any, admin: any, callerId: string, payload: any
   return { userId: targetId, plan };
 }
 
-async function myEntitlements(supabase: any, admin: any, callerId: string) {
+async function myEntitlements(_supabase: any, admin: any, callerId: string) {
   const user = await findUserById(admin, callerId);
-  if (isAdminMasterEmail(user?.email)) {
-    return entitlementsForPlan(null, { isMaster: true });
-  }
-
-  const { data: isAdmin, error: adminError } = await supabase.rpc("is_admin");
-  if (adminError) throw new Error(adminError.message);
-  if (!isAdmin) return entitlementsForPlan(null);
-
-  const { data: rows, error } = await admin
-    .from("subscriptions")
-    .select("user_id, plan, status, source, updated_at, current_period_end")
-    .eq("user_id", callerId);
-  if (error) throw new Error(error.message);
-
-  const active = pickActiveSubscription((rows ?? []) as SubscriptionRow[]);
-  if (active && isAssignablePlan(active.plan)) {
-    return entitlementsForPlan(active.plan, { isTeamOwner: true });
-  }
-
-  const { data: membership, error: teamError } = await admin
-    .from("team_memberships")
-    .select("owner_user_id")
-    .eq("member_user_id", callerId)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (teamError) throw new Error(teamError.message);
-
-  if (membership?.owner_user_id) {
-    const { data: ownerRows, error: ownerError } = await admin
-      .from("subscriptions")
-      .select("user_id, plan, status, source, updated_at, current_period_end")
-      .eq("user_id", membership.owner_user_id);
-    if (ownerError) throw new Error(ownerError.message);
-    const ownerActive = pickActiveSubscription((ownerRows ?? []) as SubscriptionRow[]);
-    const ownerPlan = ownerActive && isAssignablePlan(ownerActive.plan) ? ownerActive.plan : null;
-    return entitlementsForPlan(ownerPlan, { asCollaborator: true });
-  }
-
-  return entitlementsForPlan(null);
+  return loadViewerEntitlements(admin, callerId, user?.email);
 }
 
 Deno.serve(async (req) => {

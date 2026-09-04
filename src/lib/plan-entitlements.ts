@@ -130,6 +130,14 @@ export function entitlementsForPlan(
   };
 }
 
+/** Feature flags of a workspace owner, without team/client management. */
+export function inheritPlanFeatures(owner: PlanEntitlements): PlanEntitlements {
+  if (owner.isMaster) {
+    return entitlementsForPlan("courtesy", { asCollaborator: true });
+  }
+  return entitlementsForPlan(owner.plan, { asCollaborator: true });
+}
+
 export function canCreateAnotherClient(
   entitlements: PlanEntitlements,
   currentClientCount: number,

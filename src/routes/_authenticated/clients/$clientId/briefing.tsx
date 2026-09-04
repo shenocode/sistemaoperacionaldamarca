@@ -5,7 +5,6 @@ import { ChevronLeft } from "lucide-react";
 import { BrandBriefingForm } from "@/components/brand-briefing-form";
 import { PageHeader } from "@/components/page-header";
 import { ensureBrandBriefing, getClient } from "@/lib/api";
-import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/briefing")({
@@ -18,9 +17,8 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId/briefing
 function BrandBriefingPage() {
   const { clientId } = Route.useParams();
   const { t } = useTranslation();
-  const { isClient } = useAppRole();
   const { entitlements, loading: entitlementsLoading } = useEntitlements();
-  const briefingAllowed = isClient || entitlements.brandBriefing;
+  const briefingAllowed = entitlements.brandBriefing;
 
   const clientQuery = useQuery({
     queryKey: ["clients", clientId],

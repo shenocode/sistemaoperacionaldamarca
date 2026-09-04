@@ -402,8 +402,8 @@ export function MediaLightbox({
                     </CarouselItem>
                   ))}
                 </CarouselContent>
-                <CarouselPrevious className="left-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
-                <CarouselNext className="right-2 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
+                <CarouselPrevious className="left-2 z-20 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
+                <CarouselNext className="right-2 z-20 h-10 w-10 border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white disabled:opacity-30" />
               </Carousel>
             ) : canEdit && draft ? (
               <ArtTextOverlayView
