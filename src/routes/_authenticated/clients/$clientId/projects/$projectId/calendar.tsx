@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -676,50 +676,20 @@ function ProjectCalendarPage() {
     applyReorder(nextFull);
   };
 
-  const onDragStart = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
-    event.stopPropagation();
-    setDragState({ blockKey, index });
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `${blockKey}:${index}`);
-    const handle = event.currentTarget;
-    if (typeof event.dataTransfer.setDragImage === "function") {
-      event.dataTransfer.setDragImage(handle, 12, 12);
-    }
-  };
-
-  const onDragOver = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    if (dropState?.blockKey !== blockKey || dropState.index !== index) {
-      setDropState({ blockKey, index });
-    }
-  };
-
-  const onDrop = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const raw = event.dataTransfer.getData("text/plain");
-    const [fromBlock, fromIndexRaw] = raw.includes(":")
-      ? raw.split(":")
-      : [dragState?.blockKey, dragState ? String(dragState.index) : ""];
-    const fromIndex = Number(fromIndexRaw);
-    setDragState(null);
-    setDropState(null);
-    if (!fromBlock || !Number.isFinite(fromIndex)) return;
-
+  const commitReorder = (fromBlock: string, fromIndex: number, toBlock: string, toIndex: number) => {
     const sourceItems = itemsForKey(fromBlock);
-    const destItems = itemsForKey(blockKey);
+    const destItems = itemsForKey(toBlock);
     if (fromIndex < 0 || fromIndex >= sourceItems.length) return;
 
     const historyIso = rows.map((row) => row.scheduled_at);
 
-    if (fromBlock === blockKey) {
+    if (fromBlock === toBlock) {
       if (sourceItems.length < 2) return;
-      const targetIndex = Math.min(Math.max(index, 0), sourceItems.length - 1);
+      const targetIndex = Math.min(Math.max(toIndex, 0), sourceItems.length - 1);
       const next = moveItem(sourceItems, fromIndex, targetIndex);
       if (next === sourceItems) return;
       const rescheduled = rescheduleItemsToWeekdayPattern(next, historyIso);
-      applyBlockUpdates({ [blockKey]: rescheduled });
+      applyBlockUpdates({ [toBlock]: rescheduled });
       if (scheduledAtChanged(next, rescheduled)) {
         toast.success(t("project.calendar.datesUpdatedFromPattern"));
       }
@@ -728,16 +698,16 @@ function ProjectCalendarPage() {
 
     const moved = sourceItems[fromIndex];
     const nextSource = sourceItems.filter((_, itemIndex) => itemIndex !== fromIndex);
-    const insertAt = Math.min(Math.max(index, 0), destItems.length);
+    const insertAt = Math.min(Math.max(toIndex, 0), destItems.length);
     const nextDest = [...destItems];
     nextDest.splice(insertAt, 0, {
       ...moved,
-      calendar_block_id: calendarBlockIdForKey(blockKey),
+      calendar_block_id: calendarBlockIdForKey(toBlock),
     });
 
     const orderedKeys =
       blocks.length > 0 ? [...blocks.map((block) => block.id), "__unassigned__"] : ["__all__"];
-    const destPos = orderedKeys.indexOf(blockKey);
+    const destPos = orderedKeys.indexOf(toBlock);
     let fallbackAnchor = lastScheduledDate(destItems);
     if (!fallbackAnchor && destPos > 0) {
       for (let i = destPos - 1; i >= 0; i--) {
@@ -752,14 +722,72 @@ function ProjectCalendarPage() {
     });
     applyBlockUpdates({
       [fromBlock]: nextSource,
-      [blockKey]: rescheduledDest,
+      [toBlock]: rescheduledDest,
     });
     toast.success(t("project.calendar.movedToBlock"));
   };
 
-  const onDragEnd = () => {
-    setDragState(null);
-    setDropState(null);
+  const dragRef = useRef<{ blockKey: string; index: number } | null>(null);
+  const dropRef = useRef<{ blockKey: string; index: number } | null>(null);
+  const commitRef = useRef(commitReorder);
+  commitRef.current = commitReorder;
+  dragRef.current = dragState;
+  dropRef.current = dropState;
+
+  const readDropTarget = (clientX: number, clientY: number) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    const target = el?.closest("[data-calendar-drop]") as HTMLElement | null;
+    if (!target) return null;
+    const blockKey = target.dataset.calendarBlock;
+    const index = Number(target.dataset.calendarIndex);
+    if (!blockKey || !Number.isFinite(index)) return null;
+    return { blockKey, index };
+  };
+
+  const onHandlePointerDown = (blockKey: string, index: number) => (event: PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = { blockKey, index };
+    dragRef.current = next;
+    dropRef.current = next;
+    setDragState(next);
+    setDropState(next);
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+
+    const onMove = (moveEvent: globalThis.PointerEvent) => {
+      const target = readDropTarget(moveEvent.clientX, moveEvent.clientY);
+      if (!target) return;
+      const current = dropRef.current;
+      if (current?.blockKey === target.blockKey && current.index === target.index) return;
+      dropRef.current = target;
+      setDropState(target);
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      const from = dragRef.current;
+      const to = dropRef.current;
+      dragRef.current = null;
+      dropRef.current = null;
+      setDragState(null);
+      setDropState(null);
+      if (!from || !to) return;
+      if (from.blockKey === to.blockKey && from.index === to.index) return;
+      commitRef.current(from.blockKey, from.index, to.blockKey, to.index);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   };
 
   const addThemeMutation = useMutation({
@@ -994,8 +1022,9 @@ function ProjectCalendarPage() {
             return (
               <div
                 key={row.id}
-                onDragOver={canReorder ? onDragOver(blockKey, index) : undefined}
-                onDrop={canReorder ? onDrop(blockKey, index) : undefined}
+                data-calendar-drop=""
+                data-calendar-block={blockKey}
+                data-calendar-index={index}
                 className={cn(
                   contentFormatRowStyles[rowFormat],
                   "space-y-3 rounded-lg border p-3",
@@ -1011,10 +1040,8 @@ function ProjectCalendarPage() {
                   <div className="flex shrink-0 items-center gap-1.5 pt-1">
                     {canReorder ? (
                       <span
-                        draggable
-                        onDragStart={onDragStart(blockKey, index)}
-                        onDragEnd={onDragEnd}
-                        className="inline-flex cursor-grab touch-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
+                        onPointerDown={onHandlePointerDown(blockKey, index)}
+                        className="inline-flex cursor-grab touch-none select-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
                         aria-label={t("project.calendar.dragHandle")}
                         title={t("project.calendar.dragHandle")}
                         role="button"
@@ -1089,12 +1116,14 @@ function ProjectCalendarPage() {
               </div>
             );
           })}
-          {canReorder && dragState ? (
+          {canReorder ? (
             <div
-              onDragOver={onDragOver(blockKey, blockRows.length)}
-              onDrop={onDrop(blockKey, blockRows.length)}
+              data-calendar-drop=""
+              data-calendar-block={blockKey}
+              data-calendar-index={blockRows.length}
               className={cn(
                 "rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground",
+                !dragState && "hidden",
                 isDroppingAtEnd && "border-foreground/30 bg-muted text-foreground",
               )}
             >
@@ -1130,8 +1159,9 @@ function ProjectCalendarPage() {
                 return (
                   <tr
                     key={row.id}
-                    onDragOver={canReorder ? onDragOver(blockKey, index) : undefined}
-                    onDrop={canReorder ? onDrop(blockKey, index) : undefined}
+                    data-calendar-drop=""
+                    data-calendar-block={blockKey}
+                    data-calendar-index={index}
                     className={cn(
                       contentFormatRowStyles[rowFormat],
                       "hover:brightness-[0.98]",
@@ -1147,10 +1177,8 @@ function ProjectCalendarPage() {
                       <div className="flex items-center gap-1.5">
                         {canReorder ? (
                           <span
-                            draggable
-                            onDragStart={onDragStart(blockKey, index)}
-                            onDragEnd={onDragEnd}
-                            className="inline-flex shrink-0 cursor-grab touch-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
+                            onPointerDown={onHandlePointerDown(blockKey, index)}
+                            className="inline-flex shrink-0 cursor-grab touch-none select-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
                             aria-label={t("project.calendar.dragHandle")}
                             title={t("project.calendar.dragHandle")}
                             role="button"
@@ -1203,11 +1231,12 @@ function ProjectCalendarPage() {
                   </tr>
                 );
               })}
-              {canReorder && dragState ? (
+              {canReorder ? (
                 <tr
-                  onDragOver={onDragOver(blockKey, blockRows.length)}
-                  onDrop={onDrop(blockKey, blockRows.length)}
-                  className={cn(isDroppingAtEnd && "bg-muted")}
+                  data-calendar-drop=""
+                  data-calendar-block={blockKey}
+                  data-calendar-index={blockRows.length}
+                  className={cn(!dragState && "hidden", isDroppingAtEnd && "bg-muted")}
                 >
                   <td
                     colSpan={9}
@@ -1256,16 +1285,13 @@ function ProjectCalendarPage() {
             "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
             !isCollapsed && "border-b",
           )}
-          onDragOver={
-            canMoveItems && isCollapsed
-              ? onDragOver(block.id, blockRows.length)
-              : undefined
-          }
-          onDrop={
-            canMoveItems && isCollapsed
-              ? onDrop(block.id, blockRows.length)
-              : undefined
-          }
+          {...(canMoveItems && isCollapsed
+            ? {
+                "data-calendar-drop": "",
+                "data-calendar-block": block.id,
+                "data-calendar-index": String(blockRows.length),
+              }
+            : {})}
         >
           <BlockPeriodTitle
             title={block.title}
@@ -1356,8 +1382,13 @@ function ProjectCalendarPage() {
         </div>
         {isCollapsed ? null : blockRows.length === 0 ? (
           <p
-            onDragOver={canMoveItems ? onDragOver(block.id, 0) : undefined}
-            onDrop={canMoveItems ? onDrop(block.id, 0) : undefined}
+            {...(canMoveItems
+              ? {
+                  "data-calendar-drop": "",
+                  "data-calendar-block": block.id,
+                  "data-calendar-index": "0",
+                }
+              : {})}
             className={cn(
               "px-4 py-6 text-sm text-muted-foreground",
               isDropTarget && dropState?.index === 0 && "bg-muted",
