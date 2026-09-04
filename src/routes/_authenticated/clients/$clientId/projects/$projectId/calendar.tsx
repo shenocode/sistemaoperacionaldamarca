@@ -676,10 +676,15 @@ function ProjectCalendarPage() {
     applyReorder(nextFull);
   };
 
-  const onDragStart = (blockKey: string, index: number) => (event: DragEvent<HTMLSpanElement>) => {
+  const onDragStart = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
+    event.stopPropagation();
     setDragState({ blockKey, index });
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", `${blockKey}:${index}`);
+    const handle = event.currentTarget;
+    if (typeof event.dataTransfer.setDragImage === "function") {
+      event.dataTransfer.setDragImage(handle, 12, 12);
+    }
   };
 
   const onDragOver = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
@@ -1009,7 +1014,7 @@ function ProjectCalendarPage() {
                         draggable
                         onDragStart={onDragStart(blockKey, index)}
                         onDragEnd={onDragEnd}
-                        className="inline-flex cursor-grab touch-none text-foreground/55 hover:text-foreground active:cursor-grabbing"
+                        className="inline-flex cursor-grab touch-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
                         aria-label={t("project.calendar.dragHandle")}
                         title={t("project.calendar.dragHandle")}
                         role="button"
@@ -1098,7 +1103,7 @@ function ProjectCalendarPage() {
           ) : null}
         </div>
 
-        <div className="hidden overflow-x-auto overscroll-x-contain md:block">
+        <div className="hidden md:block">
           <table className="w-full min-w-[1040px] text-sm">
             <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -1145,7 +1150,7 @@ function ProjectCalendarPage() {
                             draggable
                             onDragStart={onDragStart(blockKey, index)}
                             onDragEnd={onDragEnd}
-                            className="inline-flex shrink-0 cursor-grab touch-none text-foreground/55 hover:text-foreground active:cursor-grabbing"
+                            className="inline-flex shrink-0 cursor-grab touch-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
                             aria-label={t("project.calendar.dragHandle")}
                             title={t("project.calendar.dragHandle")}
                             role="button"
@@ -1242,7 +1247,7 @@ function ProjectCalendarPage() {
       <Card
         key={block.id}
         className={cn(
-          "overflow-hidden rounded-xl",
+          "rounded-xl",
           isCollapsed && isDropTarget && "ring-2 ring-foreground/20",
         )}
       >
@@ -1451,16 +1456,16 @@ function ProjectCalendarPage() {
           onClick={canEdit ? openCreateDialog : undefined}
         />
       ) : blocks.length > 0 ? (
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {blocks.map((block) => renderBlockCard(block))}
           {itemsByBlock.unassigned.length > 0 ? (
-            <Card className="overflow-hidden rounded-xl">
+            <Card className="rounded-xl">
               {renderBlockTable("__unassigned__", itemsByBlock.unassigned)}
             </Card>
           ) : null}
         </div>
       ) : (
-        <Card className="overflow-hidden rounded-xl">
+        <Card className="rounded-xl">
           {renderBlockTable("__all__", rows)}
         </Card>
       )}
