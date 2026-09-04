@@ -1,50 +1,26 @@
-# Diagnóstico: "This page didn't load"
+# Redeploy das Edge Functions após sincronização do repositório
 
-## O que eu verifiquei agora
+Você escolheu sincronizar o código primeiro (o `_shared/caller-entitlements.ts` e a herança cliente→gestor ainda não estão no repositório atual). O plano abaixo roda depois que o sync estiver feito.
 
-Conferi o formato de todas as chaves salvas no Cloud (sem exibir os valores):
+## Passos
 
-| Chave | Situação |
-|---|---|
-| SUPABASE_URL | ok (https://..., sem espaços/aspas) |
-| SUPABASE_SERVICE_ROLE_KEY | ok (`sb_secret_...`) |
-| SITE_URL | ok |
-| STRIPE_SECRET_KEY / WEBHOOK / 3 PRICES | ok (`sk_test_`, `whsec_`, `price_1...`) |
-| OPENAI_API_KEY | ok (`sk-proj-...`) |
-| GEMINI_API_KEY | ok |
-| LOVABLE_API_KEY | ok |
-| AI_KEYS_ENCRYPTION_SECRET | ok (64 caracteres) |
+1. **Verificar o código sincronizado**
+   - Confirmar que `supabase/functions/_shared/caller-entitlements.ts` existe.
+   - Confirmar que `admin-assinantes` (action `myEntitlements`) e/ou `briefing-coach` e `generate-brand-guide` importam o helper novo e que a herança de plano do gestor para o cliente está presente no código.
 
-Nenhuma delas tem espaço em branco, quebra de linha ou aspas coladas por engano. Ou seja: **não há caractere errado nas chaves do Cloud.**
+2. **Redeploy das 3 funções (sem alterar lógica)**
+   - `admin-assinantes` (verify_jwt = true — já configurado em `supabase/config.toml`)
+   - `briefing-coach` (verify_jwt = true)
+   - `generate-brand-guide` (verify_jwt = true)
+   - Os arquivos `_shared` são empacotados automaticamente no deploy de cada função; não há deploy separado para eles.
 
-Também testei os endereços:
+3. **Confirmação**
+   - Validar que o deploy das três funções retornou sucesso.
+   - Confirmar que a action `myEntitlements` de `admin-assinantes` está no código deployado (checagem do import/uso do helper no fonte sincronizado).
 
-- `sistemaoperacionaldamarca.lovable.app/` → 200 (abre normal)
-- `/auth` e `/dashboard` → 200
-- preview do editor → 401 (esperado: exige login Lovable)
+4. **Correção silenciosa incluída: erro de hidratação na landing**
+   - A landing renderiza "BOS" no servidor e "SOM" no cliente (`src/components/landing-page.tsx`, logo do header), causando erro de hidratação no preview. Corrijo para um único valor fixo, sem mudar aparência.
 
-## Suspeita principal
-
-A tela "This page didn't load" é a página de erro de servidor do app (erro 500 na renderização). Como o app publicado pelo Lovable está abrindo, o problema deve estar no **site do Netlify**, que usa variáveis de ambiente próprias — copiadas manualmente por você.
-
-O código exige, no servidor, exatamente estes nomes:
-
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY` (no singular)
-
-No Cloud a listagem mostra `SUPABASE_PUBLISHABLE_KEYS` (plural) e `SUPABASE_ANON_KEY`. Se um desses nomes foi copiado para o Netlify, o app não encontra a variável e devolve exatamente essa tela de erro. Isso é uma hipótese — precisa ser confirmada com o log do Netlify antes de eu mexer em qualquer coisa.
-
-## Plano
-
-1. Confirmar onde o erro aparece (Netlify ou outro endereço) e ler a mensagem real do log da função SSR do Netlify.
-2. Comparar os nomes das variáveis no Netlify com os que o código lê:
-   - `SUPABASE_URL`
-   - `SUPABASE_PUBLISHABLE_KEY` (singular, valor `sb_publishable_...`)
-   - `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` para o navegador
-3. Corrigir os nomes/valores no Netlify e refazer o deploy.
-4. Se o log apontar outra causa (erro de código na renderização), tratar essa causa específica no código — sem alterar regra de negócio.
-
-## Detalhes técnicos
-
-- `src/integrations/supabase/client.ts` e `auth-middleware.ts` lançam erro quando `SUPABASE_URL` ou `SUPABASE_PUBLISHABLE_KEY` faltam; o `errorMiddleware` em `src/start.ts` converte isso na página "This page didn't load".
-- `SUPABASE_SERVICE_ROLE_KEY` não é mais necessária no Netlify: os fluxos privilegiados já passam por Edge Functions (`admin-team`, `admin-assinantes`, `admin-clients`).
+## Fora de escopo
+- Nenhuma alteração de lógica de negócio, schema/SQL ou frontend além do item 4.
+- Nenhum redeploy de outras funções.
