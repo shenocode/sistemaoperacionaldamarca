@@ -14,6 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  ContentAiDocumentField,
+  type AssistantDocumentRef,
+} from "@/components/content-ai-document-field";
+import {
   suggestContent,
   type ContentFormat,
   type ContentSuggestion,
@@ -58,6 +62,7 @@ export function ContentAiAssistant({
   const [youtubeUrls, setYoutubeUrls] = useState("");
   const [instagramUrls, setInstagramUrls] = useState("");
   const [transcription, setTranscription] = useState("");
+  const [attachedDocument, setAttachedDocument] = useState<AssistantDocumentRef | null>(null);
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
 
   const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
@@ -74,6 +79,9 @@ export function ContentAiAssistant({
         youtubeUrls: parseVideoUrls(youtubeUrls),
         instagramUrls: parseVideoUrls(instagramUrls),
         transcription,
+        libraryAssetId: attachedDocument?.libraryAssetId,
+        documentUrl: attachedDocument?.documentUrl,
+        documentName: attachedDocument?.documentName,
         format,
         locale: i18n.resolvedLanguage ?? i18n.language,
       }),
@@ -145,6 +153,13 @@ export function ContentAiAssistant({
                 placeholder={t("project.detail.assistant.promptPlaceholder")}
               />
             </div>
+            <ContentAiDocumentField
+              clientId={clientId}
+              projectId={projectId}
+              value={attachedDocument}
+              onChange={setAttachedDocument}
+              disabled={generateMutation.isPending}
+            />
             <div className="space-y-1.5">
               <Label htmlFor="ai-references" variant="highlight">
                 {t("project.detail.assistant.references")}

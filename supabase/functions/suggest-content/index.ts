@@ -1,5 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
+import {
+  DOCUMENT_MAX_BYTES,
+  extractDocumentText,
+} from "../_shared/extract-document-text.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +28,9 @@ type SuggestRequest = {
   youtubeUrls?: string[];
   instagramUrls?: string[];
   transcription?: string;
+  libraryAssetId?: string;
+  documentUrl?: string;
+  documentName?: string;
   format?: ContentFormat;
   locale?: string;
 };
@@ -119,6 +126,116 @@ async function fetchInstagramMeta(url: string): Promise<VideoMeta> {
   } catch {
     return fallback;
   }
+}
+
+const LIBRARY_BUCKET = "library-assets";
+const CONTENT_MEDIA_BUCKET = "content-media";
+
+function bytesFromBlob(blob: Blob): Promise<Uint8Array> {
+  return blob.arrayBuffer().then((buffer) => new Uint8Array(buffer));
+}
+
+function isAllowedDocumentUrl(
+  raw: string,
+  supabaseUrl: string,
+  clientId: string,
+  projectId: string,
+): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  let origin: string;
+  try {
+    origin = new URL(supabaseUrl).origin;
+  } catch {
+    return false;
+  }
+  if (parsed.origin !== origin) return false;
+  const path = decodeURIComponent(parsed.pathname);
+  const libraryPrefix = `/storage/v1/object/public/${LIBRARY_BUCKET}/${clientId}/`;
+  const mediaPrefix = `/storage/v1/object/public/${CONTENT_MEDIA_BUCKET}/${projectId}/`;
+  return path.includes(libraryPrefix) || path.includes(mediaPrefix);
+}
+
+async function fetchDocumentBytes(url: string): Promise<{ bytes: Uint8Array; mimeType: string | null }> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error("Não foi possível baixar o documento anexado.");
+  }
+  const length = Number(res.headers.get("content-length") || "0");
+  if (length > DOCUMENT_MAX_BYTES) {
+    throw new Error("O arquivo deve ter no máximo 10 MB para o assistente.");
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength > DOCUMENT_MAX_BYTES) {
+    throw new Error("O arquivo deve ter no máximo 10 MB para o assistente.");
+  }
+  const mimeType = res.headers.get("content-type")?.split(";")[0]?.trim() || null;
+  return { bytes, mimeType };
+}
+
+async function loadAttachedDocument(input: {
+  body: SuggestRequest;
+  supabase: ReturnType<typeof createClient>;
+  serviceRoleKey: string | undefined;
+  supabaseUrl: string;
+}): Promise<{ name: string; text: string; truncated: boolean } | null> {
+  const libraryAssetId = input.body.libraryAssetId?.trim();
+  const documentUrl = input.body.documentUrl?.trim();
+  if (!libraryAssetId && !documentUrl) return null;
+
+  if (libraryAssetId) {
+    const { data: asset, error } = await input.supabase
+      .from("library_assets")
+      .select("id, client_id, name, file_name, file_url, storage_path, mime_type")
+      .eq("id", libraryAssetId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!asset || asset.client_id !== input.body.clientId) {
+      throw new Error("Documento da biblioteca não encontrado.");
+    }
+
+    const fileName = (asset.file_name || asset.name || "documento").trim();
+    let bytes: Uint8Array | null = null;
+    let mimeType = typeof asset.mime_type === "string" ? asset.mime_type : null;
+
+    if (asset.storage_path && input.serviceRoleKey) {
+      const admin = createClient(input.supabaseUrl, input.serviceRoleKey);
+      const downloaded = await admin.storage.from(LIBRARY_BUCKET).download(asset.storage_path);
+      if (!downloaded.error && downloaded.data) {
+        bytes = await bytesFromBlob(downloaded.data);
+      }
+    }
+    if (!bytes && asset.file_url) {
+      const fetched = await fetchDocumentBytes(asset.file_url);
+      bytes = fetched.bytes;
+      mimeType = mimeType || fetched.mimeType;
+    }
+    if (!bytes) {
+      throw new Error("Não foi possível abrir o documento da biblioteca.");
+    }
+
+    const extracted = await extractDocumentText({ bytes, fileName, mimeType });
+    return { name: fileName, text: extracted.text, truncated: extracted.truncated };
+  }
+
+  if (
+    !isAllowedDocumentUrl(documentUrl!, input.supabaseUrl, input.body.clientId, input.body.projectId)
+  ) {
+    throw new Error("URL de documento inválida.");
+  }
+  const fileName = (input.body.documentName || documentUrl!.split("/").pop() || "documento")
+    .split("?")[0];
+  const fetched = await fetchDocumentBytes(documentUrl!);
+  const extracted = await extractDocumentText({
+    bytes: fetched.bytes,
+    fileName,
+    mimeType: fetched.mimeType,
+  });
+  return { name: fileName, text: extracted.text, truncated: extracted.truncated };
 }
 
 function formatVideoMetasBlock(label: string, metas: VideoMeta[]): string | null {
@@ -324,10 +441,27 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .slice(0, 5);
     const transcription = (body.transcription ?? "").trim().slice(0, 12000);
+    let attachedDocument: { name: string; text: string; truncated: boolean } | null = null;
+    try {
+      attachedDocument = await loadAttachedDocument({
+        body,
+        supabase,
+        serviceRoleKey,
+        supabaseUrl,
+      });
+    } catch (error) {
+      return jsonResponse(
+        { error: error instanceof Error ? error.message : "Falha ao ler o documento anexado." },
+        400,
+      );
+    }
     const [youtubeMetas, instagramMetas] = await Promise.all([
       Promise.all(youtubeUrls.map((url) => fetchYoutubeMeta(url))),
       Promise.all(instagramUrls.map((url) => fetchInstagramMeta(url))),
     ]);
+    const documentBlock = attachedDocument
+      ? `Documento de base (${attachedDocument.name}${attachedDocument.truncated ? ", trecho inicial" : ""}):\n${attachedDocument.text}`
+      : null;
 
     const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
     const needsRoteiro = format === "carousel";
@@ -345,6 +479,7 @@ Deno.serve(async (req) => {
       languageInstruction(body.locale),
       "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits.",
       "When there are brand kit guidelines (orientações gerais), treat them as mandatory operational rules for every text.",
+      "When there is an attached source document, use it as the factual base for the copy. Do not invent names, numbers or claims that are not in that document.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
       '{"title":"...","caption":"...","cta":"...","hashtags":"...","theme":"...|null","locucao":"...","roteiro":"..."}',
       "Regras:",
@@ -359,7 +494,7 @@ Deno.serve(async (req) => {
       needsRoteiro
         ? "- roteiro: texto por slide no formato 'Slide 1: ...\\nSlide 2: ...' (mínimo 3 slides)."
         : "- roteiro: string vazia.",
-      "Não invente fatos que não estejam no Guia de marca, prompt, referências, metadados dos vídeos ou na transcrição fornecida.",
+      "Não invente fatos que não estejam no Guia de marca, prompt, referências, documento anexado, metadados dos vídeos ou na transcrição fornecida.",
     ].join("\n");
 
     const userPrompt = [
@@ -374,6 +509,7 @@ Deno.serve(async (req) => {
       `CTAs disponíveis: ${(project.cta_presets ?? []).join(" | ") || "(nenhum)"}`,
       `Hashtags disponíveis: ${(project.hashtag_presets ?? []).join(" | ") || "(nenhuma)"}`,
       `Prompt do admin:\n${prompt}`,
+      documentBlock,
       body.references?.trim() ? `Referências:\n${body.references.trim()}` : null,
       formatVideoMetasBlock("Vídeos do YouTube (metadados):", youtubeMetas),
       formatVideoMetasBlock("Vídeos do Instagram (metadados):", instagramMetas),

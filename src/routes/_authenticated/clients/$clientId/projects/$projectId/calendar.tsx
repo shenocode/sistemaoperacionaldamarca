@@ -111,6 +111,11 @@ import {
   readCollapsedCalendarBlockIds,
   writeCollapsedCalendarBlockIds,
 } from "@/lib/calendar-block-collapsed";
+import {
+  rescheduleItemsToWeekdayPattern,
+  scheduledAtChanged,
+  parseScheduledDate,
+} from "@/lib/calendar-weekday-pattern";
 import { isApprovedContentStatus } from "@/lib/publish-caption";
 import { cn } from "@/lib/utils";
 import type { LanguageCode } from "@/i18n";
@@ -142,6 +147,21 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
+}
+
+function lastScheduledDate(items: ContentItem[]): Date | null {
+  let latest: Date | null = null;
+  for (const item of items) {
+    const date = parseScheduledDate(item.scheduled_at);
+    if (!date) continue;
+    if (!latest || date > latest) latest = date;
+  }
+  return latest;
+}
+
+function calendarBlockIdForKey(blockKey: string): string | null {
+  if (blockKey === "__unassigned__" || blockKey === "__all__") return null;
+  return blockKey;
 }
 
 function sortByManualOrder(a: ContentItem, b: ContentItem) {
@@ -613,27 +633,46 @@ function ProjectCalendarPage() {
 
   const applyReorder = (next: ContentItem[]) => {
     setLocalRows(next);
-    reorderMutation.mutate(next.map((item, sort_order) => ({ id: item.id, sort_order })));
+    const previousById = new Map(rows.map((item) => [item.id, item]));
+    reorderMutation.mutate(
+      next.map((item, sort_order) => {
+        const payload: {
+          id: string;
+          sort_order: number;
+          scheduled_at?: string | null;
+          calendar_block_id?: string | null;
+        } = {
+          id: item.id,
+          sort_order,
+        };
+        const previous = previousById.get(item.id);
+        if (previous && previous.scheduled_at !== item.scheduled_at) {
+          payload.scheduled_at = item.scheduled_at;
+        }
+        if (previous && previous.calendar_block_id !== item.calendar_block_id) {
+          payload.calendar_block_id = item.calendar_block_id;
+        }
+        return payload;
+      }),
+    );
   };
 
-  const applyReorderInBlock = (blockKey: string, nextBlockItems: ContentItem[]) => {
-    const nextFull: ContentItem[] = [];
+  const itemsForKey = (blockKey: string) => {
+    if (blockKey === "__unassigned__") return itemsByBlock.unassigned;
+    if (blockKey === "__all__") return rows;
+    return itemsByBlock.map.get(blockKey) ?? [];
+  };
+
+  const applyBlockUpdates = (updates: Record<string, ContentItem[]>) => {
     if (blocks.length === 0) {
-      applyReorder(nextBlockItems);
+      applyReorder(updates.__all__ ?? Object.values(updates)[0] ?? rows);
       return;
     }
+    const nextFull: ContentItem[] = [];
     for (const block of blocks) {
-      if (block.id === blockKey) {
-        nextFull.push(...nextBlockItems);
-      } else {
-        nextFull.push(...(itemsByBlock.map.get(block.id) ?? []));
-      }
+      nextFull.push(...(updates[block.id] ?? itemsByBlock.map.get(block.id) ?? []));
     }
-    if (blockKey === "__unassigned__") {
-      nextFull.push(...nextBlockItems);
-    } else {
-      nextFull.push(...itemsByBlock.unassigned);
-    }
+    nextFull.push(...(updates.__unassigned__ ?? itemsByBlock.unassigned));
     applyReorder(nextFull);
   };
 
@@ -653,6 +692,7 @@ function ProjectCalendarPage() {
 
   const onDrop = (blockKey: string, index: number) => (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     const raw = event.dataTransfer.getData("text/plain");
     const [fromBlock, fromIndexRaw] = raw.includes(":")
       ? raw.split(":")
@@ -660,17 +700,56 @@ function ProjectCalendarPage() {
     const fromIndex = Number(fromIndexRaw);
     setDragState(null);
     setDropState(null);
-    if (!fromBlock || fromBlock !== blockKey || !Number.isFinite(fromIndex)) return;
+    if (!fromBlock || !Number.isFinite(fromIndex)) return;
 
-    const current =
-      blockKey === "__unassigned__"
-        ? itemsByBlock.unassigned
-        : (itemsByBlock.map.get(blockKey) ?? []);
-    if (current.length < 2) return;
-    const next = moveItem(current, fromIndex, index);
-    if (next !== current) {
-      applyReorderInBlock(blockKey, next);
+    const sourceItems = itemsForKey(fromBlock);
+    const destItems = itemsForKey(blockKey);
+    if (fromIndex < 0 || fromIndex >= sourceItems.length) return;
+
+    const historyIso = rows.map((row) => row.scheduled_at);
+
+    if (fromBlock === blockKey) {
+      if (sourceItems.length < 2) return;
+      const targetIndex = Math.min(Math.max(index, 0), sourceItems.length - 1);
+      const next = moveItem(sourceItems, fromIndex, targetIndex);
+      if (next === sourceItems) return;
+      const rescheduled = rescheduleItemsToWeekdayPattern(next, historyIso);
+      applyBlockUpdates({ [blockKey]: rescheduled });
+      if (scheduledAtChanged(next, rescheduled)) {
+        toast.success(t("project.calendar.datesUpdatedFromPattern"));
+      }
+      return;
     }
+
+    const moved = sourceItems[fromIndex];
+    const nextSource = sourceItems.filter((_, itemIndex) => itemIndex !== fromIndex);
+    const insertAt = Math.min(Math.max(index, 0), destItems.length);
+    const nextDest = [...destItems];
+    nextDest.splice(insertAt, 0, {
+      ...moved,
+      calendar_block_id: calendarBlockIdForKey(blockKey),
+    });
+
+    const orderedKeys =
+      blocks.length > 0 ? [...blocks.map((block) => block.id), "__unassigned__"] : ["__all__"];
+    const destPos = orderedKeys.indexOf(blockKey);
+    let fallbackAnchor = lastScheduledDate(destItems);
+    if (!fallbackAnchor && destPos > 0) {
+      for (let i = destPos - 1; i >= 0; i--) {
+        fallbackAnchor = lastScheduledDate(itemsForKey(orderedKeys[i]));
+        if (fallbackAnchor) break;
+      }
+    }
+
+    const rescheduledDest = rescheduleItemsToWeekdayPattern(nextDest, historyIso, {
+      excludeIndexes: [insertAt],
+      fallbackAnchor,
+    });
+    applyBlockUpdates({
+      [fromBlock]: nextSource,
+      [blockKey]: rescheduledDest,
+    });
+    toast.success(t("project.calendar.movedToBlock"));
   };
 
   const onDragEnd = () => {
@@ -892,7 +971,9 @@ function ProjectCalendarPage() {
   );
 
   const renderBlockTable = (blockKey: string, blockRows: ContentItem[]) => {
-    const canReorder = canEdit && blockRows.length > 1;
+    const canReorder = canEdit && rows.length > 1;
+    const isDroppingAtEnd =
+      dropState?.blockKey === blockKey && dropState.index === blockRows.length && dragState !== null;
 
     return (
       <>
@@ -1003,6 +1084,18 @@ function ProjectCalendarPage() {
               </div>
             );
           })}
+          {canReorder && dragState ? (
+            <div
+              onDragOver={onDragOver(blockKey, blockRows.length)}
+              onDrop={onDrop(blockKey, blockRows.length)}
+              className={cn(
+                "rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground",
+                isDroppingAtEnd && "border-foreground/30 bg-muted text-foreground",
+              )}
+            >
+              {t("project.calendar.dropAtEnd")}
+            </div>
+          ) : null}
         </div>
 
         <div className="hidden overflow-x-auto overscroll-x-contain md:block">
@@ -1105,6 +1198,20 @@ function ProjectCalendarPage() {
                   </tr>
                 );
               })}
+              {canReorder && dragState ? (
+                <tr
+                  onDragOver={onDragOver(blockKey, blockRows.length)}
+                  onDrop={onDrop(blockKey, blockRows.length)}
+                  className={cn(isDroppingAtEnd && "bg-muted")}
+                >
+                  <td
+                    colSpan={9}
+                    className="px-3 py-3 text-center text-xs text-muted-foreground"
+                  >
+                    {t("project.calendar.dropAtEnd")}
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -1126,13 +1233,34 @@ function ProjectCalendarPage() {
     const blockRows = itemsByBlock.map.get(block.id) ?? [];
     const approvedRows = blockRows.filter((row) => isApprovedContentStatus(row.status));
     const isCollapsed = collapsedBlockIds.has(block.id);
+    const canMoveItems = canEdit && rows.length > 1;
+    const isDropTarget =
+      dropState?.blockKey === block.id &&
+      dragState !== null &&
+      dragState.blockKey !== block.id;
     return (
-      <Card key={block.id} className="overflow-hidden rounded-xl">
+      <Card
+        key={block.id}
+        className={cn(
+          "overflow-hidden rounded-xl",
+          isCollapsed && isDropTarget && "ring-2 ring-foreground/20",
+        )}
+      >
         <div
           className={cn(
             "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
             !isCollapsed && "border-b",
           )}
+          onDragOver={
+            canMoveItems && isCollapsed
+              ? onDragOver(block.id, blockRows.length)
+              : undefined
+          }
+          onDrop={
+            canMoveItems && isCollapsed
+              ? onDrop(block.id, blockRows.length)
+              : undefined
+          }
         >
           <BlockPeriodTitle
             title={block.title}
@@ -1222,7 +1350,18 @@ function ProjectCalendarPage() {
           </div>
         </div>
         {isCollapsed ? null : blockRows.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-muted-foreground">{t("project.calendar.empty")}</p>
+          <p
+            onDragOver={canMoveItems ? onDragOver(block.id, 0) : undefined}
+            onDrop={canMoveItems ? onDrop(block.id, 0) : undefined}
+            className={cn(
+              "px-4 py-6 text-sm text-muted-foreground",
+              isDropTarget && dropState?.index === 0 && "bg-muted",
+            )}
+          >
+            {dragState && dragState.blockKey !== block.id
+              ? t("project.calendar.dropInBlock")
+              : t("project.calendar.empty")}
+          </p>
         ) : (
           renderBlockTable(block.id, blockRows)
         )}

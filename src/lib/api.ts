@@ -1879,12 +1879,24 @@ async function nextContentSortOrder(projectId: string): Promise<number> {
 }
 
 export async function reorderContentItems(
-  items: Array<{ id: string; sort_order: number }>,
+  items: Array<{
+    id: string;
+    sort_order: number;
+    scheduled_at?: string | null;
+    calendar_block_id?: string | null;
+  }>,
 ): Promise<void> {
   const results = await Promise.all(
-    items.map(({ id, sort_order }) =>
-      supabase.from("content_items").update({ sort_order }).eq("id", id),
-    ),
+    items.map(({ id, sort_order, scheduled_at, calendar_block_id }) => {
+      const patch: {
+        sort_order: number;
+        scheduled_at?: string | null;
+        calendar_block_id?: string | null;
+      } = { sort_order };
+      if (scheduled_at !== undefined) patch.scheduled_at = scheduled_at;
+      if (calendar_block_id !== undefined) patch.calendar_block_id = calendar_block_id;
+      return supabase.from("content_items").update(patch).eq("id", id);
+    }),
   );
   const firstError = results.find((result) => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
@@ -3064,6 +3076,9 @@ export async function suggestContent(input: {
   youtubeUrls?: string[];
   instagramUrls?: string[];
   transcription?: string;
+  libraryAssetId?: string;
+  documentUrl?: string;
+  documentName?: string;
   format: ContentFormat;
   locale?: string;
 }): Promise<ContentSuggestion> {
@@ -3080,6 +3095,9 @@ export async function suggestContent(input: {
       youtubeUrls: (input.youtubeUrls ?? []).map((u) => u.trim()).filter(Boolean),
       instagramUrls: (input.instagramUrls ?? []).map((u) => u.trim()).filter(Boolean),
       transcription: input.transcription?.trim() || undefined,
+      libraryAssetId: input.libraryAssetId?.trim() || undefined,
+      documentUrl: input.documentUrl?.trim() || undefined,
+      documentName: input.documentName?.trim() || undefined,
       format: input.format,
       locale: input.locale,
     },
@@ -3882,6 +3900,45 @@ export async function generateSitePrd(
 export const LIBRARY_BUCKET = "library-assets";
 export const LIBRARY_MAX_BYTES = MEDIA_MAX_BYTES;
 export const LIBRARY_MAX_MB = Math.round(LIBRARY_MAX_BYTES / 1024 / 1024);
+
+export const ASSISTANT_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const ASSISTANT_DOCUMENT_MAX_MB = 10;
+export const ASSISTANT_DOCUMENT_ACCEPT =
+  ".pdf,.txt,.md,.csv,.doc,.docx,.xls,.xlsx,.rtf,application/pdf,text/plain,text/csv,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const ASSISTANT_DOCUMENT_EXT = /\.(pdf|txt|md|csv|docx?|xlsx?|rtf)\b/i;
+const ASSISTANT_DOCUMENT_MIME =
+  /(pdf|wordprocessingml|spreadsheetml|msword|ms-excel|text\/plain|text\/csv|text\/markdown|rtf)/i;
+
+export function isAssistantDocumentFile(file: File) {
+  return (
+    ASSISTANT_DOCUMENT_EXT.test(file.name) || ASSISTANT_DOCUMENT_MIME.test(file.type || "")
+  );
+}
+
+export function isAssistantDocumentAsset(asset: {
+  category?: string | null;
+  name?: string | null;
+  file_name?: string | null;
+  file_url?: string | null;
+  mime_type?: string | null;
+  storage_path?: string | null;
+}) {
+  if (!asset.file_url && !asset.storage_path) return false;
+  if (
+    asset.category === "pdfs" ||
+    asset.category === "documents" ||
+    asset.category === "spreadsheets"
+  ) {
+    return true;
+  }
+  const hay = `${asset.file_name ?? ""} ${asset.name ?? ""} ${asset.file_url ?? ""} ${asset.mime_type ?? ""}`;
+  return ASSISTANT_DOCUMENT_EXT.test(hay) || ASSISTANT_DOCUMENT_MIME.test(hay);
+}
+
+export function isAssistantDocumentTooLarge(file: File) {
+  return file.size > ASSISTANT_DOCUMENT_MAX_BYTES;
+}
 
 export function formatLibraryFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
