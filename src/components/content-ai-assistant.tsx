@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";
@@ -64,6 +64,7 @@ export function ContentAiAssistant({
   const [transcription, setTranscription] = useState("");
   const [attachedDocument, setAttachedDocument] = useState<AssistantDocumentRef | null>(null);
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
+  const generatingRef = useRef(false);
 
   const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
   const needsRoteiro = format === "carousel";
@@ -90,6 +91,9 @@ export function ContentAiAssistant({
       toast.success(t("project.detail.assistant.generated"));
     },
     onError: (err: Error) => toast.error(err.message),
+    onSettled: () => {
+      generatingRef.current = false;
+    },
   });
 
   const updateDraft = <K extends keyof ContentSuggestion>(key: K, value: ContentSuggestion[K]) => {
@@ -217,7 +221,11 @@ export function ContentAiAssistant({
 
             <Button
               type="button"
-              onClick={() => generateMutation.mutate()}
+              onClick={() => {
+                if (generatingRef.current || !prompt.trim() || generateMutation.isPending) return;
+                generatingRef.current = true;
+                generateMutation.mutate();
+              }}
               disabled={!prompt.trim() || generateMutation.isPending}
             >
               {generateMutation.isPending ? (

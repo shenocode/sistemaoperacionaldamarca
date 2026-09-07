@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
+import { completeChatJson } from "../_shared/chat-completions.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -49,49 +50,6 @@ function extractJsonObject(text: string): Record<string, unknown> {
   }
 }
 
-async function callChatModel(
-  messages: Array<{ role: string; content: string }>,
-  openaiKey: string | null,
-) {
-  if (openaiKey) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages,
-      }),
-    });
-    return { provider: "openai" as const, res };
-  }
-
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (lovableKey) {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Lovable-API-Key": lovableKey,
-        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("AI_MODEL") || Deno.env.get("LOVABLE_AI_MODEL") || "openai/gpt-5.4-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages,
-      }),
-    });
-    return { provider: "lovable" as const, res };
-  }
-
-  return null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -127,15 +85,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Não autenticado" }, 401);
     }
 
-    const { apiKey: openaiKey, source } = serviceRoleKey
+    const { apiKey: openaiKey, source: keySource } = serviceRoleKey
       ? await resolveAiKeyWithBudget(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
       : { apiKey: null as string | null, source: "none" as const };
-    if (source === "quota") {
-      return jsonResponse({ error: resolvedKeyError({ apiKey: null, source }, "openai") }, 400);
+    if (keySource === "quota") {
+      return jsonResponse({ error: resolvedKeyError({ apiKey: null, source: keySource }, "openai") }, 400);
     }
     if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
       return jsonResponse(
-        { error: resolvedKeyError({ apiKey: openaiKey, source }, "openai") ?? "Configure sua chave de IA." },
+        { error: resolvedKeyError({ apiKey: openaiKey, source: keySource }, "openai") ?? "Configure sua chave de IA." },
         400,
       );
     }
@@ -171,42 +129,21 @@ Deno.serve(async (req) => {
       `Text:\n${text}`,
     ].join("\n\n");
 
-    const chat = await callChatModel(
+    const chat = await completeChatJson(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       openaiKey,
+      keySource,
+      { temperature: 0.2, fallbackMessage: "Falha ao traduzir com a IA" },
     );
 
-    if (!chat) {
-      return jsonResponse(
-        {
-          error:
-            "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
-        },
-        400,
-      );
+    if (!chat.ok) {
+      return jsonResponse({ error: chat.error }, chat.status);
     }
 
-    if (!chat.res.ok) {
-      const errText = await chat.res.text();
-      console.error(`${chat.provider} AI error:`, chat.res.status, errText);
-      if (chat.res.status === 402) {
-        return jsonResponse(
-          { error: "Créditos de IA esgotados. Recarregue em Settings → Plans & credit usage." },
-          402,
-        );
-      }
-      if (chat.res.status === 429) {
-        return jsonResponse({ error: "Limite de requisições da IA atingido. Tente de novo em instantes." }, 429);
-      }
-      return jsonResponse({ error: "Falha ao traduzir com a IA" }, 502);
-    }
-
-    const chatJson = (await chat.res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
+    const chatJson = chat.json;
     const contentText = chatJson.choices?.[0]?.message?.content ?? "";
     let parsed: Record<string, unknown>;
     try {
