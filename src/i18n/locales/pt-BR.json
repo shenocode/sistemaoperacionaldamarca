@@ -1318,7 +1318,11 @@
         "documentAdded": "Documento anexado.",
         "documentSavedToLibrary": "Documento enviado e salvo na biblioteca.",
         "documentInvalidType": "Envie um PDF, Word (.docx) ou Excel (.xlsx).",
-        "documentTooLarge": "O arquivo deve ter no máximo {{max}} MB para o assistente."
+        "documentTooLarge": "O arquivo deve ter no máximo {{max}} MB para o assistente.",
+        "platformKeyTitle": "Sua OpenAI ainda não está ligada ao SOM",
+        "platformKeyBody": "O painel da OpenAI só registra uso depois que você salvar a chave em Chaves de IA. Sem isso, o assistente usa a IA compartilhada da plataforma — e ela pode saturar mesmo com a sua conta em $0.",
+        "openAiSettings": "Salvar chave OpenAI",
+        "geminiFallbackHint": "Há uma chave Gemini salva: o assistente tenta usá-la antes da IA compartilhada."
       },
       "designAssistant": {
         "title": "Assistente de design",

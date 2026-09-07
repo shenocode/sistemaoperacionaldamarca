@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation } from "@tanstack/react-query";
-import { ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ChevronDown, KeyRound, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import {
@@ -18,6 +20,7 @@ import {
   type AssistantDocumentRef,
 } from "@/components/content-ai-document-field";
 import {
+  getAdminAiKeysStatus,
   suggestContent,
   type ContentFormat,
   type ContentSuggestion,
@@ -65,6 +68,13 @@ export function ContentAiAssistant({
   const [attachedDocument, setAttachedDocument] = useState<AssistantDocumentRef | null>(null);
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
   const generatingRef = useRef(false);
+
+  const keysQuery = useQuery({
+    queryKey: ["admin-ai-keys"],
+    queryFn: getAdminAiKeysStatus,
+  });
+  const openaiConfigured = Boolean(keysQuery.data?.openaiConfigured);
+  const geminiConfigured = Boolean(keysQuery.data?.geminiConfigured);
 
   const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
   const needsRoteiro = format === "carousel";
@@ -145,6 +155,23 @@ export function ContentAiAssistant({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="space-y-4 pt-0">
+            {!keysQuery.isLoading && !openaiConfigured ? (
+              <Alert>
+                <KeyRound className="h-4 w-4" />
+                <AlertTitle>{t("project.detail.assistant.platformKeyTitle")}</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>{t("project.detail.assistant.platformKeyBody")}</p>
+                  <Link to="/settings" className="inline-flex text-xs font-medium text-primary hover:underline">
+                    {t("project.detail.assistant.openAiSettings")}
+                  </Link>
+                  {geminiConfigured ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("project.detail.assistant.geminiFallbackHint")}
+                    </p>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="ai-prompt" variant="highlight">
                 {t("project.detail.assistant.prompt")}

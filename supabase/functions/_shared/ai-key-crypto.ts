@@ -54,7 +54,10 @@ export async function decryptApiKey(stored: string | null | undefined): Promise<
   if (!value.startsWith(ENC_PREFIX)) return value; // legacy plaintext
 
   const key = await getCryptoKey();
-  if (!key) return null;
+  if (!key) {
+    console.error("AI_KEYS_ENCRYPTION_SECRET ausente; não foi possível descriptografar a chave salva.");
+    return null;
+  }
   const [, ivPart, cipherPart] = value.split(":");
   if (!ivPart || !cipherPart) return null;
   try {

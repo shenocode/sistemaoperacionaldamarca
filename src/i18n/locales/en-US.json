@@ -1318,7 +1318,11 @@
         "documentAdded": "Document attached.",
         "documentSavedToLibrary": "File uploaded and saved to the library.",
         "documentInvalidType": "Upload a PDF, Word (.docx) or Excel (.xlsx).",
-        "documentTooLarge": "The file must be at most {{max}} MB for the assistant."
+        "documentTooLarge": "The file must be at most {{max}} MB for the assistant.",
+        "platformKeyTitle": "Your OpenAI key is not connected to SOM yet",
+        "platformKeyBody": "The OpenAI usage dashboard only counts requests after you save the key in AI keys. Until then the assistant uses the shared platform AI — which can hit a limit even when your OpenAI spend is $0.",
+        "openAiSettings": "Save OpenAI key",
+        "geminiFallbackHint": "A Gemini key is saved: the assistant will try it before the shared platform AI."
       },
       "designAssistant": {
         "title": "Design assistant",

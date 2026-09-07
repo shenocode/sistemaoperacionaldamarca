@@ -22,7 +22,7 @@ type SupabaseLike = {
 
 export type ResolvedKey = {
   apiKey: string | null;
-  source: "admin" | "platform" | "none" | "quota";
+  source: "admin" | "platform" | "none" | "quota" | "decrypt_failed";
 };
 
 const PLATFORM_DAILY_MAX = 40;
@@ -34,26 +34,44 @@ function platformKey(provider: AiProvider): string | null {
   return Deno.env.get("OPENAI_API_KEY") || null;
 }
 
+type OwnKeyLookup = {
+  apiKey: string | null;
+  stored: boolean;
+};
+
 async function lookupOwnKey(
   admin: SupabaseLike,
   userId: string,
   provider: AiProvider,
-): Promise<string | null> {
+): Promise<OwnKeyLookup> {
   try {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("admin_ai_credentials")
-      .select("openai_key_ciphertext, gemini_key_ciphertext")
+      .select("openai_key_ciphertext, gemini_key_ciphertext, openai_key_last4, gemini_key_last4")
       .eq("user_id", userId)
       .maybeSingle();
+    if (error) {
+      console.error("resolveAiKey lookup failed:", error);
+      return { apiKey: null, stored: false };
+    }
 
     const ciphertext = (
       provider === "gemini" ? data?.gemini_key_ciphertext : data?.openai_key_ciphertext
     ) as string | null | undefined;
+    const last4 = (
+      provider === "gemini" ? data?.gemini_key_last4 : data?.openai_key_last4
+    ) as string | null | undefined;
+    const stored = Boolean((ciphertext && String(ciphertext).trim()) || last4);
+    if (!ciphertext) return { apiKey: null, stored };
 
-    return (await decryptApiKey(ciphertext)) || null;
+    const apiKey = await decryptApiKey(ciphertext);
+    if (stored && !apiKey) {
+      console.error(`resolveAiKey: stored ${provider} key could not be decrypted`);
+    }
+    return { apiKey, stored };
   } catch (error) {
     console.error("resolveAiKey lookup failed:", error);
-    return null;
+    return { apiKey: null, stored: false };
   }
 }
 
@@ -64,7 +82,8 @@ export async function resolveAiKey(
   provider: AiProvider,
 ): Promise<ResolvedKey> {
   const own = await lookupOwnKey(admin, userId, provider);
-  if (own) return { apiKey: own, source: "admin" };
+  if (own.apiKey) return { apiKey: own.apiKey, source: "admin" };
+  if (own.stored) return { apiKey: null, source: "decrypt_failed" };
   return { apiKey: null, source: "none" };
 }
 
@@ -79,7 +98,8 @@ export async function resolveAiKeyWithBudget(
   units = 1,
 ): Promise<ResolvedKey> {
   const own = await lookupOwnKey(admin, userId, provider);
-  if (own) return { apiKey: own, source: "admin" };
+  if (own.apiKey) return { apiKey: own.apiKey, source: "admin" };
+  if (own.stored) return { apiKey: null, source: "decrypt_failed" };
 
   const openaiPlatform = platformKey(provider);
   const lovableFallback =
@@ -113,8 +133,13 @@ export function quotaExceededMessage(): string {
   return "Cota diária de IA da plataforma atingida. Salve a sua própria chave em Configurações → Chaves de IA para continuar.";
 }
 
+export function decryptFailedMessage(): string {
+  return "Não foi possível ler a chave de IA salva. Abra Configurações → Chaves de IA e cole a chave de novo.";
+}
+
 export function resolvedKeyError(resolved: ResolvedKey, provider: AiProvider): string | null {
   if (resolved.apiKey) return null;
   if (resolved.source === "quota") return quotaExceededMessage();
+  if (resolved.source === "decrypt_failed") return decryptFailedMessage();
   return missingKeyMessage(provider);
 }

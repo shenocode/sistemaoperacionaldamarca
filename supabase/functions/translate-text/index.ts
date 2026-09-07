@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
+import { resolveAiKey, resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
 import { completeChatJson } from "../_shared/chat-completions.ts";
 
 const corsHeaders: Record<string, string> = {
@@ -85,13 +85,18 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Não autenticado" }, 401);
     }
 
-    const { apiKey: openaiKey, source: keySource } = serviceRoleKey
-      ? await resolveAiKeyWithBudget(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
+    const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+    const { apiKey: openaiKey, source: keySource } = adminClient
+      ? await resolveAiKeyWithBudget(adminClient, user.id, "openai")
       : { apiKey: null as string | null, source: "none" as const };
-    if (keySource === "quota") {
+    if (keySource === "quota" || keySource === "decrypt_failed") {
       return jsonResponse({ error: resolvedKeyError({ apiKey: null, source: keySource }, "openai") }, 400);
     }
-    if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
+    const geminiResolved = adminClient
+      ? await resolveAiKey(adminClient, user.id, "gemini")
+      : { apiKey: null as string | null, source: "none" as const };
+    const geminiKey = geminiResolved.source === "admin" ? geminiResolved.apiKey : null;
+    if (!openaiKey && !geminiKey && !Deno.env.get("LOVABLE_API_KEY")) {
       return jsonResponse(
         { error: resolvedKeyError({ apiKey: openaiKey, source: keySource }, "openai") ?? "Configure sua chave de IA." },
         400,
@@ -136,7 +141,7 @@ Deno.serve(async (req) => {
       ],
       openaiKey,
       keySource,
-      { temperature: 0.2, fallbackMessage: "Falha ao traduzir com a IA" },
+      { temperature: 0.2, fallbackMessage: "Falha ao traduzir com a IA", geminiKey },
     );
 
     if (!chat.ok) {
