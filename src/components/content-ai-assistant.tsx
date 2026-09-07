@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ContentAiDocumentField,
@@ -24,6 +31,7 @@ import {
   suggestContent,
   type ContentFormat,
   type ContentSuggestion,
+  type DesignProvider,
 } from "@/lib/api";
 
 export type ContentAiAssistantApply = {
@@ -67,7 +75,9 @@ export function ContentAiAssistant({
   const [transcription, setTranscription] = useState("");
   const [attachedDocument, setAttachedDocument] = useState<AssistantDocumentRef | null>(null);
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
+  const [provider, setProvider] = useState<DesignProvider>("openai");
   const generatingRef = useRef(false);
+  const didInitProvider = useRef(false);
 
   const keysQuery = useQuery({
     queryKey: ["admin-ai-keys"],
@@ -75,6 +85,14 @@ export function ContentAiAssistant({
   });
   const openaiConfigured = Boolean(keysQuery.data?.openaiConfigured);
   const geminiConfigured = Boolean(keysQuery.data?.geminiConfigured);
+  const selectedKeyConfigured = provider === "gemini" ? geminiConfigured : openaiConfigured;
+  const blockForMissingKey = !keysQuery.isLoading && !keysQuery.isError && !selectedKeyConfigured;
+
+  useEffect(() => {
+    if (didInitProvider.current || keysQuery.isLoading || keysQuery.isError) return;
+    didInitProvider.current = true;
+    if (!openaiConfigured && geminiConfigured) setProvider("gemini");
+  }, [keysQuery.isLoading, keysQuery.isError, openaiConfigured, geminiConfigured]);
 
   const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
   const needsRoteiro = format === "carousel";
@@ -95,6 +113,7 @@ export function ContentAiAssistant({
         documentName: attachedDocument?.documentName,
         format,
         locale: i18n.resolvedLanguage ?? i18n.language,
+        provider,
       }),
     onSuccess: (suggestion) => {
       setDraft(suggestion);
@@ -155,20 +174,45 @@ export function ContentAiAssistant({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="space-y-4 pt-0">
-            {!keysQuery.isLoading && !openaiConfigured ? (
+            <div className="space-y-1.5">
+              <Label variant="highlight">{t("project.detail.assistant.provider")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t("project.detail.assistant.providerHint")}
+              </p>
+              <Select
+                value={provider}
+                onValueChange={(value) => setProvider(value as DesignProvider)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai">
+                    {t("project.detail.assistant.providerOpenAI")}
+                  </SelectItem>
+                  <SelectItem value="gemini">
+                    {t("project.detail.assistant.providerGemini")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {!keysQuery.isLoading && !selectedKeyConfigured ? (
               <Alert>
                 <KeyRound className="h-4 w-4" />
-                <AlertTitle>{t("project.detail.assistant.platformKeyTitle")}</AlertTitle>
+                <AlertTitle>
+                  {provider === "gemini"
+                    ? t("project.detail.assistant.missingGeminiTitle")
+                    : t("project.detail.assistant.platformKeyTitle")}
+                </AlertTitle>
                 <AlertDescription className="space-y-2">
-                  <p>{t("project.detail.assistant.platformKeyBody")}</p>
+                  <p>
+                    {provider === "gemini"
+                      ? t("project.detail.assistant.missingGeminiBody")
+                      : t("project.detail.assistant.platformKeyBody")}
+                  </p>
                   <Link to="/settings" className="inline-flex text-xs font-medium text-primary hover:underline">
                     {t("project.detail.assistant.openAiSettings")}
                   </Link>
-                  {geminiConfigured ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t("project.detail.assistant.geminiFallbackHint")}
-                    </p>
-                  ) : null}
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -250,10 +294,18 @@ export function ContentAiAssistant({
               type="button"
               onClick={() => {
                 if (generatingRef.current || !prompt.trim() || generateMutation.isPending) return;
+                if (blockForMissingKey) {
+                  toast.error(
+                    provider === "gemini"
+                      ? t("project.detail.assistant.missingGeminiError")
+                      : t("project.detail.assistant.missingKeyError"),
+                  );
+                  return;
+                }
                 generatingRef.current = true;
                 generateMutation.mutate();
               }}
-              disabled={!prompt.trim() || generateMutation.isPending}
+              disabled={!prompt.trim() || generateMutation.isPending || blockForMissingKey}
             >
               {generateMutation.isPending ? (
                 <>

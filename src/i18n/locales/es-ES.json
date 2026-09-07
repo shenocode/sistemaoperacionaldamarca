@@ -1319,10 +1319,18 @@
         "documentSavedToLibrary": "Archivo enviado y guardado en la biblioteca.",
         "documentInvalidType": "Envía un PDF, Word (.docx) o Excel (.xlsx).",
         "documentTooLarge": "El archivo debe tener como máximo {{max}} MB para el asistente.",
+        "provider": "Plataforma de IA",
+        "providerHint": "Elige OpenAI o Gemini al generar el texto. Cada una usa la clave guardada en Claves de IA.",
+        "providerOpenAI": "OpenAI",
+        "providerGemini": "Gemini (Google)",
         "platformKeyTitle": "Tu OpenAI aún no está conectada al SOM",
-        "platformKeyBody": "El panel de OpenAI solo registra uso después de guardar la clave en Claves de IA. Sin eso, el asistente usa la IA compartida de la plataforma — y puede saturarse aunque tu cuenta OpenAI esté en $0.",
-        "openAiSettings": "Guardar clave OpenAI",
-        "geminiFallbackHint": "Hay una clave Gemini guardada: el asistente intentará usarla antes de la IA compartida."
+        "platformKeyBody": "El panel de OpenAI solo registra uso después de guardar la clave en Claves de IA.",
+        "missingGeminiTitle": "Tu Gemini aún no está conectada al SOM",
+        "missingGeminiBody": "Guarda la clave de Google AI Studio en Claves de IA para generar con Gemini.",
+        "openAiSettings": "Abrir Claves de IA",
+        "geminiFallbackHint": "Hay una clave Gemini guardada: puedes elegir Gemini en el selector de arriba.",
+        "missingKeyError": "Guarda tu clave OpenAI en Claves de IA.",
+        "missingGeminiError": "Guarda tu clave Gemini en Claves de IA."
       },
       "designAssistant": {
         "title": "Asistente de diseño",

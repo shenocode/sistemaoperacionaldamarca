@@ -102,9 +102,7 @@ export async function resolveAiKeyWithBudget(
   if (own.stored) return { apiKey: null, source: "decrypt_failed" };
 
   const openaiPlatform = platformKey(provider);
-  const lovableFallback =
-    provider === "openai" ? Deno.env.get("LOVABLE_API_KEY") || null : null;
-  if (!openaiPlatform && !lovableFallback) return { apiKey: null, source: "none" };
+  if (!openaiPlatform) return { apiKey: null, source: "none" };
 
   if (typeof admin.rpc !== "function") {
     return { apiKey: null, source: "quota" };

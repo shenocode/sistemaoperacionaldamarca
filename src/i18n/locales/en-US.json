@@ -1319,10 +1319,18 @@
         "documentSavedToLibrary": "File uploaded and saved to the library.",
         "documentInvalidType": "Upload a PDF, Word (.docx) or Excel (.xlsx).",
         "documentTooLarge": "The file must be at most {{max}} MB for the assistant.",
+        "provider": "AI platform",
+        "providerHint": "Choose OpenAI or Gemini when generating copy. Each one uses the key saved in AI keys.",
+        "providerOpenAI": "OpenAI",
+        "providerGemini": "Gemini (Google)",
         "platformKeyTitle": "Your OpenAI key is not connected to SOM yet",
-        "platformKeyBody": "The OpenAI usage dashboard only counts requests after you save the key in AI keys. Until then the assistant uses the shared platform AI — which can hit a limit even when your OpenAI spend is $0.",
-        "openAiSettings": "Save OpenAI key",
-        "geminiFallbackHint": "A Gemini key is saved: the assistant will try it before the shared platform AI."
+        "platformKeyBody": "The OpenAI usage dashboard only counts requests after you save the key in AI keys.",
+        "missingGeminiTitle": "Your Gemini key is not connected to SOM yet",
+        "missingGeminiBody": "Save the Google AI Studio key in AI keys to generate with Gemini.",
+        "openAiSettings": "Open AI keys",
+        "geminiFallbackHint": "A Gemini key is saved: you can choose Gemini in the selector above.",
+        "missingKeyError": "Save your OpenAI key in AI keys.",
+        "missingGeminiError": "Save your Gemini key in AI keys."
       },
       "designAssistant": {
         "title": "Design assistant",

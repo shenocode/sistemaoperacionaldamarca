@@ -34,6 +34,7 @@ type SuggestRequest = {
   documentName?: string;
   format?: ContentFormat;
   locale?: string;
+  provider?: "openai" | "gemini";
 };
 
 type ContentSuggestion = {
@@ -329,24 +330,40 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
-    const { apiKey: openaiKey, source: keySource } = adminClient
-      ? await resolveAiKeyWithBudget(adminClient, user.id, "openai")
-      : { apiKey: null as string | null, source: "none" as const };
-    if (keySource === "quota" || keySource === "decrypt_failed") {
-      return jsonResponse({ error: resolvedKeyError({ apiKey: null, source: keySource }, "openai") }, 400);
-    }
-    const geminiResolved = adminClient
-      ? await resolveAiKey(adminClient, user.id, "gemini")
-      : { apiKey: null as string | null, source: "none" as const };
-    const geminiKey = geminiResolved.source === "admin" ? geminiResolved.apiKey : null;
-    if (!openaiKey && !geminiKey && !Deno.env.get("LOVABLE_API_KEY")) {
-      return jsonResponse(
-        { error: resolvedKeyError({ apiKey: openaiKey, source: keySource }, "openai") ?? "Configure sua chave de IA." },
-        400,
-      );
-    }
-
     const body = (await req.json()) as SuggestRequest;
+    const preferredProvider = body.provider === "gemini" ? "gemini" : "openai";
+
+    let openaiKey: string | null = null;
+    let keySource: "admin" | "platform" | "none" | "quota" | "decrypt_failed" = "none";
+    let geminiKey: string | null = null;
+
+    if (preferredProvider === "gemini") {
+      const geminiResolved = adminClient
+        ? await resolveAiKey(adminClient, user.id, "gemini")
+        : { apiKey: null as string | null, source: "none" as const };
+      if (geminiResolved.source === "decrypt_failed") {
+        return jsonResponse({ error: resolvedKeyError(geminiResolved, "gemini") }, 400);
+      }
+      geminiKey = geminiResolved.source === "admin" ? geminiResolved.apiKey : null;
+      if (!geminiKey) {
+        return jsonResponse({ error: "Salve sua chave Gemini em Configurações → Chaves de IA." }, 400);
+      }
+    } else {
+      const openaiResolved = adminClient
+        ? await resolveAiKeyWithBudget(adminClient, user.id, "openai")
+        : { apiKey: null as string | null, source: "none" as const };
+      keySource = openaiResolved.source;
+      openaiKey = openaiResolved.apiKey;
+      if (keySource === "quota" || keySource === "decrypt_failed") {
+        return jsonResponse({ error: resolvedKeyError({ apiKey: null, source: keySource }, "openai") }, 400);
+      }
+      if (!openaiKey) {
+        return jsonResponse(
+          { error: "Salve sua chave OpenAI em Configurações → Chaves de IA." },
+          400,
+        );
+      }
+    }
     const prompt = body.prompt?.trim() ?? "";
     if (!prompt) {
       return jsonResponse({ error: "Informe um prompt" }, 400);
@@ -487,7 +504,12 @@ Deno.serve(async (req) => {
       ],
       openaiKey,
       keySource,
-      { temperature: 0.7, fallbackMessage: "Falha ao gerar sugestão com a IA", geminiKey },
+      {
+        temperature: 0.7,
+        fallbackMessage: "Falha ao gerar sugestão com a IA",
+        geminiKey,
+        preferredProvider,
+      },
     );
     if (!chat.ok) {
       return jsonResponse({ error: chat.error }, chat.status);

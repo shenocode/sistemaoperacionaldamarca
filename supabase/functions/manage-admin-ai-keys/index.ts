@@ -15,6 +15,37 @@ function normalizeProvider(value: unknown): Provider | null {
   return value === "openai" || value === "gemini" ? value : null;
 }
 
+async function verifyProviderKey(provider: Provider, apiKey: string): Promise<string | null> {
+  try {
+    if (provider === "openai") {
+      const res = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (res.ok) return null;
+      if (res.status === 401 || res.status === 403) {
+        return "A OpenAI rejeitou essa chave. Confira se copiou a API key completa (sk-...) e se ela pertence ao projeto certo.";
+      }
+      const text = await res.text();
+      console.error("OpenAI key verify:", res.status, text);
+      return "Não foi possível validar a chave OpenAI agora. Tente de novo em instantes.";
+    }
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+    );
+    if (res.ok) return null;
+    if (res.status === 400 || res.status === 401 || res.status === 403) {
+      return "O Gemini rejeitou essa chave. Confira se copiou a API key completa do Google AI Studio.";
+    }
+    const text = await res.text();
+    console.error("Gemini key verify:", res.status, text);
+    return "Não foi possível validar a chave Gemini agora. Tente de novo em instantes.";
+  } catch (error) {
+    console.error("verifyProviderKey:", error);
+    return "Não foi possível validar a chave agora. Tente de novo em instantes.";
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -102,6 +133,9 @@ Deno.serve(async (req) => {
     if (action === "save") {
       const apiKey = body.apiKey?.trim() ?? "";
       if (apiKey.length < 12) return jsonResponse({ error: "Chave de API inválida" }, 400);
+
+      const verifyError = await verifyProviderKey(provider, apiKey);
+      if (verifyError) return jsonResponse({ error: verifyError }, 400);
 
       const ciphertext = await encryptApiKey(apiKey);
       const patch = provider === "openai"

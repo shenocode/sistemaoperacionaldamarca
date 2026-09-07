@@ -38,18 +38,6 @@ function retryAfterMs(res: Response, fallback: number): number {
   return fallback;
 }
 
-function uniqueModels(models: Array<string | null | undefined>): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const model of models) {
-    const value = model?.trim();
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    out.push(value);
-  }
-  return out;
-}
-
 function looksLikeQuotaExhausted(status: number, body: string): boolean {
   if (status === 402) return true;
   const lower = body.toLowerCase();
@@ -92,12 +80,22 @@ export function classifyChatError(
     };
   }
 
+  if (status === 401 || status === 403) {
+    return {
+      status: 400,
+      error:
+        provider === "gemini"
+          ? "Chave Gemini rejeitada. Confira e salve de novo em Configurações → Chaves de IA."
+          : "Chave OpenAI rejeitada. Confira e salve de novo em Configurações → Chaves de IA.",
+    };
+  }
+
   if (status === 429) {
     if (usingPlatform) {
       return {
-        status: 429,
+        status: 400,
         error:
-          "O assistente não usou a sua conta OpenAI (por isso o painel da OpenAI continua em $0). A IA compartilhada da plataforma está saturada. Salve sua chave em Configurações → Chaves de IA e gere de novo.",
+          "O assistente não usou a sua conta OpenAI (por isso o painel da OpenAI continua em $0). Salve sua chave em Configurações → Chaves de IA e gere de novo.",
       };
     }
     if (provider === "gemini") {
@@ -114,7 +112,18 @@ export function classifyChatError(
     };
   }
 
-  return { status: 502, error: fallbackMessage };
+  let providerMessage = "";
+  try {
+    const parsed = JSON.parse(body) as { error?: { message?: string }; message?: string };
+    const raw = parsed.error?.message || parsed.message;
+    if (typeof raw === "string" && raw.trim()) providerMessage = raw.trim().slice(0, 220);
+  } catch {
+    // keep generic fallback
+  }
+  return {
+    status: 502,
+    error: providerMessage ? `${fallbackMessage}: ${providerMessage}` : fallbackMessage,
+  };
 }
 
 async function fetchOpenAI(
@@ -174,28 +183,6 @@ function geminiToChatJson(payload: unknown): ChatJson {
   const text =
     json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
   return { choices: [{ message: { content: text } }] };
-}
-
-async function fetchLovable(
-  messages: ChatMessage[],
-  lovableKey: string,
-  model: string,
-  temperature: number,
-): Promise<Response> {
-  return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Lovable-API-Key": lovableKey,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
 }
 
 async function readFailed(
@@ -260,23 +247,60 @@ async function tryGemini(
 }
 
 /**
- * Prefer the admin's OpenAI, then Gemini BYOK, then platform OpenAI, then Lovable.
- * A stored-but-unreadable BYOK key must not silently fall through to Lovable.
+ * Prefer the admin's OpenAI, then Gemini BYOK, then the platform OpenAI secret.
+ * Never use the shared Lovable gateway — it 429s independently of the user's OpenAI usage.
  */
 export async function completeChatJson(
   messages: ChatMessage[],
   openaiKey: string | null,
   source: KeySource,
-  options: { temperature: number; fallbackMessage: string; geminiKey?: string | null },
+  options: {
+    temperature: number;
+    fallbackMessage: string;
+    geminiKey?: string | null;
+    preferredProvider?: "openai" | "gemini";
+  },
 ): Promise<ChatCompletionOk | ChatCompletionFail> {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const { temperature, fallbackMessage, geminiKey = null } = options;
+  const { temperature, fallbackMessage, geminiKey = null, preferredProvider } = options;
   console.log("completeChatJson", {
     source,
+    preferredProvider: preferredProvider ?? "auto",
     hasOpenAI: Boolean(openaiKey),
     hasGemini: Boolean(geminiKey),
-    hasLovable: Boolean(lovableKey),
   });
+
+  if (preferredProvider === "gemini") {
+    if (!geminiKey) {
+      return {
+        ok: false,
+        provider: "gemini",
+        status: 400,
+        error: "Salve sua chave Gemini em Configurações → Chaves de IA.",
+      };
+    }
+    return await tryGemini(messages, geminiKey, "admin", temperature, fallbackMessage);
+  }
+
+  if (preferredProvider === "openai") {
+    if (source === "decrypt_failed") {
+      return {
+        ok: false,
+        provider: "openai",
+        status: 400,
+        error:
+          "Não foi possível ler a chave OpenAI salva. Abra Configurações → Chaves de IA e cole a chave de novo.",
+      };
+    }
+    if (!openaiKey) {
+      return {
+        ok: false,
+        provider: "openai",
+        status: 400,
+        error: "Salve sua chave OpenAI em Configurações → Chaves de IA.",
+      };
+    }
+    return await tryOpenAI(messages, openaiKey, source, temperature, fallbackMessage);
+  }
 
   if (source === "decrypt_failed") {
     return {
@@ -289,63 +313,22 @@ export async function completeChatJson(
   }
 
   if (openaiKey && source === "admin") {
-    const result = await tryOpenAI(messages, openaiKey, source, temperature, fallbackMessage);
-    if (result.ok) return result;
-    if (geminiKey) {
-      const gemini = await tryGemini(messages, geminiKey, "admin", temperature, fallbackMessage);
-      if (gemini.ok) return gemini;
-    }
-    return result;
+    return await tryOpenAI(messages, openaiKey, source, temperature, fallbackMessage);
   }
 
   if (geminiKey) {
-    const gemini = await tryGemini(messages, geminiKey, "admin", temperature, fallbackMessage);
-    if (gemini.ok) return gemini;
+    return await tryGemini(messages, geminiKey, "admin", temperature, fallbackMessage);
   }
 
   if (openaiKey) {
-    const result = await tryOpenAI(messages, openaiKey, source, temperature, fallbackMessage);
-    if (result.ok) return result;
-    if (!lovableKey) return result;
-    console.error("platform OpenAI failed; falling back to Lovable:", result.status, result.error);
+    return await tryOpenAI(messages, openaiKey, source, temperature, fallbackMessage);
   }
 
-  if (!lovableKey) {
-    return {
-      ok: false,
-      provider: null,
-      status: 400,
-      error: "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
-    };
-  }
-
-  const models = uniqueModels([
-    "google/gemini-2.5-flash",
-    Deno.env.get("AI_MODEL") || Deno.env.get("LOVABLE_AI_MODEL") || "openai/gpt-5.4-mini",
-    "openai/gpt-5.4-nano",
-  ]);
-
-  let lastFail: ChatCompletionFail | null = null;
-  for (let i = 0; i < models.length; i++) {
-    const model = models[i];
-    const res = await fetchLovable(messages, lovableKey, model, temperature);
-    if (res.ok) {
-      return { ok: true, provider: "lovable", json: (await res.json()) as ChatJson };
-    }
-    lastFail = await readFailed(res, "lovable", source, fallbackMessage);
-    const retryable = res.status === 429 || res.status === 503;
-    if (!retryable) return lastFail;
-    if (i < models.length - 1) {
-      await sleep(retryAfterMs(res, 800));
-    }
-  }
-
-  return (
-    lastFail ?? {
-      ok: false,
-      provider: "lovable",
-      status: 502,
-      error: fallbackMessage,
-    }
-  );
+  return {
+    ok: false,
+    provider: null,
+    status: 400,
+    error:
+      "Salve sua chave OpenAI em Configurações → Chaves de IA. Sem essa chave o assistente não usa a sua conta OpenAI.",
+  };
 }

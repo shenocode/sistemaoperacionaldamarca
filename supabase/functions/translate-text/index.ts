@@ -96,9 +96,12 @@ Deno.serve(async (req) => {
       ? await resolveAiKey(adminClient, user.id, "gemini")
       : { apiKey: null as string | null, source: "none" as const };
     const geminiKey = geminiResolved.source === "admin" ? geminiResolved.apiKey : null;
-    if (!openaiKey && !geminiKey && !Deno.env.get("LOVABLE_API_KEY")) {
+    if (!openaiKey && !geminiKey) {
       return jsonResponse(
-        { error: resolvedKeyError({ apiKey: openaiKey, source: keySource }, "openai") ?? "Configure sua chave de IA." },
+        {
+          error:
+            "Salve sua chave OpenAI em Configurações → Chaves de IA. Sem essa chave a tradução não usa a sua conta OpenAI.",
+        },
         400,
       );
     }

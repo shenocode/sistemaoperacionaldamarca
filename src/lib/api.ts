@@ -3067,6 +3067,15 @@ async function readFunctionsInvokeError(
   return error?.message || "Falha ao gerar sugestão";
 }
 
+export type DesignProvider = "openai" | "gemini";
+
+function rewriteAssistantLimitError(message: string): string {
+  if (/limite de requisi[cç][oõ]es|rate limit|too many requests|saturada/i.test(message)) {
+    return "O assistente não usou a sua conta OpenAI (por isso o painel da OpenAI continua em $0). Salve a chave em Configurações → Chaves de IA e gere de novo.";
+  }
+  return message;
+}
+
 export async function suggestContent(input: {
   contentId: string;
   projectId: string;
@@ -3081,6 +3090,7 @@ export async function suggestContent(input: {
   documentName?: string;
   format: ContentFormat;
   locale?: string;
+  provider?: DesignProvider;
 }): Promise<ContentSuggestion> {
   const prompt = input.prompt.trim();
   if (!prompt) throw new Error("Informe um prompt");
@@ -3100,16 +3110,17 @@ export async function suggestContent(input: {
       documentName: input.documentName?.trim() || undefined,
       format: input.format,
       locale: input.locale,
+      provider: input.provider === "gemini" ? "gemini" : "openai",
     },
   });
 
   const payload = data as { suggestion?: ContentSuggestion; error?: string } | null;
 
   if (error) {
-    throw new Error(await readFunctionsInvokeError(error, data));
+    throw new Error(rewriteAssistantLimitError(await readFunctionsInvokeError(error, data)));
   }
   if (payload?.error) {
-    throw new Error(payload.error);
+    throw new Error(rewriteAssistantLimitError(payload.error));
   }
   if (!payload?.suggestion) {
     throw new Error("Resposta inválida do assistente");
@@ -3125,8 +3136,6 @@ export async function suggestContent(input: {
     roteiro: payload.suggestion.roteiro ?? "",
   };
 }
-
-export type DesignProvider = "openai" | "gemini";
 
 export type DesignGenerationResult = {
   imageUrl: string;
