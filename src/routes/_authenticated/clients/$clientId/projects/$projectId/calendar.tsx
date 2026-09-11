@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
+import { format, isSameMonth, isToday } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import {
   CalendarDays,
@@ -12,6 +12,7 @@ import {
   Copy,
   ExternalLink,
   GripVertical,
+  List,
   Play,
   Plus,
   Trash2,
@@ -51,8 +52,14 @@ import {
   MediaLightbox,
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ContentStatusSelect } from "@/components/content-status-select";
 import { ContentFormatSelect } from "@/components/content-format-select";
+import { StatusBadge, type ContentStatus } from "@/components/status-badge";
 import {
   contentFormatRowStyles,
   contentFormatStyles,
@@ -63,7 +70,6 @@ import {
 } from "@/components/graphic-arts-material-fields";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
-import type { ContentStatus } from "@/components/status-badge";
 import {
   addProjectThemePreset,
   buildProjectReviewUrl,
@@ -111,6 +117,15 @@ import {
   readCollapsedCalendarBlockIds,
   writeCollapsedCalendarBlockIds,
 } from "@/lib/calendar-block-collapsed";
+import {
+  buildCalendarMonthModel,
+  localDayKey,
+} from "@/lib/calendar-month-grid";
+import {
+  readCalendarViewMode,
+  writeCalendarViewMode,
+  type CalendarViewMode,
+} from "@/lib/calendar-view-mode";
 import {
   rescheduleItemsToWeekdayPattern,
   scheduledAtChanged,
@@ -176,11 +191,13 @@ function CalendarTitleCell({
   i18n,
   disabled,
   onSave,
+  className,
 }: {
   title: string;
   i18n?: unknown;
   disabled: boolean;
   onSave: (title: string, rowI18n: RowI18n) => void;
+  className?: string;
 }) {
   const { i18n: i18next } = useTranslation();
   const uiLocale = normalizeAppLocale(i18next.resolvedLanguage ?? i18next.language);
@@ -219,7 +236,7 @@ function CalendarTitleCell({
 
   return (
     <Input
-      className="h-8 w-full min-w-0 font-medium md:min-w-[12rem]"
+      className={cn("h-8 w-full min-w-0 font-medium md:min-w-[12rem]", className)}
       value={value}
       disabled={disabled || translating}
       onChange={(e) => setValue(e.target.value)}
@@ -302,6 +319,157 @@ function CalendarLayoutThumb({
         </span>
       ) : null}
     </button>
+  );
+}
+
+function MonthItemCell({
+  row,
+  index,
+  blockKey,
+  canReorder,
+  isDragging,
+  isDropTarget,
+  canEdit,
+  isBusy,
+  clientId,
+  projectId,
+  localizedTitle,
+  onOpen,
+  onHandlePointerDown,
+  onSaveTitle,
+  renderDatetimeField,
+  renderFormatField,
+  renderThemeField,
+  renderRowActions,
+}: {
+  row: ContentItem;
+  index: number;
+  blockKey: string;
+  canReorder: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
+  canEdit: boolean;
+  isBusy: boolean;
+  clientId: string;
+  projectId: string;
+  localizedTitle: string;
+  onOpen: (item: ContentItem) => void;
+  onHandlePointerDown: (blockKey: string, index: number) => (event: PointerEvent<HTMLElement>) => void;
+  onSaveTitle: (title: string, rowI18n: RowI18n) => void;
+  renderDatetimeField: (row: ContentItem, className?: string) => ReactNode;
+  renderFormatField: (row: ContentItem, rowFormat: ContentFormat, className?: string) => ReactNode;
+  renderThemeField: (row: ContentItem, className?: string) => ReactNode;
+  renderRowActions: (row: ContentItem, compact?: boolean) => ReactNode;
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const scheduled = parseScheduledDate(row.scheduled_at);
+  const rowFormat = (row.format ?? "static_feed") as ContentFormat;
+  const dateLabel = scheduled ? format(scheduled, "dd/MM", { locale }) : "—";
+  const timeLabel = scheduled ? format(scheduled, "HH:mm", { locale }) : null;
+
+  return (
+    <div
+      data-calendar-drop=""
+      data-calendar-block={blockKey}
+      data-calendar-index={index}
+      className={cn(
+        contentFormatRowStyles[rowFormat],
+        "space-y-1.5 rounded-md border p-1.5",
+        isDragging && "opacity-50",
+        isDropTarget && "bg-muted",
+      )}
+    >
+      <div className="flex items-center gap-1">
+        {canReorder ? (
+          <span
+            onPointerDown={onHandlePointerDown(blockKey, index)}
+            className="inline-flex shrink-0 cursor-grab touch-none select-none p-0.5 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
+            aria-label={t("project.calendar.dragHandle")}
+            title={t("project.calendar.dragHandle")}
+            role="button"
+            tabIndex={0}
+          >
+            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
+        <p className="flex min-w-0 flex-1 items-baseline justify-between gap-1 text-[11px] font-semibold tabular-nums">
+          <span>{dateLabel}</span>
+          {timeLabel ? (
+            <span className="font-medium text-muted-foreground">{timeLabel}</span>
+          ) : null}
+        </p>
+      </div>
+      <CalendarLayoutThumb
+        item={row}
+        sizeClass="aspect-square w-full"
+        expandLabel={t("project.detail.expandMedia")}
+        onOpen={onOpen}
+      />
+      <div className="flex flex-col gap-1">
+        <StatusBadge
+          status={row.status as ContentStatus}
+          className="w-full justify-center rounded-md px-1.5 py-0.5 text-[10px] leading-tight"
+        />
+        <span
+          className={cn(
+            "inline-flex w-full items-center justify-center truncate rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-tight",
+            contentFormatStyles[rowFormat],
+          )}
+        >
+          {t(`project.detail.formats.${rowFormat}`)}
+        </span>
+      </div>
+      <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-full px-1 text-muted-foreground"
+            title={
+              detailsOpen
+                ? t("project.calendar.itemDetailsHide")
+                : t("project.calendar.itemDetails")
+            }
+            aria-label={
+              detailsOpen
+                ? t("project.calendar.itemDetailsHide")
+                : t("project.calendar.itemDetails")
+            }
+          >
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform", detailsOpen && "rotate-180")}
+              aria-hidden="true"
+            />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 pt-1">
+          <span className="text-xs text-muted-foreground">{index + 1}</span>
+          <CalendarTitleCell
+            title={localizedTitle}
+            i18n={row.i18n}
+            disabled={!canEdit || isBusy}
+            className="md:min-w-0"
+            onSave={onSaveTitle}
+          />
+          {renderDatetimeField(row, "w-full")}
+          <ContentStatusSelect
+            status={row.status as ContentStatus}
+            contentId={row.id}
+            clientId={clientId}
+            projectId={projectId}
+            title={localizedTitle}
+            disabled={!canEdit || isBusy}
+            className="w-full max-w-none"
+          />
+          {renderFormatField(row, rowFormat, "w-full")}
+          {renderThemeField(row, "w-full")}
+          {renderRowActions(row, true)}
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 }
 
@@ -433,6 +601,12 @@ function ProjectCalendarPage() {
   const [collapsedBlockIds, setCollapsedBlockIds] = useState<Set<string>>(() =>
     readCollapsedCalendarBlockIds(projectId),
   );
+  const [monthExpandedBlockIds, setMonthExpandedBlockIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [viewMode, setViewMode] = useState<CalendarViewMode>(() =>
+    readCalendarViewMode(projectId),
+  );
   const [approvalsSummaryBlockId, setApprovalsSummaryBlockId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{
     items: PreviewMediaItem[];
@@ -441,7 +615,14 @@ function ProjectCalendarPage() {
 
   useEffect(() => {
     setCollapsedBlockIds(readCollapsedCalendarBlockIds(projectId));
+    setViewMode(readCalendarViewMode(projectId));
+    setMonthExpandedBlockIds(new Set());
   }, [projectId]);
+
+  const changeViewMode = (mode: CalendarViewMode) => {
+    setViewMode(mode);
+    writeCalendarViewMode(projectId, mode);
+  };
 
   const locale = dateLocales[(i18n.language as LanguageCode) ?? "pt-BR"] ?? ptBR;
 
@@ -961,16 +1142,22 @@ function ProjectCalendarPage() {
     </Select>
   );
 
-  const renderRowActions = (row: ContentItem) => (
-    <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
-      <Button asChild variant="outline" size="sm">
+  const renderRowActions = (row: ContentItem, compact = false) => (
+    <div className={cn("flex flex-wrap items-center gap-1.5", !compact && "md:justify-end")}>
+      <Button
+        asChild
+        variant="outline"
+        size={compact ? "icon" : "sm"}
+        className={compact ? "h-8 w-8" : undefined}
+        title={t("project.calendar.access")}
+      >
         <Link
           to="/clients/$clientId/projects/$projectId/content/$contentId"
           params={{ clientId, projectId, contentId: row.id }}
           search={{}}
         >
-          <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {t("project.calendar.access")}
+          <ExternalLink className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+          {compact ? <span className="sr-only">{t("project.calendar.access")}</span> : t("project.calendar.access")}
         </Link>
       </Button>
       {canEdit ? (
@@ -978,25 +1165,34 @@ function ProjectCalendarPage() {
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size={compact ? "icon" : "sm"}
+            className={compact ? "h-8 w-8" : undefined}
             disabled={isBusy}
             title={t("project.calendar.duplicateHint")}
             onClick={() => duplicateMutation.mutate(row.id)}
           >
-            <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            {t("project.calendar.duplicate")}
+            <Copy className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+            {compact ? (
+              <span className="sr-only">{t("project.calendar.duplicate")}</span>
+            ) : (
+              t("project.calendar.duplicate")
+            )}
           </Button>
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size={compact ? "icon" : "sm"}
             disabled={isBusy}
-            className="text-destructive hover:text-destructive"
+            className={cn("text-destructive hover:text-destructive", compact && "h-8 w-8")}
             title={t("project.calendar.deleteHint")}
             onClick={() => setDeleteTarget({ id: row.id, title: localizedTitle(row) })}
           >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            {t("project.calendar.delete")}
+            <Trash2 className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+            {compact ? (
+              <span className="sr-only">{t("project.calendar.delete")}</span>
+            ) : (
+              t("project.calendar.delete")
+            )}
           </Button>
         </>
       ) : null}
@@ -1253,7 +1449,155 @@ function ProjectCalendarPage() {
     );
   };
 
+  const renderMonthItemCell = (blockKey: string, entry: { item: ContentItem; index: number }) => (
+    <MonthItemCell
+      key={entry.item.id}
+      row={entry.item}
+      index={entry.index}
+      blockKey={blockKey}
+      canReorder={canEdit && rows.length > 1}
+      isDragging={dragState?.blockKey === blockKey && dragState.index === entry.index}
+      isDropTarget={
+        dropState?.blockKey === blockKey &&
+        dropState.index === entry.index &&
+        dragState !== null &&
+        !(dragState.blockKey === blockKey && dragState.index === entry.index)
+      }
+      canEdit={canEdit}
+      isBusy={isBusy}
+      clientId={clientId}
+      projectId={projectId}
+      localizedTitle={localizedTitle(entry.item)}
+      onOpen={openMediaLightbox}
+      onHandlePointerDown={onHandlePointerDown}
+      onSaveTitle={(nextTitle, nextI18n) => {
+        updateMutation.mutate({
+          contentId: entry.item.id,
+          title: nextTitle,
+          i18n: nextI18n,
+        });
+      }}
+      renderDatetimeField={renderDatetimeField}
+      renderFormatField={renderFormatField}
+      renderThemeField={renderThemeField}
+      renderRowActions={renderRowActions}
+    />
+  );
+
+  const renderBlockMonthGrid = (blockKey: string, blockRows: ContentItem[]) => {
+    const canReorder = canEdit && rows.length > 1;
+    const isDroppingAtEnd =
+      dropState?.blockKey === blockKey && dropState.index === blockRows.length && dragState !== null;
+    const model = buildCalendarMonthModel(blockRows, locale);
+
+    return (
+      <div className="space-y-4 p-3">
+        {model.unscheduled.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              {t("project.calendar.unscheduled")}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+              {model.unscheduled.map((entry) => renderMonthItemCell(blockKey, entry))}
+            </div>
+          </div>
+        ) : null}
+
+        {model.months.map(({ month, weeks }) => (
+          <div key={localDayKey(month)} className="min-w-0 space-y-2">
+            <h3 className="text-sm font-semibold capitalize">
+              {format(month, "LLLL yyyy", { locale })}
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
+                <thead>
+                  <tr>
+                    {model.weekdays.map((weekday) => (
+                      <th
+                        key={weekday.toISOString()}
+                        className="border-b px-1 py-2 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                      >
+                        {format(weekday, "EEE", { locale })}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeks.map((week) => (
+                    <tr key={localDayKey(week[0])}>
+                      {week.map((day) => {
+                        const inMonth = isSameMonth(day, month);
+                        const posts = inMonth ? (model.byDay.get(localDayKey(day)) ?? []) : [];
+                        return (
+                          <td
+                            key={localDayKey(day)}
+                            className={cn(
+                              "align-top border border-border/70 p-0",
+                              "min-w-[6.5rem]",
+                              !inMonth && "bg-muted/40",
+                              inMonth && isToday(day) && "bg-primary/5",
+                            )}
+                          >
+                            <div className="min-h-[7rem] p-1">
+                              <div
+                                className={cn(
+                                  "mb-1 text-right text-[11px] tabular-nums",
+                                  inMonth && isToday(day)
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground",
+                                  !inMonth && "text-muted-foreground/50",
+                                )}
+                              >
+                                {format(day, "d")}
+                              </div>
+                              <div className="space-y-1.5">
+                                {posts.map((entry) => renderMonthItemCell(blockKey, entry))}
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+
+        {canReorder ? (
+          <div
+            data-calendar-drop=""
+            data-calendar-block={blockKey}
+            data-calendar-index={blockRows.length}
+            className={cn(
+              "rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground",
+              !dragState && "hidden",
+              isDroppingAtEnd && "border-foreground/30 bg-muted text-foreground",
+            )}
+          >
+            {t("project.calendar.dropAtEnd")}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderBlockItems = (blockKey: string, blockRows: ContentItem[]) =>
+    viewMode === "month"
+      ? renderBlockMonthGrid(blockKey, blockRows)
+      : renderBlockTable(blockKey, blockRows);
+
   const toggleBlockCollapsed = (blockId: string) => {
+    if (viewMode === "month") {
+      setMonthExpandedBlockIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(blockId)) next.delete(blockId);
+        else next.add(blockId);
+        return next;
+      });
+      return;
+    }
     setCollapsedBlockIds((prev) => {
       const next = new Set(prev);
       if (next.has(blockId)) next.delete(blockId);
@@ -1266,7 +1610,10 @@ function ProjectCalendarPage() {
   const renderBlockCard = (block: CalendarBlock) => {
     const blockRows = itemsByBlock.map.get(block.id) ?? [];
     const approvedRows = blockRows.filter((row) => isApprovedContentStatus(row.status));
-    const isCollapsed = collapsedBlockIds.has(block.id);
+    const isCollapsed =
+      viewMode === "month"
+        ? !monthExpandedBlockIds.has(block.id)
+        : collapsedBlockIds.has(block.id);
     const canMoveItems = canEdit && rows.length > 1;
     const isDropTarget =
       dropState?.blockKey === block.id &&
@@ -1399,7 +1746,7 @@ function ProjectCalendarPage() {
               : t("project.calendar.empty")}
           </p>
         ) : (
-          renderBlockTable(block.id, blockRows)
+          renderBlockItems(block.id, blockRows)
         )}
       </Card>
     );
@@ -1452,23 +1799,55 @@ function ProjectCalendarPage() {
             ))}
           </ul>
         </div>
-        {canEdit ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button type="button" size="sm" onClick={openCreateDialog}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-              {t("project.content.new")}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canEdit ? (
+            <>
+              <Button type="button" size="sm" onClick={openCreateDialog}>
+                <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t("project.content.new")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={clientQuery.isLoading || projectQuery.isLoading}
+                onClick={handleSendUpdates}
+              >
+                {t("project.calendar.sendUpdates")}
+              </Button>
+            </>
+          ) : null}
+          <div
+            className="inline-flex rounded-md border bg-background p-0.5"
+            role="group"
+            aria-label={t("project.calendar.viewMode")}
+          >
+            <Button
+              type="button"
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8"
+              aria-pressed={viewMode === "list"}
+              title={t("project.calendar.viewListHint")}
+              onClick={() => changeViewMode("list")}
+            >
+              <List className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t("project.calendar.viewList")}
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant={viewMode === "month" ? "secondary" : "ghost"}
               size="sm"
-              disabled={clientQuery.isLoading || projectQuery.isLoading}
-              onClick={handleSendUpdates}
+              className="h-8"
+              aria-pressed={viewMode === "month"}
+              title={t("project.calendar.viewMonthHint")}
+              onClick={() => changeViewMode("month")}
             >
-              {t("project.calendar.sendUpdates")}
+              <CalendarDays className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t("project.calendar.viewMonth")}
             </Button>
           </div>
-        ) : null}
+        </div>
       </div>
 
       {loading ? (
@@ -1491,13 +1870,13 @@ function ProjectCalendarPage() {
           {blocks.map((block) => renderBlockCard(block))}
           {itemsByBlock.unassigned.length > 0 ? (
             <Card className="rounded-xl">
-              {renderBlockTable("__unassigned__", itemsByBlock.unassigned)}
+              {renderBlockItems("__unassigned__", itemsByBlock.unassigned)}
             </Card>
           ) : null}
         </div>
       ) : (
         <Card className="rounded-xl">
-          {renderBlockTable("__all__", rows)}
+          {renderBlockItems("__all__", rows)}
         </Card>
       )}
 
