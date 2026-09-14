@@ -119,7 +119,10 @@ import {
 } from "@/lib/calendar-block-collapsed";
 import {
   buildCalendarMonthModel,
+  groupItemsByDay,
+  itemsForCalendarDay,
   localDayKey,
+  previousBlockItems,
 } from "@/lib/calendar-month-grid";
 import {
   readCalendarViewMode,
@@ -273,16 +276,21 @@ function CalendarLayoutThumb({
   sizeClass,
   expandLabel,
   onOpen,
+  muted = false,
+  badge,
 }: {
   item: ContentItem;
   sizeClass: string;
   expandLabel: string;
   onOpen: (item: ContentItem) => void;
+  muted?: boolean;
+  badge?: string;
 }) {
   const thumb = resolveContentThumbnail(item);
   const canOpen = previewItemsForContent(item).length > 0;
   const video = Boolean(thumb && isVideoUrl(thumb));
-  const frame = cn(sizeClass, "overflow-hidden rounded-md bg-muted");
+  const frame = cn(sizeClass, "relative overflow-hidden rounded-md bg-muted");
+  const mediaClass = cn("h-full w-full object-cover", muted && "opacity-70 saturate-50");
 
   const media = thumb ? (
     video ? (
@@ -291,15 +299,30 @@ function CalendarLayoutThumb({
         muted
         playsInline
         preload="metadata"
-        className="h-full w-full object-cover"
+        className={mediaClass}
       />
     ) : (
-      <img src={thumb} alt="" className="h-full w-full object-cover" />
+      <img src={thumb} alt="" className={mediaClass} />
     )
   ) : null;
 
+  const overlay = (
+    <>
+      {badge ? (
+        <span className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-black/55 px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-normal text-white">
+          {badge}
+        </span>
+      ) : null}
+      {video ? (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25">
+          <Play className="h-3 w-3 text-white" aria-hidden="true" />
+        </span>
+      ) : null}
+    </>
+  );
+
   if (!canOpen) {
-    return <div className={cn(frame, "shrink-0")} />;
+    return <div className={cn(frame, "shrink-0")}>{media}{overlay}</div>;
   }
 
   return (
@@ -309,15 +332,11 @@ function CalendarLayoutThumb({
       aria-label={expandLabel}
       className={cn(
         frame,
-        "relative shrink-0 cursor-zoom-in outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
+        "shrink-0 cursor-zoom-in outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
       {media}
-      {video ? (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25">
-          <Play className="h-3 w-3 text-white" aria-hidden="true" />
-        </span>
-      ) : null}
+      {overlay}
     </button>
   );
 }
@@ -329,6 +348,7 @@ function MonthItemCell({
   canReorder,
   isDragging,
   isDropTarget,
+  isPrior = false,
   canEdit,
   isBusy,
   clientId,
@@ -348,6 +368,7 @@ function MonthItemCell({
   canReorder: boolean;
   isDragging: boolean;
   isDropTarget: boolean;
+  isPrior?: boolean;
   canEdit: boolean;
   isBusy: boolean;
   clientId: string;
@@ -371,18 +392,24 @@ function MonthItemCell({
 
   return (
     <div
-      data-calendar-drop=""
-      data-calendar-block={blockKey}
-      data-calendar-index={index}
+      {...(isPrior
+        ? {}
+        : {
+            "data-calendar-drop": "",
+            "data-calendar-block": blockKey,
+            "data-calendar-index": String(index),
+          })}
       className={cn(
-        contentFormatRowStyles[rowFormat],
         "space-y-1.5 rounded-md border p-1.5",
+        isPrior
+          ? "border-border/40 bg-muted/60 text-muted-foreground"
+          : contentFormatRowStyles[rowFormat],
         isDragging && "opacity-50",
         isDropTarget && "bg-muted",
       )}
     >
       <div className="flex items-center gap-1">
-        {canReorder ? (
+        {canReorder && !isPrior ? (
           <span
             onPointerDown={onHandlePointerDown(blockKey, index)}
             className="inline-flex shrink-0 cursor-grab touch-none select-none p-0.5 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
@@ -406,8 +433,10 @@ function MonthItemCell({
         sizeClass="aspect-square w-full"
         expandLabel={t("project.detail.expandMedia")}
         onOpen={onOpen}
+        muted={isPrior}
+        badge={isPrior ? t("project.calendar.priorPublished") : undefined}
       />
-      <div className="flex flex-col gap-1">
+      <div className={cn("flex flex-col gap-1", isPrior && "opacity-70 saturate-50")}>
         <StatusBadge
           status={row.status as ContentStatus}
           className="w-full justify-center rounded-md px-1.5 py-0.5 text-[10px] leading-tight"
@@ -1449,20 +1478,27 @@ function ProjectCalendarPage() {
     );
   };
 
-  const renderMonthItemCell = (blockKey: string, entry: { item: ContentItem; index: number }) => (
+  const renderMonthItemCell = (
+    blockKey: string,
+    entry: { item: ContentItem; index: number; prior?: boolean },
+  ) => (
     <MonthItemCell
       key={entry.item.id}
       row={entry.item}
       index={entry.index}
       blockKey={blockKey}
-      canReorder={canEdit && rows.length > 1}
-      isDragging={dragState?.blockKey === blockKey && dragState.index === entry.index}
+      canReorder={canEdit && rows.length > 1 && !entry.prior}
+      isDragging={
+        !entry.prior && dragState?.blockKey === blockKey && dragState.index === entry.index
+      }
       isDropTarget={
+        !entry.prior &&
         dropState?.blockKey === blockKey &&
         dropState.index === entry.index &&
         dragState !== null &&
         !(dragState.blockKey === blockKey && dragState.index === entry.index)
       }
+      isPrior={Boolean(entry.prior)}
       canEdit={canEdit}
       isBusy={isBusy}
       clientId={clientId}
@@ -1489,6 +1525,9 @@ function ProjectCalendarPage() {
     const isDroppingAtEnd =
       dropState?.blockKey === blockKey && dropState.index === blockRows.length && dragState !== null;
     const model = buildCalendarMonthModel(blockRows, locale);
+    const priorByDay = groupItemsByDay(
+      previousBlockItems(blockKey, blocks, itemsByBlock.map),
+    ).byDay;
 
     return (
       <div className="space-y-4 p-3">
@@ -1527,7 +1566,11 @@ function ProjectCalendarPage() {
                     <tr key={localDayKey(week[0])}>
                       {week.map((day) => {
                         const inMonth = isSameMonth(day, month);
-                        const posts = inMonth ? (model.byDay.get(localDayKey(day)) ?? []) : [];
+                        const posts = itemsForCalendarDay(
+                          localDayKey(day),
+                          model.byDay,
+                          priorByDay,
+                        );
                         return (
                           <td
                             key={localDayKey(day)}

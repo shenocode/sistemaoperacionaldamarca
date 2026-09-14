@@ -1050,6 +1050,7 @@
       "itemDetails": "Más información",
       "itemDetailsHide": "Ocultar información",
       "unscheduled": "Sin fecha programada",
+      "priorPublished": "Publicado",
       "columns": {
         "day": "Día",
         "datetime": "Fecha y hora",

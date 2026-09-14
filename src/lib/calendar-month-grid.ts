@@ -13,7 +13,40 @@ import { parseScheduledDate } from "@/lib/calendar-weekday-pattern";
 export type CalendarDayItem = {
   item: ContentItem;
   index: number;
+  prior?: boolean;
 };
+
+export function previousBlockItems(
+  blockKey: string,
+  blocks: { id: string }[],
+  itemsByBlock: Map<string, ContentItem[]>,
+): ContentItem[] {
+  if (blockKey === "__all__") return [];
+
+  const previous: ContentItem[] = [];
+  if (blockKey === "__unassigned__") {
+    for (const block of blocks) {
+      previous.push(...(itemsByBlock.get(block.id) ?? []));
+    }
+    return previous;
+  }
+
+  for (const block of blocks) {
+    if (block.id === blockKey) break;
+    previous.push(...(itemsByBlock.get(block.id) ?? []));
+  }
+  return previous;
+}
+
+export function itemsForCalendarDay(
+  dayKey: string,
+  currentByDay: Map<string, CalendarDayItem[]>,
+  priorByDay: Map<string, CalendarDayItem[]>,
+): CalendarDayItem[] {
+  const prior = (priorByDay.get(dayKey) ?? []).map((entry) => ({ ...entry, prior: true }));
+  const current = (currentByDay.get(dayKey) ?? []).map((entry) => ({ ...entry, prior: false }));
+  return [...prior, ...current];
+}
 
 function weekStartsOnFromLocale(locale: Locale): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
   return (locale.options?.weekStartsOn ?? 0) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
