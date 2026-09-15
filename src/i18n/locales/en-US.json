@@ -139,6 +139,8 @@
     "ctaSecondary": "See plans",
     "signIn": "Sign in",
     "goToApp": "Go to app",
+    "accountMenu": "My account",
+    "accountMenuNamed": "{{name}}'s account",
     "navFeatures": "Product",
     "navHow": "How it works",
     "navAssets": "Assets",

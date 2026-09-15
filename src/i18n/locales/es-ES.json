@@ -139,6 +139,8 @@
     "ctaSecondary": "Ver planes",
     "signIn": "Entrar",
     "goToApp": "Ir a la app",
+    "accountMenu": "Mi cuenta",
+    "accountMenuNamed": "Cuenta de {{name}}",
     "navFeatures": "Producto",
     "navHow": "Cómo funciona",
     "navAssets": "Activos",

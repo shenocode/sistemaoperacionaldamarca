@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { format, isSameMonth, isToday } from "date-fns";
+import { format, isToday } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import {
   CalendarDays,
@@ -87,6 +87,7 @@ import {
   getClient,
   getGraphicArtsMaterialPreset,
   getPrimaryProjectCategory,
+  listCalendarBlocks,
   listContent,
   getProject,
   getLocalizedText,
@@ -120,6 +121,7 @@ import {
 import {
   buildCalendarMonthModel,
   groupItemsByDay,
+  isInScheduledRange,
   itemsForCalendarDay,
   localDayKey,
   previousBlockItems,
@@ -277,14 +279,12 @@ function CalendarLayoutThumb({
   expandLabel,
   onOpen,
   muted = false,
-  badge,
 }: {
   item: ContentItem;
   sizeClass: string;
   expandLabel: string;
   onOpen: (item: ContentItem) => void;
   muted?: boolean;
-  badge?: string;
 }) {
   const thumb = resolveContentThumbnail(item);
   const canOpen = previewItemsForContent(item).length > 0;
@@ -306,23 +306,19 @@ function CalendarLayoutThumb({
     )
   ) : null;
 
-  const overlay = (
-    <>
-      {badge ? (
-        <span className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-black/55 px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-normal text-white">
-          {badge}
-        </span>
-      ) : null}
-      {video ? (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25">
-          <Play className="h-3 w-3 text-white" aria-hidden="true" />
-        </span>
-      ) : null}
-    </>
-  );
+  const overlay = video ? (
+    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25">
+      <Play className="h-3 w-3 text-white" aria-hidden="true" />
+    </span>
+  ) : null;
 
   if (!canOpen) {
-    return <div className={cn(frame, "shrink-0")}>{media}{overlay}</div>;
+    return (
+      <div className={cn(frame, "shrink-0")}>
+        {media}
+        {overlay}
+      </div>
+    );
   }
 
   return (
@@ -389,6 +385,8 @@ function MonthItemCell({
   const rowFormat = (row.format ?? "static_feed") as ContentFormat;
   const dateLabel = scheduled ? format(scheduled, "dd/MM", { locale }) : "—";
   const timeLabel = scheduled ? format(scheduled, "HH:mm", { locale }) : null;
+  const isPublished = row.status === "published";
+  const isMuted = isPrior || isPublished;
 
   return (
     <div
@@ -401,7 +399,7 @@ function MonthItemCell({
           })}
       className={cn(
         "space-y-1.5 rounded-md border p-1.5",
-        isPrior
+        isMuted
           ? "border-border/40 bg-muted/60 text-muted-foreground"
           : contentFormatRowStyles[rowFormat],
         isDragging && "opacity-50",
@@ -433,10 +431,9 @@ function MonthItemCell({
         sizeClass="aspect-square w-full"
         expandLabel={t("project.detail.expandMedia")}
         onOpen={onOpen}
-        muted={isPrior}
-        badge={isPrior ? t("project.calendar.priorPublished") : undefined}
+        muted={isMuted}
       />
-      <div className={cn("flex flex-col gap-1", isPrior && "opacity-70 saturate-50")}>
+      <div className={cn("flex flex-col gap-1", isMuted && "opacity-70 saturate-50")}>
         <StatusBadge
           status={row.status as ContentStatus}
           className="w-full justify-center rounded-md px-1.5 py-0.5 text-[10px] leading-tight"
@@ -662,7 +659,15 @@ function ProjectCalendarPage() {
 
   const blocksQuery = useQuery({
     queryKey: ["calendar-blocks", projectId],
-    queryFn: () => ensureCalendarBlocks(projectId),
+    queryFn: async () => {
+      const canManage = await canManageClient(clientId);
+      if (!canManage) return listCalendarBlocks(projectId);
+      try {
+        return await ensureCalendarBlocks(projectId);
+      } catch {
+        return listCalendarBlocks(projectId);
+      }
+    },
     enabled: Boolean(contentQuery.data),
   });
 
@@ -1542,11 +1547,18 @@ function ProjectCalendarPage() {
           </div>
         ) : null}
 
-        {model.months.map(({ month, weeks }) => (
-          <div key={localDayKey(month)} className="min-w-0 space-y-2">
-            <h3 className="text-sm font-semibold capitalize">
-              {format(month, "LLLL yyyy", { locale })}
-            </h3>
+        {model.weeks.length > 0 ? (
+          <div className="min-w-0 space-y-2">
+            {model.range ? (
+              <h3 className="text-sm font-semibold capitalize">
+                {model.range.start.getFullYear() === model.range.end.getFullYear() &&
+                model.range.start.getMonth() === model.range.end.getMonth()
+                  ? format(model.range.start, "LLLL yyyy", { locale })
+                  : model.range.start.getFullYear() === model.range.end.getFullYear()
+                    ? `${format(model.range.start, "LLLL", { locale })} – ${format(model.range.end, "LLLL yyyy", { locale })}`
+                    : `${format(model.range.start, "LLLL yyyy", { locale })} – ${format(model.range.end, "LLLL yyyy", { locale })}`}
+              </h3>
+            ) : null}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
                 <thead>
@@ -1562,10 +1574,13 @@ function ProjectCalendarPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {weeks.map((week) => (
+                  {model.weeks.map((week) => (
                     <tr key={localDayKey(week[0])}>
                       {week.map((day) => {
-                        const inMonth = isSameMonth(day, month);
+                        const inRange = isInScheduledRange(day, model.range);
+                        const isFirstVisibleDay =
+                          localDayKey(day) === localDayKey(model.weeks[0][0]);
+                        const showMonthLabel = day.getDate() === 1 || isFirstVisibleDay;
                         const posts = itemsForCalendarDay(
                           localDayKey(day),
                           model.byDay,
@@ -1577,21 +1592,21 @@ function ProjectCalendarPage() {
                             className={cn(
                               "align-top border border-border/70 p-0",
                               "min-w-[6.5rem]",
-                              !inMonth && "bg-muted/40",
-                              inMonth && isToday(day) && "bg-primary/5",
+                              !inRange && "bg-muted/40",
+                              inRange && isToday(day) && "bg-primary/5",
                             )}
                           >
                             <div className="min-h-[7rem] p-1">
                               <div
                                 className={cn(
                                   "mb-1 text-right text-[11px] tabular-nums",
-                                  inMonth && isToday(day)
+                                  inRange && isToday(day)
                                     ? "font-semibold text-foreground"
                                     : "text-muted-foreground",
-                                  !inMonth && "text-muted-foreground/50",
+                                  !inRange && "text-muted-foreground/50",
                                 )}
                               >
-                                {format(day, "d")}
+                                {format(day, showMonthLabel ? "d MMM" : "d", { locale })}
                               </div>
                               <div className="space-y-1.5">
                                 {posts.map((entry) => renderMonthItemCell(blockKey, entry))}
@@ -1606,7 +1621,7 @@ function ProjectCalendarPage() {
               </table>
             </div>
           </div>
-        ))}
+        ) : null}
 
         {canReorder ? (
           <div
@@ -1861,7 +1876,7 @@ function ProjectCalendarPage() {
             </>
           ) : null}
           <div
-            className="inline-flex rounded-md border bg-background p-0.5"
+            className="inline-flex shrink-0 rounded-md border bg-background p-0.5"
             role="group"
             aria-label={t("project.calendar.viewMode")}
           >

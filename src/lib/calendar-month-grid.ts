@@ -1,11 +1,4 @@
-import {
-  addDays,
-  addMonths,
-  endOfMonth,
-  endOfWeek,
-  startOfMonth,
-  startOfWeek,
-} from "date-fns";
+import { addDays, endOfWeek, startOfWeek } from "date-fns";
 import type { Locale } from "date-fns";
 import type { ContentItem } from "@/lib/api";
 import { parseScheduledDate } from "@/lib/calendar-weekday-pattern";
@@ -15,6 +8,8 @@ export type CalendarDayItem = {
   index: number;
   prior?: boolean;
 };
+
+const MAX_WEEKS = 16;
 
 export function previousBlockItems(
   blockKey: string,
@@ -52,6 +47,10 @@ function weekStartsOnFromLocale(locale: Locale): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
   return (locale.options?.weekStartsOn ?? 0) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
 }
 
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 export function localDayKey(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -79,32 +78,37 @@ export function groupItemsByDay(items: ContentItem[]): {
   return { byDay, unscheduled };
 }
 
-export function monthsCoveringItems(items: ContentItem[], maxMonths = 12): Date[] {
+export function scheduledDateRange(items: ContentItem[]): { start: Date; end: Date } | null {
   const dates = items
     .map((item) => parseScheduledDate(item.scheduled_at))
-    .filter((date): date is Date => Boolean(date));
-  if (dates.length === 0) return [];
+    .filter((date): date is Date => Boolean(date))
+    .map(startOfLocalDay);
+  if (dates.length === 0) return null;
 
-  let cursor = startOfMonth(dates.reduce((earliest, date) => (date < earliest ? date : earliest)));
-  const last = startOfMonth(dates.reduce((latest, date) => (date > latest ? date : latest)));
-  const months: Date[] = [];
-
-  while (cursor.getTime() <= last.getTime() && months.length < maxMonths) {
-    months.push(cursor);
-    cursor = addMonths(cursor, 1);
-  }
-
-  return months;
+  return {
+    start: dates.reduce((earliest, date) => (date < earliest ? date : earliest)),
+    end: dates.reduce((latest, date) => (date > latest ? date : latest)),
+  };
 }
 
-export function buildWeeksForMonth(month: Date, locale: Locale): Date[][] {
+export function isInScheduledRange(day: Date, range: { start: Date; end: Date } | null): boolean {
+  if (!range) return false;
+  const time = startOfLocalDay(day).getTime();
+  return time >= range.start.getTime() && time <= range.end.getTime();
+}
+
+export function buildWeeksForRange(start: Date, end: Date, locale: Locale): Date[][] {
   const weekStartsOn = weekStartsOnFromLocale(locale);
-  const start = startOfWeek(startOfMonth(month), { locale, weekStartsOn });
-  const end = endOfWeek(endOfMonth(month), { locale, weekStartsOn });
+  const rangeStart = startOfWeek(start, { locale, weekStartsOn });
+  const rangeEnd = endOfWeek(end, { locale, weekStartsOn });
   const weeks: Date[][] = [];
   let week: Date[] = [];
 
-  for (let cursor = start; cursor.getTime() <= end.getTime(); cursor = addDays(cursor, 1)) {
+  for (
+    let cursor = rangeStart;
+    cursor.getTime() <= rangeEnd.getTime() && weeks.length < MAX_WEEKS;
+    cursor = addDays(cursor, 1)
+  ) {
     week.push(cursor);
     if (week.length === 7) {
       weeks.push(week);
@@ -123,12 +127,11 @@ export function weekdayHeaders(locale: Locale): Date[] {
 
 export function buildCalendarMonthModel(items: ContentItem[], locale: Locale) {
   const { byDay, unscheduled } = groupItemsByDay(items);
-  const months = monthsCoveringItems(items).map((month) => ({
-    month,
-    weeks: buildWeeksForMonth(month, locale),
-  }));
+  const range = scheduledDateRange(items);
+  const weeks = range ? buildWeeksForRange(range.start, range.end, locale) : [];
   return {
-    months,
+    range,
+    weeks,
     weekdays: weekdayHeaders(locale),
     byDay,
     unscheduled,

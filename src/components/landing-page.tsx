@@ -12,6 +12,7 @@ import {
   Image,
   Images,
   LayoutGrid,
+  LogOut,
   MessageSquareText,
   Palette,
   Play,
@@ -38,12 +39,21 @@ import {
 } from "@/components/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ContactForm } from "@/components/contact-form";
 import { ExitIntentDialog } from "@/components/exit-intent-dialog";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SiteFooter } from "@/components/site-footer";
 import { SomLogo, SomMark } from "@/components/som-logo";
+import { supabase } from "@/integrations/supabase/client";
 import {
+  clearAuthNext,
   listClients,
   startSubscriptionCheckout,
   type ContentFormat,
@@ -815,6 +825,11 @@ export function LandingPage() {
     }
   };
 
+  const handleSignOut = async () => {
+    clearAuthNext();
+    await supabase.auth.signOut();
+  };
+
   return (
     <div className="theme-mono landing-atmosphere relative min-h-screen overflow-x-hidden">
       <div id="topo" className="landing-hero-plane">
@@ -844,35 +859,51 @@ export function LandingPage() {
           <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher />
             {authLoading ? (
-              <span className="inline-block h-8 w-8 sm:w-20" aria-hidden />
+              <span className="inline-block h-8 w-8" aria-hidden />
             ) : user ? (
-              <Button asChild variant="ghost" size="sm" className="gap-2 px-1.5 sm:px-2">
-                <Link
-                  to="/home"
-                  aria-label={t("landing.goToApp")}
-                  title={t("landing.goToApp")}
-                >
-                  <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
-                    {avatarUrl ? (
-                      <AvatarImage src={avatarUrl} alt="" className="object-cover" />
-                    ) : null}
-                    <AvatarFallback className="bg-neutral-100 text-[11px] font-semibold text-neutral-800">
-                      {initials || <UserRound className="h-3.5 w-3.5" />}
-                    </AvatarFallback>
-                  </Avatar>
-                  {displayName ? (
-                    <span className="hidden max-w-[7rem] truncate sm:inline">{displayName}</span>
-                  ) : null}
-                </Link>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full p-0"
+                    aria-label={
+                      displayName
+                        ? t("landing.accountMenuNamed", { name: displayName })
+                        : t("landing.accountMenu")
+                    }
+                  >
+                    <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
+                      {avatarUrl ? (
+                        <AvatarImage src={avatarUrl} alt="" className="object-cover" />
+                      ) : null}
+                      <AvatarFallback className="bg-neutral-100 text-[11px] font-semibold text-neutral-800">
+                        {initials || <UserRound className="h-3.5 w-3.5" />}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/home">{t("landing.goToApp")}</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => void handleSignOut()}>
+                    <LogOut />
+                    {t("nav.signOut")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
-              <Button asChild variant="ghost" size="sm" className="inline-flex px-2 sm:px-3">
-                <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
-              </Button>
+              <>
+                <Button asChild variant="ghost" size="sm" className="inline-flex px-2 sm:px-3">
+                  <Link to="/auth" search={{}}>{t("landing.signIn")}</Link>
+                </Button>
+                <Button asChild size="sm" className="hidden bg-neutral-900 text-white hover:bg-neutral-800 sm:inline-flex">
+                  <a href="#contato">{t("landing.cta")}</a>
+                </Button>
+              </>
             )}
-            <Button asChild size="sm" className="hidden bg-neutral-900 text-white hover:bg-neutral-800 sm:inline-flex">
-              <a href="#contato">{t("landing.cta")}</a>
-            </Button>
           </div>
         </header>
 
