@@ -121,6 +121,7 @@ import {
 import {
   buildCalendarMonthModel,
   groupItemsByDay,
+  isCalendarPeriodFinished,
   isInScheduledRange,
   itemsForCalendarDay,
   localDayKey,
@@ -1677,11 +1678,18 @@ function ProjectCalendarPage() {
       dropState?.blockKey === block.id &&
       dragState !== null &&
       dragState.blockKey !== block.id;
+    const isPeriodFinished = isCalendarPeriodFinished(blockRows);
+    const isPeriodActive = !isPeriodFinished;
+    const activeActionClass = isPeriodActive
+      ? "border-transparent bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+      : undefined;
     return (
       <Card
         key={block.id}
+        data-calendar-period={isPeriodFinished ? "finished" : "active"}
         className={cn(
           "rounded-xl",
+          isPeriodActive && "border-primary",
           isCollapsed && isDropTarget && "ring-2 ring-foreground/20",
         )}
       >
@@ -1713,6 +1721,7 @@ function ProjectCalendarPage() {
               type="button"
               variant="outline"
               size="sm"
+              className={activeActionClass}
               title={
                 isCollapsed
                   ? t("project.calendar.expandBlockHint")
@@ -1734,6 +1743,7 @@ function ProjectCalendarPage() {
               type="button"
               variant="outline"
               size="sm"
+              className={activeActionClass}
               disabled={approvedRows.length === 0}
               title={
                 approvedRows.length === 0
@@ -1745,7 +1755,14 @@ function ProjectCalendarPage() {
               <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               {t("project.calendar.approvalsSummary.button")}
               {approvedRows.length > 0 ? (
-                <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                <span
+                  className={cn(
+                    "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+                    isPeriodActive
+                      ? "bg-background/20 text-background"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
                   {approvedRows.length}
                 </span>
               ) : null}
@@ -1756,6 +1773,7 @@ function ProjectCalendarPage() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className={activeActionClass}
                   disabled={isBusy || blockRows.length === 0}
                   title={t("project.calendar.duplicateBlockHint")}
                   onClick={() => duplicateBlockMutation.mutate(block.id)}

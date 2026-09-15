@@ -97,6 +97,16 @@ export function isInScheduledRange(day: Date, range: { start: Date; end: Date } 
   return time >= range.start.getTime() && time <= range.end.getTime();
 }
 
+/** True when the last scheduled post of the period is before today. */
+export function isCalendarPeriodFinished(
+  items: ContentItem[],
+  now: Date = new Date(),
+): boolean {
+  const range = scheduledDateRange(items);
+  if (!range) return false;
+  return range.end.getTime() < startOfLocalDay(now).getTime();
+}
+
 export function buildWeeksForRange(start: Date, end: Date, locale: Locale): Date[][] {
   const weekStartsOn = weekStartsOnFromLocale(locale);
   const rangeStart = startOfWeek(start, { locale, weekStartsOn });
