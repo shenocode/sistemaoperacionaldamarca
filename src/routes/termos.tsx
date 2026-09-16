@@ -42,6 +42,12 @@ function TermosPage() {
           </section>
         ))}
       </div>
+      <p className="text-sm text-muted-foreground">
+        {t("legal.resourcesSeeAlso")}{" "}
+        <Link to="/recursos" className="font-medium text-foreground underline-offset-2 hover:underline">
+          {t("legal.resourcesTitle")}.
+        </Link>
+      </p>
       <Button asChild variant="outline" size="sm">
         <Link to="/">{t("legal.backHome")}</Link>
       </Button>

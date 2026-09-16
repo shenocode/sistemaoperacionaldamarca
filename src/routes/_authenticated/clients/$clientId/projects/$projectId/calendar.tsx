@@ -15,6 +15,7 @@ import {
   List,
   Play,
   Plus,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApprovalsSummaryDialog } from "@/components/approvals-summary-dialog";
+import { ContentIdeasPanel } from "@/components/content-ideas-panel";
 import {
   MediaLightbox,
   type PreviewMediaItem,
@@ -57,9 +59,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ContentStatusSelect } from "@/components/content-status-select";
+import { ContentStatusLink, ContentStatusSelect } from "@/components/content-status-select";
 import { ContentFormatSelect } from "@/components/content-format-select";
-import { StatusBadge, type ContentStatus } from "@/components/status-badge";
+import { type ContentStatus } from "@/components/status-badge";
 import {
   contentFormatRowStyles,
   contentFormatStyles,
@@ -104,9 +106,13 @@ import {
   updateContentCalendar,
   type CalendarBlock,
   type ContentFormat,
+  type ContentIdea,
   type ContentItem,
   type GraphicArtsMaterialType,
 } from "@/lib/api";
+import { parseFunnelStage } from "@/lib/content-strategy";
+import { formatLocucaoScript } from "@/lib/locucao-script";
+import { useAppRole } from "@/hooks/use-app-role";
 import {
   buildLocalizedFieldFromSource,
   getCanonicalText,
@@ -435,9 +441,14 @@ function MonthItemCell({
         muted={isMuted}
       />
       <div className={cn("flex flex-col gap-1", isMuted && "opacity-70 saturate-50")}>
-        <StatusBadge
+        <ContentStatusLink
           status={row.status as ContentStatus}
-          className="w-full justify-center rounded-md px-1.5 py-0.5 text-[10px] leading-tight"
+          contentId={row.id}
+          clientId={clientId}
+          projectId={projectId}
+          className="w-full"
+          asButton={false}
+          badgeClassName="w-full justify-center rounded-md px-1.5 py-0.5 text-[10px] leading-tight"
         />
         <span
           className={cn(
@@ -447,6 +458,11 @@ function MonthItemCell({
         >
           {t(`project.detail.formats.${rowFormat}`)}
         </span>
+        {parseFunnelStage(row.funnel_stage) ? (
+          <span className="inline-flex w-full items-center justify-center truncate rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-tight text-muted-foreground">
+            {t(`project.funnel.${parseFunnelStage(row.funnel_stage)}`)}
+          </span>
+        ) : null}
       </div>
       <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
         <CollapsibleTrigger asChild>
@@ -635,6 +651,7 @@ function ProjectCalendarPage() {
     readCalendarViewMode(projectId),
   );
   const [approvalsSummaryBlockId, setApprovalsSummaryBlockId] = useState<string | null>(null);
+  const [ideasOpen, setIdeasOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{
     items: PreviewMediaItem[];
     title: string;
@@ -688,6 +705,7 @@ function ProjectCalendarPage() {
   });
 
   const canEdit = Boolean(manageQuery.data);
+  const { isAdmin } = useAppRole();
   const uiLocale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
   const projectI18n = parseRowI18n(projectQuery.data?.i18n);
   const themePresets = getLocalizedPresetList(
@@ -1878,6 +1896,12 @@ function ProjectCalendarPage() {
         <div className="flex flex-wrap items-center justify-end gap-2">
           {canEdit ? (
             <>
+              {isAdmin ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => setIdeasOpen(true)}>
+                  <Sparkles className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  {t("project.calendar.ideas.button")}
+                </Button>
+              ) : null}
               <Button type="button" size="sm" onClick={openCreateDialog}>
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 {t("project.content.new")}
@@ -2254,6 +2278,39 @@ function ProjectCalendarPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {isAdmin ? (
+        <ContentIdeasPanel
+          open={ideasOpen}
+          onOpenChange={setIdeasOpen}
+          clientId={clientId}
+          projectId={projectId}
+          blocks={blocks}
+          allowedFormats={allowedFormats}
+          onAddIdea={async (idea: ContentIdea, calendarBlockId) => {
+            await createContent({
+              projectId,
+              clientId,
+              title: idea.title,
+              format: idea.format,
+              theme: idea.theme,
+              funnelStage: idea.funnelStage,
+              caption: idea.hook,
+              locucao:
+                idea.format === "reels" ||
+                idea.format === "recorded_video" ||
+                idea.format === "youtube_short"
+                  ? formatLocucaoScript({ hook: idea.hook, body: "", cta: "" })
+                  : "",
+              productionNotes: idea.why,
+              calendarBlockId,
+            });
+            queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      ) : null}
 
       <MediaLightbox
         open={Boolean(lightbox)}

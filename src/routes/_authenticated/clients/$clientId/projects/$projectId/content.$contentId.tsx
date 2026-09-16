@@ -115,6 +115,8 @@ import {
   type RowI18n,
   brandKitFromClient,
 } from "@/lib/api";
+import { FUNNEL_STAGES, parseFunnelStage, type FunnelStage } from "@/lib/content-strategy";
+import { Switch } from "@/components/ui/switch";
 import type { Json } from "@/integrations/supabase/types";
 import {
   flattenOverlayToFile,
@@ -210,6 +212,11 @@ function buildContentFormSnapshot(input: {
   widthCm: string;
   heightCm: string;
   productionNotes: string;
+  funnelStage: FunnelStage | null;
+  performanceReach: string;
+  performanceRetention: string;
+  performanceNote: string;
+  repeatFormat: boolean;
   mediaItems: MediaEntry[];
   thumbnailUrl: string;
   thumbnailFileName: string;
@@ -228,6 +235,11 @@ function buildContentFormSnapshot(input: {
     widthCm: input.widthCm,
     heightCm: input.heightCm,
     productionNotes: input.productionNotes,
+    funnelStage: input.funnelStage,
+    performanceReach: input.performanceReach,
+    performanceRetention: input.performanceRetention,
+    performanceNote: input.performanceNote,
+    repeatFormat: input.repeatFormat,
     media: serializeMediaForDirty(input.mediaItems),
     thumbnailUrl: input.thumbnailUrl,
     thumbnailFileName: input.thumbnailFileName,
@@ -297,6 +309,11 @@ function ContentDetailPage() {
   const [widthCm, setWidthCm] = useState(String(posterPreset.widthCm));
   const [heightCm, setHeightCm] = useState(String(posterPreset.heightCm));
   const [productionNotes, setProductionNotes] = useState("");
+  const [funnelStage, setFunnelStage] = useState<FunnelStage | null>(null);
+  const [performanceReach, setPerformanceReach] = useState("");
+  const [performanceRetention, setPerformanceRetention] = useState("");
+  const [performanceNote, setPerformanceNote] = useState("");
+  const [repeatFormat, setRepeatFormat] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaEntry[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -460,6 +477,11 @@ function ContentDetailPage() {
     const nextWidthCm = String(row.width_cm ?? nextPreset.widthCm);
     const nextHeightCm = String(row.height_cm ?? nextPreset.heightCm);
     const nextProductionNotes = row.production_notes ?? "";
+    const nextFunnel = parseFunnelStage(row.funnel_stage);
+    const nextReach = row.performance_reach ?? "";
+    const nextRetention = row.performance_retention ?? "";
+    const nextPerfNote = row.performance_note ?? "";
+    const nextRepeat = Boolean(row.repeat_format);
     const nextMedia = mediaEntriesFromUrls(
       resolveContentMediaUrls(row),
       parseMediaOverlays((row as ContentItem).media_overlays),
@@ -478,6 +500,11 @@ function ContentDetailPage() {
     setWidthCm(nextWidthCm);
     setHeightCm(nextHeightCm);
     setProductionNotes(nextProductionNotes);
+    setFunnelStage(nextFunnel);
+    setPerformanceReach(nextReach);
+    setPerformanceRetention(nextRetention);
+    setPerformanceNote(nextPerfNote);
+    setRepeatFormat(nextRepeat);
     setMediaItems(nextMedia);
     setThumbnailUrl(nextThumbnail);
     setThumbnailFile(null);
@@ -499,6 +526,11 @@ function ContentDetailPage() {
         widthCm: nextWidthCm,
         heightCm: nextHeightCm,
         productionNotes: nextProductionNotes,
+        funnelStage: nextFunnel,
+        performanceReach: nextReach,
+        performanceRetention: nextRetention,
+        performanceNote: nextPerfNote,
+        repeatFormat: nextRepeat,
         mediaItems: nextMedia,
         thumbnailUrl: nextThumbnail,
         thumbnailFileName: "",
@@ -532,6 +564,11 @@ function ContentDetailPage() {
     widthCm,
     heightCm,
     productionNotes,
+    funnelStage,
+    performanceReach,
+    performanceRetention,
+    performanceNote,
+    repeatFormat,
     mediaItems,
     thumbnailUrl,
     thumbnailFileName: thumbnailFile?.name ?? "",
@@ -792,6 +829,11 @@ function ContentDetailPage() {
         widthCm: payload.widthCm,
         heightCm: payload.heightCm,
         productionNotes: payload.productionNotes,
+        funnelStage,
+        performanceReach,
+        performanceRetention,
+        performanceNote,
+        repeatFormat,
         i18n: payload.i18n,
       });
     },
@@ -1432,6 +1474,29 @@ function ContentDetailPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {!isPrintPiece ? (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label variant="highlight">{t("project.funnel.label")}</Label>
+                      <Select
+                        value={funnelStage ?? "none"}
+                        onValueChange={(value) =>
+                          setFunnelStage(value === "none" ? null : parseFunnelStage(value))
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder={t("project.funnel.none")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t("project.funnel.none")}</SelectItem>
+                          {FUNNEL_STAGES.map((stage) => (
+                            <SelectItem key={stage} value={stage}>
+                              {t(`project.funnel.${stage}`)} — {t(`project.funnel.${stage}Hint`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -1597,6 +1662,48 @@ function ContentDetailPage() {
                     className="min-h-[6rem]"
                     placeholder={t("project.graphicArts.productionNotesPlaceholder")}
                   />
+                </div>
+              ) : null}
+              {isAdmin && !isPrintPiece ? (
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                  <div>
+                    <p className="text-sm font-medium">{t("project.learning.title")}</p>
+                    <p className="text-xs text-muted-foreground">{t("project.learning.hint")}</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="performance-reach">{t("project.learning.reach")}</Label>
+                      <Input
+                        id="performance-reach"
+                        value={performanceReach}
+                        onChange={(e) => setPerformanceReach(e.target.value)}
+                        placeholder={t("project.learning.reachPlaceholder")}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="performance-retention">{t("project.learning.retention")}</Label>
+                      <Input
+                        id="performance-retention"
+                        value={performanceRetention}
+                        onChange={(e) => setPerformanceRetention(e.target.value)}
+                        placeholder={t("project.learning.retentionPlaceholder")}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="performance-note">{t("project.learning.note")}</Label>
+                    <Textarea
+                      id="performance-note"
+                      rows={2}
+                      value={performanceNote}
+                      onChange={(e) => setPerformanceNote(e.target.value)}
+                      placeholder={t("project.learning.notePlaceholder")}
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch checked={repeatFormat} onCheckedChange={setRepeatFormat} />
+                    {t("project.learning.repeat")}
+                  </label>
                 </div>
               ) : null}
               {isAdmin ? (

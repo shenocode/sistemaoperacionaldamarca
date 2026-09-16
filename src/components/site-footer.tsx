@@ -45,6 +45,12 @@ export function SiteFooter({ className }: SiteFooterProps) {
             {t("landing.footerWhatsapp", { number: CONTACT_WHATSAPP_DISPLAY })}
           </a>
           <Link
+            to="/recursos"
+            className="underline-offset-4 hover:underline"
+          >
+            {t("landing.footerResources")}
+          </Link>
+          <Link
             to="/termos"
             className="underline-offset-4 hover:underline"
           >

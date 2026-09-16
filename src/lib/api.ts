@@ -38,6 +38,15 @@ import {
   parseRowI18n,
 } from "@/lib/i18n-content";
 import type { PlanEntitlements } from "@/lib/plan-entitlements";
+import {
+  parseContentMix,
+  parseFunnelStage,
+  type ContentMix,
+  type FunnelStage,
+} from "@/lib/content-strategy";
+
+export type { ContentMix, FunnelStage } from "@/lib/content-strategy";
+export { DEFAULT_CONTENT_MIX, FUNNEL_STAGES, parseContentMix, parseFunnelStage } from "@/lib/content-strategy";
 
 export type { RowI18n, LocalizedField, AppLocale } from "@/lib/i18n-content";
 export {
@@ -75,6 +84,7 @@ export type Project = Tables<"projects">;
 export type CalendarBlock = Tables<"calendar_blocks">;
 export type MeetingAgenda = Tables<"meeting_agendas">;
 export type ThemeReference = Tables<"theme_references">;
+export type BrandReferenceCreator = Tables<"brand_reference_creators">;
 export type ContentItem = Tables<"content_items">;
 export type ContentVersion = Tables<"content_versions">;
 export type ContentComment = Tables<"content_comments">;
@@ -1820,12 +1830,32 @@ function isMissingMediaOverlaysColumn(message: string) {
   return /media_overlays/i.test(message) && /column|schema cache|does not exist/i.test(message);
 }
 
+function isMissingFunnelStageColumn(message: string) {
+  return /funnel_stage/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
+function isMissingContentMixColumn(message: string) {
+  return /content_mix/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
+function isMissingPerformanceColumns(message: string) {
+  return /(performance_reach|performance_retention|performance_note|repeat_format)/i.test(message) &&
+    /column|schema cache|does not exist/i.test(message);
+}
+
+function isMissingBrandReferenceCreatorsTable(message: string) {
+  return /brand_reference_creators/i.test(message) && /(does not exist|not find|schema cache)/i.test(message);
+}
+
+const CONTENT_LIST_COLUMNS_FALLBACK =
+  "id, project_id, title, status, format, theme, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, created_at, updated_at, current_version, created_by";
+
 function isMissingSortOrderColumn(message: string) {
   return /sort_order/i.test(message) && /column|schema cache|does not exist/i.test(message);
 }
 
 const CONTENT_LIST_COLUMNS =
-  "id, project_id, title, status, format, theme, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, created_at, updated_at, current_version, created_by";
+  "id, project_id, title, status, format, theme, funnel_stage, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, created_at, updated_at, current_version, created_by";
 
 function asListContentItem(row: Record<string, unknown>): ContentItem {
   return {
@@ -1835,6 +1865,11 @@ function asListContentItem(row: Record<string, unknown>): ContentItem {
     locucao: "",
     roteiro: "",
     production_notes: "",
+    funnel_stage: null,
+    performance_note: "",
+    performance_reach: "",
+    performance_retention: "",
+    repeat_format: false,
     ...row,
   } as ContentItem;
 }
@@ -1848,6 +1883,17 @@ export async function listContent(projectId: string) {
     .order("created_at", { ascending: true });
   if (!ordered.error) {
     return (ordered.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
+  }
+
+  if (isMissingFunnelStageColumn(ordered.error.message)) {
+    const fallback = await supabase
+      .from("content_items")
+      .select(CONTENT_LIST_COLUMNS_FALLBACK)
+      .eq("project_id", projectId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (fallback.error) throw new Error(fallback.error.message);
+    return (fallback.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
   }
 
   // Migration `content_sort_order` may not be applied yet on the remote DB.
@@ -1919,8 +1965,11 @@ export async function createContent(input: {
   caption?: string;
   cta?: string;
   hashtags?: string;
+  locucao?: string;
   mediaUrl?: string;
   format?: ContentFormat;
+  theme?: string | null;
+  funnelStage?: FunnelStage | null;
   materialType?: string | null;
   widthCm?: number | null;
   heightCm?: number | null;
@@ -1969,6 +2018,9 @@ export async function createContent(input: {
     width_cm: widthCm,
     height_cm: heightCm,
     production_notes: input.productionNotes?.trim() || "",
+    locucao: input.locucao?.trim() || "",
+    theme: input.theme?.trim() || null,
+    funnel_stage: parseFunnelStage(input.funnelStage),
     i18n: toI18nJson(i18n),
     created_by: userId,
     status: "draft" as const,
@@ -1992,6 +2044,18 @@ export async function createContent(input: {
     const retry = await supabase
       .from("content_items")
       .insert({ ...withoutBlock, sort_order: sortOrder })
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingFunnelStageColumn(error.message)) {
+    const { funnel_stage: _ignoredFunnel, ...withoutFunnel } = baseInsert as typeof baseInsert & {
+      funnel_stage?: string | null;
+    };
+    const retry = await supabase
+      .from("content_items")
+      .insert({ ...withoutFunnel, sort_order: sortOrder })
       .select("*")
       .single();
     data = retry.data;
@@ -2068,6 +2132,7 @@ export async function duplicateContent(input: {
     height_cm: source.height_cm,
     production_notes: source.production_notes ?? "",
     theme: source.theme,
+    funnel_stage: parseFunnelStage((source as ContentItem).funnel_stage),
     scheduled_at: scheduledAt,
     calendar_block_id: calendarBlockId,
     created_by: userId,
@@ -2099,6 +2164,16 @@ export async function duplicateContent(input: {
     const retry = await supabase
       .from("content_items")
       .insert({ ...withoutOverlays, sort_order: sortOrder })
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingFunnelStageColumn(error.message)) {
+    const { funnel_stage: _ignoredFunnel, ...withoutFunnel } = baseInsert;
+    const retry = await supabase
+      .from("content_items")
+      .insert({ ...withoutFunnel, sort_order: sortOrder })
       .select("*")
       .single();
     data = retry.data;
@@ -2257,10 +2332,15 @@ export async function updateContentFields(input: {
   thumbnailUrl?: string | null;
   format?: ContentFormat;
   theme?: string | null;
+  funnelStage?: FunnelStage | null;
   materialType?: string | null;
   widthCm?: number | null;
   heightCm?: number | null;
   productionNotes?: string;
+  performanceReach?: string;
+  performanceRetention?: string;
+  performanceNote?: string;
+  repeatFormat?: boolean;
   i18n?: RowI18n;
   mediaOverlays?: Json;
 }): Promise<ContentItem> {
@@ -2283,6 +2363,7 @@ export async function updateContentFields(input: {
         : {}),
       ...(input.format ? { format: input.format } : {}),
       ...(input.theme !== undefined ? { theme: input.theme?.trim() || null } : {}),
+      ...(input.funnelStage !== undefined ? { funnel_stage: parseFunnelStage(input.funnelStage) } : {}),
       ...(input.materialType !== undefined
         ? { material_type: input.materialType?.trim() || null }
         : {}),
@@ -2291,6 +2372,14 @@ export async function updateContentFields(input: {
       ...(input.productionNotes !== undefined
         ? { production_notes: input.productionNotes }
         : {}),
+      ...(input.performanceReach !== undefined
+        ? { performance_reach: input.performanceReach }
+        : {}),
+      ...(input.performanceRetention !== undefined
+        ? { performance_retention: input.performanceRetention }
+        : {}),
+      ...(input.performanceNote !== undefined ? { performance_note: input.performanceNote } : {}),
+      ...(input.repeatFormat !== undefined ? { repeat_format: input.repeatFormat } : {}),
       ...(input.i18n ? { i18n: toI18nJson(input.i18n) } : {}),
   };
 
@@ -2307,6 +2396,41 @@ export async function updateContentFields(input: {
     const retry = await supabase
       .from("content_items")
       .update(fieldsPatch)
+      .eq("id", input.contentId)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingFunnelStageColumn(error.message)) {
+    const { funnel_stage: _omitFunnel, ...withoutFunnel } = fieldsPatch as typeof fieldsPatch & {
+      funnel_stage?: string | null;
+    };
+    const retry = await supabase
+      .from("content_items")
+      .update(withoutFunnel)
+      .eq("id", input.contentId)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error && isMissingPerformanceColumns(error.message)) {
+    const {
+      performance_reach: _r,
+      performance_retention: _t,
+      performance_note: _n,
+      repeat_format: _f,
+      ...withoutPerf
+    } = fieldsPatch as typeof fieldsPatch & {
+      performance_reach?: string;
+      performance_retention?: string;
+      performance_note?: string;
+      repeat_format?: boolean;
+    };
+    const retry = await supabase
+      .from("content_items")
+      .update(withoutPerf)
       .eq("id", input.contentId)
       .select("*")
       .single();
@@ -2538,6 +2662,28 @@ export async function updateCalendarBlockTitle(
   return ensureData(data, error);
 }
 
+export async function updateCalendarBlockMix(
+  blockId: string,
+  mix: ContentMix,
+): Promise<CalendarBlock> {
+  const next = parseContentMix(mix);
+  const { data, error } = await supabase
+    .from("calendar_blocks")
+    .update({ content_mix: next })
+    .eq("id", blockId)
+    .select("*")
+    .single();
+  if (error && isMissingContentMixColumn(error.message)) {
+    const fallback = await supabase.from("calendar_blocks").select("*").eq("id", blockId).maybeSingle();
+    return ensureData(fallback.data, fallback.error);
+  }
+  return ensureData(data, error);
+}
+
+export function calendarBlockMix(block: CalendarBlock | null | undefined): ContentMix {
+  return parseContentMix((block as CalendarBlock & { content_mix?: unknown } | null)?.content_mix);
+}
+
 export async function duplicateCalendarBlock(input: {
   blockId: string;
   clientId: string;
@@ -2566,10 +2712,26 @@ export async function duplicateCalendarBlock(input: {
       project_id: input.projectId,
       title: placeholderTitle,
       sort_order: nextSortOrder,
+      content_mix: calendarBlockMix(source),
     })
     .select("*")
     .single();
-  const newBlock = ensureData(blockData, blockError);
+  let resolvedBlock = blockData;
+  let resolvedBlockError = blockError;
+  if (blockError && isMissingContentMixColumn(blockError.message)) {
+    const retry = await supabase
+      .from("calendar_blocks")
+      .insert({
+        project_id: input.projectId,
+        title: placeholderTitle,
+        sort_order: nextSortOrder,
+      })
+      .select("*")
+      .single();
+    resolvedBlock = retry.data;
+    resolvedBlockError = retry.error;
+  }
+  const newBlock = ensureData(resolvedBlock, resolvedBlockError);
 
   const maxSort = allContent.reduce((max, item) => Math.max(max, item.sort_order ?? 0), -1);
   const created: ContentItem[] = [];
@@ -2912,6 +3074,100 @@ export async function deleteThemeReference(input: {
   if (error) throw new Error(error.message);
 }
 
+const MAX_REFERENCE_CREATORS = 5;
+
+async function nextReferenceCreatorSortOrder(clientId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("brand_reference_creators")
+    .select("sort_order")
+    .eq("client_id", clientId)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (isMissingBrandReferenceCreatorsTable(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return (data?.sort_order ?? 0) - 1;
+}
+
+export async function listBrandReferenceCreators(clientId: string): Promise<BrandReferenceCreator[]> {
+  const { data, error } = await supabase
+    .from("brand_reference_creators")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  if (!error) return data ?? [];
+  if (isMissingBrandReferenceCreatorsTable(error.message)) return [];
+  throw new Error(error.message);
+}
+
+export async function createBrandReferenceCreator(input: {
+  clientId: string;
+  name?: string;
+  url?: string;
+  notes?: string;
+}): Promise<BrandReferenceCreator> {
+  const existing = await listBrandReferenceCreators(input.clientId);
+  if (existing.length >= MAX_REFERENCE_CREATORS) {
+    throw new Error(`Limite de ${MAX_REFERENCE_CREATORS} criadores de referência por marca.`);
+  }
+  const sortOrder = await nextReferenceCreatorSortOrder(input.clientId);
+  const { data, error } = await supabase
+    .from("brand_reference_creators")
+    .insert({
+      client_id: input.clientId,
+      name: input.name?.trim() ?? "",
+      url: input.url?.trim() ?? "",
+      notes: input.notes?.trim() ?? "",
+      sort_order: sortOrder,
+    })
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function updateBrandReferenceCreator(input: {
+  id: string;
+  clientId: string;
+  name?: string;
+  url?: string;
+  notes?: string;
+  patternSummary?: string;
+}): Promise<BrandReferenceCreator> {
+  const patch: {
+    name?: string;
+    url?: string;
+    notes?: string;
+    pattern_summary?: string;
+  } = {};
+  if (input.name !== undefined) patch.name = input.name.trim();
+  if (input.url !== undefined) patch.url = input.url.trim();
+  if (input.notes !== undefined) patch.notes = input.notes;
+  if (input.patternSummary !== undefined) patch.pattern_summary = input.patternSummary;
+  const { data, error } = await supabase
+    .from("brand_reference_creators")
+    .update(patch)
+    .eq("id", input.id)
+    .eq("client_id", input.clientId)
+    .select("*")
+    .single();
+  return ensureData(data, error);
+}
+
+export async function deleteBrandReferenceCreator(input: {
+  id: string;
+  clientId: string;
+}): Promise<void> {
+  const { error } = await supabase
+    .from("brand_reference_creators")
+    .delete()
+    .eq("id", input.id)
+    .eq("client_id", input.clientId);
+  if (error) throw new Error(error.message);
+}
+
 function sortContentByManualOrder(a: ContentItem, b: ContentItem) {
   const aOrder = a.sort_order ?? 0;
   const bOrder = b.sort_order ?? 0;
@@ -3033,6 +3289,12 @@ export async function restoreVersion(input: {
 
 // —— AI content assistant (admin) ——
 
+export type WebSource = {
+  title: string;
+  url: string;
+  snippet: string;
+};
+
 export type ContentSuggestion = {
   title: string;
   caption: string;
@@ -3040,7 +3302,21 @@ export type ContentSuggestion = {
   hashtags: string;
   theme: string | null;
   locucao: string;
+  locucaoHook: string;
+  locucaoBody: string;
+  locucaoCta: string;
   roteiro: string;
+  webSources?: WebSource[];
+  webSearchUnavailable?: boolean;
+};
+
+export type ContentIdea = {
+  title: string;
+  format: ContentFormat;
+  funnelStage: FunnelStage;
+  hook: string;
+  why: string;
+  theme: string | null;
 };
 
 async function readFunctionsInvokeError(
@@ -3084,6 +3360,7 @@ export async function suggestContent(input: {
   references?: string;
   youtubeUrls?: string[];
   instagramUrls?: string[];
+  tiktokUrls?: string[];
   transcription?: string;
   libraryAssetId?: string;
   documentUrl?: string;
@@ -3091,9 +3368,15 @@ export async function suggestContent(input: {
   format: ContentFormat;
   locale?: string;
   provider?: DesignProvider;
+  webSearch?: boolean;
+  mode?: "generate" | "refine";
+  refineInstruction?: string;
+  currentDraft?: ContentSuggestion;
 }): Promise<ContentSuggestion> {
   const prompt = input.prompt.trim();
-  if (!prompt) throw new Error("Informe um prompt");
+  const refineInstruction = input.refineInstruction?.trim() ?? "";
+  if (input.mode !== "refine" && !prompt) throw new Error("Informe um prompt");
+  if (input.mode === "refine" && !refineInstruction) throw new Error("Informe o ajuste");
 
   const { data, error } = await supabase.functions.invoke("suggest-content", {
     body: {
@@ -3104,6 +3387,7 @@ export async function suggestContent(input: {
       references: input.references?.trim() || undefined,
       youtubeUrls: (input.youtubeUrls ?? []).map((u) => u.trim()).filter(Boolean),
       instagramUrls: (input.instagramUrls ?? []).map((u) => u.trim()).filter(Boolean),
+      tiktokUrls: (input.tiktokUrls ?? []).map((u) => u.trim()).filter(Boolean),
       transcription: input.transcription?.trim() || undefined,
       libraryAssetId: input.libraryAssetId?.trim() || undefined,
       documentUrl: input.documentUrl?.trim() || undefined,
@@ -3111,10 +3395,39 @@ export async function suggestContent(input: {
       format: input.format,
       locale: input.locale,
       provider: input.provider === "gemini" ? "gemini" : "openai",
+      webSearch: Boolean(input.webSearch),
+      mode: input.mode === "refine" ? "refine" : "generate",
+      refineInstruction: refineInstruction || undefined,
+      currentDraft: input.currentDraft
+        ? {
+            title: input.currentDraft.title,
+            caption: input.currentDraft.caption,
+            cta: input.currentDraft.cta,
+            hashtags: input.currentDraft.hashtags,
+            theme: input.currentDraft.theme,
+            locucao: input.currentDraft.locucao,
+            locucaoHook: input.currentDraft.locucaoHook,
+            locucaoBody: input.currentDraft.locucaoBody,
+            locucaoCta: input.currentDraft.locucaoCta,
+            roteiro: input.currentDraft.roteiro,
+          }
+        : undefined,
     },
   });
 
-  const payload = data as { suggestion?: ContentSuggestion; error?: string } | null;
+  const payload = data as {
+    suggestion?: ContentSuggestion & {
+      locucaoHook?: string;
+      locucao_hook?: string;
+      locucaoBody?: string;
+      locucao_body?: string;
+      locucaoCta?: string;
+      locucao_cta?: string;
+    };
+    sources?: WebSource[];
+    webSearchUnavailable?: boolean;
+    error?: string;
+  } | null;
 
   if (error) {
     throw new Error(rewriteAssistantLimitError(await readFunctionsInvokeError(error, data)));
@@ -3126,15 +3439,108 @@ export async function suggestContent(input: {
     throw new Error("Resposta inválida do assistente");
   }
 
+  const suggestion = payload.suggestion;
   return {
-    title: payload.suggestion.title?.trim() || "",
-    caption: payload.suggestion.caption ?? "",
-    cta: payload.suggestion.cta ?? "",
-    hashtags: payload.suggestion.hashtags ?? "",
-    theme: payload.suggestion.theme?.trim() || null,
-    locucao: payload.suggestion.locucao ?? "",
-    roteiro: payload.suggestion.roteiro ?? "",
+    title: suggestion.title?.trim() || "",
+    caption: suggestion.caption ?? "",
+    cta: suggestion.cta ?? "",
+    hashtags: suggestion.hashtags ?? "",
+    theme: suggestion.theme?.trim() || null,
+    locucao: suggestion.locucao ?? "",
+    locucaoHook: suggestion.locucaoHook ?? suggestion.locucao_hook ?? "",
+    locucaoBody: suggestion.locucaoBody ?? suggestion.locucao_body ?? "",
+    locucaoCta: suggestion.locucaoCta ?? suggestion.locucao_cta ?? "",
+    roteiro: suggestion.roteiro ?? "",
+    webSources: payload.sources ?? [],
+    webSearchUnavailable: Boolean(payload.webSearchUnavailable),
   };
+}
+
+export async function suggestContentIdeas(input: {
+  projectId: string;
+  clientId: string;
+  calendarBlockId?: string | null;
+  mix?: ContentMix;
+  count?: number;
+  prompt?: string;
+  locale?: string;
+  provider?: DesignProvider;
+  webSearch?: boolean;
+  allowedFormats?: ContentFormat[];
+}): Promise<{ ideas: ContentIdea[]; mix: ContentMix; webSources: WebSource[]; webSearchUnavailable: boolean }> {
+  const { data, error } = await supabase.functions.invoke("suggest-content-ideas", {
+    body: {
+      projectId: input.projectId,
+      clientId: input.clientId,
+      calendarBlockId: input.calendarBlockId ?? undefined,
+      mix: input.mix,
+      count: input.count,
+      prompt: input.prompt?.trim() || undefined,
+      locale: input.locale,
+      provider: input.provider === "gemini" ? "gemini" : "openai",
+      webSearch: Boolean(input.webSearch),
+      allowedFormats: input.allowedFormats,
+    },
+  });
+
+  const payload = data as {
+    ideas?: ContentIdea[];
+    mix?: ContentMix;
+    sources?: WebSource[];
+    webSearchUnavailable?: boolean;
+    error?: string;
+  } | null;
+
+  if (error) {
+    throw new Error(rewriteAssistantLimitError(await readFunctionsInvokeError(error, data)));
+  }
+  if (payload?.error) {
+    throw new Error(rewriteAssistantLimitError(payload.error));
+  }
+  if (!payload?.ideas?.length) {
+    throw new Error("Resposta inválida do assistente de ideias");
+  }
+
+  return {
+    ideas: payload.ideas.map((idea) => ({
+      title: idea.title?.trim() || "Sem título",
+      format: idea.format,
+      funnelStage: parseFunnelStage(idea.funnelStage) ?? "tofu",
+      hook: idea.hook ?? "",
+      why: idea.why ?? "",
+      theme: idea.theme?.trim() || null,
+    })),
+    mix: parseContentMix(payload.mix ?? input.mix),
+    webSources: payload.sources ?? [],
+    webSearchUnavailable: Boolean(payload.webSearchUnavailable),
+  };
+}
+
+export async function analyzeReferenceCreator(input: {
+  creatorId: string;
+  clientId: string;
+  locale?: string;
+  provider?: DesignProvider;
+}): Promise<BrandReferenceCreator> {
+  const { data, error } = await supabase.functions.invoke("analyze-reference-creator", {
+    body: {
+      creatorId: input.creatorId,
+      clientId: input.clientId,
+      locale: input.locale,
+      provider: input.provider === "gemini" ? "gemini" : "openai",
+    },
+  });
+  const payload = data as { creator?: BrandReferenceCreator; error?: string } | null;
+  if (error) {
+    throw new Error(rewriteAssistantLimitError(await readFunctionsInvokeError(error, data)));
+  }
+  if (payload?.error) {
+    throw new Error(rewriteAssistantLimitError(payload.error));
+  }
+  if (!payload?.creator) {
+    throw new Error("Resposta inválida da análise");
+  }
+  return payload.creator;
 }
 
 export type DesignGenerationResult = {

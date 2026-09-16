@@ -5,6 +5,22 @@ import {
   DOCUMENT_MAX_BYTES,
   extractDocumentText,
 } from "../_shared/extract-document-text.ts";
+import { asString, extractJsonObject } from "../_shared/json-extract.ts";
+import { languageInstruction } from "../_shared/language.ts";
+import { locucaoFromSuggestionFields } from "../_shared/locucao-script.ts";
+import {
+  formatReferenceCreatorsBlock,
+  formatWinningPostsBlock,
+  loadReferenceCreators,
+  loadWinningPosts,
+} from "../_shared/brand-strategy-context.ts";
+import {
+  fetchInstagramMeta,
+  fetchTikTokMeta,
+  fetchYoutubeMeta,
+  formatVideoMetasBlock,
+} from "../_shared/video-meta.ts";
+import { formatWebSourcesBlock, searchWeb, type WebSource } from "../_shared/web-search.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +36,19 @@ type ContentFormat =
   | "youtube_short"
   | "print_material";
 
+type ContentSuggestion = {
+  title: string;
+  caption: string;
+  cta: string;
+  hashtags: string;
+  theme: string | null;
+  locucao: string;
+  locucaoHook: string;
+  locucaoBody: string;
+  locucaoCta: string;
+  roteiro: string;
+};
+
 type SuggestRequest = {
   contentId: string;
   projectId: string;
@@ -28,6 +57,7 @@ type SuggestRequest = {
   references?: string;
   youtubeUrls?: string[];
   instagramUrls?: string[];
+  tiktokUrls?: string[];
   transcription?: string;
   libraryAssetId?: string;
   documentUrl?: string;
@@ -35,22 +65,10 @@ type SuggestRequest = {
   format?: ContentFormat;
   locale?: string;
   provider?: "openai" | "gemini";
-};
-
-type ContentSuggestion = {
-  title: string;
-  caption: string;
-  cta: string;
-  hashtags: string;
-  theme: string | null;
-  locucao: string;
-  roteiro: string;
-};
-
-type VideoMeta = {
-  url: string;
-  title: string;
-  description: string;
+  webSearch?: boolean;
+  mode?: "generate" | "refine";
+  refineInstruction?: string;
+  currentDraft?: Partial<ContentSuggestion>;
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -58,76 +76,6 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function extractYoutubeId(raw: string): string | null {
-  try {
-    const url = new URL(raw.trim());
-    const host = url.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") {
-      const id = url.pathname.split("/").filter(Boolean)[0];
-      return id || null;
-    }
-    if (host === "youtube.com" || host === "m.youtube.com" || host === "music.youtube.com") {
-      if (url.pathname === "/watch") return url.searchParams.get("v");
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] === "shorts" || parts[0] === "embed" || parts[0] === "live") {
-        return parts[1] || null;
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-async function fetchYoutubeMeta(url: string): Promise<VideoMeta> {
-  const id = extractYoutubeId(url);
-  const fallback: VideoMeta = { url, title: "", description: "" };
-  if (!id) return fallback;
-
-  try {
-    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`;
-    const res = await fetch(oembedUrl);
-    if (!res.ok) return fallback;
-    const data = (await res.json()) as { title?: string; author_name?: string };
-    return {
-      url,
-      title: data.title?.trim() || "",
-      description: data.author_name ? `Canal: ${data.author_name}` : "",
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function isInstagramUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw.trim());
-    const host = url.hostname.replace(/^www\./, "");
-    return host === "instagram.com" || host === "instagr.am";
-  } catch {
-    return false;
-  }
-}
-
-async function fetchInstagramMeta(url: string): Promise<VideoMeta> {
-  const fallback: VideoMeta = { url, title: "", description: "" };
-  if (!isInstagramUrl(url)) return fallback;
-
-  try {
-    const oembedUrl = `https://graph.facebook.com/v25.0/instagram_oembed?url=${encodeURIComponent(url.trim())}`;
-    const res = await fetch(oembedUrl);
-    if (!res.ok) return fallback;
-    const data = (await res.json()) as { title?: string; author_name?: string };
-    return {
-      url,
-      title: data.title?.trim() || "",
-      description: data.author_name ? `Autor: ${data.author_name}` : "",
-    };
-  } catch {
-    return fallback;
-  }
 }
 
 const LIBRARY_BUCKET = "library-assets";
@@ -240,50 +188,31 @@ async function loadAttachedDocument(input: {
   return { name: fileName, text: extracted.text, truncated: extracted.truncated };
 }
 
-function formatVideoMetasBlock(label: string, metas: VideoMeta[]): string | null {
-  if (!metas.length) return null;
-  return `${label}\n${metas
-    .map((v, i) => `${i + 1}. ${v.url}\n   Título: ${v.title || "(indisponível)"}\n   ${v.description || ""}`)
-    .join("\n")}`;
-}
-
-function languageInstruction(locale?: string): string {
-  const lower = (locale ?? "pt-BR").toLowerCase();
-  if (lower.startsWith("en")) return "Generate all copy in English (US).";
-  if (lower.startsWith("es")) return "Genera todos los textos en español.";
-  return "Gere textos em português do Brasil.";
-}
-
 function sanitizeSuggestion(raw: Record<string, unknown>, format: ContentFormat): ContentSuggestion {
-  const asString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
   const themeRaw = asString(raw.theme);
+  const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
+  const locucao = needsLocucao
+    ? locucaoFromSuggestionFields(raw, asString(raw.locucao))
+    : "";
+  const hook = asString(raw.locucao_hook);
+  const body = asString(raw.locucao_body);
+  const ctaLine = asString(raw.locucao_cta);
   return {
     title: asString(raw.title) || "Sem título",
     caption: asString(raw.caption),
     cta: asString(raw.cta),
     hashtags: asString(raw.hashtags),
     theme: themeRaw || null,
-    locucao: format === "reels" || format === "recorded_video" || format === "youtube_short" ? asString(raw.locucao) : "",
+    locucao,
+    locucaoHook: needsLocucao ? hook : "",
+    locucaoBody: needsLocucao ? body : "",
+    locucaoCta: needsLocucao ? ctaLine : "",
     roteiro: format === "carousel" ? asString(raw.roteiro) : "",
   };
 }
 
-function extractJsonObject(text: string): Record<string, unknown> {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced?.[1]) {
-      return JSON.parse(fenced[1].trim()) as Record<string, unknown>;
-    }
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
-    }
-    throw new Error("JSON não encontrado na resposta");
-  }
+function clipUrls(list: string[] | undefined): string[] {
+  return (list ?? []).map((u) => u.trim()).filter(Boolean).slice(0, 5);
 }
 
 Deno.serve(async (req) => {
@@ -332,6 +261,7 @@ Deno.serve(async (req) => {
     const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
     const body = (await req.json()) as SuggestRequest;
     const preferredProvider = body.provider === "gemini" ? "gemini" : "openai";
+    const mode = body.mode === "refine" ? "refine" : "generate";
 
     let openaiKey: string | null = null;
     let keySource: "admin" | "platform" | "none" | "quota" | "decrypt_failed" = "none";
@@ -365,8 +295,12 @@ Deno.serve(async (req) => {
       }
     }
     const prompt = body.prompt?.trim() ?? "";
-    if (!prompt) {
+    const refineInstruction = body.refineInstruction?.trim() ?? "";
+    if (mode === "generate" && !prompt) {
       return jsonResponse({ error: "Informe um prompt" }, 400);
+    }
+    if (mode === "refine" && !refineInstruction) {
+      return jsonResponse({ error: "Informe o ajuste que a IA deve fazer" }, 400);
     }
     if (!body.contentId || !body.projectId || !body.clientId) {
       return jsonResponse({ error: "Parâmetros inválidos" }, 400);
@@ -387,7 +321,7 @@ Deno.serve(async (req) => {
       supabase.from("clients").select("id, name, brand_guidance").eq("id", body.clientId).maybeSingle(),
       supabase
         .from("brand_briefings")
-        .select("guide_markdown, status")
+        .select("guide_markdown, status, answers")
         .eq("client_id", body.clientId)
         .maybeSingle(),
     ]);
@@ -411,14 +345,9 @@ Deno.serve(async (req) => {
     }
 
     const format = (body.format ?? content.format ?? "static_feed") as ContentFormat;
-    const youtubeUrls = (body.youtubeUrls ?? [])
-      .map((u) => u.trim())
-      .filter(Boolean)
-      .slice(0, 5);
-    const instagramUrls = (body.instagramUrls ?? [])
-      .map((u) => u.trim())
-      .filter(Boolean)
-      .slice(0, 5);
+    const youtubeUrls = clipUrls(body.youtubeUrls);
+    const instagramUrls = clipUrls(body.instagramUrls);
+    const tiktokUrls = clipUrls(body.tiktokUrls);
     const transcription = (body.transcription ?? "").trim().slice(0, 12000);
     let attachedDocument: { name: string; text: string; truncated: boolean } | null = null;
     try {
@@ -434,9 +363,22 @@ Deno.serve(async (req) => {
         400,
       );
     }
-    const [youtubeMetas, instagramMetas] = await Promise.all([
+
+    const searchQuery = [prompt, refineInstruction, content.title, clientRow.name]
+      .filter(Boolean)
+      .join(" — ")
+      .slice(0, 280);
+    const webPromise = body.webSearch
+      ? searchWeb(searchQuery)
+      : Promise.resolve({ sources: [] as WebSource[], unavailable: false });
+
+    const [youtubeMetas, instagramMetas, tiktokMetas, web, creators, winningPosts] = await Promise.all([
       Promise.all(youtubeUrls.map((url) => fetchYoutubeMeta(url))),
       Promise.all(instagramUrls.map((url) => fetchInstagramMeta(url))),
+      Promise.all(tiktokUrls.map((url) => fetchTikTokMeta(url))),
+      webPromise,
+      loadReferenceCreators(supabase, body.clientId),
+      loadWinningPosts(supabase, body.projectId),
     ]);
     const documentBlock = attachedDocument
       ? `Documento de base (${attachedDocument.name}${attachedDocument.truncated ? ", trecho inicial" : ""}):\n${attachedDocument.text}`
@@ -452,15 +394,18 @@ Deno.serve(async (req) => {
       typeof clientRow.brand_guidance === "string"
         ? clientRow.brand_guidance.trim().slice(0, 2000)
         : "";
+    const webBlock = formatWebSourcesBlock(web.sources);
 
     const systemPrompt = [
-      "Você é um copywriter de Instagram para agências de marca.",
+      "Você é um copywriter de Instagram e vídeos curtos para agências de marca.",
       languageInstruction(body.locale),
       "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits.",
       "When there are brand kit guidelines (orientações gerais), treat them as mandatory operational rules for every text.",
       "When there is an attached source document, use it as the factual base for the copy. Do not invent names, numbers or claims that are not in that document.",
+      "When there are winning formats marked to repeat, prefer those patterns (length, hook style, CTA) unless the brief contradicts them.",
+      "When there are reference creators, adapt their patterns to this brand — do not copy them verbatim.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
-      '{"title":"...","caption":"...","cta":"...","hashtags":"...","theme":"...|null","locucao":"...","roteiro":"..."}',
+      '{"title":"...","caption":"...","cta":"...","hashtags":"...","theme":"...|null","locucao":"...","locucao_hook":"...","locucao_body":"...","locucao_cta":"...","roteiro":"..."}',
       "Regras:",
       "- title: curto, interno, para organização da equipe.",
       "- caption: legenda pronta para publicar.",
@@ -468,31 +413,59 @@ Deno.serve(async (req) => {
       "- hashtags: preferir hashtags cadastradas; espaço entre tags; começar com #.",
       "- theme: usar um tema da lista de presets se couber; senão null.",
       needsLocucao
-        ? "- locucao: roteiro falado completo para gravação (Reels/vídeo)."
-        : "- locucao: string vazia.",
+        ? "- locucao_hook: primeira frase falada (gancho de 1–2 frases). locucao_body: desenvolvimento. locucao_cta: fechamento falado. locucao: o roteiro completo no formato HOOK / CORPO / CTA."
+        : "- locucao, locucao_hook, locucao_body e locucao_cta: strings vazias.",
       needsRoteiro
         ? "- roteiro: texto por slide no formato 'Slide 1: ...\\nSlide 2: ...' (mínimo 3 slides)."
         : "- roteiro: string vazia.",
-      "Não invente fatos que não estejam no Guia de marca, prompt, referências, documento anexado, metadados dos vídeos ou na transcrição fornecida.",
-    ].join("\n");
+      webBlock
+        ? "- Se usar um fato da pesquisa web, cite a fonte na caption ou na locução (nome do site)."
+        : "",
+      "Não invente fatos que não estejam no Guia de marca, prompt, referências, documento anexado, metadados dos vídeos, transcrição ou fontes da pesquisa web.",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
+    const draft = body.currentDraft;
     const userPrompt = [
       `Cliente: ${clientRow.name}`,
       `Projeto: ${project.name}`,
       project.description ? `Descrição do projeto: ${project.description}` : null,
       brandGuidance ? `Orientações gerais da marca (obrigatórias):\n${brandGuidance}` : null,
       brandGuide ? `Guia de marca:\n${brandGuide}` : null,
+      formatReferenceCreatorsBlock(creators),
+      formatWinningPostsBlock(winningPosts),
       `Formato do post: ${format}`,
       content.theme ? `Tema atual: ${content.theme}` : null,
       `Temas disponíveis: ${(project.theme_presets ?? []).join(" | ") || "(nenhum)"}`,
       `CTAs disponíveis: ${(project.cta_presets ?? []).join(" | ") || "(nenhum)"}`,
       `Hashtags disponíveis: ${(project.hashtag_presets ?? []).join(" | ") || "(nenhuma)"}`,
-      `Prompt do admin:\n${prompt}`,
+      prompt ? `Prompt do admin:\n${prompt}` : null,
       documentBlock,
       body.references?.trim() ? `Referências:\n${body.references.trim()}` : null,
       formatVideoMetasBlock("Vídeos do YouTube (metadados):", youtubeMetas),
       formatVideoMetasBlock("Vídeos do Instagram (metadados):", instagramMetas),
+      formatVideoMetasBlock("Vídeos do TikTok (metadados):", tiktokMetas),
       transcription ? `Transcrição fornecida pelo usuário:\n${transcription}` : null,
+      webBlock,
+      mode === "refine" && draft
+        ? `Rascunho atual (JSON):\n${JSON.stringify({
+            title: draft.title ?? "",
+            caption: draft.caption ?? "",
+            cta: draft.cta ?? "",
+            hashtags: draft.hashtags ?? "",
+            theme: draft.theme ?? null,
+            locucao: draft.locucao ?? "",
+            locucao_hook: draft.locucaoHook ?? "",
+            locucao_body: draft.locucaoBody ?? "",
+            locucao_cta: draft.locucaoCta ?? "",
+            roteiro: draft.roteiro ?? "",
+          })}`
+        : null,
+      mode === "refine" ? `Ajuste pedido pelo gestor:\n${refineInstruction}` : null,
+      mode === "refine"
+        ? "Reescreva o JSON completo já com o ajuste aplicado. Preserve o que não foi pedido para mudar."
+        : null,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -524,7 +497,14 @@ Deno.serve(async (req) => {
     }
 
     const suggestion = sanitizeSuggestion(parsed, format);
-    return jsonResponse({ suggestion, youtube: youtubeMetas, instagram: instagramMetas });
+    return jsonResponse({
+      suggestion,
+      youtube: youtubeMetas,
+      instagram: instagramMetas,
+      tiktok: tiktokMetas,
+      sources: web.sources,
+      webSearchUnavailable: Boolean(body.webSearch && web.unavailable),
+    });
   } catch (error) {
     console.error(error);
     return jsonResponse(

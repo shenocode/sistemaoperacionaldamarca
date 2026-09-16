@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,6 +27,10 @@ import {
   ContentAiDocumentField,
   type AssistantDocumentRef,
 } from "@/components/content-ai-document-field";
+import {
+  formatLocucaoScript,
+  locucaoPartsFromSuggestion,
+} from "@/lib/locucao-script";
 import {
   getAdminAiKeysStatus,
   suggestContent,
@@ -59,6 +64,17 @@ function parseVideoUrls(raw: string): string[] {
     .filter(Boolean);
 }
 
+function withLocucaoParts(suggestion: ContentSuggestion): ContentSuggestion {
+  const parts = locucaoPartsFromSuggestion(suggestion);
+  return {
+    ...suggestion,
+    locucaoHook: parts.hook,
+    locucaoBody: parts.body,
+    locucaoCta: parts.cta,
+    locucao: formatLocucaoScript(parts) || suggestion.locucao,
+  };
+}
+
 export function ContentAiAssistant({
   contentId,
   projectId,
@@ -72,7 +88,10 @@ export function ContentAiAssistant({
   const [references, setReferences] = useState("");
   const [youtubeUrls, setYoutubeUrls] = useState("");
   const [instagramUrls, setInstagramUrls] = useState("");
+  const [tiktokUrls, setTiktokUrls] = useState("");
   const [transcription, setTranscription] = useState("");
+  const [webSearch, setWebSearch] = useState(false);
+  const [refineInstruction, setRefineInstruction] = useState("");
   const [attachedDocument, setAttachedDocument] = useState<AssistantDocumentRef | null>(null);
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
   const [provider, setProvider] = useState<DesignProvider>("openai");
@@ -97,6 +116,14 @@ export function ContentAiAssistant({
   const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
   const needsRoteiro = format === "carousel";
 
+  const applySuggestion = (suggestion: ContentSuggestion) => {
+    const next = withLocucaoParts(suggestion);
+    setDraft(next);
+    if (next.webSearchUnavailable) {
+      toast.warning(t("project.detail.assistant.webSearchUnavailable"));
+    }
+  };
+
   const generateMutation = useMutation({
     mutationFn: () =>
       suggestContent({
@@ -107,6 +134,7 @@ export function ContentAiAssistant({
         references,
         youtubeUrls: parseVideoUrls(youtubeUrls),
         instagramUrls: parseVideoUrls(instagramUrls),
+        tiktokUrls: parseVideoUrls(tiktokUrls),
         transcription,
         libraryAssetId: attachedDocument?.libraryAssetId,
         documentUrl: attachedDocument?.documentUrl,
@@ -114,9 +142,10 @@ export function ContentAiAssistant({
         format,
         locale: i18n.resolvedLanguage ?? i18n.language,
         provider,
+        webSearch,
       }),
     onSuccess: (suggestion) => {
-      setDraft(suggestion);
+      applySuggestion(suggestion);
       toast.success(t("project.detail.assistant.generated"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -125,8 +154,54 @@ export function ContentAiAssistant({
     },
   });
 
+  const refineMutation = useMutation({
+    mutationFn: () => {
+      if (!draft) throw new Error(t("project.detail.assistant.refineNeedDraft"));
+      return suggestContent({
+        contentId,
+        projectId,
+        clientId,
+        prompt,
+        references,
+        youtubeUrls: parseVideoUrls(youtubeUrls),
+        instagramUrls: parseVideoUrls(instagramUrls),
+        tiktokUrls: parseVideoUrls(tiktokUrls),
+        transcription,
+        libraryAssetId: attachedDocument?.libraryAssetId,
+        documentUrl: attachedDocument?.documentUrl,
+        documentName: attachedDocument?.documentName,
+        format,
+        locale: i18n.resolvedLanguage ?? i18n.language,
+        provider,
+        webSearch,
+        mode: "refine",
+        refineInstruction,
+        currentDraft: draft,
+      });
+    },
+    onSuccess: (suggestion) => {
+      applySuggestion(suggestion);
+      setRefineInstruction("");
+      toast.success(t("project.detail.assistant.refined"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const updateDraft = <K extends keyof ContentSuggestion>(key: K, value: ContentSuggestion[K]) => {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const updateLocucaoPart = (key: "locucaoHook" | "locucaoBody" | "locucaoCta", value: string) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [key]: value };
+      const locucao = formatLocucaoScript({
+        hook: next.locucaoHook,
+        body: next.locucaoBody,
+        cta: next.locucaoCta,
+      });
+      return { ...next, locucao };
+    });
   };
 
   const handleApply = async () => {
@@ -137,7 +212,13 @@ export function ContentAiAssistant({
       cta: draft.cta,
       hashtags: draft.hashtags,
       theme: draft.theme,
-      locucao: draft.locucao,
+      locucao: needsLocucao
+        ? formatLocucaoScript({
+            hook: draft.locucaoHook,
+            body: draft.locucaoBody,
+            cta: draft.locucaoCta,
+          }) || draft.locucao
+        : draft.locucao,
       roteiro: draft.roteiro,
     });
     toast.success(t("project.detail.assistant.applied"));
@@ -145,7 +226,10 @@ export function ContentAiAssistant({
 
   const handleDiscard = () => {
     setDraft(null);
+    setRefineInstruction("");
   };
+
+  const busy = generateMutation.isPending || refineMutation.isPending;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -233,7 +317,7 @@ export function ContentAiAssistant({
               projectId={projectId}
               value={attachedDocument}
               onChange={setAttachedDocument}
-              disabled={generateMutation.isPending}
+              disabled={busy}
             />
             <div className="space-y-1.5">
               <Label htmlFor="ai-references" variant="highlight">
@@ -271,6 +355,18 @@ export function ContentAiAssistant({
                 placeholder={t("project.detail.assistant.instagramPlaceholder")}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ai-tiktok" variant="highlight">
+                {t("project.detail.assistant.tiktok")}
+              </Label>
+              <Textarea
+                id="ai-tiktok"
+                rows={2}
+                value={tiktokUrls}
+                onChange={(e) => setTiktokUrls(e.target.value)}
+                placeholder={t("project.detail.assistant.tiktokPlaceholder")}
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
               {t("project.detail.assistant.videoLinksHint")}
             </p>
@@ -289,11 +385,24 @@ export function ContentAiAssistant({
                 {t("project.detail.assistant.transcriptionHint")}
               </p>
             </div>
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={webSearch}
+                onCheckedChange={(value) => setWebSearch(value === true)}
+                className="mt-0.5"
+              />
+              <span>
+                {t("project.detail.assistant.webSearch")}
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {t("project.detail.assistant.webSearchHint")}
+                </span>
+              </span>
+            </label>
 
             <Button
               type="button"
               onClick={() => {
-                if (generatingRef.current || !prompt.trim() || generateMutation.isPending) return;
+                if (generatingRef.current || !prompt.trim() || busy) return;
                 if (blockForMissingKey) {
                   toast.error(
                     provider === "gemini"
@@ -305,7 +414,7 @@ export function ContentAiAssistant({
                 generatingRef.current = true;
                 generateMutation.mutate();
               }}
-              disabled={!prompt.trim() || generateMutation.isPending || blockForMissingKey}
+              disabled={!prompt.trim() || busy || blockForMissingKey}
             >
               {generateMutation.isPending ? (
                 <>
@@ -370,14 +479,35 @@ export function ContentAiAssistant({
                   />
                 </div>
                 {needsLocucao ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ai-draft-locucao">{t("project.detail.locucao")}</Label>
-                    <Textarea
-                      id="ai-draft-locucao"
-                      rows={4}
-                      value={draft.locucao}
-                      onChange={(e) => updateDraft("locucao", e.target.value)}
-                    />
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">{t("project.detail.locucao")}</p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-draft-hook">{t("project.detail.assistant.hook")}</Label>
+                      <Textarea
+                        id="ai-draft-hook"
+                        rows={2}
+                        value={draft.locucaoHook}
+                        onChange={(e) => updateLocucaoPart("locucaoHook", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-draft-body">{t("project.detail.assistant.body")}</Label>
+                      <Textarea
+                        id="ai-draft-body"
+                        rows={4}
+                        value={draft.locucaoBody}
+                        onChange={(e) => updateLocucaoPart("locucaoBody", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ai-draft-spoken-cta">{t("project.detail.assistant.spokenCta")}</Label>
+                      <Textarea
+                        id="ai-draft-spoken-cta"
+                        rows={2}
+                        value={draft.locucaoCta}
+                        onChange={(e) => updateLocucaoPart("locucaoCta", e.target.value)}
+                      />
+                    </div>
                   </div>
                 ) : null}
                 {needsRoteiro ? (
@@ -391,11 +521,59 @@ export function ContentAiAssistant({
                     />
                   </div>
                 ) : null}
+                {draft.webSources && draft.webSources.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium">{t("project.detail.assistant.sources")}</p>
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                      {draft.webSources.map((source) => (
+                        <li key={source.url}>
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {source.title || source.url}
+                          </a>
+                          {source.snippet ? ` — ${source.snippet}` : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                <div className="space-y-1.5">
+                  <Label htmlFor="ai-refine">{t("project.detail.assistant.refine")}</Label>
+                  <Textarea
+                    id="ai-refine"
+                    rows={2}
+                    value={refineInstruction}
+                    onChange={(e) => setRefineInstruction(e.target.value)}
+                    placeholder={t("project.detail.assistant.refinePlaceholder")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (!refineInstruction.trim() || busy || blockForMissingKey) return;
+                      refineMutation.mutate();
+                    }}
+                    disabled={!refineInstruction.trim() || busy || blockForMissingKey}
+                  >
+                    {refineMutation.isPending ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        {t("project.detail.assistant.refining")}
+                      </>
+                    ) : (
+                      t("project.detail.assistant.refineSubmit")
+                    )}
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={handleApply}>
+                  <Button type="button" onClick={handleApply} disabled={busy}>
                     {t("project.detail.assistant.apply")}
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleDiscard}>
+                  <Button type="button" variant="outline" onClick={handleDiscard} disabled={busy}>
                     {t("project.detail.assistant.discard")}
                   </Button>
                 </div>

@@ -11,6 +11,13 @@ export function LegalDocLinks({ className }: LegalDocLinksProps) {
   return (
     <p className={cn("text-sm text-muted-foreground", className)}>
       <Link
+        to="/recursos"
+        className="font-medium text-foreground underline-offset-2 hover:underline"
+      >
+        {t("landing.footerResources")}
+      </Link>
+      <span aria-hidden="true"> · </span>
+      <Link
         to="/termos"
         className="font-medium text-foreground underline-offset-2 hover:underline"
       >

@@ -27,18 +27,22 @@ export const CONTENT_STATUSES: ContentStatus[] = [
   "published",
 ];
 
-function ContentStatusLink({
+export function ContentStatusLink({
   status,
   contentId,
   clientId,
   projectId,
   className,
+  asButton = true,
+  badgeClassName,
 }: {
   status: ContentStatus;
   contentId: string;
   clientId: string;
   projectId: string;
   className?: string;
+  asButton?: boolean;
+  badgeClassName?: string;
 }) {
   const { t } = useTranslation();
 
@@ -48,7 +52,7 @@ function ContentStatusLink({
       params={{ clientId, projectId, contentId }}
       search={{}}
       className={cn(
-        "inline-flex max-w-full rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+        "inline-flex max-w-full cursor-pointer rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         className,
       )}
       title={t("project.calendar.openStatus")}
@@ -56,8 +60,8 @@ function ContentStatusLink({
     >
       <StatusBadge
         status={status}
-        asButton
-        className="pointer-events-none w-full max-w-full"
+        asButton={asButton}
+        className={cn("pointer-events-none w-full max-w-full", badgeClassName)}
       />
     </Link>
   );

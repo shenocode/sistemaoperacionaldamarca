@@ -13,6 +13,12 @@ additional_redirect_urls = [
 [functions.suggest-content]
 verify_jwt = true
 
+[functions.suggest-content-ideas]
+verify_jwt = true
+
+[functions.analyze-reference-creator]
+verify_jwt = true
+
 [functions.translate-text]
 verify_jwt = true
 

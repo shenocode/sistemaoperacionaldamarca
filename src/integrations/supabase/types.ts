@@ -152,8 +152,53 @@ export type Database = {
           },
         ]
       }
+      brand_reference_creators: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          name: string
+          notes: string
+          pattern_summary: string
+          sort_order: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string
+          pattern_summary?: string
+          sort_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string
+          pattern_summary?: string
+          sort_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_reference_creators_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_blocks: {
         Row: {
+          content_mix: Json
           created_at: string
           i18n: Json
           id: string
@@ -163,6 +208,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          content_mix?: Json
           created_at?: string
           i18n?: Json
           id?: string
@@ -172,6 +218,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          content_mix?: Json
           created_at?: string
           i18n?: Json
           id?: string
@@ -454,6 +501,7 @@ export type Database = {
           cta: string
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
+          funnel_stage: string | null
           hashtags: string
           height_cm: number | null
           i18n: Json
@@ -463,8 +511,12 @@ export type Database = {
           media_overlays: Json
           media_url: string | null
           media_urls: string[]
+          performance_note: string
+          performance_reach: string
+          performance_retention: string
           production_notes: string
           project_id: string
+          repeat_format: boolean
           roteiro: string
           scheduled_at: string | null
           sort_order: number
@@ -483,6 +535,7 @@ export type Database = {
           cta?: string
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
+          funnel_stage?: string | null
           hashtags?: string
           height_cm?: number | null
           i18n?: Json
@@ -492,8 +545,12 @@ export type Database = {
           media_overlays?: Json
           media_url?: string | null
           media_urls?: string[]
+          performance_note?: string
+          performance_reach?: string
+          performance_retention?: string
           production_notes?: string
           project_id: string
+          repeat_format?: boolean
           roteiro?: string
           scheduled_at?: string | null
           sort_order?: number
@@ -512,6 +569,7 @@ export type Database = {
           cta?: string
           current_version?: number
           format?: Database["public"]["Enums"]["content_format"]
+          funnel_stage?: string | null
           hashtags?: string
           height_cm?: number | null
           i18n?: Json
@@ -521,8 +579,12 @@ export type Database = {
           media_overlays?: Json
           media_url?: string | null
           media_urls?: string[]
+          performance_note?: string
+          performance_reach?: string
+          performance_retention?: string
           production_notes?: string
           project_id?: string
+          repeat_format?: boolean
           roteiro?: string
           scheduled_at?: string | null
           sort_order?: number

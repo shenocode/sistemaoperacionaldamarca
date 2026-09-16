@@ -1021,6 +1021,15 @@ export function LandingPage() {
             <p className="mt-3 max-w-2xl text-base text-neutral-600">
               {t("landing.featuresSubtitle")}
             </p>
+            <p className="mt-2 max-w-2xl text-sm text-neutral-500">
+              {t("landing.featuresHonesty")}{" "}
+              <Link
+                to="/recursos"
+                className="font-medium text-neutral-900 underline-offset-4 hover:underline"
+              >
+                {t("landing.footerResources")}.
+              </Link>
+            </p>
             <ul className="mt-12 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURE_KEYS.map((key) => {
                 const Icon = FEATURE_ICONS[key];

@@ -32,6 +32,7 @@ import {
   type ProjectCategory,
 } from "@/lib/api";
 import { useEntitlements } from "@/hooks/use-entitlements";
+import { BrandReferenceCreators } from "@/components/brand-reference-creators";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/")({
   head: () => ({
@@ -126,6 +127,8 @@ function ClientDetailPage() {
           ) : undefined
         }
       />
+
+      {canManage ? <BrandReferenceCreators clientId={clientId} canEdit={canManage} /> : null}
 
       {projectsQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
