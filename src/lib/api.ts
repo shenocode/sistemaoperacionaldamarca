@@ -3332,7 +3332,7 @@ async function readFunctionsInvokeError(
   const response = error?.context;
   if (response && typeof response.json === "function") {
     try {
-      const body = (await response.clone().json()) as { error?: string; message?: string };
+      const body = (await response.clone().json()) as { error?: string; message?: string; code?: string };
       if (body?.error) return body.error;
       if (body?.message) return body.message;
     } catch {
@@ -3340,7 +3340,12 @@ async function readFunctionsInvokeError(
     }
   }
 
-  return error?.message || "Falha ao gerar sugestão";
+  const raw = error?.message || "";
+  if (/Failed to send|FunctionsFetchError|NOT_FOUND|not found/i.test(raw)) {
+    return "A função de IA não está publicada neste projeto. No Lovable, publique de novo (ou no Supabase → Edge Functions, faça o deploy) e tente outra vez.";
+  }
+
+  return raw || "Falha ao gerar sugestão";
 }
 
 export type DesignProvider = "openai" | "gemini";
@@ -3468,20 +3473,29 @@ export async function suggestContentIdeas(input: {
   webSearch?: boolean;
   allowedFormats?: ContentFormat[];
 }): Promise<{ ideas: ContentIdea[]; mix: ContentMix; webSources: WebSource[]; webSearchUnavailable: boolean }> {
-  const { data, error } = await supabase.functions.invoke("suggest-content-ideas", {
-    body: {
-      projectId: input.projectId,
-      clientId: input.clientId,
-      calendarBlockId: input.calendarBlockId ?? undefined,
-      mix: input.mix,
-      count: input.count,
-      prompt: input.prompt?.trim() || undefined,
-      locale: input.locale,
-      provider: input.provider === "gemini" ? "gemini" : "openai",
-      webSearch: Boolean(input.webSearch),
-      allowedFormats: input.allowedFormats,
-    },
-  });
+  const body = {
+    mode: "ideas" as const,
+    projectId: input.projectId,
+    clientId: input.clientId,
+    calendarBlockId: input.calendarBlockId ?? undefined,
+    mix: input.mix,
+    count: input.count,
+    prompt: input.prompt?.trim() || undefined,
+    locale: input.locale,
+    provider: input.provider === "gemini" ? "gemini" : "openai",
+    webSearch: Boolean(input.webSearch),
+    allowedFormats: input.allowedFormats,
+  };
+
+  const first = await supabase.functions.invoke("suggest-content", { body });
+  let data = first.data;
+  let error = first.error;
+
+  if (error && /Failed to send|FunctionsFetchError|NOT_FOUND|not found/i.test(error.message ?? "")) {
+    const fallback = await supabase.functions.invoke("suggest-content-ideas", { body });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   const payload = data as {
     ideas?: ContentIdea[];
@@ -3492,9 +3506,20 @@ export async function suggestContentIdeas(input: {
   } | null;
 
   if (error) {
-    throw new Error(rewriteAssistantLimitError(await readFunctionsInvokeError(error, data)));
+    const message = await readFunctionsInvokeError(error, data);
+    if (/informe um prompt|par[aâ]metros inv[aá]lidos/i.test(message)) {
+      throw new Error(
+        "A função de ideias ainda não foi publicada. No Lovable, clique em Publish (isso atualiza a Edge Function suggest-content) e tente de novo.",
+      );
+    }
+    throw new Error(rewriteAssistantLimitError(message));
   }
   if (payload?.error) {
+    if (/informe um prompt|par[aâ]metros inv[aá]lidos/i.test(payload.error)) {
+      throw new Error(
+        "A função de ideias ainda não foi publicada. No Lovable, clique em Publish (isso atualiza a Edge Function suggest-content) e tente de novo.",
+      );
+    }
     throw new Error(rewriteAssistantLimitError(payload.error));
   }
   if (!payload?.ideas?.length) {

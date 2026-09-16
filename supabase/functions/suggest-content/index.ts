@@ -20,11 +20,14 @@ import {
   fetchYoutubeMeta,
   formatVideoMetasBlock,
 } from "../_shared/video-meta.ts";
+import { generateCalendarIdeas, type IdeasRequest } from "../_shared/content-ideas.ts";
 import { formatWebSourcesBlock, searchWeb, type WebSource } from "../_shared/web-search.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-api-version, x-region",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 type ContentFormat =
@@ -66,9 +69,12 @@ type SuggestRequest = {
   locale?: string;
   provider?: "openai" | "gemini";
   webSearch?: boolean;
-  mode?: "generate" | "refine";
+  mode?: "generate" | "refine" | "ideas";
   refineInstruction?: string;
   currentDraft?: Partial<ContentSuggestion>;
+  mix?: IdeasRequest["mix"];
+  count?: number;
+  allowedFormats?: IdeasRequest["allowedFormats"];
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -261,7 +267,7 @@ Deno.serve(async (req) => {
     const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
     const body = (await req.json()) as SuggestRequest;
     const preferredProvider = body.provider === "gemini" ? "gemini" : "openai";
-    const mode = body.mode === "refine" ? "refine" : "generate";
+    const mode = body.mode === "refine" ? "refine" : body.mode === "ideas" ? "ideas" : "generate";
 
     let openaiKey: string | null = null;
     let keySource: "admin" | "platform" | "none" | "quota" | "decrypt_failed" = "none";
@@ -294,6 +300,24 @@ Deno.serve(async (req) => {
         );
       }
     }
+    if (mode === "ideas") {
+      const ideas = await generateCalendarIdeas({
+        supabase,
+        body,
+        openaiKey,
+        keySource,
+        geminiKey,
+        preferredProvider,
+      });
+      if (!ideas.ok) return jsonResponse({ error: ideas.error }, ideas.status);
+      return jsonResponse({
+        ideas: ideas.ideas,
+        mix: ideas.mix,
+        sources: ideas.sources,
+        webSearchUnavailable: ideas.webSearchUnavailable,
+      });
+    }
+
     const prompt = body.prompt?.trim() ?? "";
     const refineInstruction = body.refineInstruction?.trim() ?? "";
     if (mode === "generate" && !prompt) {
