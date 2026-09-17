@@ -172,6 +172,7 @@ export function ContentIdeasPanel({
                   value={mix[stage]}
                   onChange={(e) => setMixField(stage, e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground leading-snug">{t(`project.funnel.${stage}Hint`)}</p>
               </div>
             ))}
           </div>

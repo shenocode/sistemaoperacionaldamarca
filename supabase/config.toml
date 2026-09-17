@@ -72,3 +72,6 @@ verify_jwt = true
 
 [functions.admin-clients]
 verify_jwt = true
+
+[functions.send-gestor-digest]
+verify_jwt = false
