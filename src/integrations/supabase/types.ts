@@ -125,6 +125,24 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_daily: {
+        Row: {
+          platform_units: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          platform_units?: number
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          platform_units?: number
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       brand_briefings: {
         Row: {
           answers: Json
@@ -313,59 +331,6 @@ export type Database = {
           },
         ]
       }
-      help_requests: {
-        Row: {
-          attachment_file_name: string | null
-          attachment_mime_type: string | null
-          attachment_storage_path: string | null
-          client_id: string | null
-          created_at: string
-          id: string
-          kind: Database["public"]["Enums"]["help_request_kind"]
-          locale: string | null
-          message: string
-          recipient_user_id: string
-          sender_email: string
-          sender_user_id: string
-        }
-        Insert: {
-          attachment_file_name?: string | null
-          attachment_mime_type?: string | null
-          attachment_storage_path?: string | null
-          client_id?: string | null
-          created_at?: string
-          id?: string
-          kind: Database["public"]["Enums"]["help_request_kind"]
-          locale?: string | null
-          message: string
-          recipient_user_id: string
-          sender_email: string
-          sender_user_id: string
-        }
-        Update: {
-          attachment_file_name?: string | null
-          attachment_mime_type?: string | null
-          attachment_storage_path?: string | null
-          client_id?: string | null
-          created_at?: string
-          id?: string
-          kind?: Database["public"]["Enums"]["help_request_kind"]
-          locale?: string | null
-          message?: string
-          recipient_user_id?: string
-          sender_email?: string
-          sender_user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "help_requests_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       clients: {
         Row: {
           access_token: string
@@ -484,6 +449,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          intent: Database["public"]["Enums"]["contact_lead_intent"]
+          locale: string | null
+          name: string
+          niche: Database["public"]["Enums"]["contact_lead_niche"]
+          source: string
+          whatsapp: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          intent: Database["public"]["Enums"]["contact_lead_intent"]
+          locale?: string | null
+          name: string
+          niche?: Database["public"]["Enums"]["contact_lead_niche"]
+          source?: string
+          whatsapp: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          intent?: Database["public"]["Enums"]["contact_lead_intent"]
+          locale?: string | null
+          name?: string
+          niche?: Database["public"]["Enums"]["contact_lead_niche"]
+          source?: string
+          whatsapp?: string
+        }
+        Relationships: []
       }
       content_comments: {
         Row: {
@@ -780,6 +781,77 @@ export type Database = {
           },
         ]
       }
+      edge_rate_limits: {
+        Row: {
+          hit_count: number
+          rate_key: string
+          window_started_at: string
+        }
+        Insert: {
+          hit_count?: number
+          rate_key: string
+          window_started_at?: string
+        }
+        Update: {
+          hit_count?: number
+          rate_key?: string
+          window_started_at?: string
+        }
+        Relationships: []
+      }
+      help_requests: {
+        Row: {
+          attachment_file_name: string | null
+          attachment_mime_type: string | null
+          attachment_storage_path: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["help_request_kind"]
+          locale: string | null
+          message: string
+          recipient_user_id: string
+          sender_email: string
+          sender_user_id: string
+        }
+        Insert: {
+          attachment_file_name?: string | null
+          attachment_mime_type?: string | null
+          attachment_storage_path?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["help_request_kind"]
+          locale?: string | null
+          message: string
+          recipient_user_id: string
+          sender_email: string
+          sender_user_id: string
+        }
+        Update: {
+          attachment_file_name?: string | null
+          attachment_mime_type?: string | null
+          attachment_storage_path?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["help_request_kind"]
+          locale?: string | null
+          message?: string
+          recipient_user_id?: string
+          sender_email?: string
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_assets: {
         Row: {
           category: Database["public"]["Enums"]["library_category"]
@@ -840,6 +912,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          notes: string | null
           project_id: string
           scheduled_at: string | null
           topics: Json
@@ -848,6 +921,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          notes?: string | null
           project_id: string
           scheduled_at?: string | null
           topics?: Json
@@ -856,6 +930,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          notes?: string | null
           project_id?: string
           scheduled_at?: string | null
           topics?: Json
@@ -864,47 +939,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "meeting_agendas_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      theme_references: {
-        Row: {
-          created_at: string
-          id: string
-          links: string[]
-          project_id: string
-          recommendations: string
-          sort_order: number
-          theme: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          links?: string[]
-          project_id: string
-          recommendations?: string
-          sort_order?: number
-          theme?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          links?: string[]
-          project_id?: string
-          recommendations?: string
-          sort_order?: number
-          theme?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "theme_references_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -953,62 +987,6 @@ export type Database = {
           whatsapp?: string | null
         }
         Relationships: []
-      }
-      projects: {
-        Row: {
-          categories: string[]
-          client_id: string
-          created_at: string
-          created_by: string | null
-          cta_presets: string[]
-          description: string | null
-          hashtag_presets: string[]
-          i18n: Json
-          id: string
-          name: string
-          status: string
-          theme_presets: string[]
-          updated_at: string
-        }
-        Insert: {
-          categories?: string[]
-          client_id: string
-          created_at?: string
-          created_by?: string | null
-          cta_presets?: string[]
-          description?: string | null
-          hashtag_presets?: string[]
-          i18n?: Json
-          id?: string
-          name: string
-          status?: string
-          theme_presets?: string[]
-          updated_at?: string
-        }
-        Update: {
-          categories?: string[]
-          client_id?: string
-          created_at?: string
-          created_by?: string | null
-          cta_presets?: string[]
-          description?: string | null
-          hashtag_presets?: string[]
-          i18n?: Json
-          id?: string
-          name?: string
-          status?: string
-          theme_presets?: string[]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "projects_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       project_site: {
         Row: {
@@ -1068,6 +1046,80 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      projects: {
+        Row: {
+          categories: string[]
+          client_id: string
+          created_at: string
+          created_by: string | null
+          cta_presets: string[]
+          description: string | null
+          hashtag_presets: string[]
+          i18n: Json
+          id: string
+          name: string
+          status: string
+          theme_presets: string[]
+          updated_at: string
+        }
+        Insert: {
+          categories?: string[]
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          cta_presets?: string[]
+          description?: string | null
+          hashtag_presets?: string[]
+          i18n?: Json
+          id?: string
+          name: string
+          status?: string
+          theme_presets?: string[]
+          updated_at?: string
+        }
+        Update: {
+          categories?: string[]
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          cta_presets?: string[]
+          description?: string | null
+          hashtag_presets?: string[]
+          i18n?: Json
+          id?: string
+          name?: string
+          status?: string
+          theme_presets?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          processed_at: string
+        }
+        Insert: {
+          event_type: string
+          id: string
+          processed_at?: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          processed_at?: string
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -1138,6 +1190,47 @@ export type Database = {
         }
         Relationships: []
       }
+      theme_references: {
+        Row: {
+          created_at: string
+          id: string
+          links: string[]
+          project_id: string
+          recommendations: string
+          sort_order: number
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          links?: string[]
+          project_id: string
+          recommendations?: string
+          sort_order?: number
+          theme?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          links?: string[]
+          project_id?: string
+          recommendations?: string
+          sort_order?: number
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theme_references_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1168,7 +1261,12 @@ export type Database = {
         Args: { _user_id?: string }
         Returns: Database["public"]["Enums"]["subscription_plan"]
       }
+      auth_user_id_by_email: { Args: { _email: string }; Returns: string }
       can_access_client: { Args: { _client_id: string }; Returns: boolean }
+      can_access_commercial_proposal: {
+        Args: { _proposal_id: string }
+        Returns: boolean
+      }
       can_access_content: { Args: { _content_id: string }; Returns: boolean }
       can_access_library_storage: {
         Args: { object_name: string }
@@ -1187,10 +1285,24 @@ export type Database = {
         Args: { object_name: string }
         Returns: string
       }
+      comment_audio_project_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
+      comment_audio_user_id: { Args: { object_name: string }; Returns: string }
+      consume_edge_rate_limit: {
+        Args: { _key: string; _max_hits: number; _window_seconds: number }
+        Returns: boolean
+      }
       content_storage_project_id: {
         Args: { object_name: string }
         Returns: string
       }
+      gestor_logo_storage_user_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
+      get_client_gestor_contact: { Args: { _client_id: string }; Returns: Json }
       get_client_platform_login: {
         Args: { _client_id: string }
         Returns: string
@@ -1206,12 +1318,32 @@ export type Database = {
         }[]
       }
       get_team_owner_id: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: never; Returns: boolean }
+      is_admin_master: { Args: never; Returns: boolean }
+      is_client_member: { Args: { _client_id: string }; Returns: boolean }
+      is_client_owner: { Args: { _client_id: string }; Returns: boolean }
+      is_team_owner: { Args: never; Returns: boolean }
       latest_client_updates: {
         Args: { _client_ids: string[] }
         Returns: {
           client_id: string
           created_at: string
         }[]
+      }
+      library_storage_project_id: {
+        Args: { object_name: string }
+        Returns: string
+      }
+      library_storage_scope_id: {
+        Args: { object_name: string }
+        Returns: string
       }
       list_client_gestor_emails: {
         Args: { _client_id: string }
@@ -1239,38 +1371,30 @@ export type Database = {
         Args: { _event_ids: string[] }
         Returns: undefined
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      plan_max_clients: {
+        Args: { _plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
       }
-      is_admin: { Args: never; Returns: boolean }
-      is_admin_master: { Args: never; Returns: boolean }
-      is_client_member: { Args: { _client_id: string }; Returns: boolean }
-      is_client_owner: { Args: { _client_id: string }; Returns: boolean }
-      is_team_owner: { Args: never; Returns: boolean }
-      library_storage_project_id: {
-        Args: { object_name: string }
-        Returns: string
+      plan_max_users: {
+        Args: { _plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
       }
-      library_storage_scope_id: {
+      proposal_cover_storage_user_id: {
         Args: { object_name: string }
         Returns: string
       }
       save_client_content_version: {
         Args: {
-          _caption?: string | null
-          _change_note?: string | null
+          _caption?: string
+          _change_note?: string
           _content_id: string
-          _cta?: string | null
-          _format?: Database["public"]["Enums"]["content_format"] | null
-          _hashtags?: string | null
-          _locucao?: string | null
-          _roteiro?: string | null
-          _theme?: string | null
-          _title?: string | null
+          _cta?: string
+          _format?: Database["public"]["Enums"]["content_format"]
+          _hashtags?: string
+          _locucao?: string
+          _roteiro?: string
+          _theme?: string
+          _title?: string
         }
         Returns: {
           calendar_block_id: string | null
@@ -1280,20 +1404,31 @@ export type Database = {
           cta: string
           current_version: number
           format: Database["public"]["Enums"]["content_format"]
+          funnel_stage: string | null
           hashtags: string
+          height_cm: number | null
           i18n: Json
           id: string
           locucao: string
+          material_type: string | null
+          media_overlays: Json
           media_url: string | null
           media_urls: string[]
+          performance_note: string
+          performance_reach: string
+          performance_retention: string
+          production_notes: string
           project_id: string
+          repeat_format: boolean
           roteiro: string
           scheduled_at: string | null
           sort_order: number
           status: Database["public"]["Enums"]["content_status"]
           theme: string | null
+          thumbnail_url: string | null
           title: string
           updated_at: string
+          width_cm: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1303,18 +1438,55 @@ export type Database = {
         }
       }
       save_gestor_content_version: {
-        Args: {
-          _change_note?: string | null
-          _content_id: string
-          _patch: Json
+        Args: { _change_note?: string; _content_id: string; _patch: Json }
+        Returns: {
+          calendar_block_id: string | null
+          caption: string
+          created_at: string
+          created_by: string | null
+          cta: string
+          current_version: number
+          format: Database["public"]["Enums"]["content_format"]
+          funnel_stage: string | null
+          hashtags: string
+          height_cm: number | null
+          i18n: Json
+          id: string
+          locucao: string
+          material_type: string | null
+          media_overlays: Json
+          media_url: string | null
+          media_urls: string[]
+          performance_note: string
+          performance_reach: string
+          performance_retention: string
+          production_notes: string
+          project_id: string
+          repeat_format: boolean
+          roteiro: string
+          scheduled_at: string | null
+          sort_order: number
+          status: Database["public"]["Enums"]["content_status"]
+          theme: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          width_cm: number | null
         }
-        Returns: Database["public"]["Tables"]["content_items"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "content_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      get_client_gestor_contact: {
-        Args: {
-          _client_id: string
-        }
-        Returns: Json
+      subscription_grants_access: {
+        Args: { _period_end: string; _status: string }
+        Returns: boolean
+      }
+      try_consume_platform_ai_quota: {
+        Args: { _daily_max?: number; _units?: number; _user_id: string }
+        Returns: boolean
       }
       update_client_contact: {
         Args: {
@@ -1377,24 +1549,26 @@ export type Database = {
       brand_briefing_status: "draft" | "in_progress" | "completed"
       client_member_role: "owner" | "member"
       commercial_proposal_status: "draft" | "ready"
-      help_request_kind: "gestor_platform" | "client_gestor"
+      contact_lead_intent: "trial" | "human"
+      contact_lead_niche: "agency" | "social_media" | "brand_owner"
       content_format:
         | "static_feed"
         | "reels"
         | "stories"
         | "carousel"
         | "recorded_video"
-        | "print_material"
         | "youtube_short"
+        | "print_material"
       content_status:
         | "draft"
         | "review"
         | "approved"
         | "changes"
-        | "changes_done"
         | "published"
         | "waiting_material"
+        | "changes_done"
       design_template_format: "static_feed" | "carousel"
+      help_request_kind: "gestor_platform" | "client_gestor"
       library_category:
         | "brand"
         | "pdfs"
@@ -1420,12 +1594,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1449,11 +1623,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1474,11 +1648,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1499,11 +1673,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1516,11 +1690,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1551,26 +1725,28 @@ export const Constants = {
       brand_briefing_status: ["draft", "in_progress", "completed"],
       client_member_role: ["owner", "member"],
       commercial_proposal_status: ["draft", "ready"],
-      help_request_kind: ["gestor_platform", "client_gestor"],
+      contact_lead_intent: ["trial", "human"],
+      contact_lead_niche: ["agency", "social_media", "brand_owner"],
       content_format: [
         "static_feed",
         "reels",
         "stories",
         "carousel",
         "recorded_video",
-        "print_material",
         "youtube_short",
+        "print_material",
       ],
       content_status: [
         "draft",
         "review",
         "approved",
         "changes",
-        "changes_done",
         "published",
         "waiting_material",
+        "changes_done",
       ],
       design_template_format: ["static_feed", "carousel"],
+      help_request_kind: ["gestor_platform", "client_gestor"],
       library_category: [
         "brand",
         "pdfs",
