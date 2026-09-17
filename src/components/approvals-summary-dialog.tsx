@@ -21,9 +21,10 @@ import {
 import {
   isImageUrl,
   isPlayableVideoUrl,
-  resolveContentMediaUrls,
+  resolveDownloadableContentMedia,
   type ContentFormat,
   type ContentItem,
+  type DownloadableContentMedia,
 } from "@/lib/api";
 import {
   fileNameFromMediaUrl,
@@ -78,12 +79,16 @@ function notifyDownloadResult(
   }
 }
 
-function mediaDownloadItems(urls: string[], title: string) {
+function mediaDownloadItems(items: DownloadableContentMedia[], title: string) {
   const fallback = title.trim() || "conteudo";
-  return urls.map((url, i) => ({
-    url,
-    name: fileNameFromMediaUrl(url, `${fallback}-${i + 1}`),
-  }));
+  return items.map((item, i) => {
+    const fromUrl = fileNameFromMediaUrl(item.url, `${fallback}-${i + 1}`);
+    return {
+      url: item.url,
+      role: item.role,
+      name: item.role === "cover" ? `capa-${fromUrl}` : fromUrl,
+    };
+  });
 }
 
 function ApprovedItemRow({
@@ -105,11 +110,17 @@ function ApprovedItemRow({
   const cta = getLocalizedText(rowI18n, "cta", item.cta ?? "", uiLocale);
   const hashtags = getLocalizedText(rowI18n, "hashtags", item.hashtags ?? "", uiLocale);
   const publishText = composePublishCaption({ caption, cta, hashtags });
-  const mediaUrls = resolveContentMediaUrls(item);
+  const downloadableMedia = resolveDownloadableContentMedia(item);
+  const mediaUrls = downloadableMedia.map((entry) => entry.url);
   const primaryUrl = mediaUrls[0] ?? null;
   const primaryKind = primaryUrl ? mediaKind(primaryUrl) : null;
   const formatKey = (item.format ?? "static_feed") as ContentFormat;
   const isDownloading = downloadingKey !== null;
+  let mediaFileNumber = 0;
+  const listedMedia = downloadableMedia.map((entry) => ({
+    ...entry,
+    n: entry.role === "cover" ? undefined : ++mediaFileNumber,
+  }));
 
   async function handleCopy() {
     if (!publishText.trim()) {
@@ -126,14 +137,14 @@ function ApprovedItemRow({
     }
   }
 
-  async function handleDownload(urls: string[], key: string) {
-    if (urls.length === 0) {
+  async function handleDownload(items: DownloadableContentMedia[], key: string) {
+    if (items.length === 0) {
       toast.error(t("project.calendar.approvalsSummary.noDownloadableMedia"));
       return;
     }
     setDownloadingKey(key);
     try {
-      const result = await shareOrDownloadFiles(mediaDownloadItems(urls, title));
+      const result = await shareOrDownloadFiles(mediaDownloadItems(items, title));
       notifyDownloadResult(result, t);
     } catch {
       toast.error(t("project.calendar.approvalsSummary.downloadError"));
@@ -216,7 +227,7 @@ function ApprovedItemRow({
               size="sm"
               className="mt-2 w-full"
               disabled={isDownloading}
-              onClick={() => void handleDownload(mediaUrls, "all")}
+              onClick={() => void handleDownload(downloadableMedia, "all")}
             >
               {downloadingKey === "all" ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -239,16 +250,18 @@ function ApprovedItemRow({
                   count: mediaUrls.length,
                 })}
               </li>
-              {mediaUrls.map((url, i) => (
-                <li key={url} className="flex items-center justify-between gap-2">
+              {listedMedia.map((entry) => (
+                <li key={`${entry.role}-${entry.url}`} className="flex items-center justify-between gap-2">
                   <a
-                    href={url}
+                    href={entry.url}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex min-w-0 items-center gap-1 text-xs text-primary underline-offset-2 hover:underline"
                   >
                     <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                    {t("project.calendar.approvalsSummary.openMediaN", { n: i + 1 })}
+                    {entry.role === "cover"
+                      ? t("project.calendar.approvalsSummary.openCover")
+                      : t("project.calendar.approvalsSummary.openMediaN", { n: entry.n })}
                   </a>
                   <Button
                     type="button"
@@ -256,14 +269,16 @@ function ApprovedItemRow({
                     size="sm"
                     className="h-7 shrink-0 px-2 text-xs"
                     disabled={isDownloading}
-                    onClick={() => void handleDownload([url], url)}
+                    onClick={() => void handleDownload([entry], entry.url)}
                   >
-                    {downloadingKey === url ? (
+                    {downloadingKey === entry.url ? (
                       <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />
                     ) : (
                       <Download className="mr-1 h-3 w-3" aria-hidden="true" />
                     )}
-                    {t("project.calendar.approvalsSummary.downloadMediaN", { n: i + 1 })}
+                    {entry.role === "cover"
+                      ? t("project.calendar.approvalsSummary.downloadCover")
+                      : t("project.calendar.approvalsSummary.downloadMediaN", { n: entry.n })}
                   </Button>
                 </li>
               ))}
@@ -331,7 +346,7 @@ export function ApprovalsSummaryDialog({
     const title =
       getLocalizedText(parseRowI18n(item.i18n), "title", item.title, uiLocale).trim() ||
       `conteudo-${itemIndex + 1}`;
-    return mediaDownloadItems(resolveContentMediaUrls(item), title).map((file, fileIndex) => ({
+    return mediaDownloadItems(resolveDownloadableContentMedia(item), title).map((file, fileIndex) => ({
       ...file,
       name: `${title}-${fileIndex + 1}-${file.name}`,
     }));

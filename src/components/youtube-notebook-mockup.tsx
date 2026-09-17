@@ -14,6 +14,8 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ContentStatusLink } from "@/components/content-status-select";
+import { type ContentStatus } from "@/components/status-badge";
 import {
   extractYoutubeVideoId,
   getLocalizedText,
@@ -501,19 +503,31 @@ export function YouTubeChannelMockup({
           playing={playing}
           onPlay={() => setPlayingId(item.id)}
         />
-        {!playing ? (
-          <div className="mt-1.5 space-y-0.5 px-0.5">
-            <Link
-              to="/clients/$clientId/projects/$projectId/content/$contentId"
-              params={{ clientId, projectId, contentId: item.id }}
-              search={{}}
-              className="line-clamp-2 text-xs font-medium leading-snug text-neutral-900 hover:underline sm:text-sm"
-            >
-              {title}
-            </Link>
+        <div className={cn("px-0.5", short ? "mt-1.5 space-y-1" : "mt-1.5 space-y-1.5")}>
+          <Link
+            to="/clients/$clientId/projects/$projectId/content/$contentId"
+            params={{ clientId, projectId, contentId: item.id }}
+            search={{}}
+            className="line-clamp-2 text-xs font-medium leading-snug text-neutral-900 hover:underline sm:text-sm"
+          >
+            {title}
+          </Link>
+          <ContentStatusLink
+            status={item.status as ContentStatus}
+            contentId={item.id}
+            clientId={clientId}
+            projectId={projectId}
+            className={short ? "w-full" : "inline-flex"}
+            badgeClassName={
+              short
+                ? "h-auto min-h-6 w-full justify-center whitespace-normal px-1.5 py-0.5 text-[8px] leading-tight"
+                : "h-7 px-2.5 text-[11px]"
+            }
+          />
+          {short ? null : (
             <p className="text-[10px] text-neutral-500">{t("project.youtube.cardMeta")}</p>
-          </div>
-        ) : null}
+          )}
+        </div>
       </div>
     );
   };

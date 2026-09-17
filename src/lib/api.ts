@@ -438,6 +438,52 @@ export function resolveContentThumbnail(item: {
   return media;
 }
 
+export type DownloadableContentMedia = {
+  url: string;
+  role: "media" | "cover";
+};
+
+function normalizeDownloadableMediaUrl(url: string) {
+  return url.trim().split("#")[0] ?? url.trim();
+}
+
+/** Capa enviada (`thumbnail_url`), sem frame gerado (#t=) nem thumbnail automática do YouTube. */
+function isDownloadableCoverUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.includes("#t=")) return false;
+  if (extractYoutubeVideoId(trimmed)) return false;
+  return true;
+}
+
+/**
+ * Arquivos para baixar no resumo de aprovações: mídias do conteúdo + capa
+ * (Reels, Stories, YouTube), quando existir e for distinta.
+ */
+export function resolveDownloadableContentMedia(item: {
+  media_url?: string | null;
+  media_urls?: string[] | null;
+  thumbnail_url?: string | null;
+}): DownloadableContentMedia[] {
+  const media = resolveContentMediaUrls(item);
+  const seen = new Set(media.map(normalizeDownloadableMediaUrl).filter(Boolean));
+  const items: DownloadableContentMedia[] = media.map((url) => ({
+    url,
+    role: "media" as const,
+  }));
+
+  const cover = item.thumbnail_url?.trim() ?? "";
+  if (
+    cover &&
+    isDownloadableCoverUrl(cover) &&
+    !seen.has(normalizeDownloadableMediaUrl(cover))
+  ) {
+    items.push({ url: cover, role: "cover" });
+  }
+
+  return items;
+}
+
 function sanitizeFileName(name: string) {
   return name.replace(/[^\w.\-()+ ]+/g, "_").replace(/\s+/g, "-").slice(0, 120);
 }
