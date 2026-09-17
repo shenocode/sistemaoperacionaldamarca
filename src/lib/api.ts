@@ -289,6 +289,11 @@ export function contentFormatsForProject(values?: string[] | null): ContentForma
   return projectCategoryConfig(values).formats;
 }
 
+/** CTA e hashtags só se aplicam a projetos de conteúdo (não Site). */
+export function projectUsesContentPresets(values?: string[] | null): boolean {
+  return getPrimaryProjectCategory(values) !== "site";
+}
+
 export function defaultContentFormatForProject(values?: string[] | null): ContentFormat {
   return contentFormatsForProject(values)[0] ?? "static_feed";
 }

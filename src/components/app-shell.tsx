@@ -25,6 +25,8 @@ import { SiteFooter } from "./site-footer";
 import { SomMark } from "./som-logo";
 import { useAppRole } from "@/hooks/use-app-role";
 import { useEntitlements } from "@/hooks/use-entitlements";
+import { useMyProfile } from "@/hooks/use-my-profile";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
   Sheet,
@@ -39,6 +41,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAdmin, isAdminMaster, isClient, loading } = useAppRole();
   const { entitlements } = useEntitlements();
+  const profileQuery = useMyProfile({ enabled: true });
+  const profileLogoUrl = profileQuery.data?.logo_url?.trim() || "";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const params = useParams({ strict: false }) as {
     clientId?: string;
@@ -93,6 +97,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? t("nav.profileWithRole", { role: roleLabel })
     : null;
 
+  const profileIcon = profileLogoUrl ? (
+    <Avatar className="h-5 w-5 border bg-white">
+      <AvatarImage src={profileLogoUrl} alt="" className="object-contain" />
+      <AvatarFallback className="bg-transparent">
+        <User className="h-3.5 w-3.5 shrink-0" />
+      </AvatarFallback>
+    </Avatar>
+  ) : (
+    <User className="h-3.5 w-3.5 shrink-0" />
+  );
+
   const profileLink = !profileLabel ? null : isAdmin ? (
     <Link
       to="/profile"
@@ -100,7 +115,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       className={profileLinkClass}
       activeProps={{ className: profileLinkActiveClass }}
     >
-      <User className="h-3.5 w-3.5 shrink-0" />
+      {profileIcon}
       {profileLabel}
     </Link>
   ) : (
@@ -110,7 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       className={profileLinkClass}
       activeProps={{ className: profileLinkActiveClass }}
     >
-      <User className="h-3.5 w-3.5 shrink-0" />
+      {profileIcon}
       {profileLabel}
     </Link>
   );

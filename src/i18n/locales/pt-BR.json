@@ -543,7 +543,7 @@
     "website": "URL do site (se houver)",
     "websitePlaceholder": "https://suaempresa.com",
     "logo": "Logo do gestor",
-    "logoHint": "Aparece no timbre das propostas comerciais, à direita do logo SOM.",
+    "logoHint": "Aparece no ícone da conta quando você está logada, no dashboard (junto com o nome da empresa) e no timbre das propostas.",
     "logoUpload": "Enviar logo",
     "logoUploading": "Enviando…",
     "logoRemove": "Remover",

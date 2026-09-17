@@ -543,7 +543,7 @@
     "website": "Website URL (if any)",
     "websitePlaceholder": "https://yourcompany.com",
     "logo": "Manager logo",
-    "logoHint": "Appears on commercial proposal letterheads, to the right of the SOM logo.",
+    "logoHint": "Shown on your account icon when signed in, on the dashboard (with the company name), and on proposal letterheads.",
     "logoUpload": "Upload logo",
     "logoUploading": "Uploading…",
     "logoRemove": "Remove",

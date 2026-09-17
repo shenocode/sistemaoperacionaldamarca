@@ -543,7 +543,7 @@
     "website": "URL del sitio (si hay)",
     "websitePlaceholder": "https://tuempresa.com",
     "logo": "Logo del gestor",
-    "logoHint": "Aparece en el membrete de las propuestas comerciales, a la derecha del logo SOM.",
+    "logoHint": "Aparece en el icono de la cuenta al iniciar sesión, en el panel (junto al nombre de la empresa) y en el membrete de las propuestas.",
     "logoUpload": "Subir logo",
     "logoUploading": "Subiendo…",
     "logoRemove": "Quitar",

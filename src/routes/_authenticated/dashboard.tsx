@@ -22,6 +22,7 @@ import {
   type ClientWithProjects,
 } from "@/lib/api";
 import { useAppRole } from "@/hooks/use-app-role";
+import { useMyProfile } from "@/hooks/use-my-profile";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   beforeLoad: async () => {
@@ -48,6 +49,9 @@ function DashboardPage() {
   const { user } = AuthLayout.useRouteContext();
   const { isAdminMaster, loading: roleLoading } = useAppRole();
   const settingsDialog = useClientSettingsDialog();
+  const profileQuery = useMyProfile({ enabled: true });
+  const companyName = profileQuery.data?.company_name?.trim() || "";
+  const logoUrl = profileQuery.data?.logo_url?.trim() || "";
 
   const clientsQuery = useQuery({ queryKey: ["clients"], queryFn: listClients });
   const pendingQuery = useQuery({
@@ -66,7 +70,17 @@ function DashboardPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
       <PageHeader
+        leading={
+          logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={companyName || t("gestorProfile.logo")}
+              className="mt-0.5 h-12 w-12 shrink-0 rounded-full border bg-white object-contain p-1"
+            />
+          ) : null
+        }
         title={t("dashboard.title")}
+        subtitle={companyName || undefined}
         description={`${t("dashboard.welcome")}, ${user.email}`}
       />
 

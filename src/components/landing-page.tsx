@@ -52,6 +52,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { SiteFooter } from "@/components/site-footer";
 import { SomLogo, SomMark } from "@/components/som-logo";
 import { supabase } from "@/integrations/supabase/client";
+import { useMyProfile } from "@/hooks/use-my-profile";
 import {
   clearAuthNext,
   listClients,
@@ -790,6 +791,7 @@ export function LandingPage() {
   const [checkoutPlan, setCheckoutPlan] = useState<SubscriptionPlanKey | null>(null);
   const displayName = user ? getAuthDisplayName(user) : "";
   const initials = user ? getAuthInitials(user) : "";
+  const profileQuery = useMyProfile();
 
   const brandLogoQuery = useQuery({
     queryKey: ["clients", "brand-logo"],
@@ -803,7 +805,9 @@ export function LandingPage() {
   });
 
   const avatarUrl =
-    brandLogoQuery.data || (user ? getAuthAvatarUrl(user) : null);
+    brandLogoQuery.data ||
+    profileQuery.data?.logo_url?.trim() ||
+    (user ? getAuthAvatarUrl(user) : null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -875,7 +879,7 @@ export function LandingPage() {
                   >
                     <Avatar className="h-7 w-7 border border-neutral-200 bg-white">
                       {avatarUrl ? (
-                        <AvatarImage src={avatarUrl} alt="" className="object-cover" />
+                        <AvatarImage src={avatarUrl} alt="" className="object-contain" />
                       ) : null}
                       <AvatarFallback className="bg-neutral-100 text-[11px] font-semibold text-neutral-800">
                         {initials || <UserRound className="h-3.5 w-3.5" />}

@@ -22,6 +22,7 @@ import {
   canManageClient,
   getPrimaryProjectCategory,
   getProject,
+  projectUsesContentPresets,
   updateProject,
   type ProjectCategory,
 } from "@/lib/api";
@@ -182,6 +183,13 @@ function ProjectSettingsPage() {
   });
 
   const canManage = Boolean(manageQuery.data);
+  const resolvedCategory =
+    category ??
+    (projectQuery.data ? getPrimaryProjectCategory(projectQuery.data.categories) : null);
+  const usesContentPresets = projectUsesContentPresets(
+    resolvedCategory ? [resolvedCategory] : projectQuery.data?.categories,
+  );
+  const showPresetsSection = presetsAllowed && usesContentPresets;
 
   useEffect(() => {
     if (!projectQuery.data) return;
@@ -248,7 +256,7 @@ function ProjectSettingsPage() {
           description,
         });
       }
-      const shouldSavePresets = presetsAllowed;
+      const shouldSavePresets = presetsAllowed && usesContentPresets;
       const [ctaBlocks, hashtagBlocks] = shouldSavePresets
         ? await Promise.all([
             translatePresetList(ctaPresets),
@@ -361,7 +369,7 @@ function ProjectSettingsPage() {
         </>
       ) : null}
 
-      {presetsAllowed ? (
+      {showPresetsSection ? (
       <div className={canManage ? "space-y-4 border-t pt-4" : "space-y-4"}>
         <div>
           <h2 className="text-sm font-medium">{t("project.settings.presetsTitle")}</h2>
@@ -388,13 +396,13 @@ function ProjectSettingsPage() {
           onChange={setHashtagPresets}
         />
       </div>
-      ) : canManage ? (
+      ) : canManage && !presetsAllowed && usesContentPresets ? (
         <p className="border-t pt-4 text-sm text-muted-foreground">
           {t("accessRelease.featureLocked")}
         </p>
       ) : null}
 
-      {canManage || presetsAllowed ? (
+      {canManage || showPresetsSection ? (
         <Button
           type="submit"
           loading={saveMutation.isPending}
