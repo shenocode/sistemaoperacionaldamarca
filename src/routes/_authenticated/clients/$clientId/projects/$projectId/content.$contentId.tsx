@@ -1321,7 +1321,7 @@ function ContentDetailPage() {
             />
           ) : null}
 
-          {isAdmin && entitlements.designAi && (formatType === "static_feed" || formatType === "carousel") ? (
+          {isAdmin && entitlements.designAi ? (
             <ContentDesignAssistant
               contentId={contentId}
               projectId={projectId}
@@ -1341,6 +1341,11 @@ function ContentDetailPage() {
                 });
               }}
               onApply={(items) => {
+                if (usesDedicatedThumbnail && items[0]) {
+                  setThumbnailFromFile(null);
+                  setThumbnailUrl(items[0].url);
+                  return;
+                }
                 setMediaItems(
                   items.map((item) => ({
                     id: createMediaId(),

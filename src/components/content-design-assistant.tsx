@@ -26,16 +26,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DESIGN_ASPECT_RATIOS,
   DESIGN_TEMPLATE_ACCEPT,
   brandKitFromClient,
+  contentUsesDedicatedThumbnail,
+  defaultAspectForFormat,
+  designAspectI18nKey,
+  designAspectPreviewClass,
+  designAspectThumbClass,
   generateDesign,
   getClient,
+  isReelsFormat,
   listDesignTemplates,
+  parseDesignAspectRatio,
   saveGeneratedArtToLibrary,
   uploadContentMedia,
+  type ContentFormat,
+  type DesignAspectRatio,
   type DesignProvider,
   type DesignTemplate,
-  type DesignTemplateFormat,
 } from "@/lib/api";
 import { MediaLightbox } from "@/components/content-media-preview";
 import { downloadImageFromUrl } from "@/lib/download-image";
@@ -63,13 +72,20 @@ type SlideDraft = {
   overlay: MediaTextOverlay | null;
 };
 
+function templateAspect(template: DesignTemplate): DesignAspectRatio {
+  return parseDesignAspectRatio(template.aspect_ratio, defaultAspectForFormat(template.format));
+}
+
 function TemplateOptionLabel({
   name,
   imageUrl,
+  aspect,
 }: {
   name: string;
   imageUrl?: string | null;
+  aspect: DesignAspectRatio;
 }) {
+  const thumbClass = designAspectThumbClass(aspect);
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       {imageUrl ? (
@@ -78,10 +94,10 @@ function TemplateOptionLabel({
           alt=""
           loading="lazy"
           decoding="async"
-          className="pointer-events-none h-12 w-9 shrink-0 rounded-md border bg-muted object-cover"
+          className={cn("pointer-events-none shrink-0 rounded-md border bg-muted object-cover", thumbClass)}
         />
       ) : (
-        <span className="h-12 w-9 shrink-0 rounded-md border bg-muted" aria-hidden="true" />
+        <span className={cn("shrink-0 rounded-md border bg-muted", thumbClass)} aria-hidden="true" />
       )}
       <span className="truncate">{name}</span>
     </span>
@@ -93,7 +109,11 @@ function TemplateSelectItems({ templates }: { templates: DesignTemplate[] }) {
     <>
       {templates.map((template) => (
         <SelectItem key={template.id} value={template.id} className="h-auto py-1.5">
-          <TemplateOptionLabel name={template.name} imageUrl={template.file_url} />
+          <TemplateOptionLabel
+            name={template.name}
+            imageUrl={template.file_url}
+            aspect={templateAspect(template)}
+          />
         </SelectItem>
       ))}
     </>
@@ -213,7 +233,7 @@ export function ContentDesignAssistant({
   contentId: string;
   projectId: string;
   clientId: string;
-  format: DesignTemplateFormat;
+  format: ContentFormat;
   title: string;
   caption: string;
   roteiro: string;
@@ -224,12 +244,26 @@ export function ContentDesignAssistant({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const isCarousel = format === "carousel";
+  const applyTarget = contentUsesDedicatedThumbnail(format)
+    ? isReelsFormat(format)
+      ? "cover"
+      : "thumbnail"
+    : "media";
+  const [aspectRatio, setAspectRatio] = useState<DesignAspectRatio>(() =>
+    defaultAspectForFormat(format),
+  );
 
   const templatesQuery = useQuery({
-    queryKey: ["design-templates", clientId, format],
-    queryFn: () => listDesignTemplates(clientId, format),
+    queryKey: ["design-templates", clientId],
+    queryFn: () => listDesignTemplates(clientId),
   });
-  const templates = templatesQuery.data ?? [];
+  const templates = useMemo(
+    () =>
+      (templatesQuery.data ?? []).filter(
+        (template) => templateAspect(template) === aspectRatio,
+      ),
+    [templatesQuery.data, aspectRatio],
+  );
 
   const clientQuery = useQuery({
     queryKey: ["clients", clientId],
@@ -265,6 +299,10 @@ export function ContentDesignAssistant({
     const fromCaption = caption.trim().split(/\n/)[0]?.trim() ?? "";
     return fromCaption.slice(0, 180);
   }, [title, caption]);
+
+  useEffect(() => {
+    setAspectRatio(defaultAspectForFormat(format));
+  }, [format]);
 
   useEffect(() => {
     if (isCarousel) return;
@@ -304,7 +342,9 @@ export function ContentDesignAssistant({
       setTemplateSource("upload");
       return;
     }
-    setSelectedTemplateId((current) => current || templates[0].id);
+    setSelectedTemplateId((current) =>
+      templates.some((item) => item.id === current) ? current : templates[0].id,
+    );
     setTemplateSource("library");
   }, [templates]);
 
@@ -379,6 +419,7 @@ export function ContentDesignAssistant({
         projectId,
         clientId,
         format,
+        aspectRatio,
         provider,
         templateUrl,
         photoUrl,
@@ -419,9 +460,10 @@ export function ContentDesignAssistant({
       projectId,
       clientId,
       format: "carousel",
+      aspectRatio,
       provider,
       templateUrl,
-      photoUrl,
+      photoUrl: photoUrl,
       overlayText: slide.overlayText,
       secondaryText: slide.secondaryText,
       guidance,
@@ -490,10 +532,23 @@ export function ContentDesignAssistant({
     generateSlideMutation.isPending ||
     generateAllMutation.isPending;
 
+  const applyLabel =
+    applyTarget === "cover"
+      ? t("project.detail.designAssistant.applyCover")
+      : applyTarget === "thumbnail"
+        ? t("project.detail.designAssistant.applyThumbnail")
+        : t("project.detail.designAssistant.apply");
+  const appliedLabel =
+    applyTarget === "cover"
+      ? t("project.detail.designAssistant.appliedCover")
+      : applyTarget === "thumbnail"
+        ? t("project.detail.designAssistant.appliedThumbnail")
+        : t("project.detail.designAssistant.applied");
+
   const handleApplyStatic = () => {
     if (!resultUrl) return;
     onApply([{ url: resultUrl, overlay: resultOverlay ?? undefined }]);
-    toast.success(t("project.detail.designAssistant.applied"));
+    toast.success(appliedLabel);
   };
 
   const handleApplyCarousel = () => {
@@ -502,7 +557,7 @@ export function ContentDesignAssistant({
       .map((slide) => ({ url: slide.resultUrl, overlay: slide.overlay ?? undefined }));
     if (items.length === 0) return;
     onApply(items);
-    toast.success(t("project.detail.designAssistant.applied"));
+    toast.success(appliedLabel);
   };
 
   async function handleDownload(url: string, name: string, format: "png" | "jpg") {
@@ -531,7 +586,10 @@ export function ContentDesignAssistant({
                 {t("project.detail.designAssistant.title")}
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {t("project.detail.designAssistant.hint")}
+                {t("project.detail.designAssistant.hint", { aspect: aspectRatio })}
+                {applyTarget !== "media"
+                  ? ` ${t("project.detail.designAssistant.hintVideo")}`
+                  : ""}
               </p>
             </div>
             <ChevronDown
@@ -566,9 +624,31 @@ export function ContentDesignAssistant({
         </div>
 
         <div className="space-y-1.5">
+          <Label variant="highlight">{t("project.detail.designAssistant.aspect")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t("project.detail.designAssistant.aspectHint")}
+          </p>
+          <Select
+            value={aspectRatio}
+            onValueChange={(value) => setAspectRatio(value as DesignAspectRatio)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                  {DESIGN_ASPECT_RATIOS.map((ratio) => (
+                    <SelectItem key={ratio} value={ratio}>
+                      {t(`project.detail.designAssistant.aspects.${designAspectI18nKey(ratio)}`)}
+                    </SelectItem>
+                  ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
           <Label variant="highlight">{t("project.detail.designAssistant.template")}</Label>
           <p className="text-xs text-muted-foreground">
-            {t("project.detail.designAssistant.templateHint")}
+            {t("project.detail.designAssistant.templateHint", { aspect: aspectRatio })}
           </p>
           <input
             ref={templateFileInputRef}
@@ -631,7 +711,10 @@ export function ContentDesignAssistant({
             <img
               src={templates.find((item) => item.id === selectedTemplateId)?.file_url}
               alt=""
-              className="mt-2 h-24 w-24 rounded-md border object-cover"
+              className={cn(
+                "mt-2 rounded-md border object-cover",
+                designAspectPreviewClass(aspectRatio, "sm"),
+              )}
             />
           ) : null}
           {templateFile && templateSource === "upload" ? (
@@ -735,12 +818,15 @@ export function ContentDesignAssistant({
                   src={resultUrl}
                   alt={t("project.detail.designAssistant.previewTitle")}
                   onExpand={() => setLightbox({ items: [{ url: resultUrl }], index: 0 })}
-                  className="mx-auto w-full max-w-sm aspect-[4/5] bg-muted/40"
+                  className={cn(
+                    "bg-muted/40",
+                    designAspectPreviewClass(aspectRatio, "md"),
+                  )}
                   imgClassName="h-full w-full object-contain"
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" onClick={handleApplyStatic}>
-                    {t("project.detail.designAssistant.apply")}
+                    {applyLabel}
                   </Button>
                   <Button
                     type="button"
@@ -981,6 +1067,7 @@ export function ContentDesignAssistant({
                               imageUrl={
                                 templates.find((item) => item.id === selectedTemplateId)?.file_url
                               }
+                              aspect={aspectRatio}
                             />
                           </SelectItem>
                           <TemplateSelectItems templates={templates} />
@@ -1035,7 +1122,10 @@ export function ContentDesignAssistant({
                             const start = items.findIndex((item) => item.url === slide.resultUrl);
                             setLightbox({ items, index: Math.max(start, 0) });
                           }}
-                          className="w-40 aspect-[4/5] border bg-muted/40"
+                          className={cn(
+                            "border bg-muted/40",
+                            designAspectPreviewClass(aspectRatio, "sm"),
+                          )}
                           imgClassName="h-full w-full object-contain"
                         />
                         <div className="flex flex-wrap gap-2">
@@ -1082,7 +1172,7 @@ export function ContentDesignAssistant({
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" onClick={handleApplyCarousel}>
-                    {t("project.detail.designAssistant.apply")}
+                    {applyLabel}
                   </Button>
                   <Button
                     type="button"

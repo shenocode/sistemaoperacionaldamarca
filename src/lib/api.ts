@@ -39,6 +39,11 @@ import {
 } from "@/lib/i18n-content";
 import type { PlanEntitlements } from "@/lib/plan-entitlements";
 import {
+  defaultAspectForFormat,
+  parseDesignAspectRatio,
+  type DesignAspectRatio,
+} from "@/lib/design-aspect";
+import {
   parseContentMix,
   parseFunnelStage,
   type ContentMix,
@@ -91,6 +96,16 @@ export type ContentComment = Tables<"content_comments">;
 export type LibraryAsset = Tables<"library_assets">;
 export type DesignTemplate = Tables<"design_templates">;
 export type DesignTemplateFormat = Database["public"]["Enums"]["design_template_format"];
+export type { DesignAspectRatio } from "@/lib/design-aspect";
+export {
+  DESIGN_ASPECT_RATIOS,
+  defaultAspectForFormat,
+  designAspectCss,
+  designAspectI18nKey,
+  designAspectPreviewClass,
+  designAspectThumbClass,
+  parseDesignAspectRatio,
+} from "@/lib/design-aspect";
 export type ActivityEvent = Tables<"activity_events">;
 export type Profile = Tables<"profiles">;
 export type CommercialProposal = Tables<"commercial_proposals">;
@@ -3582,7 +3597,8 @@ export async function generateDesign(input: {
   contentId: string;
   projectId: string;
   clientId: string;
-  format: DesignTemplateFormat;
+  format: ContentFormat;
+  aspectRatio?: DesignAspectRatio;
   provider?: DesignProvider;
   templateUrl: string;
   photoUrl?: string;
@@ -3595,6 +3611,10 @@ export async function generateDesign(input: {
   const templateUrl = input.templateUrl.trim();
   const photoUrl = input.photoUrl?.trim() || "";
   const provider = input.provider === "gemini" ? "gemini" : "openai";
+  const aspectRatio = parseDesignAspectRatio(
+    input.aspectRatio,
+    defaultAspectForFormat(input.format),
+  );
   if (!templateUrl) throw new Error("Informe o template de referência");
   if (!overlayText) throw new Error("Informe o texto da arte");
 
@@ -3604,6 +3624,7 @@ export async function generateDesign(input: {
       projectId: input.projectId,
       clientId: input.clientId,
       format: input.format,
+      aspectRatio,
       provider,
       templateUrl,
       photoUrl: photoUrl || undefined,
@@ -4589,7 +4610,7 @@ export async function createLibraryAssets(
 }
 
 export const DESIGN_TEMPLATE_ACCEPT = ".jpg,.jpeg,.png,image/jpeg,image/png";
-export const DESIGN_TEMPLATE_FORMATS: DesignTemplateFormat[] = ["static_feed", "carousel"];
+export const DESIGN_TEMPLATE_FORMATS: DesignTemplateFormat[] = [...CONTENT_FORMATS];
 const DESIGN_TEMPLATE_MAX_BYTES = 20 * 1024 * 1024;
 
 export async function listDesignTemplates(
@@ -4636,17 +4657,23 @@ export async function createDesignTemplate(input: {
   clientId: string;
   name: string;
   format: DesignTemplateFormat;
+  aspectRatio?: DesignAspectRatio;
   file: File;
 }): Promise<DesignTemplate> {
   await assertPlanFeature("library", "Biblioteca disponível a partir do plano Studio.");
   const userId = await requireUserId();
   const uploaded = await uploadDesignTemplateFile(input.clientId, input.file);
+  const aspectRatio = parseDesignAspectRatio(
+    input.aspectRatio,
+    defaultAspectForFormat(input.format),
+  );
   const { data, error } = await supabase
     .from("design_templates")
     .insert({
       client_id: input.clientId,
       name: input.name.trim() || fileTitleFallback(input.file.name),
       format: input.format,
+      aspect_ratio: aspectRatio,
       file_url: uploaded.fileUrl,
       storage_path: uploaded.storagePath,
       mime_type: uploaded.mimeType,

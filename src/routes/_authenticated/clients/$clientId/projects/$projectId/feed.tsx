@@ -136,7 +136,7 @@ function ProjectFeedPage() {
   }
 
   return (
-    <div className="flex min-w-0 w-full justify-center overflow-x-clip py-2">
+    <div className="min-w-0 w-full overflow-x-clip">
       {getPrimaryProjectCategory(projectQuery.data?.categories) === "videos" ? (
         <YouTubeChannelMockup
           items={rows}
@@ -145,7 +145,7 @@ function ProjectFeedPage() {
           username={clientQuery.data?.name}
           avatarUrl={clientQuery.data?.logo_url}
           showLabel={false}
-          size="page"
+          size="lg"
         />
       ) : (
         <InstagramFeedMockup

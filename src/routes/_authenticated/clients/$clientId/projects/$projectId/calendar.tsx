@@ -1981,7 +1981,7 @@ function ProjectCalendarPage() {
       )}
 
       {!loading && !contentQuery.isError && showFeedMockup ? (
-        <div className="flex min-w-0 justify-center overflow-x-clip pt-4">
+        <div className="min-w-0 w-full overflow-x-clip pt-4">
           {isVideos ? (
             <YouTubeChannelMockup
               items={rows}
@@ -1989,6 +1989,7 @@ function ProjectCalendarPage() {
               projectId={projectId}
               username={clientQuery.data?.name}
               avatarUrl={clientQuery.data?.logo_url}
+              size="lg"
             />
           ) : (
             <InstagramFeedMockup

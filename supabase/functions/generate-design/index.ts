@@ -1,6 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
 import { loadCallerEntitlements } from "../_shared/caller-entitlements.ts";
+import {
+  defaultAspectForFormat,
+  designCanvasSpec,
+  isContentFormat,
+  parseDesignAspectRatio,
+  type DesignAspectRatio,
+} from "../_shared/design-aspect.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -9,17 +16,15 @@ const corsHeaders: Record<string, string> = {
 
 const CONTENT_MEDIA_BUCKET = "content-media";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-const FEED_ASPECT_RATIO = "4:5";
-const OPENAI_FEED_SIZE = "1024x1536";
 
-type DesignFormat = "static_feed" | "carousel";
 type DesignProvider = "openai" | "gemini";
 
 type GenerateRequest = {
   contentId: string;
   projectId: string;
   clientId: string;
-  format?: DesignFormat;
+  format?: string;
+  aspectRatio?: string;
   provider?: DesignProvider;
   templateUrl: string;
   photoUrl?: string;
@@ -123,23 +128,19 @@ function normalizeProvider(value: unknown): DesignProvider {
   return value === "gemini" ? "gemini" : "openai";
 }
 
-function openaiFeedSize(_model: string): string {
-  void _model;
-  return OPENAI_FEED_SIZE;
-}
-
 async function generateWithOpenAI(input: {
   prompt: string;
   templateImage: RefImage;
   photoImage?: RefImage | null;
   apiKey: string;
+  aspectRatio: DesignAspectRatio;
 }): Promise<Uint8Array> {
   const form = new FormData();
   const model = Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1";
   form.append("model", model);
   form.append("prompt", input.prompt);
   form.append("n", "1");
-  form.append("size", openaiFeedSize(model));
+  form.append("size", designCanvasSpec(input.aspectRatio).openaiSize);
   form.append("quality", "high");
   form.append("input_fidelity", "high");
   const normalizeMime = (mime: string) => {
@@ -203,6 +204,7 @@ async function generateWithGemini(input: {
   templateImage: RefImage;
   photoImage?: RefImage | null;
   apiKey: string;
+  aspectRatio: DesignAspectRatio;
 }): Promise<Uint8Array> {
   const model = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image";
   const url =
@@ -225,7 +227,7 @@ async function generateWithGemini(input: {
     parts.push(imagePart(input.photoImage));
   }
   parts.push({
-    text: `TEMPLATE — edite ESTA arte. Saída obrigatória ${FEED_ASPECT_RATIO}. Não redesenhe o layout.`,
+    text: `TEMPLATE — edite ESTA arte. Saída obrigatória ${input.aspectRatio}. Não redesenhe o layout.`,
   });
   parts.push(imagePart(input.templateImage));
 
@@ -241,7 +243,7 @@ async function generateWithGemini(input: {
       ],
       generationConfig: {
         responseModalities: ["IMAGE"],
-        imageConfig: { aspectRatio: FEED_ASPECT_RATIO },
+        imageConfig: { aspectRatio: input.aspectRatio },
       },
     }),
   });
@@ -413,10 +415,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Conteúdo não pertence a este projeto/cliente" }, 400);
     }
 
-    const format = (body.format ?? content.format ?? "static_feed") as DesignFormat;
-    if (format !== "static_feed" && format !== "carousel") {
-      return jsonResponse({ error: "Formato não suportado pelo assistente de design" }, 400);
-    }
+    const rawFormat = body.format ?? content.format ?? "static_feed";
+    const format = isContentFormat(rawFormat) ? rawFormat : "static_feed";
+    const aspectRatio = parseDesignAspectRatio(
+      body.aspectRatio,
+      defaultAspectForFormat(format),
+    );
+    const canvas = designCanvasSpec(aspectRatio);
 
     const brandGuide =
       typeof brandBriefing?.guide_markdown === "string"
@@ -430,8 +435,8 @@ Deno.serve(async (req) => {
 
     const prompt = [
       "TAREFA: edição de imagem (image edit). NÃO crie uma arte nova. NÃO reinterpretar o design.",
-      `Saída: UMA arte de feed Instagram em retrato ${FEED_ASPECT_RATIO} (quatro por cinco, 1080×1350).`,
-      `Proporção obrigatória: ${FEED_ASPECT_RATIO}. Proibido 1:1, 3:4 e 9:16. Canvas vertical 4:5.`,
+      `Saída: UMA arte em ${canvas.orientation} ${aspectRatio} (${canvas.pixels}) para ${canvas.uses}.`,
+      `Proporção obrigatória: ${aspectRatio}. ${canvas.forbidden}`,
       "A última imagem anexada é o TEMPLATE oficial. Trave o layout: mesmas cores, margens, hierarquia, blocos, rodapé gráfico e fundo.",
       "Não redesenhe, não estilize, não invente blocos extras, não duplique frases, não mude a tipografia desenhada em formas.",
       photoImage
@@ -444,11 +449,11 @@ Deno.serve(async (req) => {
       "O app aplica o copy depois, com a fonte verdadeira da marca; a sua saída é só o fundo/layout vazio.",
       "Respeite as cores do kit de marca quando informadas.",
       "Não adicione logos inventados.",
-      `Resultado: o mesmo template, limpo, sem letras, em ${FEED_ASPECT_RATIO}.`,
+      `Resultado: o mesmo template, limpo, sem letras, em ${aspectRatio}.`,
       "",
       `Cliente: ${client.name}`,
       `Projeto: ${project.name}`,
-      `Formato: ${format} (arte ${FEED_ASPECT_RATIO})`,
+      `Formato: ${format} (arte ${aspectRatio})`,
       `Cores da marca: ${formatBrandColors(client.brand_colors)}`,
       `Fontes da marca (não desenhe as letras; só o estilo do layout): ${formatBrandFonts(client.brand_fonts)}`,
       brandGuidance ? `Orientações gerais da marca (obrigatórias):\n${brandGuidance}` : null,
@@ -466,6 +471,7 @@ Deno.serve(async (req) => {
           templateImage,
           photoImage,
           apiKey,
+          aspectRatio,
         });
       } else {
         imageBytes = await generateWithOpenAI({
@@ -473,6 +479,7 @@ Deno.serve(async (req) => {
           templateImage,
           photoImage,
           apiKey,
+          aspectRatio,
         });
       }
     } catch (err) {

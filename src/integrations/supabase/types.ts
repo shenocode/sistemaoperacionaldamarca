@@ -746,6 +746,7 @@ export type Database = {
           mime_type: string | null
           name: string
           storage_path: string | null
+          aspect_ratio: string
         }
         Insert: {
           client_id: string
@@ -758,6 +759,7 @@ export type Database = {
           mime_type?: string | null
           name: string
           storage_path?: string | null
+          aspect_ratio?: string
         }
         Update: {
           client_id?: string
@@ -770,6 +772,7 @@ export type Database = {
           mime_type?: string | null
           name?: string
           storage_path?: string | null
+          aspect_ratio?: string
         }
         Relationships: [
           {
@@ -1567,7 +1570,14 @@ export type Database = {
         | "published"
         | "waiting_material"
         | "changes_done"
-      design_template_format: "static_feed" | "carousel"
+      design_template_format:
+        | "static_feed"
+        | "carousel"
+        | "stories"
+        | "reels"
+        | "recorded_video"
+        | "youtube_short"
+        | "print_material"
       help_request_kind: "gestor_platform" | "client_gestor"
       library_category:
         | "brand"
@@ -1745,7 +1755,15 @@ export const Constants = {
         "waiting_material",
         "changes_done",
       ],
-      design_template_format: ["static_feed", "carousel"],
+      design_template_format: [
+        "static_feed",
+        "carousel",
+        "stories",
+        "reels",
+        "recorded_video",
+        "youtube_short",
+        "print_material",
+      ],
       help_request_kind: ["gestor_platform", "client_gestor"],
       library_category: [
         "brand",

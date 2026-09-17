@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
+  DESIGN_ASPECT_RATIOS,
   DESIGN_TEMPLATE_ACCEPT,
   DESIGN_TEMPLATE_FORMATS,
   LIBRARY_ACCEPT,
@@ -61,7 +62,10 @@ import {
   createDesignTemplate,
   createLibraryAsset,
   createLibraryAssets,
+  defaultAspectForFormat,
   deleteDesignTemplate,
+  designAspectI18nKey,
+  designAspectThumbClass,
   ensureBrandBriefing,
   ensureProjectSite,
   formatLibraryFileSize,
@@ -72,7 +76,9 @@ import {
   listDesignTemplates,
   listLibraryAssets,
   listProjects,
+  parseDesignAspectRatio,
   updateClient,
+  type DesignAspectRatio,
   type DesignTemplateFormat,
   type LibraryAsset,
   type LibraryCategory,
@@ -147,6 +153,7 @@ export function ClientLibraryView({
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateFormat, setTemplateFormat] = useState<DesignTemplateFormat>("static_feed");
+  const [templateAspect, setTemplateAspect] = useState<DesignAspectRatio>("4:5");
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [selectedGeneratedIds, setSelectedGeneratedIds] = useState<string[]>([]);
   const [downloading, setDownloading] = useState(false);
@@ -235,6 +242,7 @@ export function ClientLibraryView({
   const resetTemplateForm = () => {
     setTemplateName("");
     setTemplateFormat("static_feed");
+    setTemplateAspect("4:5");
     setTemplateFile(null);
   };
 
@@ -355,6 +363,7 @@ export function ClientLibraryView({
         clientId,
         name: templateName.trim() || fileTitle(templateFile.name),
         format: templateFormat,
+        aspectRatio: templateAspect,
         file: templateFile,
       });
     },
@@ -600,14 +609,31 @@ export function ClientLibraryView({
                               <img
                                 src={template.file_url}
                                 alt=""
-                                className="h-[4.5rem] w-12 shrink-0 rounded-md object-cover"
+                                className={cn(
+                                  "shrink-0 rounded-md object-cover",
+                                  designAspectThumbClass(
+                                    parseDesignAspectRatio(
+                                      template.aspect_ratio,
+                                      defaultAspectForFormat(template.format),
+                                    ),
+                                  ),
+                                )}
                               />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium" title={template.name}>
                                   {template.name}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {t(`project.library.templates.${template.format}`)}
+                                  {t(`project.detail.formats.${template.format}`)}
+                                  {" · "}
+                                  {t(
+                                    `project.library.templates.aspects.${designAspectI18nKey(
+                                      parseDesignAspectRatio(
+                                        template.aspect_ratio,
+                                        defaultAspectForFormat(template.format),
+                                      ),
+                                    )}`,
+                                  )}
                                 </p>
                                 {manageQuery.data ? (
                                   <Button
@@ -1135,7 +1161,11 @@ export function ClientLibraryView({
               <Label>{t("project.library.templates.format")}</Label>
               <Select
                 value={templateFormat}
-                onValueChange={(value) => setTemplateFormat(value as DesignTemplateFormat)}
+                onValueChange={(value) => {
+                  const next = value as DesignTemplateFormat;
+                  setTemplateFormat(next);
+                  setTemplateAspect(defaultAspectForFormat(next));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -1143,7 +1173,25 @@ export function ClientLibraryView({
                 <SelectContent>
                   {DESIGN_TEMPLATE_FORMATS.map((format) => (
                     <SelectItem key={format} value={format}>
-                      {t(`project.library.templates.${format}`)}
+                      {t(`project.detail.formats.${format}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("project.library.templates.aspect")}</Label>
+              <Select
+                value={templateAspect}
+                onValueChange={(value) => setTemplateAspect(value as DesignAspectRatio)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DESIGN_ASPECT_RATIOS.map((ratio) => (
+                    <SelectItem key={ratio} value={ratio}>
+                      {t(`project.library.templates.aspects.${designAspectI18nKey(ratio)}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
