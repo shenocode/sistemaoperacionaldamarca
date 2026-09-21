@@ -129,7 +129,6 @@ export function PeriodClosingDialog({
   const approvedPending = useMemo(() => countApprovedNotPublished(items), [items]);
   const periodLabel = blockTitle.trim() || t("project.calendar.untitledPeriod");
   const clientName = client?.name?.trim() || t("clients.name");
-  const amount = parseMoneyInput(billingForm.feeText);
   const scopeLabel = t(`project.calendar.periodClosing.scope.${scope}`);
 
   const composedMessage = useMemo(() => {
@@ -141,6 +140,10 @@ export function PeriodClosingDialog({
     );
     const pixKey = billingForm.pixKey.trim();
     const pixHolder = billingForm.pixHolder.trim();
+    const feeText = billingForm.feeText.trim();
+    const parsedAmount = parseMoneyInput(feeText);
+    const amountDisplay =
+      parsedAmount != null ? formatMoneyDisplay(parsedAmount, locale) : feeText;
     return composePeriodClosingMessage({
       greeting: t("project.calendar.periodClosing.greeting", {
         client: clientName,
@@ -153,12 +156,9 @@ export function PeriodClosingDialog({
         { count: counts.total, scope: scopeLabel },
       ),
       formatLines,
-      amountLine:
-        amount != null
-          ? t("project.calendar.periodClosing.amountLine", {
-              amount: formatMoneyDisplay(amount, locale),
-            })
-          : undefined,
+      amountLine: feeText
+        ? `${t("project.calendar.periodClosing.amountLabel")} ${amountDisplay}`
+        : undefined,
       paymentLine: paymentDate
         ? t("project.calendar.periodClosing.paymentLine", {
             date: formatDateLabel(paymentDate, locale),
@@ -176,7 +176,7 @@ export function PeriodClosingDialog({
       closing: t("project.calendar.periodClosing.closing"),
     });
   }, [
-    amount,
+    billingForm.feeText,
     billingForm.pixHolder,
     billingForm.pixKey,
     clientName,
