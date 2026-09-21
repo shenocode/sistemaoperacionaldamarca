@@ -29,12 +29,21 @@ import {
 } from "@/components/ui/select";
 import { useAppRole } from "@/hooks/use-app-role";
 import {
+  ClientBillingFields,
+  billingFormFromInput,
+  billingInputFromForm,
+  emptyBillingForm,
+  type ClientBillingFormState,
+} from "@/components/client-billing-fields";
+import {
   getClientGestor,
   getClientPlatformLogin,
   listGestores,
   provisionClientAccess,
   reassignClientGestor,
+  resolveClientBilling,
   updateClient,
+  updateClientBilling,
   type ClientContactInput,
   type ClientWithProjects,
 } from "@/lib/api";
@@ -56,6 +65,7 @@ export function useClientSettingsDialog() {
   const { i18n } = useTranslation();
   const [settingsClient, setSettingsClient] = useState<ClientWithProjects | null>(null);
   const [settingsForm, setSettingsForm] = useState<ClientContactInput>(emptyContactForm);
+  const [billingForm, setBillingForm] = useState<ClientBillingFormState>(emptyBillingForm);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
@@ -63,6 +73,7 @@ export function useClientSettingsDialog() {
     const locale = normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language);
     setSettingsClient(client);
     setSettingsForm(contactFormFromClient(client, locale));
+    setBillingForm(billingFormFromInput(resolveClientBilling(client.id, client)));
     setLoginPassword("");
     setLoginEmail(client.email ?? "");
     try {
@@ -76,12 +87,15 @@ export function useClientSettingsDialog() {
   function closeSettings() {
     setSettingsClient(null);
     setLoginPassword("");
+    setBillingForm(emptyBillingForm);
   }
 
   return {
     settingsClient,
     settingsForm,
     setSettingsForm,
+    billingForm,
+    setBillingForm,
     loginEmail,
     setLoginEmail,
     loginPassword,
@@ -198,6 +212,8 @@ export function ClientSettingsDialog({
   settingsClient,
   settingsForm,
   setSettingsForm,
+  billingForm,
+  setBillingForm,
   loginEmail,
   setLoginEmail,
   loginPassword,
@@ -218,17 +234,20 @@ export function ClientSettingsDialog({
     mutationFn: async ({
       clientId,
       input,
+      billing,
       accessEmail,
       accessPassword,
       fullName,
     }: {
       clientId: string;
       input: ClientContactInput;
+      billing: ClientBillingFormState;
       accessEmail: string;
       accessPassword: string;
       fullName: string;
     }) => {
       const client = await updateClient(clientId, toCanonicalContactInput(input));
+      await updateClientBilling(clientId, billingInputFromForm(billing));
       const email = accessEmail.trim();
       const password = accessPassword.trim();
 
@@ -301,6 +320,7 @@ export function ClientSettingsDialog({
             updateMutation.mutate({
               clientId: settingsClient.id,
               input: settingsForm,
+              billing: billingForm,
               accessEmail: loginEmail,
               accessPassword: loginPassword,
               fullName: canonical.name.trim(),
@@ -314,6 +334,20 @@ export function ClientSettingsDialog({
             idPrefix="settings-client"
             clientId={settingsClient?.id}
           />
+
+          <Separator />
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t("clients.billing.title")}</p>
+              <p className="text-xs text-muted-foreground">{t("clients.billing.hint")}</p>
+            </div>
+            <ClientBillingFields
+              idPrefix="settings-billing"
+              value={billingForm}
+              onChange={setBillingForm}
+            />
+          </div>
 
           <Separator />
 

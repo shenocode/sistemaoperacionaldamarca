@@ -78,7 +78,9 @@ export function groupItemsByDay(items: ContentItem[]): {
   return { byDay, unscheduled };
 }
 
-export function scheduledDateRange(items: ContentItem[]): { start: Date; end: Date } | null {
+export function scheduledDateRange(
+  items: Array<{ scheduled_at: string | null }>,
+): { start: Date; end: Date } | null {
   const dates = items
     .map((item) => parseScheduledDate(item.scheduled_at))
     .filter((date): date is Date => Boolean(date))

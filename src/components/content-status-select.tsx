@@ -124,7 +124,7 @@ export function ContentStatusSelect({
   }
 
   return (
-    <div className={cn("flex min-w-0 max-w-full items-center gap-1", className)}>
+    <div className={cn("flex min-w-0 max-w-full items-stretch gap-1", className)}>
       <ContentStatusLink
         status={status}
         contentId={contentId}
@@ -144,7 +144,7 @@ export function ContentStatusSelect({
         <SelectTrigger
           aria-label={t("project.content.columns.status")}
           className={cn(
-            "h-8 w-8 shrink-0 justify-center border px-0 shadow-sm focus:ring-1 [&>span]:sr-only",
+            "min-h-8 h-auto w-8 shrink-0 justify-center self-stretch border px-0 shadow-sm focus:ring-1 [&>span]:sr-only",
             contentStatusStyles[status],
           )}
         >

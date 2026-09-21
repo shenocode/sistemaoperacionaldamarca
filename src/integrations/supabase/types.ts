@@ -344,9 +344,13 @@ export type Database = {
           id: string
           instagram: string | null
           logo_url: string | null
+          monthly_fee: number | null
           name: string
           notes: string | null
+          payment_day: number | null
           phone: string | null
+          pix_holder: string | null
+          pix_key: string | null
           updated_at: string
           website: string | null
           whatsapp: string | null
@@ -363,9 +367,13 @@ export type Database = {
           id?: string
           instagram?: string | null
           logo_url?: string | null
+          monthly_fee?: number | null
           name: string
           notes?: string | null
+          payment_day?: number | null
           phone?: string | null
+          pix_holder?: string | null
+          pix_key?: string | null
           updated_at?: string
           website?: string | null
           whatsapp?: string | null
@@ -382,9 +390,13 @@ export type Database = {
           id?: string
           instagram?: string | null
           logo_url?: string | null
+          monthly_fee?: number | null
           name?: string
           notes?: string | null
+          payment_day?: number | null
           phone?: string | null
+          pix_holder?: string | null
+          pix_key?: string | null
           updated_at?: string
           website?: string | null
           whatsapp?: string | null
@@ -1518,9 +1530,13 @@ export type Database = {
           id: string
           instagram: string | null
           logo_url: string | null
+          monthly_fee: number | null
           name: string
           notes: string | null
+          payment_day: number | null
           phone: string | null
+          pix_holder: string | null
+          pix_key: string | null
           updated_at: string
           website: string | null
           whatsapp: string | null

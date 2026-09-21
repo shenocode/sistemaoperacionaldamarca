@@ -17,6 +17,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApprovalsSummaryDialog } from "@/components/approvals-summary-dialog";
+import { PeriodClosingDialog } from "@/components/period-closing-dialog";
 import { ContentIdeasPanel } from "@/components/content-ideas-panel";
 import {
   MediaLightbox,
@@ -651,6 +653,7 @@ function ProjectCalendarPage() {
     readCalendarViewMode(projectId),
   );
   const [approvalsSummaryBlockId, setApprovalsSummaryBlockId] = useState<string | null>(null);
+  const [periodClosingBlockId, setPeriodClosingBlockId] = useState<string | null>(null);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [lightbox, setLightbox] = useState<{
     items: PreviewMediaItem[];
@@ -1792,6 +1795,17 @@ function ProjectCalendarPage() {
                   variant="outline"
                   size="sm"
                   className={activeActionClass}
+                  title={t("project.calendar.periodClosing.hint")}
+                  onClick={() => setPeriodClosingBlockId(block.id)}
+                >
+                  <Wallet className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {t("project.calendar.periodClosing.button")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={activeActionClass}
                   disabled={isBusy || blockRows.length === 0}
                   title={t("project.calendar.duplicateBlockHint")}
                   onClick={() => duplicateBlockMutation.mutate(block.id)}
@@ -1859,6 +1873,21 @@ function ProjectCalendarPage() {
         parseRowI18n(approvalsSummaryBlock.i18n),
         "title",
         approvalsSummaryBlock.title,
+        normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language),
+      )
+    : "";
+
+  const periodClosingBlock = periodClosingBlockId
+    ? blocks.find((block) => block.id === periodClosingBlockId) ?? null
+    : null;
+  const periodClosingItems = periodClosingBlockId
+    ? (itemsByBlock.map.get(periodClosingBlockId) ?? [])
+    : [];
+  const periodClosingTitle = periodClosingBlock
+    ? getLocalizedText(
+        parseRowI18n(periodClosingBlock.i18n),
+        "title",
+        periodClosingBlock.title,
         normalizeAppLocale(i18n.resolvedLanguage ?? i18n.language),
       )
     : "";
@@ -2329,6 +2358,18 @@ function ProjectCalendarPage() {
         }}
         blockTitle={approvalsSummaryTitle}
         items={approvalsSummaryItems}
+      />
+
+      <PeriodClosingDialog
+        open={Boolean(periodClosingBlockId)}
+        onOpenChange={(open) => {
+          if (!open) setPeriodClosingBlockId(null);
+        }}
+        clientId={clientId}
+        client={clientQuery.data ?? null}
+        blockTitle={periodClosingTitle}
+        items={periodClosingItems}
+        isPeriodFinished={isCalendarPeriodFinished(periodClosingItems)}
       />
     </div>
   );

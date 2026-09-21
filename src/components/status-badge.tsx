@@ -59,8 +59,8 @@ export function StatusBadge({
       className={cn(
         "inline-flex items-center justify-center border font-medium",
         asButton
-          ? "h-8 max-w-full truncate rounded-md px-3 text-xs shadow-sm"
-          : "max-w-full truncate rounded-full px-2.5 py-0.5 text-xs",
+          ? "min-h-8 h-auto min-w-0 max-w-full whitespace-normal rounded-md px-2 text-center text-[11px] leading-tight shadow-sm"
+          : "min-w-0 max-w-full whitespace-normal rounded-full px-2.5 py-0.5 text-center text-xs leading-tight",
         contentStatusStyles[status],
         className,
       )}
@@ -92,8 +92,8 @@ export function PrototypeStatusBadge({
       className={cn(
         "inline-flex items-center justify-center border font-medium",
         asButton
-          ? "h-8 max-w-full truncate rounded-md px-3 text-xs shadow-sm"
-          : "max-w-full truncate rounded-full px-2.5 py-0.5 text-xs",
+          ? "min-h-8 h-auto min-w-0 max-w-full whitespace-normal rounded-md px-2 text-center text-[11px] leading-tight shadow-sm"
+          : "min-w-0 max-w-full whitespace-normal rounded-full px-2.5 py-0.5 text-center text-xs leading-tight",
         prototypeStatusStyles[status],
         className,
       )}

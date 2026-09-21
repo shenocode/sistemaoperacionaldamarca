@@ -1061,6 +1061,132 @@ export type ClientContactInput = {
   i18n?: RowI18n;
 };
 
+export type ClientBillingInput = {
+  monthlyFee: number | null;
+  paymentDay: number | null;
+  pixKey: string;
+  pixHolder: string;
+};
+
+const CLIENT_BILLING_STORAGE_PREFIX = "som_client_billing:";
+
+function isMissingClientBillingColumns(message: string) {
+  return (
+    /monthly_fee|payment_day|pix_key|pix_holder/i.test(message) &&
+    /column|schema cache|does not exist/i.test(message)
+  );
+}
+
+function parseStoredClientBilling(value: unknown): ClientBillingInput | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as {
+    monthlyFee?: unknown;
+    paymentDay?: unknown;
+    pixKey?: unknown;
+    pixHolder?: unknown;
+  };
+  const monthlyFee =
+    typeof row.monthlyFee === "number" && Number.isFinite(row.monthlyFee) ? row.monthlyFee : null;
+  const paymentDay =
+    typeof row.paymentDay === "number" && row.paymentDay >= 1 && row.paymentDay <= 31
+      ? Math.round(row.paymentDay)
+      : null;
+  return {
+    monthlyFee,
+    paymentDay,
+    pixKey: typeof row.pixKey === "string" ? row.pixKey : "",
+    pixHolder: typeof row.pixHolder === "string" ? row.pixHolder : "",
+  };
+}
+
+export function readLocalClientBilling(clientId: string): ClientBillingInput | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${CLIENT_BILLING_STORAGE_PREFIX}${clientId}`);
+    if (!raw) return null;
+    return parseStoredClientBilling(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export function writeLocalClientBilling(clientId: string, billing: ClientBillingInput) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      `${CLIENT_BILLING_STORAGE_PREFIX}${clientId}`,
+      JSON.stringify(billing),
+    );
+  } catch {
+    // Quota / private mode: dialog still works with in-memory values.
+  }
+}
+
+export function billingFromClientRow(client: {
+  monthly_fee?: number | string | null;
+  payment_day?: number | string | null;
+  pix_key?: string | null;
+  pix_holder?: string | null;
+} | null | undefined): ClientBillingInput {
+  const feeRaw = client?.monthly_fee;
+  const monthlyFee =
+    typeof feeRaw === "number" && Number.isFinite(feeRaw)
+      ? feeRaw
+      : feeRaw != null && feeRaw !== ""
+        ? Number(feeRaw)
+        : null;
+  const dayRaw = client?.payment_day;
+  const day =
+    typeof dayRaw === "number" ? dayRaw : dayRaw != null && dayRaw !== "" ? Number(dayRaw) : NaN;
+  return {
+    monthlyFee: monthlyFee != null && Number.isFinite(monthlyFee) ? monthlyFee : null,
+    paymentDay: Number.isFinite(day) && day >= 1 && day <= 31 ? Math.round(day) : null,
+    pixKey: (client?.pix_key ?? "").trim(),
+    pixHolder: (client?.pix_holder ?? "").trim(),
+  };
+}
+
+function billingHasValues(billing: ClientBillingInput) {
+  return (
+    billing.monthlyFee != null ||
+    billing.paymentDay != null ||
+    Boolean(billing.pixKey.trim()) ||
+    Boolean(billing.pixHolder.trim())
+  );
+}
+
+export function resolveClientBilling(
+  clientId: string,
+  client: {
+    monthly_fee?: number | string | null;
+    payment_day?: number | string | null;
+    pix_key?: string | null;
+    pix_holder?: string | null;
+  } | null | undefined,
+): ClientBillingInput {
+  const fromDb = billingFromClientRow(client);
+  if (billingHasValues(fromDb)) return fromDb;
+  return readLocalClientBilling(clientId) ?? fromDb;
+}
+
+export async function updateClientBilling(
+  clientId: string,
+  billing: ClientBillingInput,
+): Promise<void> {
+  writeLocalClientBilling(clientId, billing);
+  const { error } = await supabase
+    .from("clients")
+    .update({
+      monthly_fee: billing.monthlyFee,
+      payment_day: billing.paymentDay,
+      pix_key: billing.pixKey.trim() || null,
+      pix_holder: billing.pixHolder.trim() || null,
+    })
+    .eq("id", clientId);
+  if (error && isMissingClientBillingColumns(error.message)) return;
+  if (error) throw new Error(error.message);
+}
+
 export function parseBrandColors(value: unknown): BrandColor[] {
   if (!Array.isArray(value)) return [];
   return value
