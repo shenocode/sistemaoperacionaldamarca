@@ -1617,48 +1617,6 @@ function ContentDetailPage() {
                   />
                 </div>
               ) : null}
-              {isAdmin && !isPrintPiece ? (
-                <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
-                  <div>
-                    <p className="text-sm font-medium">{t("project.learning.title")}</p>
-                    <p className="text-xs text-muted-foreground">{t("project.learning.hint")}</p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="performance-reach">{t("project.learning.reach")}</Label>
-                      <Input
-                        id="performance-reach"
-                        value={performanceReach}
-                        onChange={(e) => setPerformanceReach(e.target.value)}
-                        placeholder={t("project.learning.reachPlaceholder")}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="performance-retention">{t("project.learning.retention")}</Label>
-                      <Input
-                        id="performance-retention"
-                        value={performanceRetention}
-                        onChange={(e) => setPerformanceRetention(e.target.value)}
-                        placeholder={t("project.learning.retentionPlaceholder")}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="performance-note">{t("project.learning.note")}</Label>
-                    <Textarea
-                      id="performance-note"
-                      rows={2}
-                      value={performanceNote}
-                      onChange={(e) => setPerformanceNote(e.target.value)}
-                      placeholder={t("project.learning.notePlaceholder")}
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Switch checked={repeatFormat} onCheckedChange={setRepeatFormat} />
-                    {t("project.learning.repeat")}
-                  </label>
-                </div>
-              ) : null}
               {isAdmin ? (
                 <>
                   {usesDedicatedThumbnail ? (
@@ -1903,6 +1861,51 @@ function ContentDetailPage() {
               />
             </CardContent>
           </Card>
+
+          {isAdmin && !isPrintPiece ? (
+            <Card className="rounded-xl border-amber-500/25 bg-amber-500/5">
+              <CardHeader>
+                <CardTitle className="text-base">{t("project.learning.title")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground">{t("project.learning.hint")}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="performance-reach">{t("project.learning.reach")}</Label>
+                    <Input
+                      id="performance-reach"
+                      value={performanceReach}
+                      onChange={(e) => setPerformanceReach(e.target.value)}
+                      placeholder={t("project.learning.reachPlaceholder")}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="performance-retention">{t("project.learning.retention")}</Label>
+                    <Input
+                      id="performance-retention"
+                      value={performanceRetention}
+                      onChange={(e) => setPerformanceRetention(e.target.value)}
+                      placeholder={t("project.learning.retentionPlaceholder")}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="performance-note">{t("project.learning.note")}</Label>
+                  <Textarea
+                    id="performance-note"
+                    rows={2}
+                    value={performanceNote}
+                    onChange={(e) => setPerformanceNote(e.target.value)}
+                    placeholder={t("project.learning.notePlaceholder")}
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch checked={repeatFormat} onCheckedChange={setRepeatFormat} />
+                  {t("project.learning.repeat")}
+                </label>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">

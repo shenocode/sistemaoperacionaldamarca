@@ -1430,6 +1430,7 @@
         "referencesSave": "Salvar na Biblioteca",
         "referencesAdded": "Referência salva na Biblioteca e selecionada.",
         "referencesRemove": "Remover referência",
+        "referencesOpen": "Abrir referência",
         "referencesMax": "Selecione no máximo {{max}} referências por geração.",
         "referencesNeedsLibrary": "A Biblioteca (plano Studio+) é necessária para usar referências no assistente.",
         "referencesPlaceholder": "Trechos, ideias, ângulos ou notas que a IA deve considerar…",

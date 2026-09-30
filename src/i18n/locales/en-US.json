@@ -1430,6 +1430,7 @@
         "referencesSave": "Save to Library",
         "referencesAdded": "Reference saved to the Library and selected.",
         "referencesRemove": "Remove reference",
+        "referencesOpen": "Open reference",
         "referencesMax": "Select at most {{max}} references per generation.",
         "referencesNeedsLibrary": "The Library (Studio+ plan) is required to use references in the assistant.",
         "referencesPlaceholder": "Excerpts, angles or notes the AI should consider…",

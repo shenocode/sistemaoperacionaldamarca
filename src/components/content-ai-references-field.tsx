@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
+  ExternalLink,
   FileText,
   Film,
   Image as ImageIcon,
@@ -217,6 +218,7 @@ export function ContentAiReferencesField({
         <ul className="flex flex-wrap gap-2">
           {selectedAssets.map((asset) => {
             const Icon = categoryIcon(asset.category);
+            const openUrl = asset.file_url?.trim() || null;
             return (
               <li
                 key={asset.id}
@@ -224,6 +226,19 @@ export function ContentAiReferencesField({
               >
                 <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="min-w-0 truncate">{assetLabel(asset, uiLocale)}</span>
+                {openUrl ? (
+                  <a
+                    href={openUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
+                    aria-label={t("project.detail.assistant.referencesOpen")}
+                    title={t("project.detail.assistant.referencesOpen")}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="size-3.5" aria-hidden="true" />
+                  </a>
+                ) : null}
                 <button
                   type="button"
                   className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground"
@@ -257,9 +272,13 @@ export function ContentAiReferencesField({
               const categoryLabel = t(`project.library.categories.${asset.category}`, {
                 defaultValue: asset.category,
               });
+              const openUrl = asset.file_url?.trim() || null;
               return (
-                <li key={asset.id}>
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted/60">
+                <li
+                  key={asset.id}
+                  className="flex items-start gap-1 rounded-md px-2 py-2 text-sm hover:bg-muted/60"
+                >
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
                     <Checkbox
                       checked={checked}
                       disabled={busy || (!checked && selectedIds.length >= ASSISTANT_REFERENCE_MAX)}
@@ -272,6 +291,18 @@ export function ContentAiReferencesField({
                       <span className="block text-xs text-muted-foreground">{categoryLabel}</span>
                     </span>
                   </label>
+                  {openUrl ? (
+                    <a
+                      href={openUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-0.5 shrink-0 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={t("project.detail.assistant.referencesOpen")}
+                      title={t("project.detail.assistant.referencesOpen")}
+                    >
+                      <ExternalLink className="size-3.5" aria-hidden="true" />
+                    </a>
+                  ) : null}
                 </li>
               );
             })}
