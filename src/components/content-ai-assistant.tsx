@@ -23,10 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ContentAiDocumentField,
-  type AssistantDocumentRef,
-} from "@/components/content-ai-document-field";
+import { ContentAiReferencesField } from "@/components/content-ai-references-field";
 import {
   formatLocucaoScript,
   locucaoPartsFromSuggestion,
@@ -57,13 +54,6 @@ type ContentAiAssistantProps = {
   onApply: (suggestion: ContentAiAssistantApply) => void | Promise<void>;
 };
 
-function parseVideoUrls(raw: string): string[] {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 function withLocucaoParts(suggestion: ContentSuggestion): ContentSuggestion {
   const parts = locucaoPartsFromSuggestion(suggestion);
   return {
@@ -85,14 +75,10 @@ export function ContentAiAssistant({
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [references, setReferences] = useState("");
-  const [youtubeUrls, setYoutubeUrls] = useState("");
-  const [instagramUrls, setInstagramUrls] = useState("");
-  const [tiktokUrls, setTiktokUrls] = useState("");
+  const [selectedLibraryAssetIds, setSelectedLibraryAssetIds] = useState<string[]>([]);
   const [transcription, setTranscription] = useState("");
   const [webSearch, setWebSearch] = useState(false);
   const [refineInstruction, setRefineInstruction] = useState("");
-  const [attachedDocument, setAttachedDocument] = useState<AssistantDocumentRef | null>(null);
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
   const [provider, setProvider] = useState<DesignProvider>("openai");
   const generatingRef = useRef(false);
@@ -131,14 +117,8 @@ export function ContentAiAssistant({
         projectId,
         clientId,
         prompt,
-        references,
-        youtubeUrls: parseVideoUrls(youtubeUrls),
-        instagramUrls: parseVideoUrls(instagramUrls),
-        tiktokUrls: parseVideoUrls(tiktokUrls),
+        libraryAssetIds: selectedLibraryAssetIds,
         transcription,
-        libraryAssetId: attachedDocument?.libraryAssetId,
-        documentUrl: attachedDocument?.documentUrl,
-        documentName: attachedDocument?.documentName,
         format,
         locale: i18n.resolvedLanguage ?? i18n.language,
         provider,
@@ -162,14 +142,8 @@ export function ContentAiAssistant({
         projectId,
         clientId,
         prompt,
-        references,
-        youtubeUrls: parseVideoUrls(youtubeUrls),
-        instagramUrls: parseVideoUrls(instagramUrls),
-        tiktokUrls: parseVideoUrls(tiktokUrls),
+        libraryAssetIds: selectedLibraryAssetIds,
         transcription,
-        libraryAssetId: attachedDocument?.libraryAssetId,
-        documentUrl: attachedDocument?.documentUrl,
-        documentName: attachedDocument?.documentName,
         format,
         locale: i18n.resolvedLanguage ?? i18n.language,
         provider,
@@ -312,64 +286,12 @@ export function ContentAiAssistant({
                 placeholder={t("project.detail.assistant.promptPlaceholder")}
               />
             </div>
-            <ContentAiDocumentField
+            <ContentAiReferencesField
               clientId={clientId}
-              projectId={projectId}
-              value={attachedDocument}
-              onChange={setAttachedDocument}
+              selectedIds={selectedLibraryAssetIds}
+              onChange={setSelectedLibraryAssetIds}
               disabled={busy}
             />
-            <div className="space-y-1.5">
-              <Label htmlFor="ai-references" variant="highlight">
-                {t("project.detail.assistant.references")}
-              </Label>
-              <Textarea
-                id="ai-references"
-                rows={3}
-                value={references}
-                onChange={(e) => setReferences(e.target.value)}
-                placeholder={t("project.detail.assistant.referencesPlaceholder")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ai-youtube" variant="highlight">
-                {t("project.detail.assistant.youtube")}
-              </Label>
-              <Textarea
-                id="ai-youtube"
-                rows={2}
-                value={youtubeUrls}
-                onChange={(e) => setYoutubeUrls(e.target.value)}
-                placeholder={t("project.detail.assistant.youtubePlaceholder")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ai-instagram" variant="highlight">
-                {t("project.detail.assistant.instagram")}
-              </Label>
-              <Textarea
-                id="ai-instagram"
-                rows={2}
-                value={instagramUrls}
-                onChange={(e) => setInstagramUrls(e.target.value)}
-                placeholder={t("project.detail.assistant.instagramPlaceholder")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ai-tiktok" variant="highlight">
-                {t("project.detail.assistant.tiktok")}
-              </Label>
-              <Textarea
-                id="ai-tiktok"
-                rows={2}
-                value={tiktokUrls}
-                onChange={(e) => setTiktokUrls(e.target.value)}
-                placeholder={t("project.detail.assistant.tiktokPlaceholder")}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("project.detail.assistant.videoLinksHint")}
-            </p>
             <div className="space-y-1.5">
               <Label htmlFor="ai-transcription" variant="highlight">
                 {t("project.detail.assistant.transcription")}

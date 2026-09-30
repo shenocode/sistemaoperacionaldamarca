@@ -1365,58 +1365,6 @@ function ContentDetailPage() {
             />
           ) : null}
 
-          <Card className="rounded-xl border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-base">{t("project.detail.comments")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {commentsQuery.isError ? (
-                <p className="text-sm text-destructive">
-                  {(commentsQuery.error as Error)?.message || t("project.detail.commentsLoadError")}
-                </p>
-              ) : null}
-              {(commentsQuery.data ?? []).length === 0 && !commentsQuery.isError ? (
-                <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
-              ) : (commentsQuery.data ?? []).length > 0 ? (
-                <ul className="space-y-3">
-                  {(commentsQuery.data ?? []).map((c) => (
-                    <CommentThreadItem
-                      key={c.id}
-                      className="border-primary/15 bg-background"
-                      authorName={c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
-                      createdAtLabel={formatDistanceToNow(new Date(c.created_at), {
-                        addSuffix: true,
-                        locale,
-                      })}
-                      body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
-                      audioUrl={c.audio_url}
-                      canEdit={c.user_id === user?.id}
-                      canDelete={canManage || c.user_id === user?.id}
-                      isSaving={
-                        updateCommentMutation.isPending &&
-                        updateCommentMutation.variables?.commentId === c.id
-                      }
-                      isDeleting={
-                        deleteCommentMutation.isPending && deleteCommentMutation.variables === c.id
-                      }
-                      onSave={(body) => updateCommentMutation.mutateAsync({ commentId: c.id, body })}
-                      onDelete={() => setDeleteCommentId(c.id)}
-                    />
-                  ))}
-                </ul>
-              ) : null}
-              <CommentComposer
-                value={comment}
-                onChange={setComment}
-                isPending={commentMutation.isPending}
-                onSubmitText={() => commentMutation.mutateAsync({ body: comment })}
-                onSubmitAudio={(blob) =>
-                  commentMutation.mutateAsync({ body: "", audioBlob: blob })
-                }
-              />
-            </CardContent>
-          </Card>
-
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
               <div className="rounded-lg border bg-muted/20 p-3">
@@ -1901,6 +1849,58 @@ function ContentDetailPage() {
                   </div>
                 </>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-xl border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-base">{t("project.detail.comments")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {commentsQuery.isError ? (
+                <p className="text-sm text-destructive">
+                  {(commentsQuery.error as Error)?.message || t("project.detail.commentsLoadError")}
+                </p>
+              ) : null}
+              {(commentsQuery.data ?? []).length === 0 && !commentsQuery.isError ? (
+                <p className="text-sm text-muted-foreground">{t("project.detail.noComments")}</p>
+              ) : (commentsQuery.data ?? []).length > 0 ? (
+                <ul className="space-y-3">
+                  {(commentsQuery.data ?? []).map((c) => (
+                    <CommentThreadItem
+                      key={c.id}
+                      className="border-primary/15 bg-background"
+                      authorName={c.profiles?.full_name?.trim() || t("project.detail.anonymous")}
+                      createdAtLabel={formatDistanceToNow(new Date(c.created_at), {
+                        addSuffix: true,
+                        locale,
+                      })}
+                      body={getLocalizedText(c.i18n, "body", c.body, uiLocale)}
+                      audioUrl={c.audio_url}
+                      canEdit={c.user_id === user?.id}
+                      canDelete={canManage || c.user_id === user?.id}
+                      isSaving={
+                        updateCommentMutation.isPending &&
+                        updateCommentMutation.variables?.commentId === c.id
+                      }
+                      isDeleting={
+                        deleteCommentMutation.isPending && deleteCommentMutation.variables === c.id
+                      }
+                      onSave={(body) => updateCommentMutation.mutateAsync({ commentId: c.id, body })}
+                      onDelete={() => setDeleteCommentId(c.id)}
+                    />
+                  ))}
+                </ul>
+              ) : null}
+              <CommentComposer
+                value={comment}
+                onChange={setComment}
+                isPending={commentMutation.isPending}
+                onSubmitText={() => commentMutation.mutateAsync({ body: comment })}
+                onSubmitAudio={(blob) =>
+                  commentMutation.mutateAsync({ body: "", audioBlob: blob })
+                }
+              />
             </CardContent>
           </Card>
 

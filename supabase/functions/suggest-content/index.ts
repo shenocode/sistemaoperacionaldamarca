@@ -15,10 +15,14 @@ import {
   loadWinningPosts,
 } from "../_shared/brand-strategy-context.ts";
 import {
+  extractYoutubeId,
   fetchInstagramMeta,
+  fetchPublicProfileMeta,
   fetchTikTokMeta,
   fetchYoutubeMeta,
   formatVideoMetasBlock,
+  isInstagramUrl,
+  isTikTokUrl,
 } from "../_shared/video-meta.ts";
 import { generateCalendarIdeas, type IdeasRequest } from "../_shared/content-ideas.ts";
 import { formatWebSourcesBlock, searchWeb, type WebSource } from "../_shared/web-search.ts";
@@ -62,6 +66,7 @@ type SuggestRequest = {
   instagramUrls?: string[];
   tiktokUrls?: string[];
   transcription?: string;
+  libraryAssetIds?: string[];
   libraryAssetId?: string;
   documentUrl?: string;
   documentName?: string;
@@ -192,6 +197,181 @@ async function loadAttachedDocument(input: {
     mimeType: fetched.mimeType,
   });
   return { name: fileName, text: extracted.text, truncated: extracted.truncated };
+}
+
+const LIBRARY_REFERENCE_MAX = 8;
+const DOCUMENT_LIKE_CATEGORIES = new Set(["pdfs", "documents", "spreadsheets", "brand"]);
+const DOCUMENT_EXT = /\.(pdf|txt|md|csv|docx?|xlsx?|rtf)\b/i;
+const DOCUMENT_MIME =
+  /(pdf|wordprocessingml|spreadsheetml|msword|ms-excel|text\/plain|text\/csv|text\/markdown|rtf)/i;
+
+type LibraryAssetRow = {
+  id: string;
+  client_id: string;
+  name: string;
+  category: string | null;
+  file_name: string | null;
+  file_url: string | null;
+  storage_path: string | null;
+  mime_type: string | null;
+  notes: string | null;
+};
+
+function isDocumentLikeAsset(asset: LibraryAssetRow): boolean {
+  if (asset.category && DOCUMENT_LIKE_CATEGORIES.has(asset.category)) return true;
+  const hay = `${asset.file_name ?? ""} ${asset.name ?? ""} ${asset.file_url ?? ""} ${asset.mime_type ?? ""}`;
+  return DOCUMENT_EXT.test(hay) || DOCUMENT_MIME.test(hay);
+}
+
+async function extractLibraryDocument(
+  asset: LibraryAssetRow,
+  input: {
+    serviceRoleKey: string | undefined;
+    supabaseUrl: string;
+  },
+): Promise<{ name: string; text: string; truncated: boolean }> {
+  const fileName = (asset.file_name || asset.name || "documento").trim();
+  let bytes: Uint8Array | null = null;
+  let mimeType = typeof asset.mime_type === "string" ? asset.mime_type : null;
+
+  if (asset.storage_path && input.serviceRoleKey) {
+    const admin = createClient(input.supabaseUrl, input.serviceRoleKey);
+    const downloaded = await admin.storage.from(LIBRARY_BUCKET).download(asset.storage_path);
+    if (!downloaded.error && downloaded.data) {
+      bytes = await bytesFromBlob(downloaded.data);
+    }
+  }
+  if (!bytes && asset.file_url) {
+    const fetched = await fetchDocumentBytes(asset.file_url);
+    bytes = fetched.bytes;
+    mimeType = mimeType || fetched.mimeType;
+  }
+  if (!bytes) {
+    throw new Error(`Não foi possível abrir o documento "${fileName}" da biblioteca.`);
+  }
+
+  const extracted = await extractDocumentText({ bytes, fileName, mimeType });
+  return { name: fileName, text: extracted.text, truncated: extracted.truncated };
+}
+
+async function loadLibraryReferenceBlocks(input: {
+  body: SuggestRequest;
+  supabase: ReturnType<typeof createClient>;
+  serviceRoleKey: string | undefined;
+  supabaseUrl: string;
+}): Promise<{
+  blocks: string[];
+  youtubeUrls: string[];
+  instagramUrls: string[];
+  tiktokUrls: string[];
+}> {
+  const ids = [
+    ...new Set((input.body.libraryAssetIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ].slice(0, LIBRARY_REFERENCE_MAX);
+
+  if (ids.length === 0) {
+    return { blocks: [], youtubeUrls: [], instagramUrls: [], tiktokUrls: [] };
+  }
+
+  const { data, error } = await input.supabase
+    .from("library_assets")
+    .select("id, client_id, name, category, file_name, file_url, storage_path, mime_type, notes")
+    .in("id", ids);
+  if (error) throw new Error(error.message);
+
+  const byId = new Map((data ?? []).map((row) => [row.id as string, row as LibraryAssetRow]));
+  const blocks: string[] = [];
+  const youtubeUrls: string[] = [];
+  const instagramUrls: string[] = [];
+  const tiktokUrls: string[] = [];
+
+  for (const id of ids) {
+    const asset = byId.get(id);
+    if (!asset || asset.client_id !== input.body.clientId) {
+      throw new Error("Referência da biblioteca não encontrada.");
+    }
+    if (asset.category === "generated_arts") continue;
+
+    const label = (asset.name || asset.file_name || "Referência").trim();
+    const notes = typeof asset.notes === "string" ? asset.notes.trim() : "";
+    const url = typeof asset.file_url === "string" ? asset.file_url.trim() : "";
+
+    if (asset.category === "references" && url) {
+      if (extractYoutubeId(url) || url.includes("youtube.com") || url.includes("youtu.be")) {
+        youtubeUrls.push(url);
+        continue;
+      }
+      if (isInstagramUrl(url)) {
+        instagramUrls.push(url);
+        continue;
+      }
+      if (isTikTokUrl(url)) {
+        tiktokUrls.push(url);
+        continue;
+      }
+      const meta = await fetchPublicProfileMeta(url);
+      blocks.push(
+        [
+          `Referência URL: ${label}`,
+          `URL: ${url}`,
+          meta.title ? `Título: ${meta.title}` : null,
+          meta.description ? meta.description : null,
+          notes ? `Notas: ${notes}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+      continue;
+    }
+
+    if (isDocumentLikeAsset(asset)) {
+      const doc = await extractLibraryDocument(asset, input);
+      blocks.push(
+        `Documento (${doc.name}${doc.truncated ? ", trecho inicial" : ""}):\n${doc.text}`,
+      );
+      continue;
+    }
+
+    if (asset.category === "videos") {
+      blocks.push(
+        [
+          `Vídeo da biblioteca: ${label}`,
+          url ? `URL: ${url}` : null,
+          notes ? `Notas: ${notes}` : null,
+          "Sem transcrição automática — use o campo Transcrição se precisar do conteúdo falado.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+      continue;
+    }
+
+    if (asset.category === "images") {
+      blocks.push(
+        [
+          `Imagem da biblioteca: ${label}`,
+          url ? `URL: ${url}` : null,
+          notes ? `Notas: ${notes}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+      continue;
+    }
+
+    blocks.push(
+      [
+        `Referência da biblioteca: ${label}`,
+        asset.category ? `Categoria: ${asset.category}` : null,
+        url ? `URL: ${url}` : null,
+        notes ? `Notas: ${notes}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+
+  return { blocks, youtubeUrls, instagramUrls, tiktokUrls };
 }
 
 function sanitizeSuggestion(raw: Record<string, unknown>, format: ContentFormat): ContentSuggestion {
@@ -374,16 +554,36 @@ Deno.serve(async (req) => {
     const tiktokUrls = clipUrls(body.tiktokUrls);
     const transcription = (body.transcription ?? "").trim().slice(0, 12000);
     let attachedDocument: { name: string; text: string; truncated: boolean } | null = null;
+    let libraryBlocks: string[] = [];
     try {
-      attachedDocument = await loadAttachedDocument({
+      const libraryRefs = await loadLibraryReferenceBlocks({
         body,
         supabase,
         serviceRoleKey,
         supabaseUrl,
       });
+      libraryBlocks = libraryRefs.blocks;
+      youtubeUrls.push(...libraryRefs.youtubeUrls);
+      instagramUrls.push(...libraryRefs.instagramUrls);
+      tiktokUrls.push(...libraryRefs.tiktokUrls);
+
+      // Legacy single-document attachment (compat) when multi-select is empty.
+      if (libraryBlocks.length === 0) {
+        attachedDocument = await loadAttachedDocument({
+          body,
+          supabase,
+          serviceRoleKey,
+          supabaseUrl,
+        });
+      }
     } catch (error) {
       return jsonResponse(
-        { error: error instanceof Error ? error.message : "Falha ao ler o documento anexado." },
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Falha ao ler as referências da biblioteca.",
+        },
         400,
       );
     }
@@ -396,10 +596,14 @@ Deno.serve(async (req) => {
       ? searchWeb(searchQuery)
       : Promise.resolve({ sources: [] as WebSource[], unavailable: false });
 
+    const uniqueYoutube = [...new Set(youtubeUrls)].slice(0, 8);
+    const uniqueInstagram = [...new Set(instagramUrls)].slice(0, 8);
+    const uniqueTiktok = [...new Set(tiktokUrls)].slice(0, 8);
+
     const [youtubeMetas, instagramMetas, tiktokMetas, web, creators, winningPosts] = await Promise.all([
-      Promise.all(youtubeUrls.map((url) => fetchYoutubeMeta(url))),
-      Promise.all(instagramUrls.map((url) => fetchInstagramMeta(url))),
-      Promise.all(tiktokUrls.map((url) => fetchTikTokMeta(url))),
+      Promise.all(uniqueYoutube.map((url) => fetchYoutubeMeta(url))),
+      Promise.all(uniqueInstagram.map((url) => fetchInstagramMeta(url))),
+      Promise.all(uniqueTiktok.map((url) => fetchTikTokMeta(url))),
       webPromise,
       loadReferenceCreators(supabase, body.clientId),
       loadWinningPosts(supabase, body.projectId),
@@ -407,6 +611,12 @@ Deno.serve(async (req) => {
     const documentBlock = attachedDocument
       ? `Documento de base (${attachedDocument.name}${attachedDocument.truncated ? ", trecho inicial" : ""}):\n${attachedDocument.text}`
       : null;
+    const libraryBlock =
+      libraryBlocks.length > 0
+        ? `Referências selecionadas da biblioteca:\n\n${libraryBlocks
+            .map((block, index) => `${index + 1}. ${block}`)
+            .join("\n\n")}`
+        : null;
 
     const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
     const needsRoteiro = format === "carousel";
@@ -425,7 +635,7 @@ Deno.serve(async (req) => {
       languageInstruction(body.locale),
       "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits.",
       "When there are brand kit guidelines (orientações gerais), treat them as mandatory operational rules for every text.",
-      "When there is an attached source document, use it as the factual base for the copy. Do not invent names, numbers or claims that are not in that document.",
+      "When there is an attached source document or selected library references, use them as the factual base for the copy. Do not invent names, numbers or claims that are not in those materials.",
       "When there are winning formats marked to repeat, prefer those patterns (length, hook style, CTA) unless the brief contradicts them.",
       "When there are reference creators, adapt their patterns to this brand — do not copy them verbatim.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
@@ -445,7 +655,7 @@ Deno.serve(async (req) => {
       webBlock
         ? "- Se usar um fato da pesquisa web, cite a fonte na caption ou na locução (nome do site)."
         : "",
-      "Não invente fatos que não estejam no Guia de marca, prompt, referências, documento anexado, metadados dos vídeos, transcrição ou fontes da pesquisa web.",
+      "Não invente fatos que não estejam no Guia de marca, prompt, referências da biblioteca, documento anexado, metadados dos vídeos, transcrição ou fontes da pesquisa web.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -465,6 +675,7 @@ Deno.serve(async (req) => {
       `CTAs disponíveis: ${(project.cta_presets ?? []).join(" | ") || "(nenhum)"}`,
       `Hashtags disponíveis: ${(project.hashtag_presets ?? []).join(" | ") || "(nenhuma)"}`,
       prompt ? `Prompt do admin:\n${prompt}` : null,
+      libraryBlock,
       documentBlock,
       body.references?.trim() ? `Referências:\n${body.references.trim()}` : null,
       formatVideoMetasBlock("Vídeos do YouTube (metadados):", youtubeMetas),

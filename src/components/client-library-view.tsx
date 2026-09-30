@@ -24,7 +24,7 @@ import { BrandKitFields, type BrandKitValue } from "@/components/brand-kit-field
 import { LocalizedTextInput } from "@/components/localized-text-field";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
@@ -64,6 +64,7 @@ import {
   createLibraryAssets,
   defaultAspectForFormat,
   deleteDesignTemplate,
+  deleteLibraryAssets,
   designAspectI18nKey,
   designAspectThumbClass,
   ensureBrandBriefing,
@@ -159,6 +160,10 @@ export function ClientLibraryView({
   const [downloading, setDownloading] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [brandKitOpen, setBrandKitOpen] = useState(false);
+  const [openCategories, setOpenCategories] = useState<
+    Partial<Record<(typeof categories)[number]["key"], boolean>>
+  >({});
+  const [generatedOpen, setGeneratedOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [brandKit, setBrandKit] = useState<BrandKitValue>({
     brand_colors: [],
@@ -385,6 +390,16 @@ export function ClientLibraryView({
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const deleteGeneratedMutation = useMutation({
+    mutationFn: (assetIds: string[]) => deleteLibraryAssets(assetIds),
+    onSuccess: (_data, assetIds) => {
+      queryClient.invalidateQueries({ queryKey: ["library", clientId] });
+      setSelectedGeneratedIds((prev) => prev.filter((id) => !assetIds.includes(id)));
+      toast.success(t("project.library.generated.deleted"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const assets = assetsQuery.data ?? [];
   const templates = templatesQuery.data ?? [];
 
@@ -414,6 +429,18 @@ export function ClientLibraryView({
 
   function toggleSelectAllGenerated(checked: boolean) {
     setSelectedGeneratedIds(checked ? generatedArts.map((asset) => asset.id) : []);
+  }
+
+  function confirmDeleteGenerated(assetIds: string[]) {
+    if (assetIds.length === 0) return;
+    if (
+      !window.confirm(
+        t("project.library.generated.deleteConfirm", { count: assetIds.length }),
+      )
+    ) {
+      return;
+    }
+    deleteGeneratedMutation.mutate(assetIds);
   }
 
   async function downloadGenerated(
@@ -750,180 +777,251 @@ export function ClientLibraryView({
           </Collapsible>
 
           {!isClient ? (
-            <Card className="rounded-xl">
-              <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Sparkles className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <CardTitle className="text-sm font-medium">
-                    {t("project.library.generated.title")}
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {t("project.library.generated.count", { count: generatedArts.length })}
-                  </p>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                <p className="text-xs text-muted-foreground">{t("project.library.generated.hint")}</p>
-
-                {generatedArts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t("project.library.generated.empty")}
-                  </p>
-                ) : (
-                  <>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                      <label className="flex items-center gap-2 text-xs">
-                        <Checkbox
-                          checked={
-                            selectedGeneratedIds.length > 0 &&
-                            selectedGeneratedIds.length === generatedArts.length
-                          }
-                          onCheckedChange={(checked) =>
-                            toggleSelectAllGenerated(checked === true)
-                          }
-                        />
-                        {t("project.library.generated.selectAll")}
-                      </label>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        disabled={downloading || selectedGenerated.length === 0}
-                        onClick={() => void downloadGenerated(selectedGenerated, "png", true)}
-                      >
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                        {t("project.library.generated.downloadSelectedPng")}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        disabled={downloading || selectedGenerated.length === 0}
-                        onClick={() => void downloadGenerated(selectedGenerated, "jpg", true)}
-                      >
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                        {t("project.library.generated.downloadSelectedJpg")}
-                      </Button>
+            <Collapsible open={generatedOpen} onOpenChange={setGeneratedOpen}>
+              <Card className="rounded-xl">
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className={`flex w-full flex-row items-center gap-3 px-6 pt-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl [&[data-state=open]_svg.generated-chevron]:rotate-180 ${
+                      generatedOpen ? "pb-3" : "pb-6 rounded-b-xl"
+                    }`}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Sparkles className="h-5 w-5" aria-hidden="true" />
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-sm font-medium">
+                        {t("project.library.generated.title")}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {t("project.library.generated.count", { count: generatedArts.length })}
+                      </p>
+                    </div>
+                    <ChevronDown
+                      className="generated-chevron h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-3 pt-0">
+                    <p className="text-xs text-muted-foreground">
+                      {t("project.library.generated.hint")}
+                    </p>
 
-                    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {generatedArts.map((asset) => (
-                        <li key={asset.id} className="rounded-lg border p-2">
-                          <div className="flex items-start gap-3">
+                    {generatedArts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("project.library.generated.empty")}
+                      </p>
+                    ) : (
+                      <>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                          <label className="flex items-center gap-2 text-xs">
                             <Checkbox
-                              checked={selectedGeneratedIds.includes(asset.id)}
-                              onCheckedChange={(checked) =>
-                                toggleGeneratedSelection(asset.id, checked === true)
+                              checked={
+                                selectedGeneratedIds.length > 0 &&
+                                selectedGeneratedIds.length === generatedArts.length
                               }
-                              aria-label={localizedAssetName(asset, uiLocale)}
+                              onCheckedChange={(checked) =>
+                                toggleSelectAllGenerated(checked === true)
+                              }
                             />
-                            {asset.file_url ? (
-                              <img
-                                src={asset.file_url}
-                                alt=""
-                                className="h-[4.5rem] w-12 shrink-0 rounded-md object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-[4.5rem] w-12 shrink-0 items-center justify-center rounded-md bg-muted">
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                            {t("project.library.generated.selectAll")}
+                          </label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            disabled={downloading || selectedGenerated.length === 0}
+                            onClick={() => void downloadGenerated(selectedGenerated, "png", true)}
+                          >
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                            {t("project.library.generated.downloadSelectedPng")}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            disabled={downloading || selectedGenerated.length === 0}
+                            onClick={() => void downloadGenerated(selectedGenerated, "jpg", true)}
+                          >
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                            {t("project.library.generated.downloadSelectedJpg")}
+                          </Button>
+                          {manageQuery.data ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
+                              disabled={
+                                deleteGeneratedMutation.isPending || selectedGenerated.length === 0
+                              }
+                              onClick={() =>
+                                confirmDeleteGenerated(selectedGenerated.map((asset) => asset.id))
+                              }
+                            >
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                              {t("project.library.generated.deleteSelected")}
+                            </Button>
+                          ) : null}
+                        </div>
+
+                        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {generatedArts.map((asset) => (
+                            <li key={asset.id} className="rounded-lg border p-2">
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  checked={selectedGeneratedIds.includes(asset.id)}
+                                  onCheckedChange={(checked) =>
+                                    toggleGeneratedSelection(asset.id, checked === true)
+                                  }
+                                  aria-label={localizedAssetName(asset, uiLocale)}
+                                />
+                                {asset.file_url ? (
+                                  <img
+                                    src={asset.file_url}
+                                    alt=""
+                                    className="h-[4.5rem] w-12 shrink-0 rounded-md object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-[4.5rem] w-12 shrink-0 items-center justify-center rounded-md bg-muted">
+                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="truncate text-sm font-medium"
+                                    title={localizedAssetName(asset, uiLocale)}
+                                  >
+                                    {localizedAssetName(asset, uiLocale)}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2"
+                                      disabled={downloading || !asset.file_url}
+                                      onClick={() => void downloadGenerated([asset], "png", false)}
+                                    >
+                                      PNG
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2"
+                                      disabled={downloading || !asset.file_url}
+                                      onClick={() => void downloadGenerated([asset], "jpg", false)}
+                                    >
+                                      JPG
+                                    </Button>
+                                    {manageQuery.data ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        disabled={deleteGeneratedMutation.isPending}
+                                        aria-label={t("project.library.generated.delete")}
+                                        onClick={() => confirmDeleteGenerated([asset.id])}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className="truncate text-sm font-medium"
-                                title={localizedAssetName(asset, uiLocale)}
-                              >
-                                {localizedAssetName(asset, uiLocale)}
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2"
-                                  disabled={downloading || !asset.file_url}
-                                  onClick={() => void downloadGenerated([asset], "png", false)}
-                                >
-                                  PNG
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2"
-                                  disabled={downloading || !asset.file_url}
-                                  onClick={() => void downloadGenerated([asset], "jpg", false)}
-                                >
-                                  JPG
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((c) => {
               const Icon = c.icon;
               const categoryAssets = byCategory[c.key] ?? [];
+              const isOpen = openCategories[c.key] === true;
               return (
-                <Card key={c.key} className="rounded-xl">
-                  <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-sm font-medium">
-                        {t(`project.library.categories.${c.key}`)}
-                      </CardTitle>
-                      <p className="text-xs text-muted-foreground">{categoryAssets.length}</p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {categoryAssets.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t("project.library.empty")}</p>
-                    ) : (
-                      <ul className="space-y-1.5">
-                        {categoryAssets.map((asset) => {
-                          const displayName = localizedAssetName(asset, uiLocale);
-                          return (
-                            <li key={asset.id} className="flex items-start gap-2 text-sm">
-                              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
-                              {asset.file_url ? (
-                                <a
-                                  href={asset.file_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="line-clamp-2 text-left text-primary hover:underline"
-                                  title={displayName}
-                                >
-                                  {displayName}
-                                </a>
-                              ) : (
-                                <span
-                                  className="line-clamp-2 text-muted-foreground"
-                                  title={displayName}
-                                >
-                                  {displayName}
-                                </span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </CardContent>
-                </Card>
+                <Collapsible
+                  key={c.key}
+                  open={isOpen}
+                  onOpenChange={(next) =>
+                    setOpenCategories((prev) => ({ ...prev, [c.key]: next }))
+                  }
+                >
+                  <Card className="rounded-xl">
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex w-full flex-row items-center gap-3 px-6 pt-6 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl [&[data-state=open]_svg.category-chevron]:rotate-180 ${
+                          isOpen ? "pb-3" : "pb-6 rounded-b-xl"
+                        }`}
+                      >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-sm font-medium">
+                            {t(`project.library.categories.${c.key}`)}
+                          </CardTitle>
+                          <p className="text-xs text-muted-foreground">{categoryAssets.length}</p>
+                        </div>
+                        <ChevronDown
+                          className="category-chevron h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0">
+                        {categoryAssets.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            {t("project.library.empty")}
+                          </p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {categoryAssets.map((asset) => {
+                              const displayName = localizedAssetName(asset, uiLocale);
+                              return (
+                                <li key={asset.id} className="flex items-start gap-2 text-sm">
+                                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                                  {asset.file_url ? (
+                                    <a
+                                      href={asset.file_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="line-clamp-2 text-left text-primary hover:underline"
+                                      title={displayName}
+                                    >
+                                      {displayName}
+                                    </a>
+                                  ) : (
+                                    <span
+                                      className="line-clamp-2 text-muted-foreground"
+                                      title={displayName}
+                                    >
+                                      {displayName}
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
               );
             })}
           </div>

@@ -3542,6 +3542,9 @@ async function readFunctionsInvokeError(
 
 export type DesignProvider = "openai" | "gemini";
 
+/** Max library items the content assistant can send in one generation. */
+export const ASSISTANT_REFERENCE_MAX = 8;
+
 function rewriteAssistantLimitError(message: string): string {
   if (/limite de requisi[cç][oõ]es|rate limit|too many requests|saturada/i.test(message)) {
     return "O assistente não usou a sua conta OpenAI (por isso o painel da OpenAI continua em $0). Salve a chave em Configurações → Chaves de IA e gere de novo.";
@@ -3559,6 +3562,7 @@ export async function suggestContent(input: {
   instagramUrls?: string[];
   tiktokUrls?: string[];
   transcription?: string;
+  libraryAssetIds?: string[];
   libraryAssetId?: string;
   documentUrl?: string;
   documentName?: string;
@@ -3575,6 +3579,10 @@ export async function suggestContent(input: {
   if (input.mode !== "refine" && !prompt) throw new Error("Informe um prompt");
   if (input.mode === "refine" && !refineInstruction) throw new Error("Informe o ajuste");
 
+  const libraryAssetIds = [
+    ...new Set((input.libraryAssetIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ].slice(0, ASSISTANT_REFERENCE_MAX);
+
   const { data, error } = await supabase.functions.invoke("suggest-content", {
     body: {
       contentId: input.contentId,
@@ -3586,6 +3594,7 @@ export async function suggestContent(input: {
       instagramUrls: (input.instagramUrls ?? []).map((u) => u.trim()).filter(Boolean),
       tiktokUrls: (input.tiktokUrls ?? []).map((u) => u.trim()).filter(Boolean),
       transcription: input.transcription?.trim() || undefined,
+      libraryAssetIds: libraryAssetIds.length > 0 ? libraryAssetIds : undefined,
       libraryAssetId: input.libraryAssetId?.trim() || undefined,
       documentUrl: input.documentUrl?.trim() || undefined,
       documentName: input.documentName?.trim() || undefined,
@@ -4578,6 +4587,16 @@ export function isAssistantDocumentTooLarge(file: File) {
   return file.size > ASSISTANT_DOCUMENT_MAX_BYTES;
 }
 
+/** Library assets usable as multi-select references in the content assistant. */
+export function isAssistantReferenceAsset(asset: {
+  category?: string | null;
+  file_url?: string | null;
+  storage_path?: string | null;
+}) {
+  if (asset.category === "generated_arts") return false;
+  return Boolean(asset.file_url || asset.storage_path);
+}
+
 export function formatLibraryFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
@@ -4744,6 +4763,44 @@ export async function saveGeneratedArtToLibrary(input: {
     fileUrl: url,
     notes: input.notes,
   });
+}
+
+export async function deleteLibraryAssets(assetIds: string[]): Promise<void> {
+  const ids = [...new Set(assetIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) return;
+
+  const { data: rows, error: fetchError } = await supabase
+    .from("library_assets")
+    .select("id, storage_path, file_url")
+    .in("id", ids);
+  if (fetchError) throw new Error(fetchError.message);
+  if (!rows?.length) throw new Error("Arquivo(s) não encontrado(s)");
+
+  const { error } = await supabase.from("library_assets").delete().in("id", ids);
+  if (error) throw new Error(error.message);
+
+  const libraryPaths = new Set<string>();
+  const contentPaths = new Set<string>();
+  for (const row of rows) {
+    if (row.storage_path) libraryPaths.add(row.storage_path);
+    if (row.file_url) {
+      const fromLibrary = storagePathFromPublicUrl(row.file_url, LIBRARY_BUCKET);
+      if (fromLibrary) libraryPaths.add(fromLibrary);
+      const fromContent = storagePathFromPublicUrl(row.file_url, CONTENT_MEDIA_BUCKET);
+      if (fromContent) contentPaths.add(fromContent);
+    }
+  }
+
+  if (libraryPaths.size > 0) {
+    await supabase.storage.from(LIBRARY_BUCKET).remove([...libraryPaths]);
+  }
+  if (contentPaths.size > 0) {
+    await supabase.storage.from(CONTENT_MEDIA_BUCKET).remove([...contentPaths]);
+  }
+}
+
+export async function deleteLibraryAsset(assetId: string): Promise<void> {
+  await deleteLibraryAssets([assetId]);
 }
 
 export async function createLibraryAssets(
