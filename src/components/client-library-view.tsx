@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandKitFields, type BrandKitValue } from "@/components/brand-kit-fields";
+import { BrandReferenceCreators } from "@/components/brand-reference-creators";
+import { BrandRepeatPosts } from "@/components/brand-repeat-posts";
 import { LocalizedTextInput } from "@/components/localized-text-field";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -573,6 +575,23 @@ export function ClientLibraryView({
         <p className="text-sm text-muted-foreground">{t("accessRelease.featureLocked")}</p>
       ) : (
         <>
+          {manageQuery.data ? (
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">
+                  {t("clients.brandLearning.title")}
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {t("clients.brandLearning.hint")}
+                </p>
+              </div>
+              <div className="space-y-4">
+                <BrandReferenceCreators clientId={clientId} canEdit />
+                <BrandRepeatPosts clientId={clientId} canEdit />
+              </div>
+            </section>
+          ) : null}
+
           <Collapsible open={brandKitOpen} onOpenChange={setBrandKitOpen}>
             <Card className="rounded-xl border-primary/20 bg-primary/5">
               <CollapsibleTrigger asChild>

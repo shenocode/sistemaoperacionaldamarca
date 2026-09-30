@@ -32,8 +32,6 @@ import {
   type ProjectCategory,
 } from "@/lib/api";
 import { useEntitlements } from "@/hooks/use-entitlements";
-import { BrandReferenceCreators } from "@/components/brand-reference-creators";
-import { BrandRepeatPosts } from "@/components/brand-repeat-posts";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId/")({
   head: () => ({
@@ -128,19 +126,6 @@ function ClientDetailPage() {
           ) : undefined
         }
       />
-
-      {canManage ? (
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">{t("clients.brandLearning.title")}</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">{t("clients.brandLearning.hint")}</p>
-          </div>
-          <div className="space-y-4">
-            <BrandReferenceCreators clientId={clientId} canEdit={canManage} />
-            <BrandRepeatPosts clientId={clientId} canEdit={canManage} />
-          </div>
-        </section>
-      ) : null}
 
       {projectsQuery.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
