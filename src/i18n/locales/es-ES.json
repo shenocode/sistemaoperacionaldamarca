@@ -767,6 +767,21 @@
       "deleted": "Perfil eliminado.",
       "delete": "Eliminar"
     },
+    "brandLearning": {
+      "title": "Aprendizaje de la marca",
+      "hint": "Contexto que la IA usa al generar contenido: creadores de referencia y posts que marcaron para repetir."
+    },
+    "repeatPosts": {
+      "title": "Posts para repetir",
+      "hint": "Posts con el switch “Repetir este formato” activado. Al generar contenido en un proyecto, la IA usa hasta 8 de estos posts de ese proyecto (formato, gancho y notas).",
+      "empty": "Ningún post marcado aún. Abre un contenido publicado, en “Aprendizaje de este post”, activa “Repetir este formato en las próximas ideas”.",
+      "untitled": "Sin título",
+      "open": "Abrir",
+      "remove": "Quitar del pool",
+      "removed": "Post quitado del aprendizaje.",
+      "notePlaceholder": "Qué funcionó (gancho, duración, CTA…) — la IA lee esta nota.",
+      "noteSaved": "Nota guardada."
+    },
     "projectName": "Nombre del proyecto",
     "projectDescription": "Descripción",
     "projectCategories": "Tipo de proyecto",
@@ -1204,6 +1219,9 @@
       "sourceFile": "Subir",
       "sourceUrl": "URL",
       "open": "Abrir",
+      "delete": "Eliminar",
+      "deleted": "Archivo eliminado.",
+      "deleteConfirm": "¿Eliminar este archivo? Esta acción no se puede deshacer.",
       "brandKit": {
         "title": "Kit de marca",
         "hint": "Colores, tipografías y plantillas usadas por el asistente de diseño.",

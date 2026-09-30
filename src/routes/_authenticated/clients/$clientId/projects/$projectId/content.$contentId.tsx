@@ -774,6 +774,7 @@ function ContentDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["comments", contentId] });
     queryClient.invalidateQueries({ queryKey: ["versions", contentId] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["brand-repeat-posts", clientId] });
   };
 
   const resolveMediaForSave = async () => {

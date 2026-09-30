@@ -3360,6 +3360,96 @@ export async function deleteBrandReferenceCreator(input: {
   if (error) throw new Error(error.message);
 }
 
+export type RepeatFormatPost = {
+  id: string;
+  project_id: string;
+  project_name: string;
+  project_i18n: RowI18n;
+  title: string;
+  format: ContentFormat;
+  theme: string | null;
+  performance_reach: string;
+  performance_retention: string;
+  performance_note: string;
+  updated_at: string;
+  i18n: RowI18n;
+};
+
+/** Posts marked "repeat this format" across all projects of a client (brand learning). */
+export async function listClientRepeatFormatPosts(clientId: string): Promise<RepeatFormatPost[]> {
+  const projects = await listProjects(clientId);
+  if (projects.length === 0) return [];
+
+  const projectById = new Map(
+    projects.map((project) => [project.id, project] as const),
+  );
+  const projectIds = projects.map((project) => project.id);
+
+  const { data, error } = await supabase
+    .from("content_items")
+    .select(
+      "id, project_id, title, format, theme, performance_reach, performance_retention, performance_note, updated_at, i18n",
+    )
+    .in("project_id", projectIds)
+    .eq("repeat_format", true)
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    if (isMissingPerformanceColumns(error.message)) return [];
+    throw new Error(error.message);
+  }
+
+  return (data ?? [])
+    .map((row) => {
+      const project = projectById.get(row.project_id as string);
+      if (!project) return null;
+      return {
+        id: row.id as string,
+        project_id: row.project_id as string,
+        project_name: project.name,
+        project_i18n: parseRowI18n(project.i18n),
+        title: (row.title as string) ?? "",
+        format: (row.format as ContentFormat) ?? "static_feed",
+        theme: (row.theme as string | null) ?? null,
+        performance_reach: (row.performance_reach as string) ?? "",
+        performance_retention: (row.performance_retention as string) ?? "",
+        performance_note: (row.performance_note as string) ?? "",
+        updated_at: (row.updated_at as string) ?? "",
+        i18n: parseRowI18n(row.i18n),
+      } satisfies RepeatFormatPost;
+    })
+    .filter((row): row is RepeatFormatPost => Boolean(row));
+}
+
+/** Lightweight patch for the brand-learning "repeat format" pool. */
+export async function updateContentRepeatLearning(input: {
+  contentId: string;
+  repeatFormat?: boolean;
+  performanceNote?: string;
+}): Promise<void> {
+  const patch: {
+    repeat_format?: boolean;
+    performance_note?: string;
+  } = {};
+  if (input.repeatFormat !== undefined) patch.repeat_format = input.repeatFormat;
+  if (input.performanceNote !== undefined) patch.performance_note = input.performanceNote;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabase
+    .from("content_items")
+    .update(patch)
+    .eq("id", input.contentId);
+  if (error) {
+    if (isMissingPerformanceColumns(error.message)) {
+      throw new Error(
+        "Aplique a migration de aprendizado de conteúdo no SQL Editor do Supabase (colunas performance_* / repeat_format).",
+      );
+    }
+    throw new Error(error.message);
+  }
+}
+
 function sortContentByManualOrder(a: ContentItem, b: ContentItem) {
   const aOrder = a.sort_order ?? 0;
   const bOrder = b.sort_order ?? 0;

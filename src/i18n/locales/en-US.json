@@ -767,6 +767,21 @@
       "deleted": "Profile removed.",
       "delete": "Remove"
     },
+    "brandLearning": {
+      "title": "Brand learning",
+      "hint": "Context AI uses when generating content: reference creators and posts you marked to repeat."
+    },
+    "repeatPosts": {
+      "title": "Posts to repeat",
+      "hint": "Posts with “Repeat this format” turned on. When generating content in a project, AI uses up to 8 of these posts from that project (format, hook, and notes).",
+      "empty": "No posts marked yet. Open a published piece, under “Learning from this post”, turn on “Repeat this format in the next ideas”.",
+      "untitled": "Untitled",
+      "open": "Open",
+      "remove": "Remove from pool",
+      "removed": "Post removed from learning.",
+      "notePlaceholder": "What worked (hook, length, CTA…) — AI reads this note.",
+      "noteSaved": "Note saved."
+    },
     "projectName": "Project name",
     "projectDescription": "Description",
     "projectCategories": "Project type",
@@ -1204,6 +1219,9 @@
       "sourceFile": "Upload",
       "sourceUrl": "URL",
       "open": "Open",
+      "delete": "Delete",
+      "deleted": "File deleted.",
+      "deleteConfirm": "Delete this file? This cannot be undone.",
       "brandKit": {
         "title": "Brand kit",
         "hint": "Colors, fonts, and templates used by the design assistant.",

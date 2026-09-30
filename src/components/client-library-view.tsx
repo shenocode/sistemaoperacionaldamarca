@@ -400,6 +400,15 @@ export function ClientLibraryView({
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const deleteAssetMutation = useMutation({
+    mutationFn: (assetIds: string[]) => deleteLibraryAssets(assetIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["library", clientId] });
+      toast.success(t("project.library.deleted"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const assets = assetsQuery.data ?? [];
   const templates = templatesQuery.data ?? [];
 
@@ -441,6 +450,11 @@ export function ClientLibraryView({
       return;
     }
     deleteGeneratedMutation.mutate(assetIds);
+  }
+
+  function confirmDeleteAsset(assetId: string) {
+    if (!window.confirm(t("project.library.deleteConfirm"))) return;
+    deleteAssetMutation.mutate([assetId]);
   }
 
   async function downloadGenerated(
@@ -993,26 +1007,39 @@ export function ClientLibraryView({
                             {categoryAssets.map((asset) => {
                               const displayName = localizedAssetName(asset, uiLocale);
                               return (
-                                <li key={asset.id} className="flex items-start gap-2 text-sm">
+                                <li key={asset.id} className="group flex items-start gap-2 text-sm">
                                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
                                   {asset.file_url ? (
                                     <a
                                       href={asset.file_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="line-clamp-2 text-left text-primary hover:underline"
+                                      className="min-w-0 flex-1 line-clamp-2 text-left text-primary hover:underline"
                                       title={displayName}
                                     >
                                       {displayName}
                                     </a>
                                   ) : (
                                     <span
-                                      className="line-clamp-2 text-muted-foreground"
+                                      className="min-w-0 flex-1 line-clamp-2 text-muted-foreground"
                                       title={displayName}
                                     >
                                       {displayName}
                                     </span>
                                   )}
+                                  {manageQuery.data ? (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 shrink-0 px-2 text-destructive opacity-70 hover:bg-destructive/10 hover:text-destructive hover:opacity-100 group-hover:opacity-100"
+                                      disabled={deleteAssetMutation.isPending}
+                                      aria-label={t("project.library.delete")}
+                                      onClick={() => confirmDeleteAsset(asset.id)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                    </Button>
+                                  ) : null}
                                 </li>
                               );
                             })}
