@@ -264,13 +264,24 @@ async function loadLibraryReferenceBlocks(input: {
   youtubeUrls: string[];
   instagramUrls: string[];
   tiktokUrls: string[];
+  /** True when at least one selected asset contributed usable text (doc or page excerpt). */
+  hasRichSourceText: boolean;
+  /** Count of selected library assets actually considered (excluding generated_arts). */
+  selectedCount: number;
 }> {
   const ids = [
     ...new Set((input.body.libraryAssetIds ?? []).map((id) => id.trim()).filter(Boolean)),
   ].slice(0, LIBRARY_REFERENCE_MAX);
 
   if (ids.length === 0) {
-    return { blocks: [], youtubeUrls: [], instagramUrls: [], tiktokUrls: [] };
+    return {
+      blocks: [],
+      youtubeUrls: [],
+      instagramUrls: [],
+      tiktokUrls: [],
+      hasRichSourceText: false,
+      selectedCount: 0,
+    };
   }
 
   const { data, error } = await input.supabase
@@ -284,6 +295,8 @@ async function loadLibraryReferenceBlocks(input: {
   const youtubeUrls: string[] = [];
   const instagramUrls: string[] = [];
   const tiktokUrls: string[] = [];
+  let hasRichSourceText = false;
+  let selectedCount = 0;
 
   for (const id of ids) {
     const asset = byId.get(id);
@@ -291,6 +304,7 @@ async function loadLibraryReferenceBlocks(input: {
       throw new Error("Referência da biblioteca não encontrada.");
     }
     if (asset.category === "generated_arts") continue;
+    selectedCount += 1;
 
     const label = (asset.name || asset.file_name || "Referência").trim();
     const notes = typeof asset.notes === "string" ? asset.notes.trim() : "";
@@ -310,13 +324,17 @@ async function loadLibraryReferenceBlocks(input: {
         continue;
       }
       const meta = await fetchPublicProfileMeta(url);
+      if (meta.title || meta.description) hasRichSourceText = true;
       blocks.push(
         [
           `Referência URL: ${label}`,
           `URL: ${url}`,
           meta.title ? `Título: ${meta.title}` : null,
-          meta.description ? meta.description : null,
+          meta.description ? `Conteúdo / resumo da página:\n${meta.description}` : null,
           notes ? `Notas: ${notes}` : null,
+          !meta.title && !meta.description
+            ? "Aviso: não foi possível extrair o texto desta URL. Use só o nome/URL ou peça transcrição no prompt."
+            : null,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -326,6 +344,7 @@ async function loadLibraryReferenceBlocks(input: {
 
     if (isDocumentLikeAsset(asset)) {
       const doc = await extractLibraryDocument(asset, input);
+      if (doc.text.trim()) hasRichSourceText = true;
       blocks.push(
         `Documento (${doc.name}${doc.truncated ? ", trecho inicial" : ""}):\n${doc.text}`,
       );
@@ -352,6 +371,7 @@ async function loadLibraryReferenceBlocks(input: {
           `Imagem da biblioteca: ${label}`,
           url ? `URL: ${url}` : null,
           notes ? `Notas: ${notes}` : null,
+          "A IA não analisa pixels da imagem — use só o nome/notas ou descreva o conteúdo no prompt.",
         ]
           .filter(Boolean)
           .join("\n"),
@@ -371,7 +391,7 @@ async function loadLibraryReferenceBlocks(input: {
     );
   }
 
-  return { blocks, youtubeUrls, instagramUrls, tiktokUrls };
+  return { blocks, youtubeUrls, instagramUrls, tiktokUrls, hasRichSourceText, selectedCount };
 }
 
 function sanitizeSuggestion(raw: Record<string, unknown>, format: ContentFormat): ContentSuggestion {
@@ -555,6 +575,8 @@ Deno.serve(async (req) => {
     const transcription = (body.transcription ?? "").trim().slice(0, 12000);
     let attachedDocument: { name: string; text: string; truncated: boolean } | null = null;
     let libraryBlocks: string[] = [];
+    let libraryHasRichSourceText = false;
+    let librarySelectedCount = 0;
     try {
       const libraryRefs = await loadLibraryReferenceBlocks({
         body,
@@ -563,18 +585,21 @@ Deno.serve(async (req) => {
         supabaseUrl,
       });
       libraryBlocks = libraryRefs.blocks;
+      libraryHasRichSourceText = libraryRefs.hasRichSourceText;
+      librarySelectedCount = libraryRefs.selectedCount;
       youtubeUrls.push(...libraryRefs.youtubeUrls);
       instagramUrls.push(...libraryRefs.instagramUrls);
       tiktokUrls.push(...libraryRefs.tiktokUrls);
 
       // Legacy single-document attachment (compat) when multi-select is empty.
-      if (libraryBlocks.length === 0) {
+      if (libraryBlocks.length === 0 && librarySelectedCount === 0) {
         attachedDocument = await loadAttachedDocument({
           body,
           supabase,
           serviceRoleKey,
           supabaseUrl,
         });
+        if (attachedDocument?.text.trim()) libraryHasRichSourceText = true;
       }
     } catch (error) {
       return jsonResponse(
@@ -618,6 +643,14 @@ Deno.serve(async (req) => {
             .join("\n\n")}`
         : null;
 
+    const hasLibrarySelection =
+      librarySelectedCount > 0 || libraryBlocks.length > 0 || Boolean(attachedDocument);
+    const socialMetaHasText = [...youtubeMetas, ...instagramMetas, ...tiktokMetas].some(
+      (meta) => Boolean(meta.title?.trim() || meta.description?.trim()),
+    );
+    const hasUsableReferenceText =
+      libraryHasRichSourceText || Boolean(transcription) || socialMetaHasText;
+
     const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
     const needsRoteiro = format === "carousel";
     const brandGuide =
@@ -630,12 +663,26 @@ Deno.serve(async (req) => {
         : "";
     const webBlock = formatWebSourcesBlock(web.sources);
 
+    const librarySourceRules = hasLibrarySelection
+      ? [
+          "CRITICAL — selected library references / attached source material:",
+          "- The TOPIC and factual claims of the copy MUST come from those references (and the user prompt/transcription).",
+          "- Do NOT invent a new theme, pillar or subject (e.g. a wellness/emotional topic) that is absent from the references, prompt and transcription.",
+          "- Brand guide, brand kit, winning formats and reference creators define VOICE, style and CTA patterns — not a substitute topic when references are present.",
+          hasUsableReferenceText
+            ? "- Prefer paraphrasing ideas, hooks and angles already present in the extracted reference text / titles / transcription."
+            : "- If references only have titles/URLs/metadata (no full text), stay tightly tied to those titles and to the admin prompt; do not invent an unrelated subject. Ask nothing — just work with what is available.",
+          "- If the admin prompt asks to adapt format (e.g. carousel) but not to change the subject, keep the same subject as the references.",
+        ].join("\n")
+      : null;
+
     const systemPrompt = [
       "Você é um copywriter de Instagram e vídeos curtos para agências de marca.",
       languageInstruction(body.locale),
-      "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits.",
+      "When there is a Brand guide, treat it as the priority source for voice, audience, pillars and ethical limits — unless selected library references define the topic for this specific post.",
       "When there are brand kit guidelines (orientações gerais), treat them as mandatory operational rules for every text.",
-      "When there is an attached source document or selected library references, use them as the factual base for the copy. Do not invent names, numbers or claims that are not in those materials.",
+      "When there is an attached source document or selected library references, use them as the factual base and TOPIC for the copy. Do not invent names, numbers, claims or themes that are not in those materials, the prompt or the transcription.",
+      librarySourceRules,
       "When there are winning formats marked to repeat, prefer those patterns (length, hook style, CTA) unless the brief contradicts them.",
       "When there are reference creators, adapt their patterns to this brand — do not copy them verbatim.",
       "Responda APENAS com JSON válido (sem markdown) no formato:",
@@ -645,15 +692,15 @@ Deno.serve(async (req) => {
       "- caption: legenda pronta para publicar.",
       "- cta: preferir um dos CTAs cadastrados quando fizer sentido.",
       "- hashtags: preferir hashtags cadastradas; espaço entre tags; começar com #.",
-      "- theme: usar um tema da lista de presets se couber; senão null.",
+      "- theme: usar um tema da lista de presets se couber E se alinhado às referências; senão null. Não escolha um tema de preset só porque está na lista se as referências apontam outro assunto.",
       needsLocucao
         ? "- locucao_hook: primeira frase falada (gancho de 1–2 frases). locucao_body: desenvolvimento. locucao_cta: fechamento falado. locucao: o roteiro completo no formato HOOK / CORPO / CTA."
         : "- locucao, locucao_hook, locucao_body e locucao_cta: strings vazias.",
       needsRoteiro
-        ? "- roteiro: texto por slide no formato 'Slide 1: ...\\nSlide 2: ...' (mínimo 3 slides)."
+        ? "- roteiro: texto por slide no formato 'Slide 1: ...\\nSlide 2: ...' (mínimo 3 slides), derivado das referências/prompt — não de um tema inventado."
         : "- roteiro: string vazia.",
       webBlock
-        ? "- Se usar um fato da pesquisa web, cite a fonte na caption ou na locução (nome do site)."
+        ? "- Se usar um fato da pesquisa web, cite a fonte na caption ou na locução (nome do site). Pesquisa web NÃO substitui o tema das referências selecionadas."
         : "",
       "Não invente fatos que não estejam no Guia de marca, prompt, referências da biblioteca, documento anexado, metadados dos vídeos, transcrição ou fontes da pesquisa web.",
     ]
@@ -683,6 +730,16 @@ Deno.serve(async (req) => {
       formatVideoMetasBlock("Vídeos do TikTok (metadados):", tiktokMetas),
       transcription ? `Transcrição fornecida pelo usuário:\n${transcription}` : null,
       webBlock,
+      hasLibrarySelection
+        ? [
+            "Instrução obrigatória sobre as referências selecionadas:",
+            "- O assunto deste post deve refletir as referências da biblioteca (e a transcrição, se houver).",
+            "- Não troque o tema por um assunto genérico do guia de marca ou da lista de temas disponíveis.",
+            hasUsableReferenceText
+              ? "- Extraia ângulos, ideias e vocabulário do material acima."
+              : "- O material pode estar incompleto (só título/URL). Ainda assim, não invente outro tema; baseie-se no que há + no prompt do admin.",
+          ].join("\n")
+        : null,
       mode === "refine" && draft
         ? `Rascunho atual (JSON):\n${JSON.stringify({
             title: draft.title ?? "",
@@ -713,7 +770,8 @@ Deno.serve(async (req) => {
       openaiKey,
       keySource,
       {
-        temperature: 0.7,
+        // Slightly less creative when library references define the topic.
+        temperature: hasLibrarySelection ? 0.45 : 0.7,
         fallbackMessage: "Falha ao gerar sugestão com a IA",
         geminiKey,
         preferredProvider,

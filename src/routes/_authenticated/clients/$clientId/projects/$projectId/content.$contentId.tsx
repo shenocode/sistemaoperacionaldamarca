@@ -1318,6 +1318,32 @@ function ContentDetailPage() {
                   setRoteiro(getLocalizedText(merged, "roteiro", suggestion.roteiro, uiLocale));
                 }
               }}
+              onClearAppliedFields={() => {
+                const empty = buildLocalizedFieldFromSource("", uiLocale);
+                let next = rowI18n;
+                const fields = ["title", "caption", "cta", "hashtags", "theme"] as const;
+                for (const field of fields) {
+                  next = setLocalizedField(next, field, empty);
+                }
+                if (
+                  formatType === "reels" ||
+                  formatType === "recorded_video" ||
+                  formatType === "youtube_short"
+                ) {
+                  next = setLocalizedField(next, "locucao", empty);
+                  setLocucao("");
+                }
+                if (formatType === "carousel") {
+                  next = setLocalizedField(next, "roteiro", empty);
+                  setRoteiro("");
+                }
+                setRowI18n(next);
+                setTitle("");
+                setCaption("");
+                setCta("");
+                setHashtags("");
+                setTheme("");
+              }}
             />
           ) : null}
 

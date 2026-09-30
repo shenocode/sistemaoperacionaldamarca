@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, KeyRound, Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, KeyRound, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,6 +62,8 @@ type ContentAiAssistantProps = {
   clientId: string;
   format: ContentFormat;
   onApply: (suggestion: ContentAiAssistantApply) => void | Promise<void>;
+  /** Clears copy fields filled by a previous Approve (form only; caller should still save). */
+  onClearAppliedFields?: () => void | Promise<void>;
 };
 
 function withLocucaoParts(suggestion: ContentSuggestion): ContentSuggestion {
@@ -71,6 +83,7 @@ export function ContentAiAssistant({
   clientId,
   format,
   onApply,
+  onClearAppliedFields,
 }: ContentAiAssistantProps) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -81,6 +94,8 @@ export function ContentAiAssistant({
   const [refineInstruction, setRefineInstruction] = useState("");
   const [draft, setDraft] = useState<ContentSuggestion | null>(null);
   const [provider, setProvider] = useState<DesignProvider>("openai");
+  const [appliedOnce, setAppliedOnce] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const generatingRef = useRef(false);
   const didInitProvider = useRef(false);
 
@@ -195,12 +210,51 @@ export function ContentAiAssistant({
         : draft.locucao,
       roteiro: draft.roteiro,
     });
+    setAppliedOnce(true);
     toast.success(t("project.detail.assistant.applied"));
   };
 
   const handleDiscard = () => {
     setDraft(null);
     setRefineInstruction("");
+  };
+
+  const resetAssistantState = () => {
+    setPrompt("");
+    setSelectedLibraryAssetIds([]);
+    setTranscription("");
+    setWebSearch(false);
+    setRefineInstruction("");
+    setDraft(null);
+  };
+
+  const canReset =
+    Boolean(prompt.trim()) ||
+    selectedLibraryAssetIds.length > 0 ||
+    Boolean(transcription.trim()) ||
+    webSearch ||
+    Boolean(refineInstruction.trim()) ||
+    draft !== null ||
+    appliedOnce;
+
+  const finishReset = async (clearForm: boolean) => {
+    resetAssistantState();
+    setAppliedOnce(false);
+    setResetDialogOpen(false);
+    if (clearForm && onClearAppliedFields) {
+      await onClearAppliedFields();
+      toast.success(t("project.detail.assistant.resetClearedWithForm"));
+      return;
+    }
+    toast.success(t("project.detail.assistant.resetCleared"));
+  };
+
+  const handleStartOverClick = () => {
+    if (appliedOnce && onClearAppliedFields) {
+      setResetDialogOpen(true);
+      return;
+    }
+    void finishReset(false);
   };
 
   const busy = generateMutation.isPending || refineMutation.isPending;
@@ -321,35 +375,48 @@ export function ContentAiAssistant({
               </span>
             </label>
 
-            <Button
-              type="button"
-              onClick={() => {
-                if (generatingRef.current || !prompt.trim() || busy) return;
-                if (blockForMissingKey) {
-                  toast.error(
-                    provider === "gemini"
-                      ? t("project.detail.assistant.missingGeminiError")
-                      : t("project.detail.assistant.missingKeyError"),
-                  );
-                  return;
-                }
-                generatingRef.current = true;
-                generateMutation.mutate();
-              }}
-              disabled={!prompt.trim() || busy || blockForMissingKey}
-            >
-              {generateMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t("project.detail.assistant.generating")}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-4" />
-                  {t("project.detail.assistant.generate")}
-                </>
-              )}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  if (generatingRef.current || !prompt.trim() || busy) return;
+                  if (blockForMissingKey) {
+                    toast.error(
+                      provider === "gemini"
+                        ? t("project.detail.assistant.missingGeminiError")
+                        : t("project.detail.assistant.missingKeyError"),
+                    );
+                    return;
+                  }
+                  generatingRef.current = true;
+                  generateMutation.mutate();
+                }}
+                disabled={!prompt.trim() || busy || blockForMissingKey}
+              >
+                {generateMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {t("project.detail.assistant.generating")}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" />
+                    {t("project.detail.assistant.generate")}
+                  </>
+                )}
+              </Button>
+              {canReset ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleStartOverClick}
+                  disabled={busy}
+                >
+                  <RotateCcw className="size-4" />
+                  {t("project.detail.assistant.startOver")}
+                </Button>
+              ) : null}
+            </div>
 
             {draft ? (
               <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
@@ -499,11 +566,43 @@ export function ContentAiAssistant({
                     {t("project.detail.assistant.discard")}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("project.detail.assistant.discardHint")}
+                </p>
               </div>
             ) : null}
           </CardContent>
         </CollapsibleContent>
       </Card>
+
+      <AlertDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.detail.assistant.resetTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.detail.assistant.resetDescriptionApplied")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void finishReset(true);
+              }}
+            >
+              {t("project.detail.assistant.resetWithForm")}
+            </AlertDialogAction>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void finishReset(false)}
+            >
+              {t("project.detail.assistant.resetAssistantOnly")}
+            </Button>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Collapsible>
   );
 }

@@ -109,6 +109,25 @@ export function ContentAiReferencesField({
     [assets, selectedIds],
   );
 
+  const hasThinReferences = useMemo(
+    () =>
+      selectedAssets.some((asset) => {
+        const category = asset.category;
+        if (category === "videos" || category === "images" || category === "references") {
+          return true;
+        }
+        // URL-like assets without a document extension still need transcript/notes.
+        const hay = `${asset.file_name ?? ""} ${asset.name ?? ""} ${asset.file_url ?? ""} ${asset.mime_type ?? ""}`;
+        const looksLikeDocument =
+          /\.(pdf|txt|md|csv|docx?|xlsx?|rtf)\b/i.test(hay) ||
+          /(pdf|wordprocessingml|spreadsheetml|msword|ms-excel|text\/plain|text\/csv|text\/markdown|rtf)/i.test(
+            hay,
+          );
+        return Boolean(asset.file_url?.startsWith("http")) && !looksLikeDocument && !asset.storage_path;
+      }),
+    [selectedAssets],
+  );
+
   function toggleAsset(assetId: string, checked: boolean) {
     if (checked) {
       if (selectedIds.includes(assetId)) return;
@@ -252,6 +271,12 @@ export function ContentAiReferencesField({
             );
           })}
         </ul>
+      ) : null}
+
+      {hasThinReferences ? (
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+          {t("project.detail.assistant.referencesThinWarning")}
+        </p>
       ) : null}
 
       <div className="rounded-md border border-border">
