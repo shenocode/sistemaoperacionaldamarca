@@ -670,10 +670,10 @@ function ContentDetailPage() {
   const translatePresetField = async (field: "cta" | "hashtags" | "theme", value: string) => {
     const seq = ++presetTranslateSeq.current[field];
     try {
-      const block = await translateTextField({ text: value });
+      const block = await translateTextField({ text: value, sourceLocale: uiLocale });
       if (seq !== presetTranslateSeq.current[field]) return;
       setRowI18n((prev) => setLocalizedField(prev, field, block));
-      const display = getLocalizedText({ [field]: block }, field, value, uiLocale);
+      const display = value;
       if (field === "cta") setCta(display);
       if (field === "hashtags") setHashtags(display);
       if (field === "theme") setTheme(display);
@@ -724,6 +724,12 @@ function ContentDetailPage() {
         );
       }
     }
+    // Persist what is visible on screen so a late/mis-detected i18n translation
+    // (common on carousel roteiro with "Slide N:" labels) cannot overwrite edits.
+    i18nPayload = syncI18nDisplayField(i18nPayload, "title", title, uiLocale);
+    i18nPayload = syncI18nDisplayField(i18nPayload, "caption", caption, uiLocale);
+    i18nPayload = syncI18nDisplayField(i18nPayload, "locucao", locucao, uiLocale);
+    i18nPayload = syncI18nDisplayField(i18nPayload, "roteiro", roteiro, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "cta", cta, uiLocale);
     i18nPayload = isPrintPiece
       ? syncI18nDisplayField(i18nPayload, "hashtags", "", uiLocale)

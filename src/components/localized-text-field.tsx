@@ -42,6 +42,7 @@ function useLocalizedDraft(props: SharedProps) {
   const localeRef = useRef(locale);
   const i18nRef = useRef(props.i18n);
   const onCommitRef = useRef(props.onI18nCommit);
+  const commitSeq = useRef(0);
 
   i18nRef.current = props.i18n;
   onCommitRef.current = props.onI18nCommit;
@@ -64,7 +65,9 @@ function useLocalizedDraft(props: SharedProps) {
   function pushToParent(next: string, block: LocalizedField) {
     const merged = setLocalizedField(i18nRef.current, props.field, block);
     i18nRef.current = merged;
-    const display = getLocalizedText(merged, props.field, next, locale);
+    // Always show what the user typed for the active UI locale — never let a
+    // mis-detected translation rewrite the visible field after blur/save.
+    const display = next;
     const canonical = block.values[block.source] ?? next;
     void onCommitRef.current({
       field: props.field,
@@ -90,6 +93,8 @@ function useLocalizedDraft(props: SharedProps) {
       return;
     }
 
+    const seq = ++commitSeq.current;
+
     // Push provisional value synchronously before any await so submit-after-blur
     // (or click Save while focused) never races past an in-flight translation.
     const provisional = buildLocalizedFieldFromSource(next, locale);
@@ -101,13 +106,20 @@ function useLocalizedDraft(props: SharedProps) {
     try {
       let block: LocalizedField;
       try {
-        block = await translateTextField({ text: next });
+        block = await translateTextField({ text: next, sourceLocale: locale });
       } catch {
         block = provisional;
       }
+      if (seq !== commitSeq.current) return;
+      // Pin typed text under the UI locale even if the translator rewrote it.
+      block = {
+        ...block,
+        source: locale,
+        values: { ...block.values, [locale]: next },
+      };
       const merged = setLocalizedField(i18nRef.current, props.field, block);
       i18nRef.current = merged;
-      const display = getLocalizedText(merged, props.field, next, locale);
+      const display = next;
       const canonical = block.values[block.source] ?? next;
       lastCommitted.current = display;
       setDraft(display);
@@ -119,7 +131,7 @@ function useLocalizedDraft(props: SharedProps) {
         i18n: merged,
       });
     } finally {
-      setTranslating(false);
+      if (seq === commitSeq.current) setTranslating(false);
     }
   }
 

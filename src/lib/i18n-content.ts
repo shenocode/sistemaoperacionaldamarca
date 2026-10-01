@@ -115,6 +115,11 @@ export async function translateTextField(input: {
     const source = input.sourceLocale ?? "pt-BR";
     return { source, values: { [source]: text } };
   }
+  // Prefer the caller's source locale so UI language wins over mis-detection
+  // (e.g. "Slide 1:" making Portuguese roteiro look like English).
+  if (input.sourceLocale) {
+    payload.source = input.sourceLocale;
+  }
   payload.values[payload.source] = text;
   return payload;
 }

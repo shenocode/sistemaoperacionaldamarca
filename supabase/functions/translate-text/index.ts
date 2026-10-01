@@ -118,10 +118,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Nenhum locale de destino válido" }, 400);
     }
 
+    const sourceHint = isAppLocale(body.sourceLocale) ? body.sourceLocale : null;
+
     const systemPrompt = [
       "You are a professional translator for a brand content operating system.",
-      "Detect the source language if not provided, then translate the text into the requested locales.",
-      "Preserve meaning, tone, and formatting (line breaks, markdown, lists).",
+      "If a source locale is provided, treat it as authoritative — do not re-detect language from markers like 'Slide 1:' or mixed labels.",
+      "If no source locale is provided, detect the source language, then translate into the requested locales.",
+      "Preserve meaning, tone, and formatting (line breaks, markdown, lists) exactly for the source locale.",
+      "Do NOT rewrite, polish, or paraphrase the source-locale text — copy it verbatim under the source key.",
       "Do NOT translate: @handles, #hashtags, URLs, emails, brand product codes, or pure proper names when they should stay as-is.",
       "Respond ONLY with valid JSON:",
       '{"source":"pt-BR|en-US|es-ES","values":{"pt-BR":"...","en-US":"...","es-ES":"..."}}',
@@ -130,8 +134,8 @@ Deno.serve(async (req) => {
     ].join("\n");
 
     const userPrompt = [
-      body.sourceLocale && isAppLocale(body.sourceLocale)
-        ? `Source locale (hint): ${body.sourceLocale}`
+      sourceHint
+        ? `Source locale (authoritative): ${sourceHint}`
         : "Source locale: detect automatically",
       `Target locales: ${uniqueTargets.join(", ")}`,
       `Text:\n${text}`,
@@ -160,8 +164,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Resposta da IA inválida" }, 502);
     }
 
-    const sourceHint = isAppLocale(body.sourceLocale) ? body.sourceLocale : null;
-    const source = isAppLocale(parsed.source) ? parsed.source : sourceHint ?? "pt-BR";
+    // Prefer the caller's sourceLocale over AI detection — labels like "Slide 1:"
+    // often cause false English detection on Portuguese carousel scripts.
+    const source = sourceHint ?? (isAppLocale(parsed.source) ? parsed.source : "pt-BR");
     const rawValues =
       parsed.values && typeof parsed.values === "object" && !Array.isArray(parsed.values)
         ? (parsed.values as Record<string, unknown>)
@@ -174,6 +179,7 @@ Deno.serve(async (req) => {
         values[locale] = v.trim();
       }
     }
+    // Always keep the user-typed text under the source locale (never AI rewrite).
     values[source] = text;
 
     const field: LocalizedField = { source, values };
