@@ -1,6 +1,7 @@
-import { useEffect } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,14 +13,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MAX_BRAND_COLORS, type BrandColor, type BrandFonts } from "@/lib/api";
+import {
+  BRAND_FONT_ACCEPT,
+  MAX_BRAND_COLORS,
+  uploadBrandFont,
+  type BrandColor,
+  type BrandFonts,
+} from "@/lib/api";
 import {
   brandFontFamilyCss,
+  brandFontsToFileMap,
   fontOptionsForSelect,
+  isGoogleBrandFont,
   loadBrandFonts,
 } from "@/lib/brand-fonts";
 
 const FONT_NONE = "__none__";
+const FONT_CUSTOM = "__custom__";
 
 export type BrandKitValue = {
   brand_colors: BrandColor[];
@@ -30,11 +40,14 @@ export type BrandKitValue = {
 export function BrandKitFields({
   value,
   onChange,
+  clientId,
   idPrefix = "brand-kit",
   showHeader = true,
 }: {
   value: BrandKitValue;
   onChange: (next: BrandKitValue) => void;
+  /** Required to upload custom font files. */
+  clientId?: string;
   idPrefix?: string;
   showHeader?: boolean;
 }) {
@@ -43,10 +56,22 @@ export function BrandKitFields({
   const fonts = value.brand_fonts ?? {};
   const primaryOptions = fontOptionsForSelect(fonts.primary);
   const secondaryOptions = fontOptionsForSelect(fonts.secondary);
+  const [customPrimary, setCustomPrimary] = useState(
+    () => Boolean(fonts.primary?.trim() && !isGoogleBrandFont(fonts.primary)),
+  );
+  const [customSecondary, setCustomSecondary] = useState(
+    () => Boolean(fonts.secondary?.trim() && !isGoogleBrandFont(fonts.secondary)),
+  );
+  const [uploadingSlot, setUploadingSlot] = useState<"primary" | "secondary" | null>(null);
+  const primaryFileRef = useRef<HTMLInputElement>(null);
+  const secondaryFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void loadBrandFonts([fonts.primary ?? "", fonts.secondary ?? ""]);
-  }, [fonts.primary, fonts.secondary]);
+    void loadBrandFonts(
+      [fonts.primary ?? "", fonts.secondary ?? ""],
+      brandFontsToFileMap(fonts),
+    );
+  }, [fonts.primary, fonts.secondary, fonts.primaryFileUrl, fonts.secondaryFileUrl]);
 
   function setColors(next: BrandColor[]) {
     onChange({ ...value, brand_colors: next });
@@ -58,6 +83,168 @@ export function BrandKitFields({
 
   function updateColor(index: number, patch: Partial<BrandColor>) {
     setColors(colors.map((color, i) => (i === index ? { ...color, ...patch } : color)));
+  }
+
+  async function handleFontUpload(slot: "primary" | "secondary", file: File | undefined) {
+    if (!file) return;
+    if (!clientId) {
+      toast.error(t("clients.brandKit.fontUploadNoClient"));
+      return;
+    }
+    setUploadingSlot(slot);
+    try {
+      const url = await uploadBrandFont(clientId, file);
+      const familyFromName = file.name.replace(/\.(woff2?|ttf|otf)$/i, "").replace(/[-_]+/g, " ").trim();
+      if (slot === "primary") {
+        const family = fonts.primary?.trim() || familyFromName || "Custom Font";
+        setCustomPrimary(true);
+        setFonts({ primary: family, primaryFileUrl: url });
+      } else {
+        const family = fonts.secondary?.trim() || familyFromName || "Custom Font";
+        setCustomSecondary(true);
+        setFonts({ secondary: family, secondaryFileUrl: url });
+      }
+      toast.success(t("clients.brandKit.fontUploadOk"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("clients.brandKit.fontUploadError"));
+    } finally {
+      setUploadingSlot(null);
+    }
+  }
+
+  function renderFontSlot(slot: "primary" | "secondary") {
+    const family = slot === "primary" ? fonts.primary : fonts.secondary;
+    const fileUrl = slot === "primary" ? fonts.primaryFileUrl : fonts.secondaryFileUrl;
+    const options = slot === "primary" ? primaryOptions : secondaryOptions;
+    const customMode = slot === "primary" ? customPrimary : customSecondary;
+    const setCustom = slot === "primary" ? setCustomPrimary : setCustomSecondary;
+    const fileRef = slot === "primary" ? primaryFileRef : secondaryFileRef;
+    const label =
+      slot === "primary" ? t("clients.brandKit.fontPrimary") : t("clients.brandKit.fontSecondary");
+    const selectId = `${idPrefix}-font-${slot}`;
+    const needsFile = Boolean(family?.trim()) && !isGoogleBrandFont(family) && !fileUrl?.trim();
+
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={selectId}>{label}</Label>
+        <Select
+          value={customMode ? FONT_CUSTOM : family?.trim() || FONT_NONE}
+          onValueChange={(next) => {
+            if (next === FONT_NONE) {
+              setCustom(false);
+              setFonts(
+                slot === "primary"
+                  ? { primary: "", primaryFileUrl: "" }
+                  : { secondary: "", secondaryFileUrl: "" },
+              );
+              return;
+            }
+            if (next === FONT_CUSTOM) {
+              setCustom(true);
+              if (isGoogleBrandFont(family)) {
+                setFonts(slot === "primary" ? { primary: "" } : { secondary: "" });
+              }
+              return;
+            }
+            setCustom(false);
+            setFonts(
+              slot === "primary"
+                ? { primary: next, primaryFileUrl: "" }
+                : { secondary: next, secondaryFileUrl: "" },
+            );
+          }}
+        >
+          <SelectTrigger id={selectId}>
+            <SelectValue placeholder={t("clients.brandKit.fontSelect")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={FONT_NONE}>{t("clients.brandKit.fontNone")}</SelectItem>
+            <SelectItem value={FONT_CUSTOM}>{t("clients.brandKit.fontCustom")}</SelectItem>
+            {options
+              .filter((font) => isGoogleBrandFont(font.family))
+              .map((font) => (
+                <SelectItem
+                  key={font.id}
+                  value={font.family}
+                  style={{ fontFamily: brandFontFamilyCss(font.family) }}
+                >
+                  {font.family}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+
+        {customMode ? (
+          <div className="space-y-2 rounded-md border border-dashed p-3">
+            <div className="space-y-1.5">
+              <Label htmlFor={`${selectId}-name`}>{t("clients.brandKit.fontCustomName")}</Label>
+              <Input
+                id={`${selectId}-name`}
+                value={family ?? ""}
+                onChange={(e) =>
+                  setFonts(slot === "primary" ? { primary: e.target.value } : { secondary: e.target.value })
+                }
+                placeholder={t("clients.brandKit.fontCustomNamePlaceholder")}
+              />
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={BRAND_FONT_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                void handleFontUpload(slot, file);
+              }}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!clientId || uploadingSlot === slot}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {uploadingSlot === slot
+                  ? t("clients.brandKit.fontUploading")
+                  : fileUrl?.trim()
+                    ? t("clients.brandKit.fontReplaceFile")
+                    : t("clients.brandKit.fontUploadFile")}
+              </Button>
+              {fileUrl?.trim() ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setFonts(
+                      slot === "primary" ? { primaryFileUrl: "" } : { secondaryFileUrl: "" },
+                    )
+                  }
+                >
+                  {t("clients.brandKit.fontClearFile")}
+                </Button>
+              ) : null}
+            </div>
+            {fileUrl?.trim() ? (
+              <p className="text-xs text-muted-foreground">{t("clients.brandKit.fontFileReady")}</p>
+            ) : (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {t("clients.brandKit.fontFileHint")}
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {needsFile && !customMode ? (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {t("clients.brandKit.fontFileHint")}
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -142,58 +329,8 @@ export function BrandKitFields({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-font-primary`}>{t("clients.brandKit.fontPrimary")}</Label>
-          <Select
-            value={fonts.primary?.trim() || FONT_NONE}
-            onValueChange={(next) =>
-              setFonts({ primary: next === FONT_NONE ? "" : next })
-            }
-          >
-            <SelectTrigger id={`${idPrefix}-font-primary`}>
-              <SelectValue placeholder={t("clients.brandKit.fontSelect")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={FONT_NONE}>{t("clients.brandKit.fontNone")}</SelectItem>
-              {primaryOptions.map((font) => (
-                <SelectItem
-                  key={font.id}
-                  value={font.family}
-                  style={{ fontFamily: brandFontFamilyCss(font.family) }}
-                >
-                  {font.family}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-font-secondary`}>
-            {t("clients.brandKit.fontSecondary")}
-          </Label>
-          <Select
-            value={fonts.secondary?.trim() || FONT_NONE}
-            onValueChange={(next) =>
-              setFonts({ secondary: next === FONT_NONE ? "" : next })
-            }
-          >
-            <SelectTrigger id={`${idPrefix}-font-secondary`}>
-              <SelectValue placeholder={t("clients.brandKit.fontSelect")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={FONT_NONE}>{t("clients.brandKit.fontNone")}</SelectItem>
-              {secondaryOptions.map((font) => (
-                <SelectItem
-                  key={font.id}
-                  value={font.family}
-                  style={{ fontFamily: brandFontFamilyCss(font.family) }}
-                >
-                  {font.family}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {renderFontSlot("primary")}
+        {renderFontSlot("secondary")}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-font-notes`}>{t("clients.brandKit.fontNotes")}</Label>

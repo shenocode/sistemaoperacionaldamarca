@@ -73,6 +73,7 @@ export {
   setLocalizedField,
   mergeRowI18n,
   buildLocalizedFieldFromSource,
+  buildVerbatimLocalizedField,
   isLocalizedField,
   getLocalizedAnswer,
   setLocalizedAnswer,
@@ -1042,8 +1043,16 @@ export const MAX_BRAND_COLORS = 24;
 export type BrandFonts = {
   primary?: string;
   secondary?: string;
+  /** Public URL of a uploaded .woff2/.ttf for the primary family (custom/commercial fonts). */
+  primaryFileUrl?: string;
+  /** Public URL of a uploaded font file for the secondary family. */
+  secondaryFileUrl?: string;
   notes?: string;
 };
+
+export const BRAND_FONT_ACCEPT =
+  ".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf,application/font-woff,application/font-woff2";
+export const BRAND_FONT_MAX_BYTES = 2 * 1024 * 1024;
 
 export type ClientContactInput = {
   name: string;
@@ -1204,12 +1213,60 @@ export function parseBrandColors(value: unknown): BrandColor[] {
 
 export function parseBrandFonts(value: unknown): BrandFonts {
   if (!value || typeof value !== "object") return {};
-  const row = value as { primary?: unknown; secondary?: unknown; notes?: unknown };
+  const row = value as {
+    primary?: unknown;
+    secondary?: unknown;
+    primaryFileUrl?: unknown;
+    secondaryFileUrl?: unknown;
+    notes?: unknown;
+  };
   return {
     primary: typeof row.primary === "string" ? row.primary : "",
     secondary: typeof row.secondary === "string" ? row.secondary : "",
+    primaryFileUrl: typeof row.primaryFileUrl === "string" ? row.primaryFileUrl : "",
+    secondaryFileUrl: typeof row.secondaryFileUrl === "string" ? row.secondaryFileUrl : "",
     notes: typeof row.notes === "string" ? row.notes : "",
   };
+}
+
+/** Upload a brand kit font file (.woff2 / .woff / .ttf / .otf) to library-assets. */
+export async function uploadBrandFont(clientId: string, file: File): Promise<string> {
+  const name = (file.name || "").toLowerCase();
+  if (!/\.(woff2?|ttf|otf)$/i.test(name)) {
+    throw new Error("Envie um arquivo de fonte (.woff2, .woff, .ttf ou .otf).");
+  }
+  if (file.size > BRAND_FONT_MAX_BYTES) {
+    throw new Error("A fonte deve ter no máximo 2 MB.");
+  }
+
+  const safeName = sanitizeFileName(file.name || "font.woff2");
+  const storagePath = `${clientId}/fonts/${crypto.randomUUID()}-${safeName}`;
+  const contentType =
+    file.type ||
+    (name.endsWith(".woff2")
+      ? "font/woff2"
+      : name.endsWith(".woff")
+        ? "font/woff"
+        : name.endsWith(".otf")
+          ? "font/otf"
+          : "font/ttf");
+
+  const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
+    cacheControl: "31536000",
+    contentType,
+    upsert: false,
+  });
+  if (error) {
+    if (/mime type|not supported|invalid|415/i.test(error.message)) {
+      throw new Error(
+        "O armazenamento ainda não aceita arquivos de fonte. No Lovable, abra Cloud → SQL Editor e execute a migration supabase/migrations/20261001140000_brand_font_uploads.sql.",
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  const { data } = supabase.storage.from(LIBRARY_BUCKET).getPublicUrl(storagePath);
+  return data.publicUrl;
 }
 
 export function parseBrandGuidance(value: unknown): string {

@@ -16,9 +16,10 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
-  BRAND_FONT_OPTIONS,
   brandFontFamilyCss,
+  brandFontsToFileMap,
   fontOptionsForSelect,
+  isGoogleBrandFont,
   loadBrandFonts,
   resolveBrandFont,
 } from "@/lib/brand-fonts";
@@ -36,7 +37,7 @@ import {
   type MediaTextOverlay,
   type TextLayerAlign,
 } from "@/lib/media-text-overlay";
-import type { BrandColor } from "@/lib/api";
+import type { BrandColor, BrandFonts } from "@/lib/api";
 
 function containedRect(
   containerW: number,
@@ -96,10 +97,17 @@ export function ArtTextOverlayView({
     () => overlay.layers.map((layer) => layer.fontFamily),
     [overlay.layers],
   );
+  const [fontsEpoch, setFontsEpoch] = useState(0);
 
   useEffect(() => {
-    void loadBrandFonts(families);
-  }, [families]);
+    let cancelled = false;
+    void loadBrandFonts(families, overlay.fontFiles).then(() => {
+      if (!cancelled) setFontsEpoch((n) => n + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [families, overlay.fontFiles]);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -230,6 +238,7 @@ export function ArtTextOverlayView({
                   fontSize: `${Math.max(10, layer.fontSize * box.height)}px`,
                   textShadow: empty ? "none" : "0 1px 2px rgba(0,0,0,0.45)",
                 }}
+                data-fonts-epoch={fontsEpoch}
               >
                 {empty ? layer.label || "…" : layer.text}
               </div>
@@ -428,7 +437,7 @@ export function ArtTextEditorPanel({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onChange: (overlay: MediaTextOverlay) => void;
-  brandFonts: { primary?: string; secondary?: string };
+  brandFonts: BrandFonts;
   colors: BrandColor[];
 }) {
   const { t } = useTranslation();
@@ -439,21 +448,29 @@ export function ArtTextEditorPanel({
       .map((name) => (name ?? "").trim())
       .filter(Boolean),
   )];
+  const fontFiles = useMemo(
+    () => ({
+      ...(overlay.fontFiles ?? {}),
+      ...brandFontsToFileMap(brandFonts),
+    }),
+    [overlay.fontFiles, brandFonts],
+  );
   const adjustments = normalizeImageAdjustments(
     overlay.adjustments ?? createDefaultImageAdjustments(),
   );
+  const selectedNeedsFile =
+    Boolean(selected?.fontFamily?.trim()) &&
+    !isGoogleBrandFont(selected?.fontFamily) &&
+    !fontFiles[selected?.fontFamily?.trim() ?? ""];
 
   useEffect(() => {
-    void loadBrandFonts([
-      ...BRAND_FONT_OPTIONS.map((font) => font.family),
-      ...pinned,
-      selected?.fontFamily ?? "",
-    ]);
-  }, [pinned, selected?.fontFamily]);
+    void loadBrandFonts([...pinned, selected?.fontFamily ?? ""], fontFiles);
+  }, [pinned, selected?.fontFamily, fontFiles]);
 
   function patchLayer(id: string, patch: Partial<MediaTextLayer>) {
     onChange({
       ...overlay,
+      fontFiles,
       layers: overlay.layers.map((layer) => (layer.id === id ? { ...layer, ...patch } : layer)),
     });
   }
@@ -467,13 +484,13 @@ export function ArtTextEditorPanel({
       y: overlay.layers.length === 0 ? 0.22 : 0.5,
       color: colors[0]?.hex || "#FFFFFF",
     });
-    onChange({ ...overlay, layers: [...overlay.layers, next] });
+    onChange({ ...overlay, fontFiles, layers: [...overlay.layers, next] });
     onSelect(next.id);
   }
 
   function removeLayer(id: string) {
     const next = overlay.layers.filter((layer) => layer.id !== id);
-    onChange({ ...overlay, layers: next });
+    onChange({ ...overlay, fontFiles, layers: next });
     onSelect(next[0]?.id ?? "");
   }
 
@@ -558,6 +575,11 @@ export function ArtTextEditorPanel({
                         ))}
                     </SelectContent>
                   </Select>
+                  {selectedNeedsFile ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {t("project.detail.artText.fontFileMissing")}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">

@@ -105,6 +105,7 @@ import {
   translateTextField,
   translateManyFields,
   buildLocalizedFieldFromSource,
+  buildVerbatimLocalizedField,
   isLocalizedField,
   type ContentFormat,
   type ContentItem,
@@ -276,6 +277,24 @@ function syncI18nDisplayField(
     payload,
     field,
     buildLocalizedFieldFromSource(display, locale),
+  );
+}
+
+/** Force the same display text into every locale (carousel roteiro must not be AI-rewritten). */
+function syncI18nVerbatimField(
+  payload: RowI18n,
+  field: string,
+  display: string,
+  locale: string,
+): RowI18n {
+  if (!display.trim()) {
+    const { [field]: _omit, ...rest } = payload;
+    return rest;
+  }
+  return setLocalizedField(
+    payload,
+    field,
+    buildVerbatimLocalizedField(display, locale),
   );
 }
 
@@ -464,10 +483,23 @@ function ContentDetailPage() {
     const nextTitle = getLocalizedText(nextI18n, "title", row.title, uiLocale);
     const nextCaption = getLocalizedText(nextI18n, "caption", row.caption, uiLocale);
     const nextLocucao = getLocalizedText(nextI18n, "locucao", row.locucao ?? "", uiLocale);
-    const nextRoteiro = getLocalizedText(nextI18n, "roteiro", row.roteiro ?? "", uiLocale);
-    const nextCta = getLocalizedText(nextI18n, "cta", row.cta, uiLocale);
-    const nextHashtags = getLocalizedText(nextI18n, "hashtags", row.hashtags, uiLocale);
-    const nextTheme = getLocalizedText(nextI18n, "theme", row.theme ?? "", uiLocale);
+    // Carousel roteiro: prefer the column when i18n was AI-rewritten (e.g. "Slide N:"
+    // mis-detected as English). That mismatch made the "saved" text disappear on reload.
+    const columnRoteiro = row.roteiro ?? "";
+    const localizedRoteiro = getLocalizedText(nextI18n, "roteiro", columnRoteiro, uiLocale);
+    const roteiroNeedsHeal =
+      columnRoteiro.trim().length > 0 && columnRoteiro !== localizedRoteiro;
+    const nextRoteiro = roteiroNeedsHeal ? columnRoteiro : localizedRoteiro;
+    const healedI18n = roteiroNeedsHeal
+      ? setLocalizedField(
+          nextI18n,
+          "roteiro",
+          buildVerbatimLocalizedField(columnRoteiro, uiLocale),
+        )
+      : nextI18n;
+    const nextCta = getLocalizedText(healedI18n, "cta", row.cta, uiLocale);
+    const nextHashtags = getLocalizedText(healedI18n, "hashtags", row.hashtags, uiLocale);
+    const nextTheme = getLocalizedText(healedI18n, "theme", row.theme ?? "", uiLocale);
     const nextFormat =
       row.format ?? defaultContentFormatForProject(projectQuery.data?.categories);
     const nextPreset = getGraphicArtsMaterialPreset(row.material_type);
@@ -489,7 +521,7 @@ function ContentDetailPage() {
       parseMediaOverlays((row as ContentItem).media_overlays),
     );
     const nextThumbnail = row.thumbnail_url?.trim() || "";
-    setRowI18n(nextI18n);
+    setRowI18n(healedI18n);
     setTitle(nextTitle);
     setCaption(nextCaption);
     setLocucao(nextLocucao);
@@ -536,7 +568,7 @@ function ContentDetailPage() {
         mediaItems: nextMedia,
         thumbnailUrl: nextThumbnail,
         thumbnailFileName: "",
-        rowI18n: nextI18n,
+        rowI18n: healedI18n,
       }),
     );
     setIgnoreUnsavedChanges(false);
@@ -587,7 +619,7 @@ function ContentDetailPage() {
             title: content.title,
             caption: content.caption,
             locucao: content.locucao,
-            roteiro: content.roteiro,
+            // Omit roteiro — "Slide N:" labels break AI locale detection; field is verbatim.
             cta: content.cta,
             hashtags: content.hashtags,
             theme: content.theme,
@@ -724,12 +756,11 @@ function ContentDetailPage() {
         );
       }
     }
-    // Persist what is visible on screen so a late/mis-detected i18n translation
-    // (common on carousel roteiro with "Slide N:" labels) cannot overwrite edits.
     i18nPayload = syncI18nDisplayField(i18nPayload, "title", title, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "caption", caption, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "locucao", locucao, uiLocale);
-    i18nPayload = syncI18nDisplayField(i18nPayload, "roteiro", roteiro, uiLocale);
+    // Roteiro is structural (Slide N:) — never leave a divergent AI translation in i18n.
+    i18nPayload = syncI18nVerbatimField(i18nPayload, "roteiro", roteiro, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "cta", cta, uiLocale);
     i18nPayload = isPrintPiece
       ? syncI18nDisplayField(i18nPayload, "hashtags", "", uiLocale)
@@ -742,7 +773,7 @@ function ContentDetailPage() {
       cta: getCanonicalText(i18nPayload, "cta", cta),
       hashtags: isPrintPiece ? "" : getCanonicalText(i18nPayload, "hashtags", hashtags),
       locucao: getCanonicalText(i18nPayload, "locucao", locucao),
-      roteiro: getCanonicalText(i18nPayload, "roteiro", roteiro),
+      roteiro,
       theme: displayTheme
         ? getCanonicalText(i18nPayload, "theme", displayTheme) || null
         : null,
@@ -1372,7 +1403,7 @@ function ContentDetailPage() {
               caption={caption}
               roteiro={roteiro}
               onRoteiroChange={(next) => {
-                const block = buildLocalizedFieldFromSource(next, uiLocale);
+                const block = buildVerbatimLocalizedField(next, uiLocale);
                 onFieldI18nCommit({
                   field: "roteiro",
                   display: next,
@@ -1625,6 +1656,7 @@ function ContentDetailPage() {
                     fallback={roteiro}
                     rows={6}
                     autoResize
+                    verbatim
                     className="min-h-[10rem]"
                     placeholder={t("project.detail.roteiroPlaceholder")}
                     onI18nCommit={onFieldI18nCommit}

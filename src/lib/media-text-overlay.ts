@@ -53,6 +53,8 @@ export type MediaTextOverlay = {
   baseUrl: string;
   layers: MediaTextLayer[];
   adjustments?: MediaImageAdjustments;
+  /** Custom kit font family → public file URL (for FontFace load). */
+  fontFiles?: Record<string, string>;
 };
 
 const DEFAULT_PRIMARY_COLOR = "#FFFFFF";
@@ -207,6 +209,7 @@ export function createDefaultOverlay(input: {
   primaryFont?: string;
   secondaryFont?: string;
   colors?: BrandColor[];
+  fontFiles?: Record<string, string>;
 }): MediaTextOverlay {
   const primary = resolveBrandFont(input.primaryFont);
   const secondary = resolveBrandFont(input.secondaryFont, primary);
@@ -270,6 +273,7 @@ export function createDefaultOverlay(input: {
     baseUrl: input.baseUrl,
     layers,
     adjustments: createDefaultImageAdjustments(),
+    fontFiles: input.fontFiles && Object.keys(input.fontFiles).length > 0 ? input.fontFiles : undefined,
   };
 }
 
@@ -288,6 +292,7 @@ export function ensureArtLayoutLayers(
     primaryFont?: string;
     secondaryFont?: string;
     colors?: BrandColor[];
+    fontFiles?: Record<string, string>;
   },
 ): MediaTextOverlay {
   const fallbackHeadline = (opts?.overlayText ?? "").trim();
@@ -315,6 +320,11 @@ export function ensureArtLayoutLayers(
         layer.text.trim(),
     );
 
+  const mergedFontFiles = {
+    ...(overlay.fontFiles ?? {}),
+    ...(opts?.fontFiles ?? {}),
+  };
+
   const scaffold = createDefaultOverlay({
     baseUrl: overlay.baseUrl,
     overlayText: existingHeadline?.text?.trim() || fallbackHeadline,
@@ -324,6 +334,7 @@ export function ensureArtLayoutLayers(
     primaryFont: opts?.primaryFont ?? existingHeadline?.fontFamily,
     secondaryFont: opts?.secondaryFont,
     colors: opts?.colors,
+    fontFiles: Object.keys(mergedFontFiles).length > 0 ? mergedFontFiles : undefined,
   });
 
   const pick = (role: TextLayerRole): MediaTextLayer => {
@@ -410,6 +421,7 @@ export function ensureArtLayoutLayers(
   return {
     ...overlay,
     layers: [pick("handle"), pick("tagline"), headline, pick("support"), ...extras],
+    fontFiles: Object.keys(mergedFontFiles).length > 0 ? mergedFontFiles : overlay.fontFiles,
   };
 }
 
@@ -426,9 +438,25 @@ export function resolveBrandTagline(notes?: string | null): string {
   return value;
 }
 
+function parseFontFiles(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [family, url] of Object.entries(value as Record<string, unknown>)) {
+    const key = family.trim();
+    const href = typeof url === "string" ? url.trim() : "";
+    if (key && href) out[key] = href;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const row = value as { baseUrl?: unknown; layers?: unknown; adjustments?: unknown };
+  const row = value as {
+    baseUrl?: unknown;
+    layers?: unknown;
+    adjustments?: unknown;
+    fontFiles?: unknown;
+  };
   const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
   if (!baseUrl || !Array.isArray(row.layers)) return null;
   const layers = row.layers
@@ -461,6 +489,7 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
     baseUrl,
     layers,
     adjustments: parseImageAdjustments(row.adjustments),
+    fontFiles: parseFontFiles(row.fontFiles),
   };
 }
 
@@ -499,7 +528,7 @@ function wrapLines(
 
 export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promise<Blob> {
   const families = overlay.layers.map((layer) => layer.fontFamily);
-  await loadBrandFonts(families);
+  await loadBrandFonts(families, overlay.fontFiles);
 
   const res = await fetch(overlay.baseUrl);
   if (!res.ok) throw new Error("Não foi possível carregar a arte base.");
