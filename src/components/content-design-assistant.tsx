@@ -58,12 +58,13 @@ import {
   type DesignTemplate,
 } from "@/lib/api";
 import { MediaLightbox } from "@/components/content-media-preview";
+import { ArtTextOverlayView } from "@/components/art-text-editor";
 import { downloadImageFromUrl } from "@/lib/download-image";
 import { cn } from "@/lib/utils";
 import {
+  createDefaultImageAdjustments,
   createDefaultOverlay,
   ensureArtLayoutLayers,
-  findHeadlineLayerId,
   flattenOverlayToFile,
   formatInstagramHandle,
   normalizeImageToDesignCanvas,
@@ -168,12 +169,14 @@ function sortTemplatesForAspect(
 
 function GeneratedArtPreview({
   src,
+  overlay,
   alt,
   onExpand,
   className,
   imgClassName,
 }: {
   src: string;
+  overlay?: MediaTextOverlay | null;
   alt: string;
   onExpand: () => void;
   className?: string;
@@ -190,7 +193,11 @@ function GeneratedArtPreview({
         className,
       )}
     >
-      <img src={src} alt={alt} className={cn("block", imgClassName)} />
+      {overlay ? (
+        <ArtTextOverlayView overlay={overlay} className={cn("h-full w-full", imgClassName)} />
+      ) : (
+        <img src={src} alt={alt} className={cn("block", imgClassName)} />
+      )}
       <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/55 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
         <Expand className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
@@ -417,24 +424,42 @@ export function ContentDesignAssistant({
   }, [title]);
 
   async function composeGeneratedArt(
-    baseUrl: string,
+    aiUrl: string,
     overlayTextValue: string,
     secondaryTextValue: string,
     label: string,
+    photoUrl?: string,
   ) {
-    const normalizedBlob = await normalizeImageToDesignCanvas(baseUrl, aspectRatio);
+    // Com foto: fundo = foto (sem tipografia do template/IA).
+    // Textos do formulário viram só camadas editáveis (título, @, topo, apoio).
+    const baseSource = photoUrl || aiUrl;
+    const normalizedBlob = await normalizeImageToDesignCanvas(baseSource, aspectRatio);
     const normalizedFile = new File([normalizedBlob], `${label}-canvas.png`, { type: "image/png" });
     const normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
-    const overlay = createDefaultOverlay({
-      baseUrl: normalizedUrl,
-      overlayText: overlayTextValue,
-      secondaryText: secondaryTextValue,
-      headerLeft: brandHandle,
-      headerRight: brandTagline,
-      primaryFont: kit.brand_fonts.primary,
-      secondaryFont: kit.brand_fonts.secondary,
-      colors: kit.brand_colors,
-    });
+
+    const overlay: MediaTextOverlay = {
+      ...createDefaultOverlay({
+        baseUrl: normalizedUrl,
+        overlayText: overlayTextValue,
+        secondaryText: secondaryTextValue,
+        headerLeft: brandHandle,
+        headerRight: brandTagline,
+        primaryFont: kit.brand_fonts.primary,
+        secondaryFont: kit.brand_fonts.secondary,
+        colors: kit.brand_colors,
+      }),
+      adjustments: photoUrl
+        ? {
+            ...createDefaultImageAdjustments(),
+            contrast: 14,
+            saturation: -6,
+            vignette: 0.42,
+            brightness: -8,
+            warmth: -4,
+          }
+        : createDefaultImageAdjustments(),
+    };
+
     const file = await flattenOverlayToFile(overlay, `${label}.png`);
     const url = await uploadContentMedia(projectId, file);
     return { url, overlay };
@@ -481,7 +506,7 @@ export function ContentDesignAssistant({
         secondaryText,
         guidance,
       });
-      return composeGeneratedArt(result.imageUrl, overlayText, secondaryText, artBaseName);
+      return composeGeneratedArt(result.imageUrl, overlayText, secondaryText, artBaseName, photoUrl);
     },
     onSuccess: async (composed) => {
       setResultUrl(composed.url);
@@ -527,6 +552,7 @@ export function ContentDesignAssistant({
       slide.overlayText,
       slide.secondaryText,
       `${artBaseName}-slide`,
+      photoUrl,
     );
     return composed;
   }
@@ -1010,6 +1036,7 @@ export function ContentDesignAssistant({
                 </p>
                 <GeneratedArtPreview
                   src={resultUrl}
+                  overlay={resultOverlay}
                   alt={t("project.detail.designAssistant.previewTitle")}
                   onExpand={() => setLightbox({ mode: "static", index: 0 })}
                   className={cn(
@@ -1314,6 +1341,7 @@ export function ContentDesignAssistant({
                       <div className="space-y-2">
                         <GeneratedArtPreview
                           src={slide.resultUrl}
+                          overlay={slide.overlay}
                           alt={t("project.detail.designAssistant.slide", { n: index + 1 })}
                           onExpand={() => {
                             const items = slides.filter((item) => item.resultUrl);

@@ -204,10 +204,11 @@ async function generateWithOpenAI(input: {
   apiKey: string;
   aspectRatio: DesignAspectRatio;
 }): Promise<Uint8Array> {
-  // Foto (conteúdo) antes do template (estilo), com fidelity low para não herdar 1:1/texto do template.
-  const images: RefImage[] = [];
-  if (input.photoImage) images.push(input.photoImage);
-  images.push(input.templateImage);
+  // Com foto: NÃO envia o template em pixels (ele carrega tipografia e a IA copia).
+  // Só a foto + prompt de direção de arte → fundo limpo para overlay de texto.
+  const images: RefImage[] = input.photoImage
+    ? [input.photoImage]
+    : [input.templateImage];
   return openaiImageEdit({
     prompt: input.prompt,
     images,
@@ -224,11 +225,12 @@ async function scrubTextWithOpenAI(input: {
 }): Promise<Uint8Array> {
   const canvas = designCanvasSpec(input.aspectRatio);
   const prompt = [
-    "TAREFA: limpar TEXTO de uma arte já gerada.",
-    `Saída obrigatória em ${input.aspectRatio} (${canvas.pixels}). ${canvas.forbidden}`,
-    "Apague TODAS as letras, números, handles (@), hashtags, CTAs, créditos e marcas d'água.",
-    "Preencha as áreas com fundo/foto contínuos. Não invente palavras novas.",
-    "Não redesenhe o layout; só remova tipografia. Zero letras na saída.",
+    "CRITICAL TASK: erase ALL typography from this artwork. Output must be a CLEAN photo/background only.",
+    `Mandatory canvas ${input.aspectRatio} (${canvas.pixels}). ${canvas.forbidden}`,
+    "Delete every letter, number, word, @handle, hashtag, caption, subtitle, footer text, watermark, logo type, and illegible glyph.",
+    "Inpaint those areas with continuous photo/background — no blank boxes, no smudged letters, no new words.",
+    "Do not redraw, translate, or invent any text. Zero characters in the output.",
+    "Keep the photography, lighting, colors and composition. Only remove text.",
   ].join("\n");
   return openaiImageEdit({
     prompt,
@@ -318,18 +320,18 @@ async function generateWithGemini(input: {
     },
   });
 
-  const parts: Array<Record<string, unknown>> = [
-    { text: input.prompt },
-    {
-      text: `TEMPLATE — só direção de arte (cores, clima, estilo). Canvas final = ${input.aspectRatio}. Não copie a proporção nem o texto desta imagem.`,
-    },
-    imagePart(input.templateImage),
-  ];
+  const parts: Array<Record<string, unknown>> = [{ text: input.prompt }];
   if (input.photoImage) {
+    // Só a foto — evita que o Gemini copie tipografia do PNG do template.
     parts.push({
-      text: "FOTO/ASSET — use no recorte principal. Ignore a proporção desta foto.",
+      text: `FOTO — base visual. Canvas final ${input.aspectRatio}. Trate a foto; zero texto na saída.`,
     });
     parts.push(imagePart(input.photoImage));
+  } else {
+    parts.push({
+      text: `TEMPLATE — use só direção de arte. Apague TODO texto desta imagem. Canvas ${input.aspectRatio}.`,
+    });
+    parts.push(imagePart(input.templateImage));
   }
 
   return geminiImageGenerate({
@@ -346,9 +348,9 @@ async function scrubTextWithGemini(input: {
 }): Promise<Uint8Array> {
   const canvas = designCanvasSpec(input.aspectRatio);
   const prompt = [
-    "TAREFA: limpar TEXTO desta arte.",
-    `Saída obrigatória ${input.aspectRatio} (${canvas.pixels}). ${canvas.forbidden}`,
-    "Apague TODAS as letras e números. Complete o fundo. Zero tipografia na saída.",
+    "CRITICAL: erase ALL text from this image. Clean background/photo only.",
+    `Mandatory output ${input.aspectRatio} (${canvas.pixels}). ${canvas.forbidden}`,
+    "Remove every letter, number, @handle, caption and watermark. Inpaint continuously. Zero typography.",
   ].join("\n");
 
   return geminiImageGenerate({
@@ -511,37 +513,52 @@ Deno.serve(async (req) => {
     const photoImage = photoUrl ? await fetchImage(photoUrl) : null;
 
     const prompt = [
-      "TAREFA: gerar UMA arte final pronta para overlay de texto (sem letras).",
-      "O template anexado é REFERÊNCIA de direção de arte — não um canvas a ser clonado 1:1.",
+      photoImage
+        ? "TAREFA: tratar ESTA FOTO como fundo de arte social — UMA imagem limpa, SEM nenhuma letra."
+        : "TAREFA: gerar UMA arte final pronta para overlay de texto (sem letras), a partir do template.",
+      photoImage
+        ? "Use só a foto anexada. Aplique clima editorial/cinemático (contraste, cor, vinheta leve) inspirado na direção de arte da marca. NÃO anexe tipografia."
+        : "O template anexado é REFERÊNCIA de direção de arte — apague todo texto dele.",
       `Canvas de saída OBRIGATÓRIO: ${canvas.orientation} ${aspectRatio} (${canvas.pixels}, size API ${canvas.openaiSize}) para ${canvas.uses}.`,
       `Proporção final: exatamente ${aspectRatio}. ${canvas.forbidden}`,
-      "Ignore a proporção nativa do template e da foto. Se o template for 1:1/4:5 e o pedido for 3:4, RECOMPONHA o layout no retrato (não crope para quadrado, não letterbox, não deixe barras).",
-      "Preserve a direção de arte: paleta, clima, contraste, estilo fotográfico, margens relativas, hierarquia de blocos e tratamento de fundo.",
-      "Pode reposicionar/redimensionar blocos e o recorte da foto para caber bem no novo canvas.",
-      "Não invente blocos extras, logos inventados, selos, stickers nem tipografia desenhada.",
-      photoImage
-        ? "Há uma FOTO/ASSET anexada: use-a no lugar da foto do template, no recorte adequado ao novo canvas. Ignore a proporção da foto."
-        : "Não há foto extra: não invente fotografias, pessoas nem assets que não estejam no template.",
+      "Ignore a proporção nativa da foto/template. Recomponha no canvas pedido (sem letterbox, sem barras).",
+      "Não invente logos, selos, stickers nem tipografia desenhada.",
       "TEXTO — regra absoluta (falha se violar):",
-      "ZERO letras na saída. Não renderize palavra, número, handle (@), hashtag, CTA, crédito, marca d'água, placeholder nem texto ilegível/borrado.",
-      "Apague/inpaint TODO o texto visível do template (título, subtítulo, @, especialidade, rodapé escrito) e complete o fundo nessas áreas de forma contínua.",
-      "Não reescreva, traduza, complete nem invente palavras. Não copie o copy do template para a nova arte.",
-      "Não duplique frases. Se restar qualquer letra — mesmo errada — a arte está ERRADA.",
-      "O app aplica o copy depois, com a fonte verdadeira da marca; sua saída é só fundo/layout limpo.",
+      "ZERO letras na saída. Proibido palavra, número, handle (@), hashtag, CTA, crédito, marca d'água, placeholder ou texto borrado.",
+      "Se a referência tiver texto, APAGUE completamente e complete o fundo. Não copie, não reescreva, não invente frases.",
+      "O app aplica o copy depois (título, @, topo, apoio) com a fonte da marca. Sua saída é SÓ o fundo fotográfico limpo.",
       "Respeite as cores do kit de marca quando informadas.",
-      `Resultado: mesma direção de arte do template, sem letras, em ${aspectRatio} (${canvas.pixels}).`,
+      `Resultado: fundo limpo sem letras em ${aspectRatio} (${canvas.pixels}).`,
       "",
       `Cliente: ${client.name}`,
       `Projeto: ${project.name}`,
       `Formato: ${format} (arte ${aspectRatio})`,
       `Cores da marca: ${formatBrandColors(client.brand_colors)}`,
-      `Fontes da marca (não desenhe as letras; só o estilo do layout): ${formatBrandFonts(client.brand_fonts)}`,
-      brandGuidance ? `Orientações gerais da marca (obrigatórias):\n${brandGuidance}` : null,
+      `Fontes da marca (NÃO desenhe letras): ${formatBrandFonts(client.brand_fonts)}`,
+      brandGuidance ? `Orientações gerais da marca:\n${brandGuidance}` : null,
       brandGuide ? `Trecho do guia de marca:\n${brandGuide}` : null,
       guidance ? `Orientações adicionais deste pedido:\n${guidance}` : null,
     ]
       .filter(Boolean)
       .join("\n");
+
+    async function scrubTwice(bytes: Uint8Array): Promise<Uint8Array> {
+      let next = bytes;
+      const run = provider === "gemini" ? scrubTextWithGemini : scrubTextWithOpenAI;
+      for (let i = 0; i < 2; i += 1) {
+        try {
+          next = await run({
+            image: { bytes: next, mime: "image/png", fileName: `draft-${i}.png` },
+            apiKey,
+            aspectRatio,
+          });
+        } catch (scrubErr) {
+          console.error(`Text scrub pass ${i + 1} failed:`, scrubErr);
+          break;
+        }
+      }
+      return next;
+    }
 
     let imageBytes: Uint8Array;
     try {
@@ -553,15 +570,6 @@ Deno.serve(async (req) => {
           apiKey,
           aspectRatio,
         });
-        try {
-          imageBytes = await scrubTextWithGemini({
-            image: { bytes: imageBytes, mime: "image/png", fileName: "draft.png" },
-            apiKey,
-            aspectRatio,
-          });
-        } catch (scrubErr) {
-          console.error("Gemini text scrub failed, keeping first pass:", scrubErr);
-        }
       } else {
         imageBytes = await generateWithOpenAI({
           prompt,
@@ -570,16 +578,8 @@ Deno.serve(async (req) => {
           apiKey,
           aspectRatio,
         });
-        try {
-          imageBytes = await scrubTextWithOpenAI({
-            image: { bytes: imageBytes, mime: "image/png", fileName: "draft.png" },
-            apiKey,
-            aspectRatio,
-          });
-        } catch (scrubErr) {
-          console.error("OpenAI text scrub failed, keeping first pass:", scrubErr);
-        }
       }
+      imageBytes = await scrubTwice(imageBytes);
     } catch (err) {
       const status = typeof err === "object" && err && "status" in err
         ? Number((err as { status?: number }).status) || 502
