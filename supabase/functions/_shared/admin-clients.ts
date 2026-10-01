@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-export type AnyClient = ReturnType<typeof createClient>;
+export type AnyClient = any;
 
 export function getEnv() {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
