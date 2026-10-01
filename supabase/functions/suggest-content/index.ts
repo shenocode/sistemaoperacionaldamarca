@@ -24,6 +24,7 @@ type SuggestRequest = {
   transcription?: string;
   format?: ContentFormat;
   locale?: string;
+  provider?: "openai" | "gemini" | "claude";
 };
 
 type ContentSuggestion = {
@@ -168,7 +169,54 @@ function extractJsonObject(text: string): Record<string, unknown> {
 async function callChatModel(
   messages: Array<{ role: string; content: string }>,
   openaiKey: string | null,
+  options?: { preferredProvider?: "openai" | "gemini" | "claude"; geminiKey?: string | null; claudeKey?: string | null },
 ) {
+  const preferred = options?.preferredProvider ?? "openai";
+  const geminiKey = options?.geminiKey ?? null;
+  const claudeKey = options?.claudeKey ?? null;
+
+  if (preferred === "claude") {
+    if (!claudeKey) return null;
+    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+    const user = messages.filter((m) => m.role !== "system").map((m) => m.content).join("\n\n");
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": claudeKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: Deno.env.get("CLAUDE_MODEL") || Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-5",
+        max_tokens: 4096,
+        temperature: 0.7,
+        ...(system ? { system } : {}),
+        messages: [{ role: "user", content: user }],
+      }),
+    });
+    return { provider: "claude" as const, res };
+  }
+
+  if (preferred === "gemini") {
+    if (!geminiKey) return null;
+    const model = Deno.env.get("GEMINI_CHAT_MODEL") || Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+    const user = messages.filter((m) => m.role !== "system").map((m) => m.content).join("\n\n");
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.7, responseMimeType: "application/json" },
+        }),
+      },
+    );
+    return { provider: "gemini" as const, res };
+  }
+
   // Prefer the admin's own OpenAI key so each manager pays for their usage.
   if (openaiKey) {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -252,20 +300,44 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Apenas administradores podem usar o assistente" }, 403);
     }
 
-    const { apiKey: openaiKey } = serviceRoleKey
-      ? await resolveAiKey(createClient(supabaseUrl, serviceRoleKey), user.id, "openai")
-      : { apiKey: Deno.env.get("OPENAI_API_KEY") ?? null };
-    if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
-      return jsonResponse(
-        {
-          error:
-            "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
-        },
-        400,
-      );
+    const body = (await req.json()) as SuggestRequest;
+    const preferredProvider =
+      body.provider === "gemini" ? "gemini" : body.provider === "claude" ? "claude" : "openai";
+    const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+
+    let openaiKey: string | null = null;
+    let geminiKey: string | null = null;
+    let claudeKey: string | null = null;
+
+    if (preferredProvider === "claude") {
+      claudeKey = adminClient
+        ? (await resolveAiKey(adminClient, user.id, "claude")).apiKey
+        : Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("CLAUDE_API_KEY") || null;
+      if (!claudeKey) {
+        return jsonResponse({ error: "Salve sua chave Claude em Configurações → Chaves de IA." }, 400);
+      }
+    } else if (preferredProvider === "gemini") {
+      geminiKey = adminClient
+        ? (await resolveAiKey(adminClient, user.id, "gemini")).apiKey
+        : Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || null;
+      if (!geminiKey) {
+        return jsonResponse({ error: "Salve sua chave Gemini em Configurações → Chaves de IA." }, 400);
+      }
+    } else {
+      openaiKey = adminClient
+        ? (await resolveAiKey(adminClient, user.id, "openai")).apiKey
+        : Deno.env.get("OPENAI_API_KEY") ?? null;
+      if (!openaiKey && !Deno.env.get("LOVABLE_API_KEY")) {
+        return jsonResponse(
+          {
+            error:
+              "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
+          },
+          400,
+        );
+      }
     }
 
-    const body = (await req.json()) as SuggestRequest;
     const prompt = body.prompt?.trim() ?? "";
     if (!prompt) {
       return jsonResponse({ error: "Informe um prompt" }, 400);
@@ -373,12 +445,17 @@ Deno.serve(async (req) => {
         { role: "user", content: userPrompt },
       ],
       openaiKey,
+      { preferredProvider, geminiKey, claudeKey },
     );
     if (!chat) {
       return jsonResponse(
         {
           error:
-            "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
+            preferredProvider === "claude"
+              ? "Salve sua chave Claude em Configurações → Chaves de IA."
+              : preferredProvider === "gemini"
+                ? "Salve sua chave Gemini em Configurações → Chaves de IA."
+                : "Configure sua OPENAI API key em Configurações → Chaves de IA, ou use o fallback da plataforma.",
         },
         400,
       );
@@ -399,10 +476,27 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Falha ao gerar sugestão com a IA" }, 502);
     }
 
-    const chatJson = (await chat.res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const contentText = chatJson.choices?.[0]?.message?.content ?? "";
+    let contentText = "";
+    if (chat.provider === "claude") {
+      const claudeJson = (await chat.res.json()) as {
+        content?: Array<{ type?: string; text?: string }>;
+      };
+      contentText = (claudeJson.content ?? [])
+        .filter((part) => part.type === "text" && typeof part.text === "string")
+        .map((part) => part.text)
+        .join("\n");
+    } else if (chat.provider === "gemini") {
+      const geminiJson = (await chat.res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      contentText =
+        geminiJson.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+    } else {
+      const chatJson = (await chat.res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      contentText = chatJson.choices?.[0]?.message?.content ?? "";
+    }
     let parsed: Record<string, unknown>;
     try {
       parsed = extractJsonObject(contentText);

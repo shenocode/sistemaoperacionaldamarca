@@ -348,6 +348,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Apenas administradores podem usar o assistente de design" }, 403);
     }
 
+    // Redeploy bump: gestores/admins com BYOK podem gerar arte (sem gate de plano Studio/Agência).
+
     const body = (await req.json()) as GenerateRequest;
     const provider = normalizeProvider(body.provider);
     const templateUrl = body.templateUrl?.trim() ?? "";
