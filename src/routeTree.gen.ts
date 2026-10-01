@@ -13,15 +13,25 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as Privacidade2RouteImport } from './routes/privacidade 2'
+import { Route as Privacidade3RouteImport } from './routes/privacidade 3'
 import { Route as RecursosRouteImport } from './routes/recursos'
+import { Route as Recursos2RouteImport } from './routes/recursos 2'
+import { Route as Recursos3RouteImport } from './routes/recursos 3'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermosRouteImport } from './routes/termos'
+import { Route as Termos2RouteImport } from './routes/termos 2'
+import { Route as Termos3RouteImport } from './routes/termos 3'
 import { Route as AuthenticatedAccessRouteImport } from './routes/_authenticated/access'
 import { Route as AuthenticatedAssinantesRouteImport } from './routes/_authenticated/assinantes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedHelpRouteImport } from './routes/_authenticated/help'
+import { Route as AuthenticatedHelp2RouteImport } from './routes/_authenticated/help 2'
+import { Route as AuthenticatedHelp3RouteImport } from './routes/_authenticated/help 3'
 import { Route as AuthenticatedHelpInboxRouteImport } from './routes/_authenticated/help-inbox'
+import { Route as AuthenticatedHelpInbox2RouteImport } from './routes/_authenticated/help-inbox 2'
+import { Route as AuthenticatedHelpInbox3RouteImport } from './routes/_authenticated/help-inbox 3'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedProfileRouteRouteImport } from './routes/_authenticated/profile/route'
@@ -32,9 +42,21 @@ import { Route as AssinaturaSucessoRouteImport } from './routes/assinatura.suces
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
 import { Route as AuthenticatedProfileAssinaturaRouteImport } from './routes/_authenticated/profile/assinatura'
+import { Route as AuthenticatedProfileAssinatura2RouteImport } from './routes/_authenticated/profile/assinatura 2'
+import { Route as AuthenticatedProfileAssinatura3RouteImport } from './routes/_authenticated/profile/assinatura 3'
 import { Route as AuthenticatedProfileContaRouteImport } from './routes/_authenticated/profile/conta'
+import { Route as AuthenticatedProfileConta2RouteImport } from './routes/_authenticated/profile/conta 2'
+import { Route as AuthenticatedProfileConta3RouteImport } from './routes/_authenticated/profile/conta 3'
+import { Route as AuthenticatedProfileIndex2RouteImport } from './routes/_authenticated/profile/index 2'
+import { Route as AuthenticatedProfileIndex3RouteImport } from './routes/_authenticated/profile/index 3'
+import { Route as AuthenticatedProfileRoute2RouteImport } from './routes/_authenticated/profile/route 2'
+import { Route as AuthenticatedProfileRoute3RouteImport } from './routes/_authenticated/profile/route 3'
 import { Route as AuthenticatedProposalsIndexRouteImport } from './routes/_authenticated/proposals/index'
 import { Route as AuthenticatedProposalsProposalIdRouteImport } from './routes/_authenticated/proposals/$proposalId'
+import { Route as AuthenticatedProposalsProposalId2RouteImport } from './routes/_authenticated/proposals/$proposalId 2'
+import { Route as AuthenticatedProposalsProposalId3RouteImport } from './routes/_authenticated/proposals/$proposalId 3'
+import { Route as AuthenticatedProposalsIndex2RouteImport } from './routes/_authenticated/proposals/index 2'
+import { Route as AuthenticatedProposalsIndex3RouteImport } from './routes/_authenticated/proposals/index 3'
 import { Route as ShareClientIdProjectIdRouteImport } from './routes/share.$clientId.$projectId'
 import { Route as AuthenticatedClientsClientIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/index'
 import { Route as AuthenticatedClientsClientIdBriefingRouteImport } from './routes/_authenticated/clients/$clientId/briefing'
@@ -42,14 +64,19 @@ import { Route as AuthenticatedClientsClientIdLibraryRouteImport } from './route
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdRouteRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/route'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/index'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdBriefingRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/briefing'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdBriefing2RouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/briefing 2'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdBriefing3RouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/briefing 3'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/calendar'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdFeedRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/feed'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdLibraryRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/library'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/meeting'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdPromptRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/prompt'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdPrompt2RouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/prompt 2'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdPrototypeRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/prototype'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdPrototype2RouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/prototype 2'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdScheduleRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/schedule'
+import { Route as AuthenticatedClientsClientIdProjectsProjectIdSchedule2RouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/schedule 2'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdSettingsRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/settings'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdThemesRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/themes'
 import { Route as AuthenticatedClientsClientIdProjectsProjectIdContentIndexRouteImport } from './routes/_authenticated/clients/$clientId/projects/$projectId/content.index'
@@ -76,9 +103,29 @@ const PrivacidadeRoute = PrivacidadeRouteImport.update({
   path: '/privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Privacidade2Route = Privacidade2RouteImport.update({
+  id: '/privacidade 2',
+  path: '/privacidade 2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Privacidade3Route = Privacidade3RouteImport.update({
+  id: '/privacidade 3',
+  path: '/privacidade 3',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecursosRoute = RecursosRouteImport.update({
   id: '/recursos',
   path: '/recursos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Recursos2Route = Recursos2RouteImport.update({
+  id: '/recursos 2',
+  path: '/recursos 2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Recursos3Route = Recursos3RouteImport.update({
+  id: '/recursos 3',
+  path: '/recursos 3',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -94,6 +141,16 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const TermosRoute = TermosRouteImport.update({
   id: '/termos',
   path: '/termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Termos2Route = Termos2RouteImport.update({
+  id: '/termos 2',
+  path: '/termos 2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Termos3Route = Termos3RouteImport.update({
+  id: '/termos 3',
+  path: '/termos 3',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAccessRoute = AuthenticatedAccessRouteImport.update({
@@ -116,9 +173,29 @@ const AuthenticatedHelpRoute = AuthenticatedHelpRouteImport.update({
   path: '/help',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHelp2Route = AuthenticatedHelp2RouteImport.update({
+  id: '/help 2',
+  path: '/help 2',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHelp3Route = AuthenticatedHelp3RouteImport.update({
+  id: '/help 3',
+  path: '/help 3',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHelpInboxRoute = AuthenticatedHelpInboxRouteImport.update({
   id: '/help-inbox',
   path: '/help-inbox',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHelpInbox2Route = AuthenticatedHelpInbox2RouteImport.update({
+  id: '/help-inbox 2',
+  path: '/help-inbox 2',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHelpInbox3Route = AuthenticatedHelpInbox3RouteImport.update({
+  id: '/help-inbox 3',
+  path: '/help-inbox 3',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
@@ -175,10 +252,58 @@ const AuthenticatedProfileAssinaturaRoute =
     path: '/assinatura',
     getParentRoute: () => AuthenticatedProfileRouteRoute,
   } as any)
+const AuthenticatedProfileAssinatura2Route =
+  AuthenticatedProfileAssinatura2RouteImport.update({
+    id: '/assinatura 2',
+    path: '/assinatura 2',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileAssinatura3Route =
+  AuthenticatedProfileAssinatura3RouteImport.update({
+    id: '/assinatura 3',
+    path: '/assinatura 3',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
 const AuthenticatedProfileContaRoute =
   AuthenticatedProfileContaRouteImport.update({
     id: '/conta',
     path: '/conta',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileConta2Route =
+  AuthenticatedProfileConta2RouteImport.update({
+    id: '/conta 2',
+    path: '/conta 2',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileConta3Route =
+  AuthenticatedProfileConta3RouteImport.update({
+    id: '/conta 3',
+    path: '/conta 3',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileIndex2Route =
+  AuthenticatedProfileIndex2RouteImport.update({
+    id: '/index 2',
+    path: '/index 2',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileIndex3Route =
+  AuthenticatedProfileIndex3RouteImport.update({
+    id: '/index 3',
+    path: '/index 3',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileRoute2Route =
+  AuthenticatedProfileRoute2RouteImport.update({
+    id: '/route 2',
+    path: '/route 2',
+    getParentRoute: () => AuthenticatedProfileRouteRoute,
+  } as any)
+const AuthenticatedProfileRoute3Route =
+  AuthenticatedProfileRoute3RouteImport.update({
+    id: '/route 3',
+    path: '/route 3',
     getParentRoute: () => AuthenticatedProfileRouteRoute,
   } as any)
 const AuthenticatedProposalsIndexRoute =
@@ -191,6 +316,30 @@ const AuthenticatedProposalsProposalIdRoute =
   AuthenticatedProposalsProposalIdRouteImport.update({
     id: '/proposals/$proposalId',
     path: '/proposals/$proposalId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProposalsProposalId2Route =
+  AuthenticatedProposalsProposalId2RouteImport.update({
+    id: '/proposals/$proposalId 2',
+    path: '/proposals/$proposalId 2',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProposalsProposalId3Route =
+  AuthenticatedProposalsProposalId3RouteImport.update({
+    id: '/proposals/$proposalId 3',
+    path: '/proposals/$proposalId 3',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProposalsIndex2Route =
+  AuthenticatedProposalsIndex2RouteImport.update({
+    id: '/proposals/index 2',
+    path: '/proposals/index 2',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProposalsIndex3Route =
+  AuthenticatedProposalsIndex3RouteImport.update({
+    id: '/proposals/index 3',
+    path: '/proposals/index 3',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ShareClientIdProjectIdRoute = ShareClientIdProjectIdRouteImport.update({
@@ -236,6 +385,20 @@ const AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route =
+  AuthenticatedClientsClientIdProjectsProjectIdBriefing2RouteImport.update({
+    id: '/briefing 2',
+    path: '/briefing 2',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route =
+  AuthenticatedClientsClientIdProjectsProjectIdBriefing3RouteImport.update({
+    id: '/briefing 3',
+    path: '/briefing 3',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
 const AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute =
   AuthenticatedClientsClientIdProjectsProjectIdCalendarRouteImport.update({
     id: '/calendar',
@@ -278,6 +441,13 @@ const AuthenticatedClientsClientIdProjectsProjectIdPromptRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route =
+  AuthenticatedClientsClientIdProjectsProjectIdPrompt2RouteImport.update({
+    id: '/prompt 2',
+    path: '/prompt 2',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
 const AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute =
   AuthenticatedClientsClientIdProjectsProjectIdPrototypeRouteImport.update({
     id: '/prototype',
@@ -285,10 +455,24 @@ const AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute =
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route =
+  AuthenticatedClientsClientIdProjectsProjectIdPrototype2RouteImport.update({
+    id: '/prototype 2',
+    path: '/prototype 2',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
 const AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute =
   AuthenticatedClientsClientIdProjectsProjectIdScheduleRouteImport.update({
     id: '/schedule',
     path: '/schedule',
+    getParentRoute: () =>
+      AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
+  } as any)
+const AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route =
+  AuthenticatedClientsClientIdProjectsProjectIdSchedule2RouteImport.update({
+    id: '/schedule 2',
+    path: '/schedule 2',
     getParentRoute: () =>
       AuthenticatedClientsClientIdProjectsProjectIdRouteRoute,
   } as any)
@@ -343,16 +527,26 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/privacidade 2': typeof Privacidade2Route
+  '/privacidade 3': typeof Privacidade3Route
   '/recursos': typeof RecursosRoute
+  '/recursos 2': typeof Recursos2Route
+  '/recursos 3': typeof Recursos3Route
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos': typeof TermosRoute
+  '/termos 2': typeof Termos2Route
+  '/termos 3': typeof Termos3Route
   '/profile': typeof AuthenticatedProfileRouteRouteWithChildren
   '/access': typeof AuthenticatedAccessRoute
   '/assinantes': typeof AuthenticatedAssinantesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/help': typeof AuthenticatedHelpRoute
+  '/help 2': typeof AuthenticatedHelp2Route
+  '/help 3': typeof AuthenticatedHelp3Route
   '/help-inbox': typeof AuthenticatedHelpInboxRoute
+  '/help-inbox 2': typeof AuthenticatedHelpInbox2Route
+  '/help-inbox 3': typeof AuthenticatedHelpInbox3Route
   '/home': typeof AuthenticatedHomeRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -360,8 +554,20 @@ export interface FileRoutesByFullPath {
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/profile/assinatura': typeof AuthenticatedProfileAssinaturaRoute
+  '/profile/assinatura 2': typeof AuthenticatedProfileAssinatura2Route
+  '/profile/assinatura 3': typeof AuthenticatedProfileAssinatura3Route
   '/profile/conta': typeof AuthenticatedProfileContaRoute
+  '/profile/conta 2': typeof AuthenticatedProfileConta2Route
+  '/profile/conta 3': typeof AuthenticatedProfileConta3Route
+  '/profile/index 2': typeof AuthenticatedProfileIndex2Route
+  '/profile/index 3': typeof AuthenticatedProfileIndex3Route
+  '/profile/route 2': typeof AuthenticatedProfileRoute2Route
+  '/profile/route 3': typeof AuthenticatedProfileRoute3Route
   '/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
+  '/proposals/$proposalId 2': typeof AuthenticatedProposalsProposalId2Route
+  '/proposals/$proposalId 3': typeof AuthenticatedProposalsProposalId3Route
+  '/proposals/index 2': typeof AuthenticatedProposalsIndex2Route
+  '/proposals/index 3': typeof AuthenticatedProposalsIndex3Route
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
@@ -371,14 +577,19 @@ export interface FileRoutesByFullPath {
   '/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
   '/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
   '/clients/$clientId/projects/$projectId/briefing': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute
+  '/clients/$clientId/projects/$projectId/briefing 2': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route
+  '/clients/$clientId/projects/$projectId/briefing 3': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route
   '/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
   '/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren
   '/clients/$clientId/projects/$projectId/feed': typeof AuthenticatedClientsClientIdProjectsProjectIdFeedRoute
   '/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/clients/$clientId/projects/$projectId/meeting': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren
   '/clients/$clientId/projects/$projectId/prompt': typeof AuthenticatedClientsClientIdProjectsProjectIdPromptRoute
+  '/clients/$clientId/projects/$projectId/prompt 2': typeof AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route
   '/clients/$clientId/projects/$projectId/prototype': typeof AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute
+  '/clients/$clientId/projects/$projectId/prototype 2': typeof AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route
   '/clients/$clientId/projects/$projectId/schedule': typeof AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute
+  '/clients/$clientId/projects/$projectId/schedule 2': typeof AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route
   '/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   '/clients/$clientId/projects/$projectId/themes': typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   '/clients/$clientId/projects/$projectId/': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
@@ -391,15 +602,25 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/privacidade 2': typeof Privacidade2Route
+  '/privacidade 3': typeof Privacidade3Route
   '/recursos': typeof RecursosRoute
+  '/recursos 2': typeof Recursos2Route
+  '/recursos 3': typeof Recursos3Route
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos': typeof TermosRoute
+  '/termos 2': typeof Termos2Route
+  '/termos 3': typeof Termos3Route
   '/access': typeof AuthenticatedAccessRoute
   '/assinantes': typeof AuthenticatedAssinantesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/help': typeof AuthenticatedHelpRoute
+  '/help 2': typeof AuthenticatedHelp2Route
+  '/help 3': typeof AuthenticatedHelp3Route
   '/help-inbox': typeof AuthenticatedHelpInboxRoute
+  '/help-inbox 2': typeof AuthenticatedHelpInbox2Route
+  '/help-inbox 3': typeof AuthenticatedHelpInbox3Route
   '/home': typeof AuthenticatedHomeRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -407,8 +628,20 @@ export interface FileRoutesByTo {
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/profile/assinatura': typeof AuthenticatedProfileAssinaturaRoute
+  '/profile/assinatura 2': typeof AuthenticatedProfileAssinatura2Route
+  '/profile/assinatura 3': typeof AuthenticatedProfileAssinatura3Route
   '/profile/conta': typeof AuthenticatedProfileContaRoute
+  '/profile/conta 2': typeof AuthenticatedProfileConta2Route
+  '/profile/conta 3': typeof AuthenticatedProfileConta3Route
+  '/profile/index 2': typeof AuthenticatedProfileIndex2Route
+  '/profile/index 3': typeof AuthenticatedProfileIndex3Route
+  '/profile/route 2': typeof AuthenticatedProfileRoute2Route
+  '/profile/route 3': typeof AuthenticatedProfileRoute3Route
   '/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
+  '/proposals/$proposalId 2': typeof AuthenticatedProposalsProposalId2Route
+  '/proposals/$proposalId 3': typeof AuthenticatedProposalsProposalId3Route
+  '/proposals/index 2': typeof AuthenticatedProposalsIndex2Route
+  '/proposals/index 3': typeof AuthenticatedProposalsIndex3Route
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
@@ -417,12 +650,17 @@ export interface FileRoutesByTo {
   '/clients/$clientId/library': typeof AuthenticatedClientsClientIdLibraryRoute
   '/clients/$clientId': typeof AuthenticatedClientsClientIdIndexRoute
   '/clients/$clientId/projects/$projectId/briefing': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute
+  '/clients/$clientId/projects/$projectId/briefing 2': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route
+  '/clients/$clientId/projects/$projectId/briefing 3': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route
   '/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
   '/clients/$clientId/projects/$projectId/feed': typeof AuthenticatedClientsClientIdProjectsProjectIdFeedRoute
   '/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/clients/$clientId/projects/$projectId/prompt': typeof AuthenticatedClientsClientIdProjectsProjectIdPromptRoute
+  '/clients/$clientId/projects/$projectId/prompt 2': typeof AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route
   '/clients/$clientId/projects/$projectId/prototype': typeof AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute
+  '/clients/$clientId/projects/$projectId/prototype 2': typeof AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route
   '/clients/$clientId/projects/$projectId/schedule': typeof AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute
+  '/clients/$clientId/projects/$projectId/schedule 2': typeof AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route
   '/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   '/clients/$clientId/projects/$projectId/themes': typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   '/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
@@ -437,16 +675,26 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/privacidade': typeof PrivacidadeRoute
+  '/privacidade 2': typeof Privacidade2Route
+  '/privacidade 3': typeof Privacidade3Route
   '/recursos': typeof RecursosRoute
+  '/recursos 2': typeof Recursos2Route
+  '/recursos 3': typeof Recursos3Route
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/termos': typeof TermosRoute
+  '/termos 2': typeof Termos2Route
+  '/termos 3': typeof Termos3Route
   '/_authenticated/profile': typeof AuthenticatedProfileRouteRouteWithChildren
   '/_authenticated/access': typeof AuthenticatedAccessRoute
   '/_authenticated/assinantes': typeof AuthenticatedAssinantesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/help': typeof AuthenticatedHelpRoute
+  '/_authenticated/help 2': typeof AuthenticatedHelp2Route
+  '/_authenticated/help 3': typeof AuthenticatedHelp3Route
   '/_authenticated/help-inbox': typeof AuthenticatedHelpInboxRoute
+  '/_authenticated/help-inbox 2': typeof AuthenticatedHelpInbox2Route
+  '/_authenticated/help-inbox 3': typeof AuthenticatedHelpInbox3Route
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -454,8 +702,20 @@ export interface FileRoutesById {
   '/assinatura/cancelada': typeof AssinaturaCanceladaRoute
   '/assinatura/sucesso': typeof AssinaturaSucessoRoute
   '/_authenticated/profile/assinatura': typeof AuthenticatedProfileAssinaturaRoute
+  '/_authenticated/profile/assinatura 2': typeof AuthenticatedProfileAssinatura2Route
+  '/_authenticated/profile/assinatura 3': typeof AuthenticatedProfileAssinatura3Route
   '/_authenticated/profile/conta': typeof AuthenticatedProfileContaRoute
+  '/_authenticated/profile/conta 2': typeof AuthenticatedProfileConta2Route
+  '/_authenticated/profile/conta 3': typeof AuthenticatedProfileConta3Route
+  '/_authenticated/profile/index 2': typeof AuthenticatedProfileIndex2Route
+  '/_authenticated/profile/index 3': typeof AuthenticatedProfileIndex3Route
+  '/_authenticated/profile/route 2': typeof AuthenticatedProfileRoute2Route
+  '/_authenticated/profile/route 3': typeof AuthenticatedProfileRoute3Route
   '/_authenticated/proposals/$proposalId': typeof AuthenticatedProposalsProposalIdRoute
+  '/_authenticated/proposals/$proposalId 2': typeof AuthenticatedProposalsProposalId2Route
+  '/_authenticated/proposals/$proposalId 3': typeof AuthenticatedProposalsProposalId3Route
+  '/_authenticated/proposals/index 2': typeof AuthenticatedProposalsIndex2Route
+  '/_authenticated/proposals/index 3': typeof AuthenticatedProposalsIndex3Route
   '/share/$clientId/$projectId': typeof ShareClientIdProjectIdRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
@@ -465,14 +725,19 @@ export interface FileRoutesById {
   '/_authenticated/clients/$clientId/': typeof AuthenticatedClientsClientIdIndexRoute
   '/_authenticated/clients/$clientId/projects/$projectId': typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRouteWithChildren
   '/_authenticated/clients/$clientId/projects/$projectId/briefing': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/briefing 2': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route
+  '/_authenticated/clients/$clientId/projects/$projectId/briefing 3': typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route
   '/_authenticated/clients/$clientId/projects/$projectId/calendar': typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
   '/_authenticated/clients/$clientId/projects/$projectId/content': typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren
   '/_authenticated/clients/$clientId/projects/$projectId/feed': typeof AuthenticatedClientsClientIdProjectsProjectIdFeedRoute
   '/_authenticated/clients/$clientId/projects/$projectId/library': typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   '/_authenticated/clients/$clientId/projects/$projectId/meeting': typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren
   '/_authenticated/clients/$clientId/projects/$projectId/prompt': typeof AuthenticatedClientsClientIdProjectsProjectIdPromptRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/prompt 2': typeof AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route
   '/_authenticated/clients/$clientId/projects/$projectId/prototype': typeof AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/prototype 2': typeof AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route
   '/_authenticated/clients/$clientId/projects/$projectId/schedule': typeof AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute
+  '/_authenticated/clients/$clientId/projects/$projectId/schedule 2': typeof AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route
   '/_authenticated/clients/$clientId/projects/$projectId/settings': typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   '/_authenticated/clients/$clientId/projects/$projectId/themes': typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   '/_authenticated/clients/$clientId/projects/$projectId/': typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
@@ -487,16 +752,26 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/privacidade'
+    | '/privacidade 2'
+    | '/privacidade 3'
     | '/recursos'
+    | '/recursos 2'
+    | '/recursos 3'
     | '/reset-password'
     | '/sitemap.xml'
     | '/termos'
+    | '/termos 2'
+    | '/termos 3'
     | '/profile'
     | '/access'
     | '/assinantes'
     | '/dashboard'
     | '/help'
+    | '/help 2'
+    | '/help 3'
     | '/help-inbox'
+    | '/help-inbox 2'
+    | '/help-inbox 3'
     | '/home'
     | '/leads'
     | '/settings'
@@ -504,8 +779,20 @@ export interface FileRouteTypes {
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
     | '/profile/assinatura'
+    | '/profile/assinatura 2'
+    | '/profile/assinatura 3'
     | '/profile/conta'
+    | '/profile/conta 2'
+    | '/profile/conta 3'
+    | '/profile/index 2'
+    | '/profile/index 3'
+    | '/profile/route 2'
+    | '/profile/route 3'
     | '/proposals/$proposalId'
+    | '/proposals/$proposalId 2'
+    | '/proposals/$proposalId 3'
+    | '/proposals/index 2'
+    | '/proposals/index 3'
     | '/share/$clientId/$projectId'
     | '/clients/'
     | '/profile/'
@@ -515,14 +802,19 @@ export interface FileRouteTypes {
     | '/clients/$clientId/'
     | '/clients/$clientId/projects/$projectId'
     | '/clients/$clientId/projects/$projectId/briefing'
+    | '/clients/$clientId/projects/$projectId/briefing 2'
+    | '/clients/$clientId/projects/$projectId/briefing 3'
     | '/clients/$clientId/projects/$projectId/calendar'
     | '/clients/$clientId/projects/$projectId/content'
     | '/clients/$clientId/projects/$projectId/feed'
     | '/clients/$clientId/projects/$projectId/library'
     | '/clients/$clientId/projects/$projectId/meeting'
     | '/clients/$clientId/projects/$projectId/prompt'
+    | '/clients/$clientId/projects/$projectId/prompt 2'
     | '/clients/$clientId/projects/$projectId/prototype'
+    | '/clients/$clientId/projects/$projectId/prototype 2'
     | '/clients/$clientId/projects/$projectId/schedule'
+    | '/clients/$clientId/projects/$projectId/schedule 2'
     | '/clients/$clientId/projects/$projectId/settings'
     | '/clients/$clientId/projects/$projectId/themes'
     | '/clients/$clientId/projects/$projectId/'
@@ -535,15 +827,25 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/privacidade'
+    | '/privacidade 2'
+    | '/privacidade 3'
     | '/recursos'
+    | '/recursos 2'
+    | '/recursos 3'
     | '/reset-password'
     | '/sitemap.xml'
     | '/termos'
+    | '/termos 2'
+    | '/termos 3'
     | '/access'
     | '/assinantes'
     | '/dashboard'
     | '/help'
+    | '/help 2'
+    | '/help 3'
     | '/help-inbox'
+    | '/help-inbox 2'
+    | '/help-inbox 3'
     | '/home'
     | '/leads'
     | '/settings'
@@ -551,8 +853,20 @@ export interface FileRouteTypes {
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
     | '/profile/assinatura'
+    | '/profile/assinatura 2'
+    | '/profile/assinatura 3'
     | '/profile/conta'
+    | '/profile/conta 2'
+    | '/profile/conta 3'
+    | '/profile/index 2'
+    | '/profile/index 3'
+    | '/profile/route 2'
+    | '/profile/route 3'
     | '/proposals/$proposalId'
+    | '/proposals/$proposalId 2'
+    | '/proposals/$proposalId 3'
+    | '/proposals/index 2'
+    | '/proposals/index 3'
     | '/share/$clientId/$projectId'
     | '/clients'
     | '/profile'
@@ -561,12 +875,17 @@ export interface FileRouteTypes {
     | '/clients/$clientId/library'
     | '/clients/$clientId'
     | '/clients/$clientId/projects/$projectId/briefing'
+    | '/clients/$clientId/projects/$projectId/briefing 2'
+    | '/clients/$clientId/projects/$projectId/briefing 3'
     | '/clients/$clientId/projects/$projectId/calendar'
     | '/clients/$clientId/projects/$projectId/feed'
     | '/clients/$clientId/projects/$projectId/library'
     | '/clients/$clientId/projects/$projectId/prompt'
+    | '/clients/$clientId/projects/$projectId/prompt 2'
     | '/clients/$clientId/projects/$projectId/prototype'
+    | '/clients/$clientId/projects/$projectId/prototype 2'
     | '/clients/$clientId/projects/$projectId/schedule'
+    | '/clients/$clientId/projects/$projectId/schedule 2'
     | '/clients/$clientId/projects/$projectId/settings'
     | '/clients/$clientId/projects/$projectId/themes'
     | '/clients/$clientId/projects/$projectId'
@@ -580,16 +899,26 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/privacidade'
+    | '/privacidade 2'
+    | '/privacidade 3'
     | '/recursos'
+    | '/recursos 2'
+    | '/recursos 3'
     | '/reset-password'
     | '/sitemap.xml'
     | '/termos'
+    | '/termos 2'
+    | '/termos 3'
     | '/_authenticated/profile'
     | '/_authenticated/access'
     | '/_authenticated/assinantes'
     | '/_authenticated/dashboard'
     | '/_authenticated/help'
+    | '/_authenticated/help 2'
+    | '/_authenticated/help 3'
     | '/_authenticated/help-inbox'
+    | '/_authenticated/help-inbox 2'
+    | '/_authenticated/help-inbox 3'
     | '/_authenticated/home'
     | '/_authenticated/leads'
     | '/_authenticated/settings'
@@ -597,8 +926,20 @@ export interface FileRouteTypes {
     | '/assinatura/cancelada'
     | '/assinatura/sucesso'
     | '/_authenticated/profile/assinatura'
+    | '/_authenticated/profile/assinatura 2'
+    | '/_authenticated/profile/assinatura 3'
     | '/_authenticated/profile/conta'
+    | '/_authenticated/profile/conta 2'
+    | '/_authenticated/profile/conta 3'
+    | '/_authenticated/profile/index 2'
+    | '/_authenticated/profile/index 3'
+    | '/_authenticated/profile/route 2'
+    | '/_authenticated/profile/route 3'
     | '/_authenticated/proposals/$proposalId'
+    | '/_authenticated/proposals/$proposalId 2'
+    | '/_authenticated/proposals/$proposalId 3'
+    | '/_authenticated/proposals/index 2'
+    | '/_authenticated/proposals/index 3'
     | '/share/$clientId/$projectId'
     | '/_authenticated/clients/'
     | '/_authenticated/profile/'
@@ -608,14 +949,19 @@ export interface FileRouteTypes {
     | '/_authenticated/clients/$clientId/'
     | '/_authenticated/clients/$clientId/projects/$projectId'
     | '/_authenticated/clients/$clientId/projects/$projectId/briefing'
+    | '/_authenticated/clients/$clientId/projects/$projectId/briefing 2'
+    | '/_authenticated/clients/$clientId/projects/$projectId/briefing 3'
     | '/_authenticated/clients/$clientId/projects/$projectId/calendar'
     | '/_authenticated/clients/$clientId/projects/$projectId/content'
     | '/_authenticated/clients/$clientId/projects/$projectId/feed'
     | '/_authenticated/clients/$clientId/projects/$projectId/library'
     | '/_authenticated/clients/$clientId/projects/$projectId/meeting'
     | '/_authenticated/clients/$clientId/projects/$projectId/prompt'
+    | '/_authenticated/clients/$clientId/projects/$projectId/prompt 2'
     | '/_authenticated/clients/$clientId/projects/$projectId/prototype'
+    | '/_authenticated/clients/$clientId/projects/$projectId/prototype 2'
     | '/_authenticated/clients/$clientId/projects/$projectId/schedule'
+    | '/_authenticated/clients/$clientId/projects/$projectId/schedule 2'
     | '/_authenticated/clients/$clientId/projects/$projectId/settings'
     | '/_authenticated/clients/$clientId/projects/$projectId/themes'
     | '/_authenticated/clients/$clientId/projects/$projectId/'
@@ -630,10 +976,16 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
+  Privacidade2Route: typeof Privacidade2Route
+  Privacidade3Route: typeof Privacidade3Route
   RecursosRoute: typeof RecursosRoute
+  Recursos2Route: typeof Recursos2Route
+  Recursos3Route: typeof Recursos3Route
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermosRoute: typeof TermosRoute
+  Termos2Route: typeof Termos2Route
+  Termos3Route: typeof Termos3Route
   AssinaturaCanceladaRoute: typeof AssinaturaCanceladaRoute
   AssinaturaSucessoRoute: typeof AssinaturaSucessoRoute
   ShareClientIdProjectIdRoute: typeof ShareClientIdProjectIdRoute
@@ -669,11 +1021,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacidade 2': {
+      id: '/privacidade 2'
+      path: '/privacidade 2'
+      fullPath: '/privacidade 2'
+      preLoaderRoute: typeof Privacidade2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade 3': {
+      id: '/privacidade 3'
+      path: '/privacidade 3'
+      fullPath: '/privacidade 3'
+      preLoaderRoute: typeof Privacidade3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/recursos': {
       id: '/recursos'
       path: '/recursos'
       fullPath: '/recursos'
       preLoaderRoute: typeof RecursosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recursos 2': {
+      id: '/recursos 2'
+      path: '/recursos 2'
+      fullPath: '/recursos 2'
+      preLoaderRoute: typeof Recursos2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recursos 3': {
+      id: '/recursos 3'
+      path: '/recursos 3'
+      fullPath: '/recursos 3'
+      preLoaderRoute: typeof Recursos3RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -695,6 +1075,20 @@ declare module '@tanstack/react-router' {
       path: '/termos'
       fullPath: '/termos'
       preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos 2': {
+      id: '/termos 2'
+      path: '/termos 2'
+      fullPath: '/termos 2'
+      preLoaderRoute: typeof Termos2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos 3': {
+      id: '/termos 3'
+      path: '/termos 3'
+      fullPath: '/termos 3'
+      preLoaderRoute: typeof Termos3RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/access': {
@@ -725,11 +1119,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/help 2': {
+      id: '/_authenticated/help 2'
+      path: '/help 2'
+      fullPath: '/help 2'
+      preLoaderRoute: typeof AuthenticatedHelp2RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/help 3': {
+      id: '/_authenticated/help 3'
+      path: '/help 3'
+      fullPath: '/help 3'
+      preLoaderRoute: typeof AuthenticatedHelp3RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/help-inbox': {
       id: '/_authenticated/help-inbox'
       path: '/help-inbox'
       fullPath: '/help-inbox'
       preLoaderRoute: typeof AuthenticatedHelpInboxRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/help-inbox 2': {
+      id: '/_authenticated/help-inbox 2'
+      path: '/help-inbox 2'
+      fullPath: '/help-inbox 2'
+      preLoaderRoute: typeof AuthenticatedHelpInbox2RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/help-inbox 3': {
+      id: '/_authenticated/help-inbox 3'
+      path: '/help-inbox 3'
+      fullPath: '/help-inbox 3'
+      preLoaderRoute: typeof AuthenticatedHelpInbox3RouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/home': {
@@ -802,11 +1224,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileAssinaturaRouteImport
       parentRoute: typeof AuthenticatedProfileRouteRoute
     }
+    '/_authenticated/profile/assinatura 2': {
+      id: '/_authenticated/profile/assinatura 2'
+      path: '/assinatura 2'
+      fullPath: '/profile/assinatura 2'
+      preLoaderRoute: typeof AuthenticatedProfileAssinatura2RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/assinatura 3': {
+      id: '/_authenticated/profile/assinatura 3'
+      path: '/assinatura 3'
+      fullPath: '/profile/assinatura 3'
+      preLoaderRoute: typeof AuthenticatedProfileAssinatura3RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
     '/_authenticated/profile/conta': {
       id: '/_authenticated/profile/conta'
       path: '/conta'
       fullPath: '/profile/conta'
       preLoaderRoute: typeof AuthenticatedProfileContaRouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/conta 2': {
+      id: '/_authenticated/profile/conta 2'
+      path: '/conta 2'
+      fullPath: '/profile/conta 2'
+      preLoaderRoute: typeof AuthenticatedProfileConta2RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/conta 3': {
+      id: '/_authenticated/profile/conta 3'
+      path: '/conta 3'
+      fullPath: '/profile/conta 3'
+      preLoaderRoute: typeof AuthenticatedProfileConta3RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/index 2': {
+      id: '/_authenticated/profile/index 2'
+      path: '/index 2'
+      fullPath: '/profile/index 2'
+      preLoaderRoute: typeof AuthenticatedProfileIndex2RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/index 3': {
+      id: '/_authenticated/profile/index 3'
+      path: '/index 3'
+      fullPath: '/profile/index 3'
+      preLoaderRoute: typeof AuthenticatedProfileIndex3RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/route 2': {
+      id: '/_authenticated/profile/route 2'
+      path: '/route 2'
+      fullPath: '/profile/route 2'
+      preLoaderRoute: typeof AuthenticatedProfileRoute2RouteImport
+      parentRoute: typeof AuthenticatedProfileRouteRoute
+    }
+    '/_authenticated/profile/route 3': {
+      id: '/_authenticated/profile/route 3'
+      path: '/route 3'
+      fullPath: '/profile/route 3'
+      preLoaderRoute: typeof AuthenticatedProfileRoute3RouteImport
       parentRoute: typeof AuthenticatedProfileRouteRoute
     }
     '/_authenticated/proposals/': {
@@ -821,6 +1299,34 @@ declare module '@tanstack/react-router' {
       path: '/proposals/$proposalId'
       fullPath: '/proposals/$proposalId'
       preLoaderRoute: typeof AuthenticatedProposalsProposalIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proposals/$proposalId 2': {
+      id: '/_authenticated/proposals/$proposalId 2'
+      path: '/proposals/$proposalId 2'
+      fullPath: '/proposals/$proposalId 2'
+      preLoaderRoute: typeof AuthenticatedProposalsProposalId2RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proposals/$proposalId 3': {
+      id: '/_authenticated/proposals/$proposalId 3'
+      path: '/proposals/$proposalId 3'
+      fullPath: '/proposals/$proposalId 3'
+      preLoaderRoute: typeof AuthenticatedProposalsProposalId3RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proposals/index 2': {
+      id: '/_authenticated/proposals/index 2'
+      path: '/proposals/index 2'
+      fullPath: '/proposals/index 2'
+      preLoaderRoute: typeof AuthenticatedProposalsIndex2RouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proposals/index 3': {
+      id: '/_authenticated/proposals/index 3'
+      path: '/proposals/index 3'
+      fullPath: '/proposals/index 3'
+      preLoaderRoute: typeof AuthenticatedProposalsIndex3RouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/share/$clientId/$projectId': {
@@ -872,6 +1378,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdBriefingRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
+    '/_authenticated/clients/$clientId/projects/$projectId/briefing 2': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/briefing 2'
+      path: '/briefing 2'
+      fullPath: '/clients/$clientId/projects/$projectId/briefing 2'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing2RouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
+    '/_authenticated/clients/$clientId/projects/$projectId/briefing 3': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/briefing 3'
+      path: '/briefing 3'
+      fullPath: '/clients/$clientId/projects/$projectId/briefing 3'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing3RouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
     '/_authenticated/clients/$clientId/projects/$projectId/calendar': {
       id: '/_authenticated/clients/$clientId/projects/$projectId/calendar'
       path: '/calendar'
@@ -914,6 +1434,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdPromptRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
+    '/_authenticated/clients/$clientId/projects/$projectId/prompt 2': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/prompt 2'
+      path: '/prompt 2'
+      fullPath: '/clients/$clientId/projects/$projectId/prompt 2'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdPrompt2RouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
     '/_authenticated/clients/$clientId/projects/$projectId/prototype': {
       id: '/_authenticated/clients/$clientId/projects/$projectId/prototype'
       path: '/prototype'
@@ -921,11 +1448,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdPrototypeRouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
+    '/_authenticated/clients/$clientId/projects/$projectId/prototype 2': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/prototype 2'
+      path: '/prototype 2'
+      fullPath: '/clients/$clientId/projects/$projectId/prototype 2'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdPrototype2RouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
     '/_authenticated/clients/$clientId/projects/$projectId/schedule': {
       id: '/_authenticated/clients/$clientId/projects/$projectId/schedule'
       path: '/schedule'
       fullPath: '/clients/$clientId/projects/$projectId/schedule'
       preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdScheduleRouteImport
+      parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
+    }
+    '/_authenticated/clients/$clientId/projects/$projectId/schedule 2': {
+      id: '/_authenticated/clients/$clientId/projects/$projectId/schedule 2'
+      path: '/schedule 2'
+      fullPath: '/clients/$clientId/projects/$projectId/schedule 2'
+      preLoaderRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSchedule2RouteImport
       parentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdRouteRoute
     }
     '/_authenticated/clients/$clientId/projects/$projectId/settings': {
@@ -975,14 +1516,30 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedProfileRouteRouteChildren {
   AuthenticatedProfileAssinaturaRoute: typeof AuthenticatedProfileAssinaturaRoute
+  AuthenticatedProfileAssinatura2Route: typeof AuthenticatedProfileAssinatura2Route
+  AuthenticatedProfileAssinatura3Route: typeof AuthenticatedProfileAssinatura3Route
   AuthenticatedProfileContaRoute: typeof AuthenticatedProfileContaRoute
+  AuthenticatedProfileConta2Route: typeof AuthenticatedProfileConta2Route
+  AuthenticatedProfileConta3Route: typeof AuthenticatedProfileConta3Route
+  AuthenticatedProfileIndex2Route: typeof AuthenticatedProfileIndex2Route
+  AuthenticatedProfileIndex3Route: typeof AuthenticatedProfileIndex3Route
+  AuthenticatedProfileRoute2Route: typeof AuthenticatedProfileRoute2Route
+  AuthenticatedProfileRoute3Route: typeof AuthenticatedProfileRoute3Route
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
 }
 
 const AuthenticatedProfileRouteRouteChildren: AuthenticatedProfileRouteRouteChildren =
   {
     AuthenticatedProfileAssinaturaRoute: AuthenticatedProfileAssinaturaRoute,
+    AuthenticatedProfileAssinatura2Route: AuthenticatedProfileAssinatura2Route,
+    AuthenticatedProfileAssinatura3Route: AuthenticatedProfileAssinatura3Route,
     AuthenticatedProfileContaRoute: AuthenticatedProfileContaRoute,
+    AuthenticatedProfileConta2Route: AuthenticatedProfileConta2Route,
+    AuthenticatedProfileConta3Route: AuthenticatedProfileConta3Route,
+    AuthenticatedProfileIndex2Route: AuthenticatedProfileIndex2Route,
+    AuthenticatedProfileIndex3Route: AuthenticatedProfileIndex3Route,
+    AuthenticatedProfileRoute2Route: AuthenticatedProfileRoute2Route,
+    AuthenticatedProfileRoute3Route: AuthenticatedProfileRoute3Route,
     AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
   }
 
@@ -1029,14 +1586,19 @@ const AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren =
 
 interface AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren {
   AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute
+  AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route: typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route
+  AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route: typeof AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route
   AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute
   AuthenticatedClientsClientIdProjectsProjectIdContentRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdContentRouteWithChildren
   AuthenticatedClientsClientIdProjectsProjectIdFeedRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdFeedRoute
   AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdLibraryRoute
   AuthenticatedClientsClientIdProjectsProjectIdMeetingRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren
   AuthenticatedClientsClientIdProjectsProjectIdPromptRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdPromptRoute
+  AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route: typeof AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route
   AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute
+  AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route: typeof AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route
   AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute
+  AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route: typeof AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route
   AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute
   AuthenticatedClientsClientIdProjectsProjectIdThemesRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdThemesRoute
   AuthenticatedClientsClientIdProjectsProjectIdIndexRoute: typeof AuthenticatedClientsClientIdProjectsProjectIdIndexRoute
@@ -1046,6 +1608,10 @@ const AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren: Authentic
   {
     AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute:
       AuthenticatedClientsClientIdProjectsProjectIdBriefingRoute,
+    AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route:
+      AuthenticatedClientsClientIdProjectsProjectIdBriefing2Route,
+    AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route:
+      AuthenticatedClientsClientIdProjectsProjectIdBriefing3Route,
     AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute:
       AuthenticatedClientsClientIdProjectsProjectIdCalendarRoute,
     AuthenticatedClientsClientIdProjectsProjectIdContentRoute:
@@ -1058,10 +1624,16 @@ const AuthenticatedClientsClientIdProjectsProjectIdRouteRouteChildren: Authentic
       AuthenticatedClientsClientIdProjectsProjectIdMeetingRouteWithChildren,
     AuthenticatedClientsClientIdProjectsProjectIdPromptRoute:
       AuthenticatedClientsClientIdProjectsProjectIdPromptRoute,
+    AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route:
+      AuthenticatedClientsClientIdProjectsProjectIdPrompt2Route,
     AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute:
       AuthenticatedClientsClientIdProjectsProjectIdPrototypeRoute,
+    AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route:
+      AuthenticatedClientsClientIdProjectsProjectIdPrototype2Route,
     AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute:
       AuthenticatedClientsClientIdProjectsProjectIdScheduleRoute,
+    AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route:
+      AuthenticatedClientsClientIdProjectsProjectIdSchedule2Route,
     AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute:
       AuthenticatedClientsClientIdProjectsProjectIdSettingsRoute,
     AuthenticatedClientsClientIdProjectsProjectIdThemesRoute:
@@ -1081,12 +1653,20 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssinantesRoute: typeof AuthenticatedAssinantesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedHelpRoute: typeof AuthenticatedHelpRoute
+  AuthenticatedHelp2Route: typeof AuthenticatedHelp2Route
+  AuthenticatedHelp3Route: typeof AuthenticatedHelp3Route
   AuthenticatedHelpInboxRoute: typeof AuthenticatedHelpInboxRoute
+  AuthenticatedHelpInbox2Route: typeof AuthenticatedHelpInbox2Route
+  AuthenticatedHelpInbox3Route: typeof AuthenticatedHelpInbox3Route
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedProposalsProposalIdRoute: typeof AuthenticatedProposalsProposalIdRoute
+  AuthenticatedProposalsProposalId2Route: typeof AuthenticatedProposalsProposalId2Route
+  AuthenticatedProposalsProposalId3Route: typeof AuthenticatedProposalsProposalId3Route
+  AuthenticatedProposalsIndex2Route: typeof AuthenticatedProposalsIndex2Route
+  AuthenticatedProposalsIndex3Route: typeof AuthenticatedProposalsIndex3Route
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedProposalsIndexRoute: typeof AuthenticatedProposalsIndexRoute
   AuthenticatedClientsClientIdBriefingRoute: typeof AuthenticatedClientsClientIdBriefingRoute
@@ -1101,12 +1681,22 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssinantesRoute: AuthenticatedAssinantesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedHelpRoute: AuthenticatedHelpRoute,
+  AuthenticatedHelp2Route: AuthenticatedHelp2Route,
+  AuthenticatedHelp3Route: AuthenticatedHelp3Route,
   AuthenticatedHelpInboxRoute: AuthenticatedHelpInboxRoute,
+  AuthenticatedHelpInbox2Route: AuthenticatedHelpInbox2Route,
+  AuthenticatedHelpInbox3Route: AuthenticatedHelpInbox3Route,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedProposalsProposalIdRoute: AuthenticatedProposalsProposalIdRoute,
+  AuthenticatedProposalsProposalId2Route:
+    AuthenticatedProposalsProposalId2Route,
+  AuthenticatedProposalsProposalId3Route:
+    AuthenticatedProposalsProposalId3Route,
+  AuthenticatedProposalsIndex2Route: AuthenticatedProposalsIndex2Route,
+  AuthenticatedProposalsIndex3Route: AuthenticatedProposalsIndex3Route,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedProposalsIndexRoute: AuthenticatedProposalsIndexRoute,
   AuthenticatedClientsClientIdBriefingRoute:
@@ -1127,10 +1717,16 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   PrivacidadeRoute: PrivacidadeRoute,
+  Privacidade2Route: Privacidade2Route,
+  Privacidade3Route: Privacidade3Route,
   RecursosRoute: RecursosRoute,
+  Recursos2Route: Recursos2Route,
+  Recursos3Route: Recursos3Route,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermosRoute: TermosRoute,
+  Termos2Route: Termos2Route,
+  Termos3Route: Termos3Route,
   AssinaturaCanceladaRoute: AssinaturaCanceladaRoute,
   AssinaturaSucessoRoute: AssinaturaSucessoRoute,
   ShareClientIdProjectIdRoute: ShareClientIdProjectIdRoute,
