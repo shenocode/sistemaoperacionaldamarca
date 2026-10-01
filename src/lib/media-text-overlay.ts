@@ -31,7 +31,9 @@ export type MediaTextLayer = {
   id: string;
   text: string;
   fontFamily: string;
-  fontWeight: "400" | "700";
+  fontWeight: string;
+  /** CSS font-style for kit variants (italic faces). */
+  fontStyle?: "normal" | "italic";
   /** Font size as a fraction of image height (e.g. 0.055). */
   fontSize: number;
   color: string;
@@ -55,6 +57,11 @@ export type MediaTextOverlay = {
   adjustments?: MediaImageAdjustments;
   /** Custom kit font family → public file URL (for FontFace load). */
   fontFiles?: Record<string, string>;
+  /** Custom kit font family → weight/style faces. */
+  fontFaces?: Record<
+    string,
+    Array<{ fileUrl: string; weight: string; style: "normal" | "italic"; label: string }>
+  >;
 };
 
 const DEFAULT_PRIMARY_COLOR = "#FFFFFF";
@@ -71,8 +78,17 @@ function asAlign(value: unknown): TextLayerAlign {
   return "center";
 }
 
-function asWeight(value: unknown): "400" | "700" {
-  return value === "400" ? "400" : "700";
+function asWeight(value: unknown): string {
+  if (typeof value === "string" && /^\d{3}$/.test(value.trim())) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const rounded = Math.round(value);
+    if (rounded >= 100 && rounded <= 900) return String(rounded);
+  }
+  return value === "400" ? "400" : value === "700" ? "700" : "700";
+}
+
+function asFontStyle(value: unknown): "normal" | "italic" {
+  return value === "italic" ? "italic" : "normal";
 }
 
 function asOpacity(value: unknown): number {
@@ -186,6 +202,7 @@ export function createTextLayer(
     text,
     fontFamily: opts?.fontFamily || "Montserrat",
     fontWeight: opts?.fontWeight ?? "700",
+    fontStyle: opts?.fontStyle === "italic" ? "italic" : "normal",
     fontSize: opts?.fontSize ?? 0.055,
     color: opts?.color || DEFAULT_PRIMARY_COLOR,
     opacity: asOpacity(opts?.opacity ?? 1),
@@ -449,6 +466,38 @@ function parseFontFiles(value: unknown): Record<string, string> | undefined {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+function parseFontFaces(
+  value: unknown,
+): MediaTextOverlay["fontFaces"] | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const out: NonNullable<MediaTextOverlay["fontFaces"]> = {};
+  for (const [family, faces] of Object.entries(value as Record<string, unknown>)) {
+    const key = family.trim();
+    if (!key || !Array.isArray(faces)) continue;
+    const list = faces
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const row = entry as Record<string, unknown>;
+        const fileUrl = typeof row.fileUrl === "string" ? row.fileUrl.trim() : "";
+        if (!fileUrl) return null;
+        return {
+          fileUrl,
+          weight: typeof row.weight === "string" && row.weight.trim() ? row.weight.trim() : "400",
+          style: row.style === "italic" ? ("italic" as const) : ("normal" as const),
+          label:
+            typeof row.label === "string" && row.label.trim()
+              ? row.label.trim()
+              : row.style === "italic"
+                ? "Italic"
+                : "Regular",
+        };
+      })
+      .filter(Boolean) as NonNullable<MediaTextOverlay["fontFaces"]>[string];
+    if (list.length) out[key] = list;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as {
@@ -456,11 +505,12 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
     layers?: unknown;
     adjustments?: unknown;
     fontFiles?: unknown;
+    fontFaces?: unknown;
   };
   const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
   if (!baseUrl || !Array.isArray(row.layers)) return null;
   const layers = row.layers
-    .map((entry) => {
+    .map((entry): MediaTextLayer | null => {
       if (!entry || typeof entry !== "object") return null;
       const layer = entry as Record<string, unknown>;
       const text = typeof layer.text === "string" ? layer.text : "";
@@ -473,6 +523,7 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
         text,
         fontFamily,
         fontWeight: asWeight(layer.fontWeight),
+        fontStyle: asFontStyle(layer.fontStyle),
         fontSize: clamp01(typeof layer.fontSize === "number" ? layer.fontSize : 0.05) || 0.05,
         color: typeof layer.color === "string" && layer.color.trim() ? layer.color.trim() : "#FFFFFF",
         opacity: asOpacity(layer.opacity),
@@ -482,14 +533,15 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
         maxWidth: Math.min(0.98, Math.max(0.2, typeof layer.maxWidth === "number" ? layer.maxWidth : 0.82)),
         label: typeof layer.label === "string" && layer.label.trim() ? layer.label.trim() : undefined,
         role: asRole(layer.role),
-      } satisfies MediaTextLayer;
+      };
     })
-    .filter((layer): layer is MediaTextLayer => Boolean(layer));
+    .filter((layer): layer is MediaTextLayer => layer != null);
   return {
     baseUrl,
     layers,
     adjustments: parseImageAdjustments(row.adjustments),
     fontFiles: parseFontFiles(row.fontFiles),
+    fontFaces: parseFontFaces(row.fontFaces),
   };
 }
 
@@ -528,7 +580,7 @@ function wrapLines(
 
 export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promise<Blob> {
   const families = overlay.layers.map((layer) => layer.fontFamily);
-  await loadBrandFonts(families, overlay.fontFiles);
+  await loadBrandFonts(families, overlay.fontFiles, overlay.fontFaces);
 
   const res = await fetch(overlay.baseUrl);
   if (!res.ok) throw new Error("Não foi possível carregar a arte base.");
@@ -560,7 +612,7 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
     const fontPx = Math.max(12, layer.fontSize * canvas.height);
     const opacity = asOpacity(layer.opacity);
     ctx.globalAlpha = opacity;
-    ctx.font = `${layer.fontWeight} ${fontPx}px "${layer.fontFamily}", system-ui, sans-serif`;
+    ctx.font = `${layer.fontStyle === "italic" ? "italic " : ""}${layer.fontWeight} ${fontPx}px "${layer.fontFamily}", system-ui, sans-serif`;
     ctx.textAlign = layer.align;
     ctx.fillStyle = layer.color;
     ctx.shadowColor = `rgba(0,0,0,${(0.45 * opacity).toFixed(3)})`;

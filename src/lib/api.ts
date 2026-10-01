@@ -1039,12 +1039,26 @@ export type BrandColor = {
 };
 
 export const MAX_BRAND_COLORS = 24;
-/** Primary + first secondary + extras (supporting faces). */
+/** Distinct secondary families (not weight variants). */
 export const MAX_BRAND_SECONDARY_FONTS = 12;
+export const MAX_BRAND_FONT_FACES = 24;
+
+/** One weight/style file belonging to a family. */
+export type BrandFontFace = {
+  fileUrl: string;
+  /** CSS font-weight, e.g. "400", "700". */
+  weight: string;
+  style: "normal" | "italic";
+  /** UI label, e.g. "Regular", "Bold Italic". */
+  label: string;
+};
 
 export type BrandFontEntry = {
   family: string;
+  /** Preferred / legacy single file (usually Regular). */
   fileUrl?: string;
+  /** Weight/style variants uploaded for this family. */
+  faces?: BrandFontFace[];
 };
 
 export type BrandFonts = {
@@ -1054,8 +1068,12 @@ export type BrandFonts = {
   primaryFileUrl?: string;
   /** Public URL of a uploaded font file for the secondary family. */
   secondaryFileUrl?: string;
+  /** Weight/style variants of the primary family. */
+  primaryFaces?: BrandFontFace[];
+  /** Weight/style variants of the first secondary family. */
+  secondaryFaces?: BrandFontFace[];
   /**
-   * Extra supporting faces beyond the first secondary.
+   * Extra secondary families (each may carry its own faces).
    * Stored in jsonb — no DB migration required.
    */
   extras?: BrandFontEntry[];
@@ -1078,25 +1096,195 @@ export function brandFontFamilyFromFileName(name: string) {
     .trim();
 }
 
+/** Infer weight/style/label from a font file name (Fontspring, common suffixes, etc.). */
+export function inferBrandFontFaceMeta(fileName: string): Pick<BrandFontFace, "weight" | "style" | "label"> {
+  const base = (fileName || "")
+    .replace(/^.*[/\\]/, "")
+    .replace(/\.(woff2?|ttf|otf)$/i, "")
+    .toLowerCase();
+  const compact = base.replace(/[^a-z0-9]+/g, "");
+
+  const italic =
+    /(?:^|[^a-z])(it|italic|oblique)(?:[^a-z]|$)/.test(base) ||
+    /(?:bdit|ltit|mdit|sbit|blackit|bolditalic|lightitalic|mediumitalic|semibolditalic)$/.test(
+      compact,
+    ) ||
+    compact.endsWith("it");
+
+  let weight = "400";
+  let label = "Regular";
+
+  if (/(?:^|[^a-z])(thin|hairline)(?:[^a-z]|$)/.test(base) || compact.includes("thin")) {
+    weight = "100";
+    label = "Thin";
+  } else if (/(?:^|[^a-z])(extralight|ultralight|xlight)(?:[^a-z]|$)/.test(base)) {
+    weight = "200";
+    label = "Extra Light";
+  } else if (
+    /(?:^|[^a-z])(lt|light)(?:[^a-z]|$)/.test(base) ||
+    compact.includes("ltit") ||
+    /(?:^|[^a-z])lt(?:it)?(?:[^a-z]|$)/.test(base)
+  ) {
+    weight = "300";
+    label = "Light";
+  } else if (
+    /(?:^|[^a-z])(bd|bold)(?:[^a-z]|$)/.test(base) ||
+    compact.includes("bdit") ||
+    compact.includes("bold")
+  ) {
+    weight = "700";
+    label = "Bold";
+  } else if (
+    /(?:^|[^a-z])(blk|black|heavy)(?:[^a-z]|$)/.test(base) ||
+    compact.includes("black")
+  ) {
+    weight = "900";
+    label = "Black";
+  } else if (
+    /(?:^|[^a-z])(sb|semibold|demibold)(?:[^a-z]|$)/.test(base) ||
+    compact.includes("semibold")
+  ) {
+    weight = "600";
+    label = "Semi Bold";
+  } else if (
+    /(?:^|[^a-z])(md|medium)(?:[^a-z]|$)/.test(base) ||
+    compact.includes("medium")
+  ) {
+    weight = "500";
+    label = "Medium";
+  } else if (
+    /(?:^|[^a-z])(reg|regular|book|roman)(?:[^a-z]|$)/.test(base) ||
+    compact.endsWith("reg")
+  ) {
+    weight = "400";
+    label = "Regular";
+  }
+
+  // Trailing Fontspring-style codes: -bd, -bdit, -lt, -ltit, -it, -reg
+  const code = base.match(/[-_](bdit|ltit|mdit|sbit|bd|lt|md|sb|blk|it|reg|bold|light|italic)(?:[-_.]|$)/i)?.[1]?.toLowerCase();
+  if (code === "bd" || code === "bold") {
+    weight = "700";
+    label = "Bold";
+  } else if (code === "bdit") {
+    weight = "700";
+    label = "Bold";
+  } else if (code === "lt" || code === "light") {
+    weight = "300";
+    label = "Light";
+  } else if (code === "ltit") {
+    weight = "300";
+    label = "Light";
+  } else if (code === "md" || code === "medium") {
+    weight = "500";
+    label = "Medium";
+  } else if (code === "sb" || code === "semibold") {
+    weight = "600";
+    label = "Semi Bold";
+  } else if (code === "blk" || code === "black") {
+    weight = "900";
+    label = "Black";
+  } else if (code === "reg" || code === "regular") {
+    weight = "400";
+    label = "Regular";
+  } else if (code === "it" || code === "italic") {
+    weight = "400";
+    label = "Regular";
+  }
+
+  const isItalic =
+    italic ||
+    code === "it" ||
+    code === "italic" ||
+    code === "bdit" ||
+    code === "ltit" ||
+    code === "mdit" ||
+    code === "sbit";
+
+  if (isItalic) {
+    label = label === "Regular" ? "Italic" : `${label} Italic`;
+  }
+
+  return {
+    weight,
+    style: isItalic ? "italic" : "normal",
+    label,
+  };
+}
+
+export function preferredBrandFontFaceUrl(faces: BrandFontFace[] | undefined | null): string | undefined {
+  if (!faces?.length) return undefined;
+  const preferred =
+    faces.find((face) => face.weight === "400" && face.style === "normal") ||
+    faces.find((face) => face.style === "normal") ||
+    faces[0];
+  return preferred?.fileUrl?.trim() || undefined;
+}
+
+export function normalizeBrandFontFaces(faces: BrandFontFace[] | undefined | null): BrandFontFace[] {
+  if (!faces?.length) return [];
+  const seen = new Set<string>();
+  const out: BrandFontFace[] = [];
+  for (const face of faces) {
+    const fileUrl = (face.fileUrl ?? "").trim();
+    if (!fileUrl) continue;
+    const weight = String(face.weight || "400").trim() || "400";
+    const style = face.style === "italic" ? "italic" : "normal";
+    const label = (face.label || "").trim() || (style === "italic" ? "Italic" : "Regular");
+    const key = `${weight}:${style}:${fileUrl}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ fileUrl, weight, style, label });
+    if (out.length >= MAX_BRAND_FONT_FACES) break;
+  }
+  return out;
+}
+
+function parseBrandFontFace(value: unknown): BrandFontFace | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as {
+    fileUrl?: unknown;
+    weight?: unknown;
+    style?: unknown;
+    label?: unknown;
+  };
+  const fileUrl = typeof row.fileUrl === "string" ? row.fileUrl.trim() : "";
+  if (!fileUrl) return null;
+  const weight = typeof row.weight === "string" && row.weight.trim() ? row.weight.trim() : "400";
+  const style = row.style === "italic" ? "italic" : "normal";
+  const label =
+    typeof row.label === "string" && row.label.trim()
+      ? row.label.trim()
+      : style === "italic"
+        ? "Italic"
+        : "Regular";
+  return { fileUrl, weight, style, label };
+}
+
 /** Normalize kit fonts into a secondary list (first slot = legacy secondary fields). */
 export function listBrandSecondaryFonts(fonts: BrandFonts | null | undefined): BrandFontEntry[] {
+  const secondaryFaces = normalizeBrandFontFaces(fonts?.secondaryFaces);
   const first: BrandFontEntry = {
     family: (fonts?.secondary ?? "").trim(),
-    fileUrl: (fonts?.secondaryFileUrl ?? "").trim() || undefined,
+    fileUrl:
+      (fonts?.secondaryFileUrl ?? "").trim() ||
+      preferredBrandFontFaceUrl(secondaryFaces) ||
+      undefined,
+    faces: secondaryFaces,
   };
   const extras = (fonts?.extras ?? [])
-    .map((entry) => ({
-      family: (entry?.family ?? "").trim(),
-      fileUrl: (entry?.fileUrl ?? "").trim() || undefined,
-    }))
-    .filter((entry) => entry.family || entry.fileUrl);
-  if (!first.family && !first.fileUrl && extras.length === 0) {
-    return [{ family: "" }];
+    .map((entry): BrandFontEntry | null => {
+      const faces = normalizeBrandFontFaces(entry?.faces);
+      const family = (entry?.family ?? "").trim();
+      const fileUrl =
+        (entry?.fileUrl ?? "").trim() || preferredBrandFontFaceUrl(faces) || undefined;
+      if (!family && !fileUrl && faces.length === 0) return null;
+      return { family, fileUrl, faces };
+    })
+    .filter((entry): entry is BrandFontEntry => entry != null);
+  if (!first.family && !first.fileUrl && (!first.faces || first.faces.length === 0) && extras.length === 0) {
+    return [{ family: "", faces: [] }];
   }
-  return [{ family: first.family, fileUrl: first.fileUrl }, ...extras].slice(
-    0,
-    MAX_BRAND_SECONDARY_FONTS,
-  );
+  return [{ ...first, faces: first.faces ?? [] }, ...extras].slice(0, MAX_BRAND_SECONDARY_FONTS);
 }
 
 /** Write secondary list back into legacy fields + extras. */
@@ -1105,17 +1293,32 @@ export function brandFontsFromSecondaries(
   secondaries: BrandFontEntry[],
 ): BrandFonts {
   const cleaned = secondaries
-    .map((entry) => ({
-      family: (entry.family ?? "").trim(),
-      fileUrl: (entry.fileUrl ?? "").trim() || undefined,
-    }))
+    .map((entry) => {
+      const faces = normalizeBrandFontFaces(entry.faces);
+      const family = (entry.family ?? "").trim();
+      const fileUrl =
+        (entry.fileUrl ?? "").trim() || preferredBrandFontFaceUrl(faces) || undefined;
+      return { family, fileUrl, faces };
+    })
     .slice(0, MAX_BRAND_SECONDARY_FONTS);
-  const [first, ...rest] = cleaned.length > 0 ? cleaned : [{ family: "", fileUrl: undefined as string | undefined }];
+  const [first, ...rest] =
+    cleaned.length > 0 ? cleaned : [{ family: "", fileUrl: undefined as string | undefined, faces: [] as BrandFontFace[] }];
   return {
     ...fonts,
     secondary: first?.family ?? "",
     secondaryFileUrl: first?.fileUrl ?? "",
-    extras: rest.filter((entry) => entry.family || entry.fileUrl),
+    secondaryFaces: first?.faces ?? [],
+    extras: rest.filter((entry) => entry.family || entry.fileUrl || entry.faces.length > 0),
+  };
+}
+
+/** Sync primary faces + preferred file URL onto a BrandFonts patch. */
+export function withPrimaryFaces(fonts: BrandFonts, faces: BrandFontFace[]): BrandFonts {
+  const normalized = normalizeBrandFontFaces(faces);
+  return {
+    ...fonts,
+    primaryFaces: normalized,
+    primaryFileUrl: preferredBrandFontFaceUrl(normalized) ?? "",
   };
 }
 
@@ -1278,16 +1481,38 @@ export function parseBrandColors(value: unknown): BrandColor[] {
 
 function parseBrandFontEntry(value: unknown): BrandFontEntry | null {
   if (!value || typeof value !== "object") return null;
-  const row = value as { family?: unknown; fileUrl?: unknown; name?: unknown };
+  const row = value as {
+    family?: unknown;
+    fileUrl?: unknown;
+    name?: unknown;
+    faces?: unknown;
+  };
   const family =
     typeof row.family === "string"
       ? row.family.trim()
       : typeof row.name === "string"
         ? row.name.trim()
         : "";
-  const fileUrl = typeof row.fileUrl === "string" ? row.fileUrl.trim() : "";
-  if (!family && !fileUrl) return null;
-  return { family, fileUrl: fileUrl || undefined };
+  const faces = Array.isArray(row.faces)
+    ? normalizeBrandFontFaces(row.faces.map(parseBrandFontFace).filter(Boolean) as BrandFontFace[])
+    : [];
+  const fileUrl =
+    (typeof row.fileUrl === "string" ? row.fileUrl.trim() : "") ||
+    preferredBrandFontFaceUrl(faces) ||
+    "";
+  if (!family && !fileUrl && faces.length === 0) return null;
+  // Legacy single-file entry without faces → synthesize one face.
+  const resolvedFaces =
+    faces.length > 0
+      ? faces
+      : fileUrl
+        ? [{ fileUrl, weight: "400", style: "normal" as const, label: "Regular" }]
+        : [];
+  return {
+    family,
+    fileUrl: fileUrl || preferredBrandFontFaceUrl(resolvedFaces),
+    faces: resolvedFaces,
+  };
 }
 
 export function parseBrandFonts(value: unknown): BrandFonts {
@@ -1297,9 +1522,41 @@ export function parseBrandFonts(value: unknown): BrandFonts {
     secondary?: unknown;
     primaryFileUrl?: unknown;
     secondaryFileUrl?: unknown;
+    primaryFaces?: unknown;
+    secondaryFaces?: unknown;
     extras?: unknown;
     notes?: unknown;
   };
+  const primaryFacesRaw = Array.isArray(row.primaryFaces)
+    ? normalizeBrandFontFaces(
+        row.primaryFaces.map(parseBrandFontFace).filter(Boolean) as BrandFontFace[],
+      )
+    : [];
+  const secondaryFacesRaw = Array.isArray(row.secondaryFaces)
+    ? normalizeBrandFontFaces(
+        row.secondaryFaces.map(parseBrandFontFace).filter(Boolean) as BrandFontFace[],
+      )
+    : [];
+  const primaryFileUrl =
+    (typeof row.primaryFileUrl === "string" ? row.primaryFileUrl : "") ||
+    preferredBrandFontFaceUrl(primaryFacesRaw) ||
+    "";
+  const secondaryFileUrl =
+    (typeof row.secondaryFileUrl === "string" ? row.secondaryFileUrl : "") ||
+    preferredBrandFontFaceUrl(secondaryFacesRaw) ||
+    "";
+  const primaryFaces =
+    primaryFacesRaw.length > 0
+      ? primaryFacesRaw
+      : primaryFileUrl
+        ? [{ fileUrl: primaryFileUrl, weight: "400", style: "normal" as const, label: "Regular" }]
+        : [];
+  const secondaryFaces =
+    secondaryFacesRaw.length > 0
+      ? secondaryFacesRaw
+      : secondaryFileUrl
+        ? [{ fileUrl: secondaryFileUrl, weight: "400", style: "normal" as const, label: "Regular" }]
+        : [];
   const extras = Array.isArray(row.extras)
     ? row.extras
         .map(parseBrandFontEntry)
@@ -1309,8 +1566,10 @@ export function parseBrandFonts(value: unknown): BrandFonts {
   return {
     primary: typeof row.primary === "string" ? row.primary : "",
     secondary: typeof row.secondary === "string" ? row.secondary : "",
-    primaryFileUrl: typeof row.primaryFileUrl === "string" ? row.primaryFileUrl : "",
-    secondaryFileUrl: typeof row.secondaryFileUrl === "string" ? row.secondaryFileUrl : "",
+    primaryFileUrl,
+    secondaryFileUrl,
+    primaryFaces,
+    secondaryFaces,
     extras,
     notes: typeof row.notes === "string" ? row.notes : "",
   };

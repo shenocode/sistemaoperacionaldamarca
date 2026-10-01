@@ -66,7 +66,13 @@ const pendingGoogleLoads = new Map<string, Promise<void>>();
 /** family::url → loaded */
 const loadedFileFonts = new Set<string>();
 
+/** family → preferred file URL (legacy single-url consumers). */
 export type BrandFontFileMap = Record<string, string>;
+/** family → all uploaded weight/style faces. */
+export type BrandFontFaceMap = Record<
+  string,
+  Array<{ fileUrl: string; weight: string; style: "normal" | "italic"; label: string }>
+>;
 
 export function brandFontFamilyCss(family: string) {
   const trimmed = family.trim();
@@ -123,27 +129,104 @@ export function listBrandFontFamilies(fonts: {
   return [...new Set(names.filter(Boolean))];
 }
 
-/** Build family → file URL map from brand kit fonts. */
-export function brandFontsToFileMap(fonts: {
+type FontsWithFaces = {
   primary?: string | null;
   secondary?: string | null;
   primaryFileUrl?: string | null;
   secondaryFileUrl?: string | null;
-  extras?: Array<{ family?: string | null; fileUrl?: string | null }> | null;
-}): BrandFontFileMap {
-  const map: BrandFontFileMap = {};
+  primaryFaces?: Array<{
+    fileUrl?: string | null;
+    weight?: string | null;
+    style?: string | null;
+    label?: string | null;
+  }> | null;
+  secondaryFaces?: Array<{
+    fileUrl?: string | null;
+    weight?: string | null;
+    style?: string | null;
+    label?: string | null;
+  }> | null;
+  extras?: Array<{
+    family?: string | null;
+    fileUrl?: string | null;
+    faces?: Array<{
+      fileUrl?: string | null;
+      weight?: string | null;
+      style?: string | null;
+      label?: string | null;
+    }> | null;
+  }> | null;
+};
+
+function normalizeFaceList(
+  faces:
+    | Array<{
+        fileUrl?: string | null;
+        weight?: string | null;
+        style?: string | null;
+        label?: string | null;
+      }>
+    | null
+    | undefined,
+  fallbackUrl?: string | null,
+): BrandFontFaceMap[string] {
+  const list = (faces ?? [])
+    .map((face) => {
+      const fileUrl = (face?.fileUrl ?? "").trim();
+      if (!fileUrl) return null;
+      const weight = String(face?.weight || "400").trim() || "400";
+      const style = face?.style === "italic" ? ("italic" as const) : ("normal" as const);
+      const label =
+        (face?.label ?? "").trim() || (style === "italic" ? "Italic" : "Regular");
+      return { fileUrl, weight, style, label };
+    })
+    .filter(Boolean) as BrandFontFaceMap[string];
+  if (list.length > 0) return list;
+  const url = (fallbackUrl ?? "").trim();
+  if (!url) return [];
+  return [{ fileUrl: url, weight: "400", style: "normal", label: "Regular" }];
+}
+
+/** Build family → faces map from brand kit fonts. */
+export function brandFontsToFaceMap(fonts: FontsWithFaces): BrandFontFaceMap {
+  const map: BrandFontFaceMap = {};
   const primary = (fonts.primary ?? "").trim();
   const secondary = (fonts.secondary ?? "").trim();
-  const primaryUrl = (fonts.primaryFileUrl ?? "").trim();
-  const secondaryUrl = (fonts.secondaryFileUrl ?? "").trim();
-  if (primary && primaryUrl) map[primary] = primaryUrl;
-  if (secondary && secondaryUrl) map[secondary] = secondaryUrl;
+  if (primary) {
+    const faces = normalizeFaceList(fonts.primaryFaces, fonts.primaryFileUrl);
+    if (faces.length) map[primary] = faces;
+  }
+  if (secondary) {
+    const faces = normalizeFaceList(fonts.secondaryFaces, fonts.secondaryFileUrl);
+    if (faces.length) map[secondary] = faces;
+  }
   for (const entry of fonts.extras ?? []) {
     const family = (entry?.family ?? "").trim();
-    const url = (entry?.fileUrl ?? "").trim();
-    if (family && url) map[family] = url;
+    if (!family) continue;
+    const faces = normalizeFaceList(entry?.faces, entry?.fileUrl);
+    if (faces.length) map[family] = faces;
   }
   return map;
+}
+
+/** Build family → preferred file URL map from brand kit fonts. */
+export function brandFontsToFileMap(fonts: FontsWithFaces): BrandFontFileMap {
+  const faceMap = brandFontsToFaceMap(fonts);
+  const map: BrandFontFileMap = {};
+  for (const [family, faces] of Object.entries(faceMap)) {
+    const preferred =
+      faces.find((face) => face.weight === "400" && face.style === "normal") ||
+      faces.find((face) => face.style === "normal") ||
+      faces[0];
+    if (preferred?.fileUrl) map[family] = preferred.fileUrl;
+  }
+  return map;
+}
+
+export function facesForBrandFamily(fonts: FontsWithFaces, family: string | undefined | null) {
+  const trimmed = (family ?? "").trim();
+  if (!trimmed) return [];
+  return brandFontsToFaceMap(fonts)[trimmed] ?? [];
 }
 
 function googleFontsCssUrl(families: string[]) {
@@ -233,13 +316,18 @@ async function ensureGoogleFontsStylesheet(families: string[]) {
   await task;
 }
 
-async function loadCustomFontFace(family: string, fileUrl: string) {
-  const key = `${family}::${fileUrl}`;
+async function loadCustomFontFace(
+  family: string,
+  fileUrl: string,
+  weight = "100 900",
+  style: "normal" | "italic" = "normal",
+) {
+  const key = `${family}::${style}::${weight}::${fileUrl}`;
   if (loadedFileFonts.has(key)) return;
   try {
     const face = new FontFace(family, `url(${JSON.stringify(fileUrl)})`, {
-      style: "normal",
-      weight: "100 900",
+      style,
+      weight,
       display: "swap",
     });
     const loaded = await face.load();
@@ -253,8 +341,8 @@ async function loadCustomFontFace(family: string, fileUrl: string) {
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
       const face = new FontFace(family, `url(${JSON.stringify(objectUrl)})`, {
-        style: "normal",
-        weight: "100 900",
+        style,
+        weight,
         display: "swap",
       });
       const loaded = await face.load();
@@ -269,9 +357,13 @@ async function loadCustomFontFace(family: string, fileUrl: string) {
 /**
  * Load brand fonts for preview/canvas.
  * - Names in BRAND_FONT_OPTIONS → Google Fonts stylesheet (waits for load)
- * - Other names → only via FontFace when a file URL is provided in fileUrls
+ * - Other names → FontFace via fileUrls and/or per-weight faces
  */
-export async function loadBrandFonts(families: string[], fileUrls?: BrandFontFileMap) {
+export async function loadBrandFonts(
+  families: string[],
+  fileUrls?: BrandFontFileMap,
+  faces?: BrandFontFaceMap,
+) {
   if (typeof document === "undefined") return;
 
   const wanted = [...new Set(families.map((name) => name.trim()).filter(Boolean))];
@@ -289,6 +381,21 @@ export async function loadBrandFonts(families: string[], fileUrls?: BrandFontFil
 
   await Promise.all(
     customWanted.map(async (family) => {
+      const faceList = faces?.[family] ?? [];
+      if (faceList.length > 0) {
+        await Promise.all(
+          faceList.map(async (face) => {
+            await loadCustomFontFace(family, face.fileUrl, face.weight, face.style);
+            try {
+              const stylePrefix = face.style === "italic" ? "italic " : "";
+              await document.fonts.load(`${stylePrefix}${face.weight} 48px "${family}"`);
+            } catch {
+              // ignore
+            }
+          }),
+        );
+        return;
+      }
       const url = fileUrls?.[family]?.trim() || "";
       if (!url) return;
       await loadCustomFontFace(family, url);
