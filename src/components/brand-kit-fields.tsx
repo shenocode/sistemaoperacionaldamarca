@@ -110,8 +110,12 @@ export function BrandKitFields({
   }
 
   async function handleFontUploads(target: FontSlotTarget, fileList: FileList | File[] | null) {
+    // Copy immediately — resetting the <input> empties a live FileList in some browsers.
     const raw = fileList ? Array.from(fileList) : [];
-    const files = raw.filter((file) => isBrandFontFileName(file.name));
+    const files = raw.filter((file) => {
+      const name = file.name || (file as File & { webkitRelativePath?: string }).webkitRelativePath || "";
+      return isBrandFontFileName(name);
+    });
     if (files.length === 0) {
       toast.error(t("clients.brandKit.fontUploadNoFontFiles"));
       return;
@@ -345,7 +349,7 @@ export function BrandKitFields({
               multiple
               className="hidden"
               onChange={(e) => {
-                const list = e.target.files;
+                const list = e.target.files ? Array.from(e.target.files) : [];
                 e.target.value = "";
                 void handleFontUploads(uploadTarget, list);
               }}
@@ -358,7 +362,7 @@ export function BrandKitFields({
               // Chromium/Safari: pick a folder and expose files inside.
               {...({ webkitdirectory: "", directory: "" } as InputHTMLAttributes<HTMLInputElement>)}
               onChange={(e) => {
-                const list = e.target.files;
+                const list = e.target.files ? Array.from(e.target.files) : [];
                 e.target.value = "";
                 void handleFontUploads(uploadTarget, list);
               }}
