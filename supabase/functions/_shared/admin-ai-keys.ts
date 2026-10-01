@@ -10,14 +10,17 @@ type SupabaseLike = {
   from: (table: string) => {
     select: (cols: string) => {
       eq: (col: string, value: string) => {
-        maybeSingle: () => Promise<{ data: Record<string, unknown> | null; error: unknown }>;
+        maybeSingle: () => PromiseLike<{
+          data: Record<string, unknown> | null;
+          error: unknown;
+        }>;
       };
     };
   };
   rpc?: (
     fn: string,
     args?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  ) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
 };
 
 export type ResolvedKey = {
