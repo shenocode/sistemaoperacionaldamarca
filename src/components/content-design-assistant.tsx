@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Download, Expand, ImagePlus, Loader2, Palette, Plus, Trash2, Upload } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Download,
+  Expand,
+  ImagePlus,
+  Loader2,
+  Palette,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +63,7 @@ import { cn } from "@/lib/utils";
 import {
   createDefaultOverlay,
   flattenOverlayToFile,
+  normalizeImageToDesignCanvas,
   type MediaTextOverlay,
 } from "@/lib/media-text-overlay";
 
@@ -70,7 +82,11 @@ type SlideDraft = {
   templateFile: File | null;
   resultUrl: string | null;
   overlay: MediaTextOverlay | null;
+  /** Arte já enviada ao mockup / mídia do conteúdo. */
+  approved: boolean;
 };
+
+type DesignApplyItem = { url: string; overlay?: MediaTextOverlay };
 
 function templateAspect(template: DesignTemplate): DesignAspectRatio {
   return parseDesignAspectRatio(template.aspect_ratio, defaultAspectForFormat(template.format));
@@ -164,7 +180,7 @@ function GeneratedArtPreview({
     <button
       type="button"
       onClick={onExpand}
-      aria-label={t("project.detail.expandMedia")}
+      aria-label={t("project.detail.designAssistant.editText")}
       className={cn(
         "group relative cursor-zoom-in overflow-hidden rounded-md",
         className,
@@ -188,6 +204,7 @@ function createSlide(overlayText = "", secondaryText = ""): SlideDraft {
     templateFile: null,
     resultUrl: null,
     overlay: null,
+    approved: false,
   };
 }
 
@@ -255,6 +272,7 @@ export function ContentDesignAssistant({
   roteiro,
   onRoteiroChange,
   onApply,
+  onApplyAtIndex,
 }: {
   contentId: string;
   projectId: string;
@@ -264,7 +282,9 @@ export function ContentDesignAssistant({
   caption: string;
   roteiro: string;
   onRoteiroChange?: (roteiro: string) => void;
-  onApply: (items: Array<{ url: string; overlay?: MediaTextOverlay }>) => void;
+  onApply: (items: DesignApplyItem[]) => void;
+  /** Inclui/substitui um slide na mídia (mockup) pela posição. Retorna false se a ordem impedir. */
+  onApplyAtIndex?: (index: number, item: DesignApplyItem) => boolean;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -307,7 +327,7 @@ export function ContentDesignAssistant({
   const [openSlideId, setOpenSlideId] = useState("");
   const lastEmittedRoteiroRef = useRef<string | null>(null);
   const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<{ items: { url: string }[]; index: number } | null>(
+  const [lightbox, setLightbox] = useState<{ mode: "static" | "carousel"; index: number } | null>(
     null,
   );
   const [provider, setProvider] = useState<DesignProvider>("openai");
@@ -396,8 +416,11 @@ export function ContentDesignAssistant({
     secondaryTextValue: string,
     label: string,
   ) {
+    const normalizedBlob = await normalizeImageToDesignCanvas(baseUrl, aspectRatio);
+    const normalizedFile = new File([normalizedBlob], `${label}-canvas.png`, { type: "image/png" });
+    const normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
     const overlay = createDefaultOverlay({
-      baseUrl,
+      baseUrl: normalizedUrl,
       overlayText: overlayTextValue,
       secondaryText: secondaryTextValue,
       primaryFont: kit.brand_fonts.primary,
@@ -511,7 +534,9 @@ export function ContentDesignAssistant({
     onSuccess: async ({ slideId, url, overlay }) => {
       setSlides((prev) =>
         prev.map((slide) =>
-          slide.id === slideId ? { ...slide, resultUrl: url, overlay } : slide,
+          slide.id === slideId
+            ? { ...slide, resultUrl: url, overlay, approved: false }
+            : slide,
         ),
       );
       const index = slides.findIndex((item) => item.id === slideId);
@@ -535,7 +560,12 @@ export function ContentDesignAssistant({
         setSlides((prev) =>
           prev.map((item) =>
             item.id === slide.id
-              ? { ...item, resultUrl: composed.url, overlay: composed.overlay }
+              ? {
+                  ...item,
+                  resultUrl: composed.url,
+                  overlay: composed.overlay,
+                  approved: false,
+                }
               : item,
           ),
         );
@@ -574,13 +604,38 @@ export function ContentDesignAssistant({
     toast.success(appliedLabel);
   };
 
+  const handleApproveSlide = (slideId: string) => {
+    const index = slides.findIndex((item) => item.id === slideId);
+    const slide = index >= 0 ? slides[index] : undefined;
+    if (!slide?.resultUrl) return;
+
+    const item: DesignApplyItem = {
+      url: slide.resultUrl,
+      overlay: slide.overlay ?? undefined,
+    };
+
+    const applied = onApplyAtIndex
+      ? onApplyAtIndex(index, item)
+      : (onApply([item]), true);
+
+    if (!applied) return;
+
+    setSlides((prev) =>
+      prev.map((entry) => (entry.id === slideId ? { ...entry, approved: true } : entry)),
+    );
+    toast.success(t("project.detail.designAssistant.appliedSlide"));
+  };
+
   const handleApplyCarousel = () => {
     const items = slides
       .filter((slide): slide is SlideDraft & { resultUrl: string } => Boolean(slide.resultUrl))
       .map((slide) => ({ url: slide.resultUrl, overlay: slide.overlay ?? undefined }));
     if (items.length === 0) return;
     onApply(items);
-    toast.success(appliedLabel);
+    setSlides((prev) =>
+      prev.map((slide) => (slide.resultUrl ? { ...slide, approved: true } : slide)),
+    );
+    toast.success(t("project.detail.designAssistant.appliedAll"));
   };
 
   async function handleDownload(url: string, name: string, format: "png" | "jpg") {
@@ -589,6 +644,77 @@ export function ContentDesignAssistant({
       toast.success(t("project.detail.designAssistant.downloadStarted"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("project.detail.designAssistant.downloadError"));
+    }
+  }
+
+  const lightboxItems = useMemo(() => {
+    if (!lightbox) return [];
+    if (lightbox.mode === "static") {
+      if (!resultUrl) return [];
+      const overlay =
+        resultOverlay ??
+        createDefaultOverlay({
+          baseUrl: resultUrl,
+          overlayText: "",
+          primaryFont: kit.brand_fonts.primary,
+          secondaryFont: kit.brand_fonts.secondary,
+          colors: kit.brand_colors,
+        });
+      return [{ url: overlay.baseUrl, overlay }];
+    }
+    return slides
+      .filter((slide): slide is SlideDraft & { resultUrl: string } => Boolean(slide.resultUrl))
+      .map((slide) => {
+        const overlay =
+          slide.overlay ??
+          createDefaultOverlay({
+            baseUrl: slide.resultUrl,
+            overlayText: "",
+            primaryFont: kit.brand_fonts.primary,
+            secondaryFont: kit.brand_fonts.secondary,
+            colors: kit.brand_colors,
+          });
+        return { url: overlay.baseUrl, overlay, slideId: slide.id };
+      });
+  }, [lightbox, resultUrl, resultOverlay, slides, kit]);
+
+  async function handleLightboxSave(index: number, overlay: MediaTextOverlay) {
+    try {
+      const file = await flattenOverlayToFile(overlay, `${artBaseName}-edit.png`);
+      const url = await uploadContentMedia(projectId, file);
+
+      if (lightbox?.mode === "static") {
+        setResultUrl(url);
+        setResultOverlay(overlay);
+        toast.success(t("project.detail.artText.saved"));
+        return;
+      }
+
+      const targets = slides.filter((slide) => slide.resultUrl);
+      const target = targets[index];
+      if (!target) return;
+
+      const slideIndex = slides.findIndex((slide) => slide.id === target.id);
+      const wasApproved = target.approved;
+
+      setSlides((prev) =>
+        prev.map((slide) =>
+          slide.id === target.id
+            ? { ...slide, resultUrl: url, overlay, approved: wasApproved }
+            : slide,
+        ),
+      );
+
+      if (wasApproved && slideIndex >= 0 && onApplyAtIndex) {
+        onApplyAtIndex(slideIndex, { url, overlay });
+      }
+
+      toast.success(t("project.detail.artText.saved"));
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : t("project.detail.artText.saveError"),
+      );
+      throw err;
     }
   }
 
@@ -857,7 +983,7 @@ export function ContentDesignAssistant({
                 <GeneratedArtPreview
                   src={resultUrl}
                   alt={t("project.detail.designAssistant.previewTitle")}
-                  onExpand={() => setLightbox({ items: [{ url: resultUrl }], index: 0 })}
+                  onExpand={() => setLightbox({ mode: "static", index: 0 })}
                   className={cn(
                     "bg-muted/40",
                     designAspectPreviewClass(aspectRatio, "md"),
@@ -962,8 +1088,14 @@ export function ContentDesignAssistant({
                             aria-hidden="true"
                           />
                           <span className="min-w-0">
-                            <span className="block text-base font-semibold">
+                            <span className="flex items-center gap-1.5 text-base font-semibold">
                               {t("project.detail.designAssistant.slide", { n: index + 1 })}
+                              {slide.approved ? (
+                                <Check
+                                  className="size-3.5 shrink-0 text-primary"
+                                  aria-label={t("project.detail.designAssistant.approved")}
+                                />
+                              ) : null}
                             </span>
                             {preview ? (
                               <span className="mt-0.5 block truncate text-sm font-normal text-muted-foreground">
@@ -1156,11 +1288,12 @@ export function ContentDesignAssistant({
                           src={slide.resultUrl}
                           alt={t("project.detail.designAssistant.slide", { n: index + 1 })}
                           onExpand={() => {
-                            const items = slides
-                              .filter((item) => item.resultUrl)
-                              .map((item) => ({ url: item.resultUrl! }));
-                            const start = items.findIndex((item) => item.url === slide.resultUrl);
-                            setLightbox({ items, index: Math.max(start, 0) });
+                            const items = slides.filter((item) => item.resultUrl);
+                            const start = items.findIndex((item) => item.id === slide.id);
+                            setLightbox({
+                              mode: "carousel",
+                              index: Math.max(start, 0),
+                            });
                           }}
                           className={cn(
                             "border bg-muted/40",
@@ -1169,6 +1302,22 @@ export function ContentDesignAssistant({
                           imgClassName="h-full w-full object-contain"
                         />
                         <div className="flex flex-wrap gap-2">
+                          {slide.approved ? (
+                            <Button type="button" size="sm" variant="secondary" disabled>
+                              <Check className="size-3.5" />
+                              {t("project.detail.designAssistant.approved")}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleApproveSlide(slide.id)}
+                              disabled={busy}
+                            >
+                              <Check className="size-3.5" />
+                              {t("project.detail.designAssistant.approve")}
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"
@@ -1211,14 +1360,25 @@ export function ContentDesignAssistant({
             {slides.some((slide) => slide.resultUrl) ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={handleApplyCarousel}>
-                    {applyLabel}
+                  <Button
+                    type="button"
+                    onClick={handleApplyCarousel}
+                    disabled={busy || slides.every((slide) => !slide.resultUrl || slide.approved)}
+                  >
+                    {t("project.detail.designAssistant.approveAll")}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() =>
-                      setSlides((prev) => prev.map((slide) => ({ ...slide, resultUrl: null, overlay: null })))
+                      setSlides((prev) =>
+                        prev.map((slide) => ({
+                          ...slide,
+                          resultUrl: null,
+                          overlay: null,
+                          approved: false,
+                        })),
+                      )
                     }
                   >
                     {t("project.detail.designAssistant.discard")}
@@ -1240,9 +1400,14 @@ export function ContentDesignAssistant({
       onOpenChange={(open) => {
         if (!open) setLightbox(null);
       }}
-      items={lightbox?.items ?? []}
+      items={lightboxItems.map(({ url, overlay }) => ({ url, overlay }))}
       title={t("project.detail.designAssistant.previewTitle")}
       initialIndex={lightbox?.index ?? 0}
+      textEditor={{
+        brandFonts: kit.brand_fonts,
+        colors: kit.brand_colors,
+        onSave: handleLightboxSave,
+      }}
     />
     </>
   );

@@ -128,12 +128,36 @@ function normalizeProvider(value: unknown): DesignProvider {
   return value === "gemini" ? "gemini" : "openai";
 }
 
-async function generateWithOpenAI(input: {
+function normalizeMime(mime: string) {
+  const m = (mime || "").toLowerCase();
+  if (m.includes("png")) return "image/png";
+  if (m.includes("webp")) return "image/webp";
+  if (m.includes("jpeg") || m.includes("jpg")) return "image/jpeg";
+  return "image/png";
+}
+
+function throwOpenAiImageError(status: number, errText: string): never {
+  console.error("OpenAI image edit error:", status, errText);
+  if (status === 429) {
+    throw Object.assign(new Error("Limite de requisições da OpenAI atingido. Tente de novo ou use Gemini."), {
+      status: 429,
+    });
+  }
+  if (status === 402 || /billing|quota|insufficient|credit/i.test(errText)) {
+    throw Object.assign(new Error("Créditos da OpenAI esgotados. Troque para Gemini ou recarregue a conta."), {
+      status: 402,
+    });
+  }
+  throw Object.assign(new Error("Falha ao gerar arte com a OpenAI"), { status: 502 });
+}
+
+async function openaiImageEdit(input: {
   prompt: string;
-  templateImage: RefImage;
-  photoImage?: RefImage | null;
+  images: RefImage[];
   apiKey: string;
   aspectRatio: DesignAspectRatio;
+  /** high trava demais o template (texto + proporção); low permite adaptar canvas e limpar letras. */
+  inputFidelity?: "low" | "high";
 }): Promise<Uint8Array> {
   const form = new FormData();
   const model = Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1";
@@ -142,49 +166,23 @@ async function generateWithOpenAI(input: {
   form.append("n", "1");
   form.append("size", designCanvasSpec(input.aspectRatio).openaiSize);
   form.append("quality", "high");
-  form.append("input_fidelity", "high");
-  const normalizeMime = (mime: string) => {
-    const m = (mime || "").toLowerCase();
-    if (m.includes("png")) return "image/png";
-    if (m.includes("webp")) return "image/webp";
-    if (m.includes("jpeg") || m.includes("jpg")) return "image/jpeg";
-    return "image/png";
-  };
-  form.append(
-    "image[]",
-    new Blob([input.templateImage.bytes], { type: normalizeMime(input.templateImage.mime) }),
-    input.templateImage.fileName || "template.png",
-  );
-  if (input.photoImage) {
+  form.append("input_fidelity", input.inputFidelity ?? "low");
+  for (const image of input.images) {
     form.append(
       "image[]",
-      new Blob([input.photoImage.bytes], { type: normalizeMime(input.photoImage.mime) }),
-      input.photoImage.fileName || "photo.png",
+      new Blob([image.bytes], { type: normalizeMime(image.mime) }),
+      image.fileName || "ref.png",
     );
   }
 
   const openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-    },
+    headers: { Authorization: `Bearer ${input.apiKey}` },
     body: form,
   });
 
   if (!openaiRes.ok) {
-    const errText = await openaiRes.text();
-    console.error("OpenAI image edit error:", openaiRes.status, errText);
-    if (openaiRes.status === 429) {
-      throw Object.assign(new Error("Limite de requisições da OpenAI atingido. Tente de novo ou use Gemini."), {
-        status: 429,
-      });
-    }
-    if (openaiRes.status === 402 || /billing|quota|insufficient|credit/i.test(errText)) {
-      throw Object.assign(new Error("Créditos da OpenAI esgotados. Troque para Gemini ou recarregue a conta."), {
-        status: 402,
-      });
-    }
-    throw Object.assign(new Error("Falha ao gerar arte com a OpenAI"), { status: 502 });
+    throwOpenAiImageError(openaiRes.status, await openaiRes.text());
   }
 
   const openaiJson = (await openaiRes.json()) as {
@@ -199,10 +197,70 @@ async function generateWithOpenAI(input: {
   throw Object.assign(new Error("Resposta de imagem inválida da OpenAI"), { status: 502 });
 }
 
-async function generateWithGemini(input: {
+async function generateWithOpenAI(input: {
   prompt: string;
   templateImage: RefImage;
   photoImage?: RefImage | null;
+  apiKey: string;
+  aspectRatio: DesignAspectRatio;
+}): Promise<Uint8Array> {
+  // Foto (conteúdo) antes do template (estilo), com fidelity low para não herdar 1:1/texto do template.
+  const images: RefImage[] = [];
+  if (input.photoImage) images.push(input.photoImage);
+  images.push(input.templateImage);
+  return openaiImageEdit({
+    prompt: input.prompt,
+    images,
+    apiKey: input.apiKey,
+    aspectRatio: input.aspectRatio,
+    inputFidelity: "low",
+  });
+}
+
+async function scrubTextWithOpenAI(input: {
+  image: RefImage;
+  apiKey: string;
+  aspectRatio: DesignAspectRatio;
+}): Promise<Uint8Array> {
+  const canvas = designCanvasSpec(input.aspectRatio);
+  const prompt = [
+    "TAREFA: limpar TEXTO de uma arte já gerada.",
+    `Saída obrigatória em ${input.aspectRatio} (${canvas.pixels}). ${canvas.forbidden}`,
+    "Apague TODAS as letras, números, handles (@), hashtags, CTAs, créditos e marcas d'água.",
+    "Preencha as áreas com fundo/foto contínuos. Não invente palavras novas.",
+    "Não redesenhe o layout; só remova tipografia. Zero letras na saída.",
+  ].join("\n");
+  return openaiImageEdit({
+    prompt,
+    images: [input.image],
+    apiKey: input.apiKey,
+    aspectRatio: input.aspectRatio,
+    inputFidelity: "low",
+  });
+}
+
+function throwGeminiImageError(status: number, errText: string): never {
+  console.error("Gemini image error:", status, errText);
+  if (status === 429) {
+    throw Object.assign(new Error("Limite de requisições do Gemini atingido. Tente de novo ou use OpenAI."), {
+      status: 429,
+    });
+  }
+  if (status === 400 && /API key|API_KEY|invalid/i.test(errText)) {
+    throw Object.assign(new Error("Chave do Gemini inválida. Verifique GEMINI_API_KEY nas secrets."), {
+      status: 400,
+    });
+  }
+  if (/quota|billing|RESOURCE_EXHAUSTED/i.test(errText)) {
+    throw Object.assign(new Error("Cota/créditos do Gemini esgotados. Troque para OpenAI ou aguarde."), {
+      status: 402,
+    });
+  }
+  throw Object.assign(new Error("Falha ao gerar arte com o Gemini"), { status: 502 });
+}
+
+async function geminiImageGenerate(input: {
+  parts: Array<Record<string, unknown>>;
   apiKey: string;
   aspectRatio: DesignAspectRatio;
 }): Promise<Uint8Array> {
@@ -210,39 +268,11 @@ async function generateWithGemini(input: {
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
 
-  const imagePart = (image: RefImage) => ({
-    inline_data: {
-      mime_type: image.mime,
-      data: bytesToBase64(image.bytes),
-    },
-  });
-
-  // Referências primeiro; o canvas de saída é só imageConfig + prompt (não herdar
-  // proporção da última imagem — template 1:1 não pode forçar saída 1:1).
-  const parts: Array<Record<string, unknown>> = [
-    { text: input.prompt },
-    {
-      text: `TEMPLATE — referência de direção de arte (cores, clima, hierarquia, estilo). Adapte o layout ao canvas ${input.aspectRatio}; não copie a proporção desta imagem.`,
-    },
-    imagePart(input.templateImage),
-  ];
-  if (input.photoImage) {
-    parts.push({
-      text: "FOTO/ASSET — use somente no recorte de imagem da peça. Ignore a proporção desta foto; o canvas final é o pedido acima.",
-    });
-    parts.push(imagePart(input.photoImage));
-  }
-
   const geminiRes = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts,
-        },
-      ],
+      contents: [{ role: "user", parts: input.parts }],
       generationConfig: {
         responseModalities: ["IMAGE"],
         imageConfig: { aspectRatio: input.aspectRatio },
@@ -251,24 +281,7 @@ async function generateWithGemini(input: {
   });
 
   if (!geminiRes.ok) {
-    const errText = await geminiRes.text();
-    console.error("Gemini image error:", geminiRes.status, errText);
-    if (geminiRes.status === 429) {
-      throw Object.assign(new Error("Limite de requisições do Gemini atingido. Tente de novo ou use OpenAI."), {
-        status: 429,
-      });
-    }
-    if (geminiRes.status === 400 && /API key|API_KEY|invalid/i.test(errText)) {
-      throw Object.assign(new Error("Chave do Gemini inválida. Verifique GEMINI_API_KEY nas secrets."), {
-        status: 400,
-      });
-    }
-    if (/quota|billing|RESOURCE_EXHAUSTED/i.test(errText)) {
-      throw Object.assign(new Error("Cota/créditos do Gemini esgotados. Troque para OpenAI ou aguarde."), {
-        status: 402,
-      });
-    }
-    throw Object.assign(new Error("Falha ao gerar arte com o Gemini"), { status: 502 });
+    throwGeminiImageError(geminiRes.status, await geminiRes.text());
   }
 
   const geminiJson = (await geminiRes.json()) as {
@@ -289,6 +302,68 @@ async function generateWithGemini(input: {
   }
 
   throw Object.assign(new Error("Resposta de imagem inválida do Gemini"), { status: 502 });
+}
+
+async function generateWithGemini(input: {
+  prompt: string;
+  templateImage: RefImage;
+  photoImage?: RefImage | null;
+  apiKey: string;
+  aspectRatio: DesignAspectRatio;
+}): Promise<Uint8Array> {
+  const imagePart = (image: RefImage) => ({
+    inline_data: {
+      mime_type: image.mime,
+      data: bytesToBase64(image.bytes),
+    },
+  });
+
+  const parts: Array<Record<string, unknown>> = [
+    { text: input.prompt },
+    {
+      text: `TEMPLATE — só direção de arte (cores, clima, estilo). Canvas final = ${input.aspectRatio}. Não copie a proporção nem o texto desta imagem.`,
+    },
+    imagePart(input.templateImage),
+  ];
+  if (input.photoImage) {
+    parts.push({
+      text: "FOTO/ASSET — use no recorte principal. Ignore a proporção desta foto.",
+    });
+    parts.push(imagePart(input.photoImage));
+  }
+
+  return geminiImageGenerate({
+    parts,
+    apiKey: input.apiKey,
+    aspectRatio: input.aspectRatio,
+  });
+}
+
+async function scrubTextWithGemini(input: {
+  image: RefImage;
+  apiKey: string;
+  aspectRatio: DesignAspectRatio;
+}): Promise<Uint8Array> {
+  const canvas = designCanvasSpec(input.aspectRatio);
+  const prompt = [
+    "TAREFA: limpar TEXTO desta arte.",
+    `Saída obrigatória ${input.aspectRatio} (${canvas.pixels}). ${canvas.forbidden}`,
+    "Apague TODAS as letras e números. Complete o fundo. Zero tipografia na saída.",
+  ].join("\n");
+
+  return geminiImageGenerate({
+    parts: [
+      { text: prompt },
+      {
+        inline_data: {
+          mime_type: input.image.mime,
+          data: bytesToBase64(input.image.bytes),
+        },
+      },
+    ],
+    apiKey: input.apiKey,
+    aspectRatio: input.aspectRatio,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -359,7 +434,7 @@ Deno.serve(async (req) => {
     void overlayText;
     void secondaryText;
 
-    const { apiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 5);
+    const { apiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 10);
     const keyError = resolvedKeyError({ apiKey, source: keySource }, provider);
     if (keyError) {
       return jsonResponse({ error: keyError }, 400);
@@ -438,9 +513,9 @@ Deno.serve(async (req) => {
     const prompt = [
       "TAREFA: gerar UMA arte final pronta para overlay de texto (sem letras).",
       "O template anexado é REFERÊNCIA de direção de arte — não um canvas a ser clonado 1:1.",
-      `Canvas de saída OBRIGATÓRIO: ${canvas.orientation} ${aspectRatio} (${canvas.pixels}) para ${canvas.uses}.`,
+      `Canvas de saída OBRIGATÓRIO: ${canvas.orientation} ${aspectRatio} (${canvas.pixels}, size API ${canvas.openaiSize}) para ${canvas.uses}.`,
       `Proporção final: exatamente ${aspectRatio}. ${canvas.forbidden}`,
-      "Ignore a proporção nativa do template e da foto. Se o template for 1:1 e o pedido for 3:4/4:5/9:16, RECOMPONHA o layout no retrato (não crope para quadrado, não letterbox, não deixe barras).",
+      "Ignore a proporção nativa do template e da foto. Se o template for 1:1/4:5 e o pedido for 3:4, RECOMPONHA o layout no retrato (não crope para quadrado, não letterbox, não deixe barras).",
       "Preserve a direção de arte: paleta, clima, contraste, estilo fotográfico, margens relativas, hierarquia de blocos e tratamento de fundo.",
       "Pode reposicionar/redimensionar blocos e o recorte da foto para caber bem no novo canvas.",
       "Não invente blocos extras, logos inventados, selos, stickers nem tipografia desenhada.",
@@ -450,7 +525,7 @@ Deno.serve(async (req) => {
       "TEXTO — regra absoluta (falha se violar):",
       "ZERO letras na saída. Não renderize palavra, número, handle (@), hashtag, CTA, crédito, marca d'água, placeholder nem texto ilegível/borrado.",
       "Apague/inpaint TODO o texto visível do template (título, subtítulo, @, especialidade, rodapé escrito) e complete o fundo nessas áreas de forma contínua.",
-      "Não reescreva, traduza, complete nem invente palavras (ex.: não acrescente 'imediatamente' nem qualquer outra).",
+      "Não reescreva, traduza, complete nem invente palavras. Não copie o copy do template para a nova arte.",
       "Não duplique frases. Se restar qualquer letra — mesmo errada — a arte está ERRADA.",
       "O app aplica o copy depois, com a fonte verdadeira da marca; sua saída é só fundo/layout limpo.",
       "Respeite as cores do kit de marca quando informadas.",
@@ -478,6 +553,15 @@ Deno.serve(async (req) => {
           apiKey,
           aspectRatio,
         });
+        try {
+          imageBytes = await scrubTextWithGemini({
+            image: { bytes: imageBytes, mime: "image/png", fileName: "draft.png" },
+            apiKey,
+            aspectRatio,
+          });
+        } catch (scrubErr) {
+          console.error("Gemini text scrub failed, keeping first pass:", scrubErr);
+        }
       } else {
         imageBytes = await generateWithOpenAI({
           prompt,
@@ -486,6 +570,15 @@ Deno.serve(async (req) => {
           apiKey,
           aspectRatio,
         });
+        try {
+          imageBytes = await scrubTextWithOpenAI({
+            image: { bytes: imageBytes, mime: "image/png", fileName: "draft.png" },
+            apiKey,
+            aspectRatio,
+          });
+        } catch (scrubErr) {
+          console.error("OpenAI text scrub failed, keeping first pass:", scrubErr);
+        }
       }
     } catch (err) {
       const status = typeof err === "object" && err && "status" in err

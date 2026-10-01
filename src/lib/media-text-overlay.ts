@@ -1,5 +1,27 @@
 import { loadBrandFonts, resolveBrandFont } from "@/lib/brand-fonts";
 import type { BrandColor } from "@/lib/api";
+import { designCanvasSpec, type DesignAspectRatio } from "@/lib/design-aspect";
+import {
+  createDefaultImageAdjustments,
+  drawImageWithFraming,
+  drawVignette,
+  imageAdjustmentsToCssFilter,
+  imageAdjustmentsVignetteOpacity,
+  normalizeImageAdjustments,
+  parseImageAdjustments,
+  type MediaImageAdjustments,
+} from "@/lib/media-image-adjustments";
+
+export type { MediaImageAdjustments, MediaImageFilterPreset } from "@/lib/media-image-adjustments";
+export {
+  DEFAULT_IMAGE_ADJUSTMENTS,
+  MEDIA_IMAGE_FILTER_PRESETS,
+  createDefaultImageAdjustments,
+  imageAdjustmentsAreDefault,
+  imageAdjustmentsToCssFilter,
+  imageAdjustmentsVignetteOpacity,
+  normalizeImageAdjustments,
+} from "@/lib/media-image-adjustments";
 
 export type TextLayerAlign = "left" | "center" | "right";
 
@@ -23,6 +45,7 @@ export type MediaTextLayer = {
 export type MediaTextOverlay = {
   baseUrl: string;
   layers: MediaTextLayer[];
+  adjustments?: MediaImageAdjustments;
 };
 
 const DEFAULT_PRIMARY_COLOR = "#FFFFFF";
@@ -40,6 +63,44 @@ function asAlign(value: unknown): TextLayerAlign {
 
 function asWeight(value: unknown): "400" | "700" {
   return value === "400" ? "400" : "700";
+}
+
+/**
+ * Cover-crop + scale to the exact design canvas (e.g. 1080×1440 for 3:4),
+ * so a square AI output cannot ship as the final piece.
+ */
+export async function normalizeImageToDesignCanvas(
+  sourceUrl: string,
+  aspect: DesignAspectRatio,
+): Promise<Blob> {
+  const { width: targetW, height: targetH } = designCanvasSpec(aspect);
+  const res = await fetch(sourceUrl);
+  if (!res.ok) throw new Error("Não foi possível carregar a arte base.");
+  const source = await res.blob();
+  const bitmap = await createImageBitmap(source);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    throw new Error("Não foi possível ajustar a proporção da arte.");
+  }
+
+  const scale = Math.max(targetW / bitmap.width, targetH / bitmap.height);
+  const drawW = bitmap.width * scale;
+  const drawH = bitmap.height * scale;
+  const dx = (targetW - drawW) / 2;
+  const dy = (targetH - drawH) / 2;
+  ctx.drawImage(bitmap, dx, dy, drawW, drawH);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((result) => resolve(result), "image/png");
+  });
+  if (!blob) throw new Error("Falha ao normalizar a proporção da arte.");
+  return blob;
 }
 
 export function createTextLayer(
@@ -99,12 +160,16 @@ export function createDefaultOverlay(input: {
       }),
     );
   }
-  return { baseUrl: input.baseUrl, layers };
+  return {
+    baseUrl: input.baseUrl,
+    layers,
+    adjustments: createDefaultImageAdjustments(),
+  };
 }
 
 export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const row = value as { baseUrl?: unknown; layers?: unknown };
+  const row = value as { baseUrl?: unknown; layers?: unknown; adjustments?: unknown };
   const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
   if (!baseUrl || !Array.isArray(row.layers)) return null;
   const layers = row.layers
@@ -130,7 +195,11 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
       } satisfies MediaTextLayer;
     })
     .filter((layer): layer is MediaTextLayer => Boolean(layer));
-  return { baseUrl, layers };
+  return {
+    baseUrl,
+    layers,
+    adjustments: parseImageAdjustments(row.adjustments),
+  };
 }
 
 export function parseMediaOverlays(value: unknown): Array<MediaTextOverlay | null> {
@@ -184,7 +253,13 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
     throw new Error("Não foi possível desenhar o texto na arte.");
   }
 
-  ctx.drawImage(bitmap, 0, 0);
+  const adjustments = normalizeImageAdjustments(
+    overlay.adjustments ?? createDefaultImageAdjustments(),
+  );
+  ctx.filter = imageAdjustmentsToCssFilter(adjustments);
+  drawImageWithFraming(ctx, bitmap, canvas.width, canvas.height, adjustments);
+  ctx.filter = "none";
+  drawVignette(ctx, canvas.width, canvas.height, imageAdjustmentsVignetteOpacity(adjustments));
   bitmap.close();
 
   ctx.textBaseline = "middle";

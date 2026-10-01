@@ -143,8 +143,8 @@ import { cn } from "@/lib/utils";
 import { validateContentSearch } from "./content";
 
 const CLIENT_REVIEW_STATUSES: ContentStatus[] = ["approved", "changes"];
-/** Temporarily hidden on the asset page until the overlay editor is ready. */
-const ART_TEXT_EDITOR_ENABLED = false;
+/** Overlay text editor on media preview / generated art lightbox. */
+const ART_TEXT_EDITOR_ENABLED = true;
 
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 const NONE_THEME_VALUE = "__none__";
@@ -1281,6 +1281,7 @@ function ContentDetailPage() {
 
           {isAdmin ? (
             <ContentAiAssistant
+              key={contentId}
               contentId={contentId}
               projectId={projectId}
               clientId={clientId}
@@ -1388,6 +1389,54 @@ function ContentDetailPage() {
                 ) {
                   setFormatType("carousel");
                 }
+              }}
+              onApplyAtIndex={(index, item) => {
+                if (usesDedicatedThumbnail) {
+                  setThumbnailFromFile(null);
+                  setThumbnailUrl(item.url);
+                  return true;
+                }
+
+                let applied = false;
+                let nextRequiredSlide = 1;
+                setMediaItems((prev) => {
+                  if (index > prev.length) {
+                    nextRequiredSlide = prev.length + 1;
+                    return prev;
+                  }
+                  applied = true;
+                  const entry: MediaEntry = {
+                    id: createMediaId(),
+                    kind: "url",
+                    url: item.url,
+                    overlay: item.overlay ?? null,
+                  };
+                  const next = [...prev];
+                  if (index < next.length) {
+                    next[index] = entry;
+                  } else {
+                    next.push(entry);
+                  }
+                  return next;
+                });
+
+                if (!applied) {
+                  toast.error(
+                    t("project.detail.designAssistant.approveNeedPrevious", {
+                      n: nextRequiredSlide,
+                    }),
+                  );
+                  return false;
+                }
+
+                if (
+                  index > 0 &&
+                  formatType !== "carousel" &&
+                  allowedFormats.includes("carousel")
+                ) {
+                  setFormatType("carousel");
+                }
+                return true;
               }}
             />
           ) : null}

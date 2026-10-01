@@ -5,6 +5,8 @@ export type DesignAspectRatio = (typeof DESIGN_ASPECT_RATIOS)[number];
 export type DesignCanvasSpec = {
   aspect: DesignAspectRatio;
   pixels: string;
+  width: number;
+  height: number;
   orientation: "retrato" | "paisagem" | "quadrado";
   openaiSize: "1024x1024" | "1024x1536" | "1536x1024";
   forbidden: string;
@@ -14,6 +16,8 @@ export type DesignCanvasSpec = {
 const CANVAS: Record<DesignAspectRatio, Omit<DesignCanvasSpec, "aspect">> = {
   "4:5": {
     pixels: "1080×1350",
+    width: 1080,
+    height: 1350,
     orientation: "retrato",
     openaiSize: "1024x1536",
     forbidden: "Proibido 1:1, 16:9 e 9:16.",
@@ -21,6 +25,8 @@ const CANVAS: Record<DesignAspectRatio, Omit<DesignCanvasSpec, "aspect">> = {
   },
   "9:16": {
     pixels: "1080×1920",
+    width: 1080,
+    height: 1920,
     orientation: "retrato",
     openaiSize: "1024x1536",
     forbidden: "Proibido 4:5, 1:1 e 16:9.",
@@ -28,6 +34,8 @@ const CANVAS: Record<DesignAspectRatio, Omit<DesignCanvasSpec, "aspect">> = {
   },
   "16:9": {
     pixels: "1920×1080",
+    width: 1920,
+    height: 1080,
     orientation: "paisagem",
     openaiSize: "1536x1024",
     forbidden: "Proibido 9:16, 4:5 e 1:1.",
@@ -35,6 +43,8 @@ const CANVAS: Record<DesignAspectRatio, Omit<DesignCanvasSpec, "aspect">> = {
   },
   "1:1": {
     pixels: "1080×1080",
+    width: 1080,
+    height: 1080,
     orientation: "quadrado",
     openaiSize: "1024x1024",
     forbidden: "Proibido 4:5, 9:16 e 16:9.",
@@ -42,6 +52,8 @@ const CANVAS: Record<DesignAspectRatio, Omit<DesignCanvasSpec, "aspect">> = {
   },
   "3:4": {
     pixels: "1080×1440",
+    width: 1080,
+    height: 1440,
     orientation: "retrato",
     openaiSize: "1024x1536",
     forbidden: "Proibido 16:9 e 1:1.",

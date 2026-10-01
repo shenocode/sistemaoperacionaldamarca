@@ -66,6 +66,88 @@ type ContentAiAssistantProps = {
   onClearAppliedFields?: () => void | Promise<void>;
 };
 
+type PersistedAssistantState = {
+  open: boolean;
+  prompt: string;
+  selectedLibraryAssetIds: string[];
+  transcription: string;
+  webSearch: boolean;
+  refineInstruction: string;
+  draft: ContentSuggestion | null;
+  provider: DesignProvider;
+  appliedOnce: boolean;
+};
+
+const ASSISTANT_STORAGE_PREFIX = "som:content-ai-assistant:";
+
+function assistantStorageKey(contentId: string) {
+  return `${ASSISTANT_STORAGE_PREFIX}${contentId}`;
+}
+
+function isDesignProvider(value: unknown): value is DesignProvider {
+  return value === "openai" || value === "gemini";
+}
+
+function isContentSuggestion(value: unknown): value is ContentSuggestion {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.title === "string" &&
+    typeof row.caption === "string" &&
+    typeof row.cta === "string" &&
+    typeof row.hashtags === "string" &&
+    (row.theme === null || typeof row.theme === "string") &&
+    typeof row.locucao === "string" &&
+    typeof row.locucaoHook === "string" &&
+    typeof row.locucaoBody === "string" &&
+    typeof row.locucaoCta === "string" &&
+    typeof row.roteiro === "string"
+  );
+}
+
+function readPersistedAssistantState(contentId: string): PersistedAssistantState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(assistantStorageKey(contentId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedAssistantState>;
+    return {
+      open: Boolean(parsed.open),
+      prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
+      selectedLibraryAssetIds: Array.isArray(parsed.selectedLibraryAssetIds)
+        ? parsed.selectedLibraryAssetIds.filter((id): id is string => typeof id === "string")
+        : [],
+      transcription: typeof parsed.transcription === "string" ? parsed.transcription : "",
+      webSearch: Boolean(parsed.webSearch),
+      refineInstruction:
+        typeof parsed.refineInstruction === "string" ? parsed.refineInstruction : "",
+      draft: isContentSuggestion(parsed.draft) ? parsed.draft : null,
+      provider: isDesignProvider(parsed.provider) ? parsed.provider : "openai",
+      appliedOnce: Boolean(parsed.appliedOnce),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedAssistantState(contentId: string, state: PersistedAssistantState) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(assistantStorageKey(contentId), JSON.stringify(state));
+  } catch {
+    // Ignore quota / private-mode failures; UI still works in-memory.
+  }
+}
+
+function clearPersistedAssistantState(contentId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(assistantStorageKey(contentId));
+  } catch {
+    // ignore
+  }
+}
+
 function withLocucaoParts(suggestion: ContentSuggestion): ContentSuggestion {
   const parts = locucaoPartsFromSuggestion(suggestion);
   return {
@@ -86,18 +168,23 @@ export function ContentAiAssistant({
   onClearAppliedFields,
 }: ContentAiAssistantProps) {
   const { t, i18n } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [selectedLibraryAssetIds, setSelectedLibraryAssetIds] = useState<string[]>([]);
-  const [transcription, setTranscription] = useState("");
-  const [webSearch, setWebSearch] = useState(false);
-  const [refineInstruction, setRefineInstruction] = useState("");
-  const [draft, setDraft] = useState<ContentSuggestion | null>(null);
-  const [provider, setProvider] = useState<DesignProvider>("openai");
-  const [appliedOnce, setAppliedOnce] = useState(false);
+  const [hydrated] = useState(() => readPersistedAssistantState(contentId));
+  const [open, setOpen] = useState(() => Boolean(hydrated?.open || hydrated?.draft));
+  const [prompt, setPrompt] = useState(() => hydrated?.prompt ?? "");
+  const [selectedLibraryAssetIds, setSelectedLibraryAssetIds] = useState<string[]>(
+    () => hydrated?.selectedLibraryAssetIds ?? [],
+  );
+  const [transcription, setTranscription] = useState(() => hydrated?.transcription ?? "");
+  const [webSearch, setWebSearch] = useState(() => Boolean(hydrated?.webSearch));
+  const [refineInstruction, setRefineInstruction] = useState(
+    () => hydrated?.refineInstruction ?? "",
+  );
+  const [draft, setDraft] = useState<ContentSuggestion | null>(() => hydrated?.draft ?? null);
+  const [provider, setProvider] = useState<DesignProvider>(() => hydrated?.provider ?? "openai");
+  const [appliedOnce, setAppliedOnce] = useState(() => Boolean(hydrated?.appliedOnce));
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const generatingRef = useRef(false);
-  const didInitProvider = useRef(false);
+  const didInitProvider = useRef(Boolean(hydrated?.provider));
 
   const keysQuery = useQuery({
     queryKey: ["admin-ai-keys"],
@@ -114,12 +201,53 @@ export function ContentAiAssistant({
     if (!openaiConfigured && geminiConfigured) setProvider("gemini");
   }, [keysQuery.isLoading, keysQuery.isError, openaiConfigured, geminiConfigured]);
 
+  // Keep draft/prompt until Discard / Start over — remounts (nav, role flicker) must not wipe it.
+  useEffect(() => {
+    const hasWork =
+      Boolean(prompt.trim()) ||
+      selectedLibraryAssetIds.length > 0 ||
+      Boolean(transcription.trim()) ||
+      webSearch ||
+      Boolean(refineInstruction.trim()) ||
+      draft !== null ||
+      appliedOnce;
+
+    if (!hasWork) {
+      clearPersistedAssistantState(contentId);
+      return;
+    }
+
+    writePersistedAssistantState(contentId, {
+      open,
+      prompt,
+      selectedLibraryAssetIds,
+      transcription,
+      webSearch,
+      refineInstruction,
+      draft,
+      provider,
+      appliedOnce,
+    });
+  }, [
+    contentId,
+    open,
+    prompt,
+    selectedLibraryAssetIds,
+    transcription,
+    webSearch,
+    refineInstruction,
+    draft,
+    provider,
+    appliedOnce,
+  ]);
+
   const needsLocucao = format === "reels" || format === "recorded_video" || format === "youtube_short";
   const needsRoteiro = format === "carousel";
 
   const applySuggestion = (suggestion: ContentSuggestion) => {
     const next = withLocucaoParts(suggestion);
     setDraft(next);
+    setOpen(true);
     if (next.webSearchUnavailable) {
       toast.warning(t("project.detail.assistant.webSearchUnavailable"));
     }
@@ -226,6 +354,7 @@ export function ContentAiAssistant({
     setWebSearch(false);
     setRefineInstruction("");
     setDraft(null);
+    clearPersistedAssistantState(contentId);
   };
 
   const canReset =
@@ -241,6 +370,7 @@ export function ContentAiAssistant({
     resetAssistantState();
     setAppliedOnce(false);
     setResetDialogOpen(false);
+    clearPersistedAssistantState(contentId);
     if (clearForm && onClearAppliedFields) {
       await onClearAppliedFields();
       toast.success(t("project.detail.assistant.resetClearedWithForm"));
