@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState, type InputHTMLAttributes, type RefObject } from "react";
+import { FolderUp, Plus, Trash2, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,14 @@ import {
 import {
   BRAND_FONT_ACCEPT,
   MAX_BRAND_COLORS,
+  MAX_BRAND_SECONDARY_FONTS,
+  brandFontFamilyFromFileName,
+  brandFontsFromSecondaries,
+  isBrandFontFileName,
+  listBrandSecondaryFonts,
   uploadBrandFont,
   type BrandColor,
+  type BrandFontEntry,
   type BrandFonts,
 } from "@/lib/api";
 import {
@@ -27,6 +33,7 @@ import {
   brandFontNeedsFile,
   brandFontsToFileMap,
   isGoogleBrandFont,
+  listBrandFontFamilies,
   loadBrandFonts,
 } from "@/lib/brand-fonts";
 
@@ -38,6 +45,8 @@ export type BrandKitValue = {
   brand_fonts: BrandFonts;
   brand_guidance: string;
 };
+
+type FontSlotTarget = "primary" | { secondaryIndex: number };
 
 export function BrandKitFields({
   value,
@@ -56,18 +65,26 @@ export function BrandKitFields({
   const { t } = useTranslation();
   const colors = value.brand_colors ?? [];
   const fonts = value.brand_fonts ?? {};
+  const secondaries = listBrandSecondaryFonts(fonts);
   const [otherPrimary, setOtherPrimary] = useState(() => isOtherName(fonts.primary));
-  const [otherSecondary, setOtherSecondary] = useState(() => isOtherName(fonts.secondary));
-  const [uploadingSlot, setUploadingSlot] = useState<"primary" | "secondary" | null>(null);
+  const [otherSecondaries, setOtherSecondaries] = useState<Record<number, boolean>>(() =>
+    Object.fromEntries(secondaries.map((entry, index) => [index, isOtherName(entry.family)])),
+  );
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const primaryFileRef = useRef<HTMLInputElement>(null);
-  const secondaryFileRef = useRef<HTMLInputElement>(null);
+  const primaryFolderRef = useRef<HTMLInputElement>(null);
+  const secondaryFileRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const secondaryFolderRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    void loadBrandFonts(
-      [fonts.primary ?? "", fonts.secondary ?? ""],
-      brandFontsToFileMap(fonts),
-    );
-  }, [fonts.primary, fonts.secondary, fonts.primaryFileUrl, fonts.secondaryFileUrl]);
+    void loadBrandFonts(listBrandFontFamilies(fonts), brandFontsToFileMap(fonts));
+  }, [
+    fonts.primary,
+    fonts.secondary,
+    fonts.primaryFileUrl,
+    fonts.secondaryFileUrl,
+    fonts.extras,
+  ]);
 
   function setColors(next: BrandColor[]) {
     onChange({ ...value, brand_colors: next });
@@ -77,47 +94,135 @@ export function BrandKitFields({
     onChange({ ...value, brand_fonts: { ...fonts, ...patch } });
   }
 
+  function setSecondaries(next: BrandFontEntry[]) {
+    onChange({
+      ...value,
+      brand_fonts: brandFontsFromSecondaries(fonts, next),
+    });
+  }
+
   function updateColor(index: number, patch: Partial<BrandColor>) {
     setColors(colors.map((color, i) => (i === index ? { ...color, ...patch } : color)));
   }
 
-  async function handleFontUpload(slot: "primary" | "secondary", file: File | undefined) {
-    if (!file) return;
+  function setOtherSecondary(index: number, next: boolean) {
+    setOtherSecondaries((prev) => ({ ...prev, [index]: next }));
+  }
+
+  async function handleFontUploads(target: FontSlotTarget, fileList: FileList | File[] | null) {
+    const raw = fileList ? Array.from(fileList) : [];
+    const files = raw.filter((file) => isBrandFontFileName(file.name));
+    if (files.length === 0) {
+      toast.error(t("clients.brandKit.fontUploadNoFontFiles"));
+      return;
+    }
     if (!clientId) {
       toast.error(t("clients.brandKit.fontUploadNoClient"));
       return;
     }
-    setUploadingSlot(slot);
+
+    const uploadKey =
+      target === "primary" ? "primary" : `secondary-${target.secondaryIndex}`;
+    setUploadingKey(uploadKey);
+
     try {
-      const url = await uploadBrandFont(clientId, file);
-      const familyFromName = file.name
-        .replace(/\.(woff2?|ttf|otf)$/i, "")
-        .replace(/[-_]+/g, " ")
-        .trim();
-      if (slot === "primary") {
-        const family = fonts.primary?.trim() || familyFromName || "Custom Font";
-        setFonts({ primary: family, primaryFileUrl: url });
-      } else {
-        const family = fonts.secondary?.trim() || familyFromName || "Custom Font";
-        setFonts({ secondary: family, secondaryFileUrl: url });
+      const uploaded: BrandFontEntry[] = [];
+      for (const file of files) {
+        const url = await uploadBrandFont(clientId, file);
+        uploaded.push({
+          family: brandFontFamilyFromFileName(file.name) || "Custom Font",
+          fileUrl: url,
+        });
       }
-      toast.success(t("clients.brandKit.fontUploadOk"));
+
+      if (target === "primary") {
+        const [first, ...rest] = uploaded;
+        const family = fonts.primary?.trim() || first.family;
+        let nextSecondaries = [...secondaries];
+        for (const entry of rest) {
+          if (nextSecondaries.length >= MAX_BRAND_SECONDARY_FONTS) break;
+          const emptyIdx = nextSecondaries.findIndex((s) => !s.family.trim() && !s.fileUrl?.trim());
+          if (emptyIdx >= 0) {
+            nextSecondaries[emptyIdx] = entry;
+          } else {
+            nextSecondaries.push(entry);
+          }
+        }
+        nextSecondaries = nextSecondaries.slice(0, MAX_BRAND_SECONDARY_FONTS);
+        onChange({
+          ...value,
+          brand_fonts: brandFontsFromSecondaries(
+            { ...fonts, primary: family, primaryFileUrl: first.fileUrl },
+            nextSecondaries,
+          ),
+        });
+      } else {
+        const index = target.secondaryIndex;
+        const [first, ...rest] = uploaded;
+        const next = [...secondaries];
+        while (next.length <= index) next.push({ family: "" });
+        const existingFamily = next[index]?.family?.trim();
+        next[index] = {
+          family: existingFamily || first.family,
+          fileUrl: first.fileUrl,
+        };
+        for (const entry of rest) {
+          if (next.length >= MAX_BRAND_SECONDARY_FONTS) break;
+          next.push(entry);
+        }
+        setSecondaries(next.slice(0, MAX_BRAND_SECONDARY_FONTS));
+      }
+
+      toast.success(
+        files.length === 1
+          ? t("clients.brandKit.fontUploadOk")
+          : t("clients.brandKit.fontUploadOkMany", { count: files.length }),
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("clients.brandKit.fontUploadError"));
     } finally {
-      setUploadingSlot(null);
+      setUploadingKey(null);
     }
   }
 
-  function renderFontSlot(slot: "primary" | "secondary") {
-    const family = (slot === "primary" ? fonts.primary : fonts.secondary) ?? "";
-    const fileUrl = slot === "primary" ? fonts.primaryFileUrl : fonts.secondaryFileUrl;
-    const otherMode = slot === "primary" ? otherPrimary : otherSecondary;
-    const setOther = slot === "primary" ? setOtherPrimary : setOtherSecondary;
-    const fileRef = slot === "primary" ? primaryFileRef : secondaryFileRef;
-    const label =
-      slot === "primary" ? t("clients.brandKit.fontPrimary") : t("clients.brandKit.fontSecondary");
-    const selectId = `${idPrefix}-font-${slot}`;
+  function renderFontSelect(opts: {
+    slotId: string;
+    label: string;
+    family: string;
+    fileUrl?: string;
+    otherMode: boolean;
+    setOther: (next: boolean) => void;
+    onFamilyChange: (family: string, clearFile: boolean) => void;
+    onClear: () => void;
+    uploadTarget: FontSlotTarget;
+    fileInputRef?: (el: HTMLInputElement | null) => void;
+    folderInputRef?: (el: HTMLInputElement | null) => void;
+    fileRef?: RefObject<HTMLInputElement | null>;
+    folderRef?: RefObject<HTMLInputElement | null>;
+    onPickFiles?: () => void;
+    onPickFolder?: () => void;
+    canRemove?: boolean;
+    onRemove?: () => void;
+  }) {
+    const {
+      slotId,
+      label,
+      family,
+      fileUrl,
+      otherMode,
+      setOther,
+      onFamilyChange,
+      onClear,
+      uploadTarget,
+      fileInputRef,
+      folderInputRef,
+      fileRef,
+      folderRef,
+      onPickFiles,
+      onPickFolder,
+      canRemove,
+      onRemove,
+    } = opts;
     const trimmed = family.trim();
     const needsFile = brandFontNeedsFile(trimmed) && !fileUrl?.trim();
     const showUpload = Boolean(trimmed) && brandFontNeedsFile(trimmed);
@@ -129,10 +234,12 @@ export function BrandKitFields({
       : otherMode || (!inCurated && brandFontNeedsFile(trimmed))
         ? FONT_OTHER
         : trimmed;
+    const uploadKey =
+      uploadTarget === "primary" ? "primary" : `secondary-${uploadTarget.secondaryIndex}`;
+    const uploading = uploadingKey === uploadKey;
 
     const kitOptions = BRAND_KIT_FONT_OPTIONS;
     const googleOptions = BRAND_GOOGLE_FONT_OPTIONS;
-    // Keep a one-off stored name visible if it isn't in the curated lists.
     const orphan =
       trimmed &&
       !kitOptions.some((f) => f.family.toLowerCase() === trimmed.toLowerCase()) &&
@@ -143,50 +250,42 @@ export function BrandKitFields({
 
     return (
       <div className="space-y-1.5">
-        <Label htmlFor={selectId}>{label}</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={slotId}>{label}</Label>
+          {canRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={onRemove}
+              aria-label={t("clients.brandKit.removeSecondaryFont")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : null}
+        </div>
         <Select
           value={selectValue}
           onValueChange={(next) => {
             if (next === FONT_NONE) {
               setOther(false);
-              setFonts(
-                slot === "primary"
-                  ? { primary: "", primaryFileUrl: "" }
-                  : { secondary: "", secondaryFileUrl: "" },
-              );
+              onClear();
               return;
             }
             if (next === FONT_OTHER) {
               setOther(true);
               if (isGoogleBrandFont(family) || !family.trim()) {
-                setFonts(slot === "primary" ? { primary: "" } : { secondary: "" });
+                onFamilyChange("", true);
               }
               return;
             }
             setOther(false);
             const sameFamily = trimmed.toLowerCase() === next.toLowerCase();
-            if (slot === "primary") {
-              setFonts({
-                primary: next,
-                primaryFileUrl: sameFamily
-                  ? fonts.primaryFileUrl
-                  : isGoogleBrandFont(next)
-                    ? ""
-                    : "",
-              });
-            } else {
-              setFonts({
-                secondary: next,
-                secondaryFileUrl: sameFamily
-                  ? fonts.secondaryFileUrl
-                  : isGoogleBrandFont(next)
-                    ? ""
-                    : "",
-              });
-            }
+            onFamilyChange(next, !sameFamily);
           }}
         >
-          <SelectTrigger id={selectId}>
+          <SelectTrigger id={slotId}>
             <SelectValue placeholder={t("clients.brandKit.fontSelect")} />
           </SelectTrigger>
           <SelectContent>
@@ -201,7 +300,7 @@ export function BrandKitFields({
               {t("clients.brandKit.fontGroupKit")}
             </div>
             {kitOptions.map((font) => (
-              <SelectItem key={`kit-${font.id}`} value={font.family}>
+              <SelectItem key={`kit-${slotId}-${font.id}`} value={font.family}>
                 {font.family}
               </SelectItem>
             ))}
@@ -210,7 +309,7 @@ export function BrandKitFields({
             </div>
             {googleOptions.map((font) => (
               <SelectItem
-                key={`google-${font.id}`}
+                key={`google-${slotId}-${font.id}`}
                 value={font.family}
                 style={{ fontFamily: brandFontFamilyCss(font.family) }}
               >
@@ -222,24 +321,14 @@ export function BrandKitFields({
 
         {otherMode ? (
           <div className="space-y-1.5">
-            <Label htmlFor={`${selectId}-name`}>{t("clients.brandKit.fontCustomName")}</Label>
+            <Label htmlFor={`${slotId}-name`}>{t("clients.brandKit.fontCustomName")}</Label>
             <Input
-              id={`${selectId}-name`}
+              id={`${slotId}-name`}
               value={family}
               onChange={(e) => {
                 const next = e.target.value;
                 const same = trimmed.toLowerCase() === next.trim().toLowerCase();
-                setFonts(
-                  slot === "primary"
-                    ? {
-                        primary: next,
-                        primaryFileUrl: same ? fonts.primaryFileUrl : "",
-                      }
-                    : {
-                        secondary: next,
-                        secondaryFileUrl: same ? fonts.secondaryFileUrl : "",
-                      },
-                );
+                onFamilyChange(next, !same);
               }}
               placeholder={t("clients.brandKit.fontCustomNamePlaceholder")}
             />
@@ -250,14 +339,28 @@ export function BrandKitFields({
           <div className="space-y-2 rounded-md border border-dashed p-3">
             <p className="text-xs text-muted-foreground">{t("clients.brandKit.fontFileHint")}</p>
             <input
-              ref={fileRef}
+              ref={fileInputRef ?? fileRef}
               type="file"
               accept={BRAND_FONT_ACCEPT}
+              multiple
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0];
+                const list = e.target.files;
                 e.target.value = "";
-                void handleFontUpload(slot, file);
+                void handleFontUploads(uploadTarget, list);
+              }}
+            />
+            <input
+              ref={folderInputRef ?? folderRef}
+              type="file"
+              multiple
+              className="hidden"
+              // Chromium/Safari: pick a folder and expose files inside.
+              {...({ webkitdirectory: "", directory: "" } as InputHTMLAttributes<HTMLInputElement>)}
+              onChange={(e) => {
+                const list = e.target.files;
+                e.target.value = "";
+                void handleFontUploads(uploadTarget, list);
               }}
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -265,31 +368,40 @@ export function BrandKitFields({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!clientId || uploadingSlot === slot}
-                onClick={() => fileRef.current?.click()}
+                disabled={!clientId || uploading}
+                onClick={() => (onPickFiles ? onPickFiles() : fileRef?.current?.click())}
               >
                 <Upload className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                {uploadingSlot === slot
+                {uploading
                   ? t("clients.brandKit.fontUploading")
                   : fileUrl?.trim()
                     ? t("clients.brandKit.fontReplaceFile")
                     : t("clients.brandKit.fontUploadFile")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!clientId || uploading}
+                onClick={() => (onPickFolder ? onPickFolder() : folderRef?.current?.click())}
+              >
+                <FolderUp className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                {t("clients.brandKit.fontUploadFolder")}
               </Button>
               {fileUrl?.trim() ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() =>
-                    setFonts(
-                      slot === "primary" ? { primaryFileUrl: "" } : { secondaryFileUrl: "" },
-                    )
-                  }
+                  onClick={() => onFamilyChange(family, true)}
                 >
                   {t("clients.brandKit.fontClearFile")}
                 </Button>
               ) : null}
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              {t("clients.brandKit.fontBatchHint")}
+            </p>
             {fileUrl?.trim() ? (
               <p className="text-xs text-muted-foreground">{t("clients.brandKit.fontFileReady")}</p>
             ) : needsFile ? (
@@ -382,10 +494,101 @@ export function BrandKitFields({
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {renderFontSlot("primary")}
-        {renderFontSlot("secondary")}
+      <div className="space-y-4">
+        {renderFontSelect({
+          slotId: `${idPrefix}-font-primary`,
+          label: t("clients.brandKit.fontPrimary"),
+          family: fonts.primary ?? "",
+          fileUrl: fonts.primaryFileUrl,
+          otherMode: otherPrimary,
+          setOther: setOtherPrimary,
+          onClear: () => setFonts({ primary: "", primaryFileUrl: "" }),
+          onFamilyChange: (next, clearFile) => {
+            const same = (fonts.primary ?? "").trim().toLowerCase() === next.trim().toLowerCase();
+            setFonts({
+              primary: next,
+              primaryFileUrl: clearFile || !same ? "" : fonts.primaryFileUrl,
+            });
+          },
+          uploadTarget: "primary",
+          fileRef: primaryFileRef,
+          folderRef: primaryFolderRef,
+        })}
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label>{t("clients.brandKit.fontSecondaries")}</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={secondaries.length >= MAX_BRAND_SECONDARY_FONTS}
+              onClick={() => {
+                if (secondaries.length >= MAX_BRAND_SECONDARY_FONTS) return;
+                setSecondaries([...secondaries, { family: "" }]);
+              }}
+            >
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {t("clients.brandKit.addSecondaryFont")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("clients.brandKit.fontSecondariesHint")}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {secondaries.map((entry, index) =>
+              renderFontSelect({
+                slotId: `${idPrefix}-font-secondary-${index}`,
+                label:
+                  secondaries.length === 1
+                    ? t("clients.brandKit.fontSecondary")
+                    : t("clients.brandKit.fontSecondaryN", { n: index + 1 }),
+                family: entry.family ?? "",
+                fileUrl: entry.fileUrl,
+                otherMode: Boolean(otherSecondaries[index]) || isOtherName(entry.family),
+                setOther: (next) => setOtherSecondary(index, next),
+                onClear: () => {
+                  const next = [...secondaries];
+                  next[index] = { family: "", fileUrl: undefined };
+                  setSecondaries(next);
+                },
+                onFamilyChange: (nextFamily, clearFile) => {
+                  const next = [...secondaries];
+                  const prev = next[index] ?? { family: "" };
+                  const same =
+                    (prev.family ?? "").trim().toLowerCase() === nextFamily.trim().toLowerCase();
+                  next[index] = {
+                    family: nextFamily,
+                    fileUrl: clearFile || !same ? undefined : prev.fileUrl,
+                  };
+                  setSecondaries(next);
+                },
+                uploadTarget: { secondaryIndex: index },
+                fileInputRef: (el) => {
+                  secondaryFileRefs.current[index] = el;
+                },
+                folderInputRef: (el) => {
+                  secondaryFolderRefs.current[index] = el;
+                },
+                onPickFiles: () => secondaryFileRefs.current[index]?.click(),
+                onPickFolder: () => secondaryFolderRefs.current[index]?.click(),
+                canRemove: secondaries.length > 1,
+                onRemove: () => {
+                  setSecondaries(secondaries.filter((_, i) => i !== index));
+                  setOtherSecondaries((prev) => {
+                    const next: Record<number, boolean> = {};
+                    Object.entries(prev).forEach(([key, val]) => {
+                      const i = Number(key);
+                      if (i < index) next[i] = val;
+                      if (i > index) next[i - 1] = val;
+                    });
+                    return next;
+                  });
+                },
+              }),
+            )}
+          </div>
+        </div>
       </div>
+
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-font-notes`}>{t("clients.brandKit.fontNotes")}</Label>
         <Textarea

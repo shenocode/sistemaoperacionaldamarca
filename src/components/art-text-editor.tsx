@@ -444,7 +444,11 @@ export function ArtTextEditorPanel({
   const selected = overlay.layers.find((layer) => layer.id === selectedId) ?? overlay.layers[0] ?? null;
   const options = fontOptionsForSelect(selected?.fontFamily);
   const pinned = [...new Set(
-    [brandFonts.primary, brandFonts.secondary]
+    [
+      brandFonts.primary,
+      brandFonts.secondary,
+      ...(brandFonts.extras ?? []).map((entry) => entry.family),
+    ]
       .map((name) => (name ?? "").trim())
       .filter(Boolean),
   )];

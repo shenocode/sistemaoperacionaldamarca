@@ -109,12 +109,27 @@ export function fontOptionsForSelect(stored?: string | null): BrandFontOption[] 
   ];
 }
 
+/** All family names declared in the brand kit (primary + secondaries + extras). */
+export function listBrandFontFamilies(fonts: {
+  primary?: string | null;
+  secondary?: string | null;
+  extras?: Array<{ family?: string | null }> | null;
+}): string[] {
+  const names = [
+    (fonts.primary ?? "").trim(),
+    (fonts.secondary ?? "").trim(),
+    ...(fonts.extras ?? []).map((entry) => (entry?.family ?? "").trim()),
+  ];
+  return [...new Set(names.filter(Boolean))];
+}
+
 /** Build family → file URL map from brand kit fonts. */
 export function brandFontsToFileMap(fonts: {
   primary?: string | null;
   secondary?: string | null;
   primaryFileUrl?: string | null;
   secondaryFileUrl?: string | null;
+  extras?: Array<{ family?: string | null; fileUrl?: string | null }> | null;
 }): BrandFontFileMap {
   const map: BrandFontFileMap = {};
   const primary = (fonts.primary ?? "").trim();
@@ -123,6 +138,11 @@ export function brandFontsToFileMap(fonts: {
   const secondaryUrl = (fonts.secondaryFileUrl ?? "").trim();
   if (primary && primaryUrl) map[primary] = primaryUrl;
   if (secondary && secondaryUrl) map[secondary] = secondaryUrl;
+  for (const entry of fonts.extras ?? []) {
+    const family = (entry?.family ?? "").trim();
+    const url = (entry?.fileUrl ?? "").trim();
+    if (family && url) map[family] = url;
+  }
   return map;
 }
 

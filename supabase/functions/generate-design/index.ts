@@ -33,7 +33,12 @@ type GenerateRequest = {
 };
 
 type BrandColor = { name?: string; hex?: string };
-type BrandFonts = { primary?: string; secondary?: string; notes?: string };
+type BrandFonts = {
+  primary?: string;
+  secondary?: string;
+  extras?: Array<{ family?: string }>;
+  notes?: string;
+};
 
 type RefImage = { bytes: Uint8Array; mime: string; fileName: string };
 
@@ -115,9 +120,18 @@ function formatBrandColors(raw: unknown): string {
 function formatBrandFonts(raw: unknown): string {
   if (!raw || typeof raw !== "object") return "(não informado)";
   const fonts = raw as BrandFonts;
+  const extras = (fonts.extras ?? [])
+    .map((entry) => (entry?.family ?? "").trim())
+    .filter(Boolean);
+  const secondaryParts = [
+    fonts.secondary?.trim() || null,
+    ...extras,
+  ].filter(Boolean);
   const parts = [
     fonts.primary?.trim() ? `principal: ${fonts.primary.trim()}` : null,
-    fonts.secondary?.trim() ? `secundária: ${fonts.secondary.trim()}` : null,
+    secondaryParts.length
+      ? `secundária${secondaryParts.length > 1 ? "s" : ""}: ${secondaryParts.join(", ")}`
+      : null,
     fonts.notes?.trim() ? `notas: ${fonts.notes.trim()}` : null,
   ].filter(Boolean);
   return parts.length ? parts.join("; ") : "(não informado)";

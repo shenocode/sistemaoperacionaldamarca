@@ -1239,6 +1239,76 @@ function ContentDetailPage() {
   const statusButtons = isAdmin ? CONTENT_STATUSES : CLIENT_REVIEW_STATUSES;
   const saving = saveMutation.isPending || versionMutation.isPending;
 
+  const renderSaveAndStatusCard = (noteId: string) => (
+    <Card className="rounded-xl">
+      <CardContent className="space-y-4 p-6">
+        <div className="space-y-1.5">
+          <Label htmlFor={noteId} variant="highlight">
+            {t("project.detail.versionNote")}
+          </Label>
+          <LocalizedTextInput
+            id={noteId}
+            field="versionNote"
+            i18n={rowI18n}
+            fallback={versionNote}
+            placeholder={t("project.detail.versionNotePlaceholder")}
+            onI18nCommit={onFieldI18nCommit}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {isAdmin ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => saveMutation.mutate()}
+            >
+              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+              {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
+            </Button>
+          ) : null}
+          <Button type="button" disabled={saving} onClick={() => versionMutation.mutate()}>
+            <History className="mr-2 h-4 w-4" aria-hidden="true" />
+            {saving && versionMutation.isPending
+              ? t("common.loading")
+              : t("project.detail.saveVersion")}
+          </Button>
+        </div>
+        {statusButtons.length > 0 ? (
+          <div className="space-y-2 border-t pt-4">
+            <Label variant="highlight">{t("project.content.columns.status")}</Label>
+            <div className="flex flex-wrap gap-2">
+              {statusButtons.map((value) => {
+                const isCurrent = value === status;
+                return (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    disabled={statusMutation.isPending || isCurrent}
+                    aria-pressed={isCurrent}
+                    className={cn(
+                      "border shadow-sm",
+                      isCurrent
+                        ? contentStatusStyles[value]
+                        : "border-border bg-background text-foreground hover:bg-muted",
+                    )}
+                    onClick={() => {
+                      if (isCurrent) return;
+                      statusMutation.mutate(value);
+                    }}
+                  >
+                    {t(`project.content.status.${value}`)}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <UnsavedChangesGuard isDirty={isDirty} />
@@ -2028,76 +2098,12 @@ function ContentDetailPage() {
             </Card>
           ) : null}
 
-          <Card className="rounded-xl">
-            <CardContent className="space-y-4 p-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="version-note" variant="highlight">
-                  {t("project.detail.versionNote")}
-                </Label>
-                <LocalizedTextInput
-                  id="version-note"
-                  field="versionNote"
-                  i18n={rowI18n}
-                  fallback={versionNote}
-                  placeholder={t("project.detail.versionNotePlaceholder")}
-                  onI18nCommit={onFieldI18nCommit}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {isAdmin ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={() => saveMutation.mutate()}
-                  >
-                    <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-                    {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
-                  </Button>
-                ) : null}
-                <Button type="button" disabled={saving} onClick={() => versionMutation.mutate()}>
-                  <History className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {saving && versionMutation.isPending
-                    ? t("common.loading")
-                    : t("project.detail.saveVersion")}
-                </Button>
-              </div>
-              {statusButtons.length > 0 ? (
-                <div className="space-y-2 border-t pt-4">
-                  <Label variant="highlight">{t("project.content.columns.status")}</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {statusButtons.map((value) => {
-                      const isCurrent = value === status;
-                      return (
-                        <Button
-                          key={value}
-                          type="button"
-                          size="sm"
-                          disabled={statusMutation.isPending || isCurrent}
-                          aria-pressed={isCurrent}
-                          className={cn(
-                            "border shadow-sm",
-                            isCurrent
-                              ? contentStatusStyles[value]
-                              : "border-border bg-background text-foreground hover:bg-muted",
-                          )}
-                          onClick={() => {
-                            if (isCurrent) return;
-                            statusMutation.mutate(value);
-                          }}
-                        >
-                          {t(`project.content.status.${value}`)}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          {renderSaveAndStatusCard("version-note")}
         </div>
 
         <div className="space-y-6">
+          {renderSaveAndStatusCard("version-note-top")}
+
           <Card className="h-fit rounded-xl">
             <CardHeader>
               <CardTitle className="text-base">{t("project.detail.versions")}</CardTitle>

@@ -1039,6 +1039,13 @@ export type BrandColor = {
 };
 
 export const MAX_BRAND_COLORS = 24;
+/** Primary + first secondary + extras (supporting faces). */
+export const MAX_BRAND_SECONDARY_FONTS = 12;
+
+export type BrandFontEntry = {
+  family: string;
+  fileUrl?: string;
+};
 
 export type BrandFonts = {
   primary?: string;
@@ -1047,12 +1054,70 @@ export type BrandFonts = {
   primaryFileUrl?: string;
   /** Public URL of a uploaded font file for the secondary family. */
   secondaryFileUrl?: string;
+  /**
+   * Extra supporting faces beyond the first secondary.
+   * Stored in jsonb — no DB migration required.
+   */
+  extras?: BrandFontEntry[];
   notes?: string;
 };
 
 export const BRAND_FONT_ACCEPT =
   ".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf,application/font-woff,application/font-woff2";
 export const BRAND_FONT_MAX_BYTES = 2 * 1024 * 1024;
+
+export function isBrandFontFileName(name: string) {
+  return /\.(woff2?|ttf|otf)$/i.test(name || "");
+}
+
+export function brandFontFamilyFromFileName(name: string) {
+  return (name || "")
+    .replace(/^.*[/\\]/, "")
+    .replace(/\.(woff2?|ttf|otf)$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+}
+
+/** Normalize kit fonts into a secondary list (first slot = legacy secondary fields). */
+export function listBrandSecondaryFonts(fonts: BrandFonts | null | undefined): BrandFontEntry[] {
+  const first: BrandFontEntry = {
+    family: (fonts?.secondary ?? "").trim(),
+    fileUrl: (fonts?.secondaryFileUrl ?? "").trim() || undefined,
+  };
+  const extras = (fonts?.extras ?? [])
+    .map((entry) => ({
+      family: (entry?.family ?? "").trim(),
+      fileUrl: (entry?.fileUrl ?? "").trim() || undefined,
+    }))
+    .filter((entry) => entry.family || entry.fileUrl);
+  if (!first.family && !first.fileUrl && extras.length === 0) {
+    return [{ family: "" }];
+  }
+  return [{ family: first.family, fileUrl: first.fileUrl }, ...extras].slice(
+    0,
+    MAX_BRAND_SECONDARY_FONTS,
+  );
+}
+
+/** Write secondary list back into legacy fields + extras. */
+export function brandFontsFromSecondaries(
+  fonts: BrandFonts,
+  secondaries: BrandFontEntry[],
+): BrandFonts {
+  const cleaned = secondaries
+    .map((entry) => ({
+      family: (entry.family ?? "").trim(),
+      fileUrl: (entry.fileUrl ?? "").trim() || undefined,
+    }))
+    .slice(0, MAX_BRAND_SECONDARY_FONTS);
+  const [first, ...rest] = cleaned.length > 0 ? cleaned : [{ family: "", fileUrl: undefined as string | undefined }];
+  return {
+    ...fonts,
+    secondary: first?.family ?? "",
+    secondaryFileUrl: first?.fileUrl ?? "",
+    extras: rest.filter((entry) => entry.family || entry.fileUrl),
+  };
+}
 
 export type ClientContactInput = {
   name: string;
@@ -1211,6 +1276,20 @@ export function parseBrandColors(value: unknown): BrandColor[] {
     .slice(0, MAX_BRAND_COLORS);
 }
 
+function parseBrandFontEntry(value: unknown): BrandFontEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as { family?: unknown; fileUrl?: unknown; name?: unknown };
+  const family =
+    typeof row.family === "string"
+      ? row.family.trim()
+      : typeof row.name === "string"
+        ? row.name.trim()
+        : "";
+  const fileUrl = typeof row.fileUrl === "string" ? row.fileUrl.trim() : "";
+  if (!family && !fileUrl) return null;
+  return { family, fileUrl: fileUrl || undefined };
+}
+
 export function parseBrandFonts(value: unknown): BrandFonts {
   if (!value || typeof value !== "object") return {};
   const row = value as {
@@ -1218,13 +1297,21 @@ export function parseBrandFonts(value: unknown): BrandFonts {
     secondary?: unknown;
     primaryFileUrl?: unknown;
     secondaryFileUrl?: unknown;
+    extras?: unknown;
     notes?: unknown;
   };
+  const extras = Array.isArray(row.extras)
+    ? row.extras
+        .map(parseBrandFontEntry)
+        .filter((entry): entry is BrandFontEntry => Boolean(entry))
+        .slice(0, MAX_BRAND_SECONDARY_FONTS - 1)
+    : [];
   return {
     primary: typeof row.primary === "string" ? row.primary : "",
     secondary: typeof row.secondary === "string" ? row.secondary : "",
     primaryFileUrl: typeof row.primaryFileUrl === "string" ? row.primaryFileUrl : "",
     secondaryFileUrl: typeof row.secondaryFileUrl === "string" ? row.secondaryFileUrl : "",
+    extras,
     notes: typeof row.notes === "string" ? row.notes : "",
   };
 }
