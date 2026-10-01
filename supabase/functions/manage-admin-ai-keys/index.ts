@@ -3,7 +3,7 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { encryptApiKey, lastFour } from "../_shared/ai-key-crypto.ts";
 
 type Action = "get" | "save" | "delete";
-type Provider = "openai" | "gemini";
+type Provider = "openai" | "gemini" | "claude";
 
 type RequestBody = {
   action?: Action;
@@ -12,7 +12,20 @@ type RequestBody = {
 };
 
 function normalizeProvider(value: unknown): Provider | null {
-  return value === "openai" || value === "gemini" ? value : null;
+  return value === "openai" || value === "gemini" || value === "claude" ? value : null;
+}
+
+function providerPatch(
+  provider: Provider,
+  values: { ciphertext: string | null; last4: string | null },
+): Record<string, string | null> {
+  if (provider === "openai") {
+    return { openai_key_ciphertext: values.ciphertext, openai_key_last4: values.last4 };
+  }
+  if (provider === "gemini") {
+    return { gemini_key_ciphertext: values.ciphertext, gemini_key_last4: values.last4 };
+  }
+  return { claude_key_ciphertext: values.ciphertext, claude_key_last4: values.last4 };
 }
 
 Deno.serve(async (req) => {
@@ -57,7 +70,7 @@ Deno.serve(async (req) => {
     const readState = async () => {
       const { data, error } = await admin
         .from("admin_ai_credentials")
-        .select("openai_key_last4, gemini_key_last4, updated_at")
+        .select("openai_key_last4, gemini_key_last4, claude_key_last4, updated_at")
         .eq("user_id", user.id)
         .maybeSingle();
       if (error) throw new Error(error.message);
@@ -70,9 +83,14 @@ Deno.serve(async (req) => {
           configured: Boolean(data?.gemini_key_last4),
           last4: data?.gemini_key_last4 ?? null,
         },
+        claude: {
+          configured: Boolean(data?.claude_key_last4),
+          last4: data?.claude_key_last4 ?? null,
+        },
         platformFallback: {
           openai: Boolean(Deno.env.get("OPENAI_API_KEY")),
           gemini: Boolean(Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY")),
+          claude: Boolean(Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("CLAUDE_API_KEY")),
         },
         encryptionConfigured: Boolean(Deno.env.get("AI_KEYS_ENCRYPTION_SECRET")),
         updatedAt: data?.updated_at ?? null,
@@ -87,9 +105,7 @@ Deno.serve(async (req) => {
     if (!provider) return jsonResponse({ error: "Provedor inválido" }, 400);
 
     if (action === "delete") {
-      const patch = provider === "openai"
-        ? { openai_key_ciphertext: null, openai_key_last4: null }
-        : { gemini_key_ciphertext: null, gemini_key_last4: null };
+      const patch = providerPatch(provider, { ciphertext: null, last4: null });
       const { error } = await admin
         .from("admin_ai_credentials")
         .upsert({ user_id: user.id, ...patch, updated_at: new Date().toISOString() }, {
@@ -104,9 +120,10 @@ Deno.serve(async (req) => {
       if (apiKey.length < 12) return jsonResponse({ error: "Chave de API inválida" }, 400);
 
       const ciphertext = await encryptApiKey(apiKey);
-      const patch = provider === "openai"
-        ? { openai_key_ciphertext: ciphertext, openai_key_last4: lastFour(apiKey) }
-        : { gemini_key_ciphertext: ciphertext, gemini_key_last4: lastFour(apiKey) };
+      const patch = providerPatch(provider, {
+        ciphertext,
+        last4: lastFour(apiKey),
+      });
 
       const { error } = await admin
         .from("admin_ai_credentials")

@@ -2328,41 +2328,53 @@ export async function generateDesign(input: {
 export type AdminAiKeysStatus = {
   openaiConfigured: boolean;
   geminiConfigured: boolean;
+  claudeConfigured: boolean;
   openaiLast4: string | null;
   geminiLast4: string | null;
+  claudeLast4: string | null;
   updatedAt?: string | null;
   openaiHelpUrl: string;
   geminiHelpUrl: string;
+  claudeHelpUrl: string;
   platformFallbackOpenAI?: boolean;
   platformFallbackGemini?: boolean;
+  platformFallbackClaude?: boolean;
 };
 
 type ManageAdminAiKeysResponse = {
   error?: string;
   openai?: { configured?: boolean; last4?: string | null };
   gemini?: { configured?: boolean; last4?: string | null };
-  platformFallback?: { openai?: boolean; gemini?: boolean };
+  claude?: { configured?: boolean; last4?: string | null };
+  platformFallback?: { openai?: boolean; gemini?: boolean; claude?: boolean };
   updatedAt?: string | null;
   // legacy flat shape (older local contract)
   openaiConfigured?: boolean;
   geminiConfigured?: boolean;
+  claudeConfigured?: boolean;
   openaiLast4?: string | null;
   geminiLast4?: string | null;
+  claudeLast4?: string | null;
   openaiHelpUrl?: string;
   geminiHelpUrl?: string;
+  claudeHelpUrl?: string;
 };
 
 function mapAdminAiKeysStatus(payload: ManageAdminAiKeysResponse): AdminAiKeysStatus {
   return {
     openaiConfigured: Boolean(payload.openai?.configured ?? payload.openaiConfigured),
     geminiConfigured: Boolean(payload.gemini?.configured ?? payload.geminiConfigured),
+    claudeConfigured: Boolean(payload.claude?.configured ?? payload.claudeConfigured),
     openaiLast4: payload.openai?.last4 ?? payload.openaiLast4 ?? null,
     geminiLast4: payload.gemini?.last4 ?? payload.geminiLast4 ?? null,
+    claudeLast4: payload.claude?.last4 ?? payload.claudeLast4 ?? null,
     updatedAt: payload.updatedAt ?? null,
     openaiHelpUrl: payload.openaiHelpUrl || "https://platform.openai.com/api-keys",
     geminiHelpUrl: payload.geminiHelpUrl || "https://aistudio.google.com/apikey",
+    claudeHelpUrl: payload.claudeHelpUrl || "https://console.anthropic.com/settings/keys",
     platformFallbackOpenAI: Boolean(payload.platformFallback?.openai),
     platformFallbackGemini: Boolean(payload.platformFallback?.gemini),
+    platformFallbackClaude: Boolean(payload.platformFallback?.claude),
   };
 }
 
@@ -2379,8 +2391,10 @@ export async function getAdminAiKeysStatus(): Promise<AdminAiKeysStatus> {
 export async function saveAdminAiKeys(input: {
   openaiKey?: string;
   geminiKey?: string;
+  claudeKey?: string;
   clearOpenAI?: boolean;
   clearGemini?: boolean;
+  clearClaude?: boolean;
 }): Promise<AdminAiKeysStatus> {
   let last: ManageAdminAiKeysResponse | null = null;
 
@@ -2402,6 +2416,12 @@ export async function saveAdminAiKeys(input: {
     await invoke({ action: "delete", provider: "gemini" });
   } else if (input.geminiKey?.trim()) {
     await invoke({ action: "save", provider: "gemini", apiKey: input.geminiKey.trim() });
+  }
+
+  if (input.clearClaude) {
+    await invoke({ action: "delete", provider: "claude" });
+  } else if (input.claudeKey?.trim()) {
+    await invoke({ action: "save", provider: "claude", apiKey: input.claudeKey.trim() });
   }
 
   if (!last) {

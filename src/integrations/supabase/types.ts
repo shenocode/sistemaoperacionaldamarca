@@ -74,6 +74,8 @@ export type Database = {
       }
       admin_ai_credentials: {
         Row: {
+          claude_key_ciphertext: string | null
+          claude_key_last4: string | null
           created_at: string
           gemini_key_ciphertext: string | null
           gemini_key_last4: string | null
@@ -83,6 +85,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          claude_key_ciphertext?: string | null
+          claude_key_last4?: string | null
           created_at?: string
           gemini_key_ciphertext?: string | null
           gemini_key_last4?: string | null
@@ -92,6 +96,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          claude_key_ciphertext?: string | null
+          claude_key_last4?: string | null
           created_at?: string
           gemini_key_ciphertext?: string | null
           gemini_key_last4?: string | null
