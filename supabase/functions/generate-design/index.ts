@@ -241,6 +241,28 @@ async function scrubTextWithOpenAI(input: {
   });
 }
 
+function isGeminiApiKeyError(status: number, errText: string): boolean {
+  // Não usar /invalid/i: quase todo 400 do Gemini traz status "INVALID_ARGUMENT".
+  if (status === 401 || status === 403) {
+    return /API[_ ]?KEY|API key|PERMISSION_DENIED|permission/i.test(errText);
+  }
+  if (status !== 400) return false;
+  return /API_KEY_INVALID|API key not valid|API key is invalid|Please pass a valid API key/i.test(
+    errText,
+  );
+}
+
+function geminiErrorDetail(errText: string): string {
+  try {
+    const parsed = JSON.parse(errText) as { error?: { message?: string } };
+    const message = parsed?.error?.message?.trim();
+    if (message) return message;
+  } catch {
+    // corpo não-JSON
+  }
+  return errText.replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
 function throwGeminiImageError(status: number, errText: string): never {
   console.error("Gemini image error:", status, errText);
   if (status === 429) {
@@ -248,17 +270,24 @@ function throwGeminiImageError(status: number, errText: string): never {
       status: 429,
     });
   }
-  if (status === 400 && /API key|API_KEY|invalid/i.test(errText)) {
-    throw Object.assign(new Error("Chave do Gemini inválida. Verifique GEMINI_API_KEY nas secrets."), {
-      status: 400,
-    });
+  if (isGeminiApiKeyError(status, errText)) {
+    throw Object.assign(
+      new Error(
+        "Chave do Gemini inválida ou sem permissão. Confira em Configurações → Chaves de IA (ou GEMINI_API_KEY nas secrets).",
+      ),
+      { status: 400 },
+    );
   }
   if (/quota|billing|RESOURCE_EXHAUSTED/i.test(errText)) {
     throw Object.assign(new Error("Cota/créditos do Gemini esgotados. Troque para OpenAI ou aguarde."), {
       status: 402,
     });
   }
-  throw Object.assign(new Error("Falha ao gerar arte com o Gemini"), { status: 502 });
+  const detail = geminiErrorDetail(errText);
+  throw Object.assign(
+    new Error(detail ? `Falha ao gerar arte com o Gemini: ${detail}` : "Falha ao gerar arte com o Gemini"),
+    { status: status >= 400 && status < 600 ? status : 502 },
+  );
 }
 
 async function geminiImageGenerate(input: {
