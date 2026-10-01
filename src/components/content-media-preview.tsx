@@ -48,7 +48,12 @@ import {
   YouTubeWatchMockup,
   YoutubeEmbedFrame,
 } from "@/components/youtube-notebook-mockup";
-import { createDefaultOverlay, ensureArtLayoutLayers, type MediaTextOverlay } from "@/lib/media-text-overlay";
+import {
+  createDefaultOverlay,
+  ensureArtLayoutLayers,
+  findHeadlineLayerId,
+  type MediaTextOverlay,
+} from "@/lib/media-text-overlay";
 
 export type PreviewMediaItem = {
   url: string;
@@ -64,6 +69,9 @@ export type MediaTextEditorConfig = {
   headerLeft?: string;
   /** Prefills the top-right tagline layer when expanding layout layers. */
   headerRight?: string;
+  /** Fallback copy for the headline layer when the overlay has no title text. */
+  overlayText?: string;
+  secondaryText?: string;
   onSave: (index: number, overlay: MediaTextOverlay) => Promise<void>;
 };
 
@@ -297,29 +305,33 @@ export function MediaLightbox({
   useEffect(() => {
     if (!open) return;
     setCurrent(Math.min(Math.max(initialIndex, 0), Math.max(items.length - 1, 0)));
-    setDrafts(
-      items.map((item) => {
-        if (resolveKind(item) !== "image") return null;
-        const base =
-          item.overlay ??
-          createDefaultOverlay({
-            baseUrl: item.url,
-            overlayText: "",
-            headerLeft: textEditor?.headerLeft,
-            headerRight: textEditor?.headerRight,
-            primaryFont: textEditor?.brandFonts.primary,
-            secondaryFont: textEditor?.brandFonts.secondary,
-            colors: textEditor?.colors,
-          });
-        return ensureArtLayoutLayers(base, {
+    const nextDrafts = items.map((item) => {
+      if (resolveKind(item) !== "image") return null;
+      const base =
+        item.overlay ??
+        createDefaultOverlay({
+          baseUrl: item.url,
+          overlayText: textEditor?.overlayText ?? "",
+          secondaryText: textEditor?.secondaryText,
           headerLeft: textEditor?.headerLeft,
           headerRight: textEditor?.headerRight,
           primaryFont: textEditor?.brandFonts.primary,
           secondaryFont: textEditor?.brandFonts.secondary,
           colors: textEditor?.colors,
         });
-      }),
-    );
+      return ensureArtLayoutLayers(base, {
+        overlayText: textEditor?.overlayText,
+        secondaryText: textEditor?.secondaryText,
+        headerLeft: textEditor?.headerLeft,
+        headerRight: textEditor?.headerRight,
+        primaryFont: textEditor?.brandFonts.primary,
+        secondaryFont: textEditor?.brandFonts.secondary,
+        colors: textEditor?.colors,
+      });
+    });
+    setDrafts(nextDrafts);
+    const start = Math.min(Math.max(initialIndex, 0), Math.max(nextDrafts.length - 1, 0));
+    setSelectedLayerId(findHeadlineLayerId(nextDrafts[start]));
     // Snapshot overlays when the lightbox opens so in-progress edits are not reset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -337,11 +349,10 @@ export function MediaLightbox({
 
   useEffect(() => {
     const overlay = drafts[current];
-    setSelectedLayerId((id) =>
-      overlay?.layers.some((layer) => layer.id === id)
-        ? id
-        : overlay?.layers[0]?.id ?? null,
-    );
+    setSelectedLayerId((id) => {
+      if (overlay?.layers.some((layer) => layer.id === id)) return id;
+      return findHeadlineLayerId(overlay);
+    });
   }, [current, drafts]);
 
   if (items.length === 0) return null;

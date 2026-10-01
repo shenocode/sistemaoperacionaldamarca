@@ -23,6 +23,7 @@ import {
   resolveBrandFont,
 } from "@/lib/brand-fonts";
 import {
+  ART_TEXT_EXTRA_COLORS,
   createDefaultImageAdjustments,
   createTextLayer,
   imageAdjustmentsAreDefault,
@@ -223,6 +224,7 @@ export function ArtTextOverlayView({
                   transform: "translate(-50%, -50%)",
                   textAlign: layer.align,
                   color: empty ? "rgba(255,255,255,0.65)" : layer.color,
+                  opacity: empty ? 1 : layer.opacity ?? 1,
                   fontFamily: brandFontFamilyCss(layer.fontFamily),
                   fontWeight: layer.fontWeight,
                   fontSize: `${Math.max(10, layer.fontSize * box.height)}px`,
@@ -607,12 +609,60 @@ export function ArtTextEditorPanel({
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t("project.detail.artText.opacity")}</Label>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {Math.round((selected.opacity ?? 1) * 100)}%
+                    </span>
+                  </div>
+                  <Slider
+                    min={0.1}
+                    max={1}
+                    step={0.01}
+                    value={[selected.opacity ?? 1]}
+                    onValueChange={([value]) =>
+                      patchLayer(selected.id, { opacity: value ?? selected.opacity ?? 1 })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>{t("project.detail.artText.color")}</Label>
                   {colors.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("project.detail.artText.brandColors")}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {colors.map((color, index) => (
+                          <button
+                            key={`brand-${color.hex}-${index}`}
+                            type="button"
+                            title={color.name || color.hex}
+                            className={cn(
+                              "h-7 w-7 rounded-md border",
+                              selected.color.toLowerCase() === color.hex.toLowerCase() &&
+                                "ring-2 ring-ring",
+                            )}
+                            style={{ backgroundColor: color.hex }}
+                            onClick={() => patchLayer(selected.id, { color: color.hex })}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("project.detail.artText.extraColors")}
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {colors.map((color, index) => (
+                      {ART_TEXT_EXTRA_COLORS.filter(
+                        (color) =>
+                          !colors.some(
+                            (brand) => brand.hex.toLowerCase() === color.hex.toLowerCase(),
+                          ),
+                      ).map((color) => (
                         <button
-                          key={`${color.hex}-${index}`}
+                          key={`extra-${color.hex}`}
                           type="button"
                           title={color.name || color.hex}
                           className={cn(
@@ -625,12 +675,26 @@ export function ArtTextEditorPanel({
                         />
                       ))}
                     </div>
-                  ) : null}
-                  <Input
-                    value={selected.color}
-                    onChange={(e) => patchLayer(selected.id, { color: e.target.value })}
-                    placeholder="#FFFFFF"
-                  />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      aria-label={t("project.detail.artText.colorPicker")}
+                      className="h-8 w-10 cursor-pointer rounded border bg-transparent p-0.5"
+                      value={
+                        /^#[0-9a-fA-F]{6}$/.test(selected.color)
+                          ? selected.color
+                          : "#ffffff"
+                      }
+                      onChange={(e) => patchLayer(selected.id, { color: e.target.value })}
+                    />
+                    <Input
+                      value={selected.color}
+                      onChange={(e) => patchLayer(selected.id, { color: e.target.value })}
+                      placeholder="#FFFFFF"
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
                 {overlay.layers.length > 0 ? (
                   <Button

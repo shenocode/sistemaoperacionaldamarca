@@ -63,9 +63,11 @@ import { cn } from "@/lib/utils";
 import {
   createDefaultOverlay,
   ensureArtLayoutLayers,
+  findHeadlineLayerId,
   flattenOverlayToFile,
   formatInstagramHandle,
   normalizeImageToDesignCanvas,
+  resolveBrandTagline,
   type MediaTextOverlay,
 } from "@/lib/media-text-overlay";
 
@@ -316,12 +318,7 @@ export function ContentDesignAssistant({
   });
   const kit = brandKitFromClient(clientQuery.data ?? {});
   const brandHandle = formatInstagramHandle(clientQuery.data?.instagram);
-  const brandTagline = (() => {
-    const notes = kit.brand_fonts.notes?.trim() ?? "";
-    // Short kit notes often hold the specialty line used on templates.
-    if (notes && notes.length <= 48 && !/\n/.test(notes)) return notes;
-    return "";
-  })();
+  const brandTagline = resolveBrandTagline(kit.brand_fonts.notes);
 
   const [templateSource, setTemplateSource] = useState<TemplateSource>("library");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -660,8 +657,10 @@ export function ContentDesignAssistant({
 
   const lightboxItems = useMemo(() => {
     if (!lightbox) return [];
-    const withLayout = (overlay: MediaTextOverlay) =>
+    const withLayout = (overlay: MediaTextOverlay, copy?: { overlayText?: string; secondaryText?: string }) =>
       ensureArtLayoutLayers(overlay, {
+        overlayText: copy?.overlayText,
+        secondaryText: copy?.secondaryText,
         headerLeft: brandHandle,
         headerRight: brandTagline,
         primaryFont: kit.brand_fonts.primary,
@@ -674,13 +673,15 @@ export function ContentDesignAssistant({
         resultOverlay ??
           createDefaultOverlay({
             baseUrl: resultUrl,
-            overlayText: "",
+            overlayText,
+            secondaryText,
             headerLeft: brandHandle,
             headerRight: brandTagline,
             primaryFont: kit.brand_fonts.primary,
             secondaryFont: kit.brand_fonts.secondary,
             colors: kit.brand_colors,
           }),
+        { overlayText, secondaryText },
       );
       return [{ url: overlay.baseUrl, overlay }];
     }
@@ -691,17 +692,19 @@ export function ContentDesignAssistant({
           slide.overlay ??
             createDefaultOverlay({
               baseUrl: slide.resultUrl,
-              overlayText: "",
+              overlayText: slide.overlayText,
+              secondaryText: slide.secondaryText,
               headerLeft: brandHandle,
               headerRight: brandTagline,
               primaryFont: kit.brand_fonts.primary,
               secondaryFont: kit.brand_fonts.secondary,
               colors: kit.brand_colors,
             }),
+          { overlayText: slide.overlayText, secondaryText: slide.secondaryText },
         );
         return { url: overlay.baseUrl, overlay, slideId: slide.id };
       });
-  }, [lightbox, resultUrl, resultOverlay, slides, kit, brandHandle, brandTagline]);
+  }, [lightbox, resultUrl, resultOverlay, slides, kit, brandHandle, brandTagline, overlayText, secondaryText]);
 
   async function handleLightboxSave(index: number, overlay: MediaTextOverlay) {
     try {
@@ -1433,6 +1436,14 @@ export function ContentDesignAssistant({
         colors: kit.brand_colors,
         headerLeft: brandHandle,
         headerRight: brandTagline || undefined,
+        overlayText:
+          lightbox?.mode === "carousel"
+            ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.overlayText
+            : overlayText,
+        secondaryText:
+          lightbox?.mode === "carousel"
+            ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.secondaryText
+            : secondaryText,
         onSave: handleLightboxSave,
       }}
     />

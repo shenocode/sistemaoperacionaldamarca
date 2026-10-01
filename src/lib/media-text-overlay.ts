@@ -35,6 +35,8 @@ export type MediaTextLayer = {
   /** Font size as a fraction of image height (e.g. 0.055). */
   fontSize: number;
   color: string;
+  /** Text opacity, 0–1 (default 1). */
+  opacity: number;
   /** Anchor X, 0–1. */
   x: number;
   /** Anchor Y, 0–1. */
@@ -69,6 +71,55 @@ function asAlign(value: unknown): TextLayerAlign {
 
 function asWeight(value: unknown): "400" | "700" {
   return value === "400" ? "400" : "700";
+}
+
+function asOpacity(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 1;
+  return Math.min(1, Math.max(0, value));
+}
+
+/** Extra swatches offered in the art text editor beyond the brand kit. */
+export const ART_TEXT_EXTRA_COLORS: BrandColor[] = [
+  { name: "Branco", hex: "#FFFFFF" },
+  { name: "Off-white", hex: "#F5F2EB" },
+  { name: "Gelo", hex: "#E8EEF2" },
+  { name: "Cinza claro", hex: "#C4C4C4" },
+  { name: "Cinza", hex: "#8A8A8A" },
+  { name: "Carvão", hex: "#2B2B2B" },
+  { name: "Preto", hex: "#000000" },
+  { name: "Dourado", hex: "#C6A75E" },
+  { name: "Champagne", hex: "#E6D5A8" },
+  { name: "Terracota", hex: "#C0603A" },
+  { name: "Vinho", hex: "#7A1F2B" },
+  { name: "Verde musgo", hex: "#4F6F52" },
+  { name: "Azul petróleo", hex: "#1F4E5F" },
+  { name: "Azul claro", hex: "#97ADBD" },
+];
+
+/** Combine a CSS color with 0–1 opacity for canvas / preview. */
+export function colorWithOpacity(color: string, opacity = 1): string {
+  const alpha = Math.min(1, Math.max(0, opacity));
+  if (alpha >= 0.999) return color;
+  const raw = color.trim();
+  const hex = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    let body = hex[1];
+    if (body.length === 3) {
+      body = body
+        .split("")
+        .map((ch) => `${ch}${ch}`)
+        .join("");
+    }
+    const r = Number.parseInt(body.slice(0, 2), 16);
+    const g = Number.parseInt(body.slice(2, 4), 16);
+    const b = Number.parseInt(body.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  const rgb = raw.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*[\d.]+\s*)?\)$/i);
+  if (rgb) {
+    return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${alpha})`;
+  }
+  return raw;
 }
 
 function asRole(value: unknown): TextLayerRole | undefined {
@@ -135,6 +186,7 @@ export function createTextLayer(
     fontWeight: opts?.fontWeight ?? "700",
     fontSize: opts?.fontSize ?? 0.055,
     color: opts?.color || DEFAULT_PRIMARY_COLOR,
+    opacity: asOpacity(opts?.opacity ?? 1),
     x: opts?.x ?? 0.5,
     y: opts?.y ?? 0.22,
     align: opts?.align ?? "center",
@@ -192,12 +244,13 @@ export function createDefaultOverlay(input: {
       label: "Título",
       fontFamily: primary,
       fontWeight: "700",
-      fontSize: 0.058,
+      fontSize: 0.07,
       color: headlineColor,
       x: 0.5,
-      y: 0.28,
+      // Main copy sits in the lower half of carousel templates (not the top).
+      y: 0.58,
       align: "center",
-      maxWidth: 0.82,
+      maxWidth: 0.86,
     }),
     createTextLayer((input.secondaryText ?? "").trim(), {
       role: "support",
@@ -207,7 +260,7 @@ export function createDefaultOverlay(input: {
       fontSize: 0.032,
       color: supportColor,
       x: 0.5,
-      y: 0.82,
+      y: 0.86,
       align: "center",
       maxWidth: 0.78,
     }),
@@ -223,10 +276,13 @@ export function createDefaultOverlay(input: {
 /**
  * Ensures classic carousel chrome layers exist so the editor can edit
  * handle / top-right / headline / support — even for older 1-layer overlays.
+ * Always keeps a filled, correctly placed "Título" when copy is available.
  */
 export function ensureArtLayoutLayers(
   overlay: MediaTextOverlay,
   opts?: {
+    overlayText?: string;
+    secondaryText?: string;
     headerLeft?: string;
     headerRight?: string;
     primaryFont?: string;
@@ -234,26 +290,35 @@ export function ensureArtLayoutLayers(
     colors?: BrandColor[];
   },
 ): MediaTextOverlay {
-  const hasRole = (role: TextLayerRole) => overlay.layers.some((layer) => layer.role === role);
-  if (
-    hasRole("handle") &&
-    hasRole("tagline") &&
-    hasRole("headline") &&
-    hasRole("support")
-  ) {
-    return overlay;
-  }
+  const fallbackHeadline = (opts?.overlayText ?? "").trim();
+  const fallbackSupport = (opts?.secondaryText ?? "").trim();
 
-  // Older overlays: treat the first non-empty layer as the headline.
+  const byExistingRole = (role: TextLayerRole) =>
+    overlay.layers.find((layer) => layer.role === role);
+
+  // Prefer an explicit headline role; never treat @handle / tagline as the title.
   const existingHeadline =
-    overlay.layers.find((layer) => layer.role === "headline") ??
-    overlay.layers.find((layer) => layer.text.trim()) ??
-    overlay.layers[0];
+    byExistingRole("headline") ??
+    overlay.layers.find(
+      (layer) =>
+        layer.role !== "handle" &&
+        layer.role !== "tagline" &&
+        layer.role !== "support" &&
+        layer.text.trim().length > 0 &&
+        layer.text.trim().length > 12,
+    ) ??
+    overlay.layers.find(
+      (layer) =>
+        layer.role !== "handle" &&
+        layer.role !== "tagline" &&
+        layer.role !== "support" &&
+        layer.text.trim(),
+    );
 
   const scaffold = createDefaultOverlay({
     baseUrl: overlay.baseUrl,
-    overlayText: existingHeadline?.text ?? "",
-    secondaryText: overlay.layers.find((layer) => layer.role === "support")?.text,
+    overlayText: existingHeadline?.text?.trim() || fallbackHeadline,
+    secondaryText: byExistingRole("support")?.text?.trim() || fallbackSupport,
     headerLeft: opts?.headerLeft,
     headerRight: opts?.headerRight,
     primaryFont: opts?.primaryFont ?? existingHeadline?.fontFamily,
@@ -261,22 +326,81 @@ export function ensureArtLayoutLayers(
     colors: opts?.colors,
   });
 
-  const byRole = (role: TextLayerRole) =>
-    overlay.layers.find((layer) => layer.role === role) ??
-    scaffold.layers.find((layer) => layer.role === role)!;
+  const pick = (role: TextLayerRole): MediaTextLayer => {
+    const existing = byExistingRole(role);
+    const fresh = scaffold.layers.find((layer) => layer.role === role)!;
+    if (!existing) return fresh;
+    if (role === "headline") {
+      const text = existing.text.trim() || fallbackHeadline || fresh.text;
+      return {
+        ...fresh,
+        ...existing,
+        text,
+        role: "headline",
+        label: existing.label || "Título",
+        // Keep the title on the lower half where carousel copy lives.
+        x: fresh.x,
+        y: fresh.y,
+        fontSize: Math.max(existing.fontSize, fresh.fontSize),
+        maxWidth: fresh.maxWidth,
+        align: "center",
+      };
+    }
+    if (role === "support") {
+      return {
+        ...fresh,
+        ...existing,
+        text: existing.text.trim() || fallbackSupport || fresh.text,
+        role: "support",
+        label: existing.label || "Apoio",
+      };
+    }
+    if (role === "handle") {
+      return {
+        ...fresh,
+        ...existing,
+        text: existing.text.trim() || fresh.text,
+        role: "handle",
+        label: existing.label || "@ / handle",
+      };
+    }
+    if (role === "tagline") {
+      return {
+        ...fresh,
+        ...existing,
+        text: existing.text.trim() || fresh.text,
+        role: "tagline",
+        label: existing.label || "Topo direito",
+      };
+    }
+    return { ...fresh, ...existing, role };
+  };
 
-  const headlineLayer = existingHeadline
-    ? {
-        ...scaffold.layers.find((layer) => layer.role === "headline")!,
-        ...existingHeadline,
-        role: "headline" as const,
-        label: existingHeadline.label || "Título",
-      }
-    : byRole("headline");
+  const headlineFromLoose =
+    !byExistingRole("headline") && existingHeadline
+      ? {
+          ...scaffold.layers.find((layer) => layer.role === "headline")!,
+          ...existingHeadline,
+          text: existingHeadline.text.trim() || fallbackHeadline,
+          role: "headline" as const,
+          label: existingHeadline.label || "Título",
+          x: 0.5,
+          y: 0.58,
+          fontSize: Math.max(existingHeadline.fontSize, 0.07),
+          maxWidth: 0.86,
+          align: "center" as const,
+        }
+      : null;
+
+  const headline = headlineFromLoose ?? pick("headline");
+  const usedIds = new Set(
+    [pick("handle").id, pick("tagline").id, headline.id, pick("support").id].filter(Boolean),
+  );
+  if (existingHeadline) usedIds.add(existingHeadline.id);
 
   const extras = overlay.layers.filter(
     (layer) =>
-      layer.id !== existingHeadline?.id &&
+      !usedIds.has(layer.id) &&
       layer.role !== "handle" &&
       layer.role !== "tagline" &&
       layer.role !== "headline" &&
@@ -285,8 +409,21 @@ export function ensureArtLayoutLayers(
 
   return {
     ...overlay,
-    layers: [byRole("handle"), byRole("tagline"), headlineLayer, byRole("support"), ...extras],
+    layers: [pick("handle"), pick("tagline"), headline, pick("support"), ...extras],
   };
+}
+
+export function findHeadlineLayerId(overlay: MediaTextOverlay | null | undefined): string | null {
+  if (!overlay) return null;
+  return overlay.layers.find((layer) => layer.role === "headline")?.id ?? overlay.layers[0]?.id ?? null;
+}
+
+/** Kit font notes often look like "Fonte secundária: X" — not a post tagline. */
+export function resolveBrandTagline(notes?: string | null): string {
+  const value = (notes ?? "").trim();
+  if (!value || value.length > 48 || /\n/.test(value)) return "";
+  if (/fonte|secund[aá]ria|prim[aá]ria|tipografia|\bfont\b|kit/i.test(value)) return "";
+  return value;
 }
 
 export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
@@ -310,6 +447,7 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
         fontWeight: asWeight(layer.fontWeight),
         fontSize: clamp01(typeof layer.fontSize === "number" ? layer.fontSize : 0.05) || 0.05,
         color: typeof layer.color === "string" && layer.color.trim() ? layer.color.trim() : "#FFFFFF",
+        opacity: asOpacity(layer.opacity),
         x: clamp01(typeof layer.x === "number" ? layer.x : 0.5),
         y: clamp01(typeof layer.y === "number" ? layer.y : 0.5),
         align: asAlign(layer.align),
@@ -391,10 +529,12 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
     const text = layer.text.trim();
     if (!text) continue;
     const fontPx = Math.max(12, layer.fontSize * canvas.height);
+    const opacity = asOpacity(layer.opacity);
+    ctx.globalAlpha = opacity;
     ctx.font = `${layer.fontWeight} ${fontPx}px "${layer.fontFamily}", system-ui, sans-serif`;
     ctx.textAlign = layer.align;
     ctx.fillStyle = layer.color;
-    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowColor = `rgba(0,0,0,${(0.45 * opacity).toFixed(3)})`;
     ctx.shadowBlur = Math.max(2, fontPx * 0.08);
     ctx.shadowOffsetY = Math.max(1, fontPx * 0.04);
 
@@ -415,6 +555,7 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
     }
   }
 
+  ctx.globalAlpha = 1;
   ctx.shadowColor = "transparent";
 
   const blob = await new Promise<Blob | null>((resolve) => {
