@@ -48,7 +48,7 @@ import {
   YouTubeWatchMockup,
   YoutubeEmbedFrame,
 } from "@/components/youtube-notebook-mockup";
-import { createDefaultOverlay, type MediaTextOverlay } from "@/lib/media-text-overlay";
+import { createDefaultOverlay, ensureArtLayoutLayers, type MediaTextOverlay } from "@/lib/media-text-overlay";
 
 export type PreviewMediaItem = {
   url: string;
@@ -58,8 +58,12 @@ export type PreviewMediaItem = {
 };
 
 export type MediaTextEditorConfig = {
-  brandFonts: { primary?: string; secondary?: string };
+  brandFonts: { primary?: string; secondary?: string; notes?: string };
   colors: BrandColor[];
+  /** Prefills the top-left handle layer when expanding layout layers. */
+  headerLeft?: string;
+  /** Prefills the top-right tagline layer when expanding layout layers. */
+  headerRight?: string;
   onSave: (index: number, overlay: MediaTextOverlay) => Promise<void>;
 };
 
@@ -294,19 +298,27 @@ export function MediaLightbox({
     if (!open) return;
     setCurrent(Math.min(Math.max(initialIndex, 0), Math.max(items.length - 1, 0)));
     setDrafts(
-      items.map((item) =>
-        item.overlay
-          ? item.overlay
-          : resolveKind(item) === "image"
-            ? createDefaultOverlay({
-                baseUrl: item.url,
-                overlayText: "",
-                primaryFont: textEditor?.brandFonts.primary,
-                secondaryFont: textEditor?.brandFonts.secondary,
-                colors: textEditor?.colors,
-              })
-            : null,
-      ),
+      items.map((item) => {
+        if (resolveKind(item) !== "image") return null;
+        const base =
+          item.overlay ??
+          createDefaultOverlay({
+            baseUrl: item.url,
+            overlayText: "",
+            headerLeft: textEditor?.headerLeft,
+            headerRight: textEditor?.headerRight,
+            primaryFont: textEditor?.brandFonts.primary,
+            secondaryFont: textEditor?.brandFonts.secondary,
+            colors: textEditor?.colors,
+          });
+        return ensureArtLayoutLayers(base, {
+          headerLeft: textEditor?.headerLeft,
+          headerRight: textEditor?.headerRight,
+          primaryFont: textEditor?.brandFonts.primary,
+          secondaryFont: textEditor?.brandFonts.secondary,
+          colors: textEditor?.colors,
+        });
+      }),
     );
     // Snapshot overlays when the lightbox opens so in-progress edits are not reset.
     // eslint-disable-next-line react-hooks/exhaustive-deps

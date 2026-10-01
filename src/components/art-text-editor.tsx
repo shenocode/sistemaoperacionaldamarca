@@ -175,7 +175,8 @@ export function ArtTextOverlayView({
             />
           ) : null}
           {overlay.layers.map((layer) => {
-            if (!layer.text.trim()) return null;
+            const empty = !layer.text.trim();
+            if (empty && !interactive) return null;
             const selected = selectedId === layer.id;
             return (
               <div
@@ -213,6 +214,7 @@ export function ArtTextOverlayView({
                   "absolute z-10 max-w-full select-none whitespace-pre-wrap break-words px-1 leading-tight",
                   interactive && "cursor-grab active:cursor-grabbing",
                   selected && "ring-2 ring-sky-400 ring-offset-1 ring-offset-transparent",
+                  empty && "rounded border border-dashed border-white/50 bg-black/25 px-2 py-1",
                 )}
                 style={{
                   left: `${layer.x * 100}%`,
@@ -220,14 +222,14 @@ export function ArtTextOverlayView({
                   width: `${layer.maxWidth * 100}%`,
                   transform: "translate(-50%, -50%)",
                   textAlign: layer.align,
-                  color: layer.color,
+                  color: empty ? "rgba(255,255,255,0.65)" : layer.color,
                   fontFamily: brandFontFamilyCss(layer.fontFamily),
                   fontWeight: layer.fontWeight,
                   fontSize: `${Math.max(10, layer.fontSize * box.height)}px`,
-                  textShadow: "0 1px 2px rgba(0,0,0,0.45)",
+                  textShadow: empty ? "none" : "0 1px 2px rgba(0,0,0,0.45)",
                 }}
               >
-                {layer.text}
+                {empty ? layer.label || "…" : layer.text}
               </div>
             );
           })}
@@ -456,6 +458,8 @@ export function ArtTextEditorPanel({
 
   function addLayer() {
     const next = createTextLayer("", {
+      role: "custom",
+      label: t("project.detail.artText.layer", { n: overlay.layers.length + 1 }),
       fontFamily: resolveBrandFont(brandFonts.primary),
       fontWeight: "700",
       y: overlay.layers.length === 0 ? 0.22 : 0.5,
@@ -497,7 +501,7 @@ export function ArtTextEditorPanel({
                   variant={layer.id === selected?.id ? "default" : "outline"}
                   onClick={() => onSelect(layer.id)}
                 >
-                  {t("project.detail.artText.layer", { n: index + 1 })}
+                  {layer.label?.trim() || t("project.detail.artText.layer", { n: index + 1 })}
                 </Button>
               ))}
               <Button type="button" size="sm" variant="outline" onClick={addLayer}>

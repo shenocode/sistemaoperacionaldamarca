@@ -1595,7 +1595,7 @@
       },
       "artText": {
         "title": "Texto da arte",
-        "hint": "Arraste o texto na imagem. A fonte é a da marca, não um desenho da IA.",
+        "hint": "Cada texto do layout é uma camada editável (handle, topo, título, apoio). Arraste na imagem; a fonte é a da marca.",
         "tabText": "Texto",
         "tabImage": "Imagem",
         "imageTitle": "Ajustes da imagem",

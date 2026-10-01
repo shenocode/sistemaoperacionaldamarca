@@ -25,6 +25,8 @@ export {
 
 export type TextLayerAlign = "left" | "center" | "right";
 
+export type TextLayerRole = "handle" | "tagline" | "headline" | "support" | "custom";
+
 export type MediaTextLayer = {
   id: string;
   text: string;
@@ -40,6 +42,9 @@ export type MediaTextLayer = {
   align: TextLayerAlign;
   /** Max line width as a fraction of image width. */
   maxWidth: number;
+  /** Optional UI label (e.g. "Título", "@ / handle"). */
+  label?: string;
+  role?: TextLayerRole;
 };
 
 export type MediaTextOverlay = {
@@ -50,6 +55,7 @@ export type MediaTextOverlay = {
 
 const DEFAULT_PRIMARY_COLOR = "#FFFFFF";
 const DEFAULT_SECONDARY_COLOR = "#F4F4F5";
+const TEXT_LAYER_ROLES: TextLayerRole[] = ["handle", "tagline", "headline", "support", "custom"];
 
 function clamp01(value: number) {
   if (!Number.isFinite(value)) return 0.5;
@@ -63,6 +69,21 @@ function asAlign(value: unknown): TextLayerAlign {
 
 function asWeight(value: unknown): "400" | "700" {
   return value === "400" ? "400" : "700";
+}
+
+function asRole(value: unknown): TextLayerRole | undefined {
+  return typeof value === "string" && (TEXT_LAYER_ROLES as string[]).includes(value)
+    ? (value as TextLayerRole)
+    : undefined;
+}
+
+/** Normalize an Instagram URL or raw handle to `@username`. */
+export function formatInstagramHandle(value?: string | null): string {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+  const fromUrl = raw.match(/instagram\.com\/([^/?#]+)/i)?.[1];
+  const handle = (fromUrl || raw).replace(/^@+/, "").replace(/\/+$/, "").trim();
+  return handle ? `@${handle}` : "";
 }
 
 /**
@@ -118,6 +139,8 @@ export function createTextLayer(
     y: opts?.y ?? 0.22,
     align: opts?.align ?? "center",
     maxWidth: opts?.maxWidth ?? 0.82,
+    label: opts?.label,
+    role: opts?.role,
   };
 }
 
@@ -125,6 +148,10 @@ export function createDefaultOverlay(input: {
   baseUrl: string;
   overlayText: string;
   secondaryText?: string;
+  /** Top-left chrome, e.g. @handle */
+  headerLeft?: string;
+  /** Top-right chrome, e.g. specialty / niche */
+  headerRight?: string;
   primaryFont?: string;
   secondaryFont?: string;
   colors?: BrandColor[];
@@ -133,37 +160,132 @@ export function createDefaultOverlay(input: {
   const secondary = resolveBrandFont(input.secondaryFont, primary);
   const headlineColor = input.colors?.[0]?.hex?.trim() || DEFAULT_PRIMARY_COLOR;
   const supportColor = input.colors?.[1]?.hex?.trim() || DEFAULT_SECONDARY_COLOR;
+  const chromeColor = input.colors?.[2]?.hex?.trim() || supportColor;
+
   const layers: MediaTextLayer[] = [
+    createTextLayer(formatInstagramHandle(input.headerLeft) || (input.headerLeft ?? "").trim(), {
+      role: "handle",
+      label: "@ / handle",
+      fontFamily: secondary,
+      fontWeight: "400",
+      fontSize: 0.022,
+      color: chromeColor,
+      x: 0.18,
+      y: 0.055,
+      align: "left",
+      maxWidth: 0.4,
+    }),
+    createTextLayer((input.headerRight ?? "").trim(), {
+      role: "tagline",
+      label: "Topo direito",
+      fontFamily: secondary,
+      fontWeight: "400",
+      fontSize: 0.02,
+      color: chromeColor,
+      x: 0.82,
+      y: 0.055,
+      align: "right",
+      maxWidth: 0.42,
+    }),
     createTextLayer(input.overlayText.trim(), {
+      role: "headline",
+      label: "Título",
       fontFamily: primary,
       fontWeight: "700",
       fontSize: 0.058,
       color: headlineColor,
       x: 0.5,
-      y: 0.2,
+      y: 0.28,
       align: "center",
       maxWidth: 0.82,
     }),
+    createTextLayer((input.secondaryText ?? "").trim(), {
+      role: "support",
+      label: "Apoio",
+      fontFamily: secondary,
+      fontWeight: "400",
+      fontSize: 0.032,
+      color: supportColor,
+      x: 0.5,
+      y: 0.82,
+      align: "center",
+      maxWidth: 0.78,
+    }),
   ];
-  const secondaryText = input.secondaryText?.trim() ?? "";
-  if (secondaryText) {
-    layers.push(
-      createTextLayer(secondaryText, {
-        fontFamily: secondary,
-        fontWeight: "400",
-        fontSize: 0.032,
-        color: supportColor,
-        x: 0.5,
-        y: 0.8,
-        align: "center",
-        maxWidth: 0.78,
-      }),
-    );
-  }
+
   return {
     baseUrl: input.baseUrl,
     layers,
     adjustments: createDefaultImageAdjustments(),
+  };
+}
+
+/**
+ * Ensures classic carousel chrome layers exist so the editor can edit
+ * handle / top-right / headline / support — even for older 1-layer overlays.
+ */
+export function ensureArtLayoutLayers(
+  overlay: MediaTextOverlay,
+  opts?: {
+    headerLeft?: string;
+    headerRight?: string;
+    primaryFont?: string;
+    secondaryFont?: string;
+    colors?: BrandColor[];
+  },
+): MediaTextOverlay {
+  const hasRole = (role: TextLayerRole) => overlay.layers.some((layer) => layer.role === role);
+  if (
+    hasRole("handle") &&
+    hasRole("tagline") &&
+    hasRole("headline") &&
+    hasRole("support")
+  ) {
+    return overlay;
+  }
+
+  // Older overlays: treat the first non-empty layer as the headline.
+  const existingHeadline =
+    overlay.layers.find((layer) => layer.role === "headline") ??
+    overlay.layers.find((layer) => layer.text.trim()) ??
+    overlay.layers[0];
+
+  const scaffold = createDefaultOverlay({
+    baseUrl: overlay.baseUrl,
+    overlayText: existingHeadline?.text ?? "",
+    secondaryText: overlay.layers.find((layer) => layer.role === "support")?.text,
+    headerLeft: opts?.headerLeft,
+    headerRight: opts?.headerRight,
+    primaryFont: opts?.primaryFont ?? existingHeadline?.fontFamily,
+    secondaryFont: opts?.secondaryFont,
+    colors: opts?.colors,
+  });
+
+  const byRole = (role: TextLayerRole) =>
+    overlay.layers.find((layer) => layer.role === role) ??
+    scaffold.layers.find((layer) => layer.role === role)!;
+
+  const headlineLayer = existingHeadline
+    ? {
+        ...scaffold.layers.find((layer) => layer.role === "headline")!,
+        ...existingHeadline,
+        role: "headline" as const,
+        label: existingHeadline.label || "Título",
+      }
+    : byRole("headline");
+
+  const extras = overlay.layers.filter(
+    (layer) =>
+      layer.id !== existingHeadline?.id &&
+      layer.role !== "handle" &&
+      layer.role !== "tagline" &&
+      layer.role !== "headline" &&
+      layer.role !== "support",
+  );
+
+  return {
+    ...overlay,
+    layers: [byRole("handle"), byRole("tagline"), headlineLayer, byRole("support"), ...extras],
   };
 }
 
@@ -192,6 +314,8 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
         y: clamp01(typeof layer.y === "number" ? layer.y : 0.5),
         align: asAlign(layer.align),
         maxWidth: Math.min(0.98, Math.max(0.2, typeof layer.maxWidth === "number" ? layer.maxWidth : 0.82)),
+        label: typeof layer.label === "string" && layer.label.trim() ? layer.label.trim() : undefined,
+        role: asRole(layer.role),
       } satisfies MediaTextLayer;
     })
     .filter((layer): layer is MediaTextLayer => Boolean(layer));

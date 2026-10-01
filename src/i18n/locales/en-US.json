@@ -1595,7 +1595,7 @@
       },
       "artText": {
         "title": "Artwork text",
-        "hint": "Drag the text on the image. This uses the real brand font, not an AI drawing.",
+        "hint": "Each layout text is an editable layer (handle, top line, headline, support). Drag on the image; fonts come from the brand kit.",
         "tabText": "Text",
         "tabImage": "Image",
         "imageTitle": "Image adjustments",

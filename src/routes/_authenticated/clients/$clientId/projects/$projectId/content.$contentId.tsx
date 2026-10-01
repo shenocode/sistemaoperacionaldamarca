@@ -1248,6 +1248,12 @@ function ContentDetailPage() {
                     ? {
                         brandFonts: brandKitFromClient(client ?? {}).brand_fonts,
                         colors: brandKitFromClient(client ?? {}).brand_colors,
+                        headerLeft: client?.instagram ?? undefined,
+                        headerRight: (() => {
+                          const notes = brandKitFromClient(client ?? {}).brand_fonts.notes?.trim() ?? "";
+                          if (notes && notes.length <= 48 && !/\n/.test(notes)) return notes;
+                          return undefined;
+                        })(),
                         onSave: async (index, overlay) => {
                           try {
                             const file = await flattenOverlayToFile(

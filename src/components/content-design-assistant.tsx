@@ -62,7 +62,9 @@ import { downloadImageFromUrl } from "@/lib/download-image";
 import { cn } from "@/lib/utils";
 import {
   createDefaultOverlay,
+  ensureArtLayoutLayers,
   flattenOverlayToFile,
+  formatInstagramHandle,
   normalizeImageToDesignCanvas,
   type MediaTextOverlay,
 } from "@/lib/media-text-overlay";
@@ -313,6 +315,13 @@ export function ContentDesignAssistant({
     queryFn: () => getClient(clientId),
   });
   const kit = brandKitFromClient(clientQuery.data ?? {});
+  const brandHandle = formatInstagramHandle(clientQuery.data?.instagram);
+  const brandTagline = (() => {
+    const notes = kit.brand_fonts.notes?.trim() ?? "";
+    // Short kit notes often hold the specialty line used on templates.
+    if (notes && notes.length <= 48 && !/\n/.test(notes)) return notes;
+    return "";
+  })();
 
   const [templateSource, setTemplateSource] = useState<TemplateSource>("library");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
@@ -423,6 +432,8 @@ export function ContentDesignAssistant({
       baseUrl: normalizedUrl,
       overlayText: overlayTextValue,
       secondaryText: secondaryTextValue,
+      headerLeft: brandHandle,
+      headerRight: brandTagline,
       primaryFont: kit.brand_fonts.primary,
       secondaryFont: kit.brand_fonts.secondary,
       colors: kit.brand_colors,
@@ -649,34 +660,48 @@ export function ContentDesignAssistant({
 
   const lightboxItems = useMemo(() => {
     if (!lightbox) return [];
+    const withLayout = (overlay: MediaTextOverlay) =>
+      ensureArtLayoutLayers(overlay, {
+        headerLeft: brandHandle,
+        headerRight: brandTagline,
+        primaryFont: kit.brand_fonts.primary,
+        secondaryFont: kit.brand_fonts.secondary,
+        colors: kit.brand_colors,
+      });
     if (lightbox.mode === "static") {
       if (!resultUrl) return [];
-      const overlay =
+      const overlay = withLayout(
         resultOverlay ??
-        createDefaultOverlay({
-          baseUrl: resultUrl,
-          overlayText: "",
-          primaryFont: kit.brand_fonts.primary,
-          secondaryFont: kit.brand_fonts.secondary,
-          colors: kit.brand_colors,
-        });
+          createDefaultOverlay({
+            baseUrl: resultUrl,
+            overlayText: "",
+            headerLeft: brandHandle,
+            headerRight: brandTagline,
+            primaryFont: kit.brand_fonts.primary,
+            secondaryFont: kit.brand_fonts.secondary,
+            colors: kit.brand_colors,
+          }),
+      );
       return [{ url: overlay.baseUrl, overlay }];
     }
     return slides
       .filter((slide): slide is SlideDraft & { resultUrl: string } => Boolean(slide.resultUrl))
       .map((slide) => {
-        const overlay =
+        const overlay = withLayout(
           slide.overlay ??
-          createDefaultOverlay({
-            baseUrl: slide.resultUrl,
-            overlayText: "",
-            primaryFont: kit.brand_fonts.primary,
-            secondaryFont: kit.brand_fonts.secondary,
-            colors: kit.brand_colors,
-          });
+            createDefaultOverlay({
+              baseUrl: slide.resultUrl,
+              overlayText: "",
+              headerLeft: brandHandle,
+              headerRight: brandTagline,
+              primaryFont: kit.brand_fonts.primary,
+              secondaryFont: kit.brand_fonts.secondary,
+              colors: kit.brand_colors,
+            }),
+        );
         return { url: overlay.baseUrl, overlay, slideId: slide.id };
       });
-  }, [lightbox, resultUrl, resultOverlay, slides, kit]);
+  }, [lightbox, resultUrl, resultOverlay, slides, kit, brandHandle, brandTagline]);
 
   async function handleLightboxSave(index: number, overlay: MediaTextOverlay) {
     try {
@@ -1406,6 +1431,8 @@ export function ContentDesignAssistant({
       textEditor={{
         brandFonts: kit.brand_fonts,
         colors: kit.brand_colors,
+        headerLeft: brandHandle,
+        headerRight: brandTagline || undefined,
         onSave: handleLightboxSave,
       }}
     />

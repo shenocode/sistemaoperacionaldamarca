@@ -1595,7 +1595,7 @@
       },
       "artText": {
         "title": "Texto del arte",
-        "hint": "Arrastra el texto sobre la imagen. Usa la fuente real de la marca, no un dibujo de la IA.",
+        "hint": "Cada texto del layout es una capa editable (handle, arriba, título, apoyo). Arrástralo en la imagen; la fuente es la de la marca.",
         "tabText": "Texto",
         "tabImage": "Imagen",
         "imageTitle": "Ajustes de la imagen",
