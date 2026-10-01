@@ -217,19 +217,21 @@ async function generateWithGemini(input: {
     },
   });
 
-  // Foto primeiro (se houver); template por último para o Gemini herdar a proporção dele,
-  // e não a de uma foto quadrada — a API usa a última imagem quando as razões divergem.
-  const parts: Array<Record<string, unknown>> = [{ text: input.prompt }];
+  // Referências primeiro; o canvas de saída é só imageConfig + prompt (não herdar
+  // proporção da última imagem — template 1:1 não pode forçar saída 1:1).
+  const parts: Array<Record<string, unknown>> = [
+    { text: input.prompt },
+    {
+      text: `TEMPLATE — referência de direção de arte (cores, clima, hierarquia, estilo). Adapte o layout ao canvas ${input.aspectRatio}; não copie a proporção desta imagem.`,
+    },
+    imagePart(input.templateImage),
+  ];
   if (input.photoImage) {
     parts.push({
-      text: "FOTO/ASSET — use somente no recorte de imagem do template. Não mude a proporção do canvas para caber esta foto.",
+      text: "FOTO/ASSET — use somente no recorte de imagem da peça. Ignore a proporção desta foto; o canvas final é o pedido acima.",
     });
     parts.push(imagePart(input.photoImage));
   }
-  parts.push({
-    text: `TEMPLATE — edite ESTA arte. Saída obrigatória ${input.aspectRatio}. Não redesenhe o layout.`,
-  });
-  parts.push(imagePart(input.templateImage));
 
   const geminiRes = await fetch(url, {
     method: "POST",
@@ -434,22 +436,25 @@ Deno.serve(async (req) => {
     const photoImage = photoUrl ? await fetchImage(photoUrl) : null;
 
     const prompt = [
-      "TAREFA: edição de imagem (image edit). NÃO crie uma arte nova. NÃO reinterpretar o design.",
-      `Saída: UMA arte em ${canvas.orientation} ${aspectRatio} (${canvas.pixels}) para ${canvas.uses}.`,
-      `Proporção obrigatória: ${aspectRatio}. ${canvas.forbidden}`,
-      "A última imagem anexada é o TEMPLATE oficial. Trave o layout: mesmas cores, margens, hierarquia, blocos, rodapé gráfico e fundo.",
-      "Não redesenhe, não estilize, não invente blocos extras, não duplique frases, não mude a tipografia desenhada em formas.",
+      "TAREFA: gerar UMA arte final pronta para overlay de texto (sem letras).",
+      "O template anexado é REFERÊNCIA de direção de arte — não um canvas a ser clonado 1:1.",
+      `Canvas de saída OBRIGATÓRIO: ${canvas.orientation} ${aspectRatio} (${canvas.pixels}) para ${canvas.uses}.`,
+      `Proporção final: exatamente ${aspectRatio}. ${canvas.forbidden}`,
+      "Ignore a proporção nativa do template e da foto. Se o template for 1:1 e o pedido for 3:4/4:5/9:16, RECOMPONHA o layout no retrato (não crope para quadrado, não letterbox, não deixe barras).",
+      "Preserve a direção de arte: paleta, clima, contraste, estilo fotográfico, margens relativas, hierarquia de blocos e tratamento de fundo.",
+      "Pode reposicionar/redimensionar blocos e o recorte da foto para caber bem no novo canvas.",
+      "Não invente blocos extras, logos inventados, selos, stickers nem tipografia desenhada.",
       photoImage
-        ? "Há uma FOTO/ASSET anexada antes do template: substitua só a foto do template por essa, no mesmo recorte. Ignore a proporção da foto."
+        ? "Há uma FOTO/ASSET anexada: use-a no lugar da foto do template, no recorte adequado ao novo canvas. Ignore a proporção da foto."
         : "Não há foto extra: não invente fotografias, pessoas nem assets que não estejam no template.",
-      "TEXTO — regra absoluta:",
-      "Não renderize letra, número, palavra, handle, hashtag, CTA, crédito, marca d'água nem placeholder.",
-      "Apague/inpaint TODO o texto visível do template (título, apoio, @, rodapé escrito) e deixe o fundo contínuo nessas áreas.",
-      "Se copiar o texto do template — mesmo com erro de digitação — a arte está ERRADA.",
-      "O app aplica o copy depois, com a fonte verdadeira da marca; a sua saída é só o fundo/layout vazio.",
+      "TEXTO — regra absoluta (falha se violar):",
+      "ZERO letras na saída. Não renderize palavra, número, handle (@), hashtag, CTA, crédito, marca d'água, placeholder nem texto ilegível/borrado.",
+      "Apague/inpaint TODO o texto visível do template (título, subtítulo, @, especialidade, rodapé escrito) e complete o fundo nessas áreas de forma contínua.",
+      "Não reescreva, traduza, complete nem invente palavras (ex.: não acrescente 'imediatamente' nem qualquer outra).",
+      "Não duplique frases. Se restar qualquer letra — mesmo errada — a arte está ERRADA.",
+      "O app aplica o copy depois, com a fonte verdadeira da marca; sua saída é só fundo/layout limpo.",
       "Respeite as cores do kit de marca quando informadas.",
-      "Não adicione logos inventados.",
-      `Resultado: o mesmo template, limpo, sem letras, em ${aspectRatio}.`,
+      `Resultado: mesma direção de arte do template, sem letras, em ${aspectRatio} (${canvas.pixels}).`,
       "",
       `Cliente: ${client.name}`,
       `Projeto: ${project.name}`,

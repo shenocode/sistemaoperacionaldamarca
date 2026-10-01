@@ -80,10 +80,12 @@ function TemplateOptionLabel({
   name,
   imageUrl,
   aspect,
+  showAspect = false,
 }: {
   name: string;
   imageUrl?: string | null;
   aspect: DesignAspectRatio;
+  showAspect?: boolean;
 }) {
   const thumbClass = designAspectThumbClass(aspect);
   return (
@@ -99,12 +101,23 @@ function TemplateOptionLabel({
       ) : (
         <span className={cn("shrink-0 rounded-md border bg-muted", thumbClass)} aria-hidden="true" />
       )}
-      <span className="truncate">{name}</span>
+      <span className="min-w-0 truncate">
+        {name}
+        {showAspect ? (
+          <span className="ml-1.5 text-muted-foreground tabular-nums">{aspect}</span>
+        ) : null}
+      </span>
     </span>
   );
 }
 
-function TemplateSelectItems({ templates }: { templates: DesignTemplate[] }) {
+function TemplateSelectItems({
+  templates,
+  showAspect = false,
+}: {
+  templates: DesignTemplate[];
+  showAspect?: boolean;
+}) {
   return (
     <>
       {templates.map((template) => (
@@ -113,11 +126,24 @@ function TemplateSelectItems({ templates }: { templates: DesignTemplate[] }) {
             name={template.name}
             imageUrl={template.file_url}
             aspect={templateAspect(template)}
+            showAspect={showAspect}
           />
         </SelectItem>
       ))}
     </>
   );
+}
+
+function sortTemplatesForAspect(
+  templates: DesignTemplate[],
+  preferredAspect: DesignAspectRatio,
+): DesignTemplate[] {
+  return [...templates].sort((a, b) => {
+    const aMatch = templateAspect(a) === preferredAspect ? 0 : 1;
+    const bMatch = templateAspect(b) === preferredAspect ? 0 : 1;
+    if (aMatch !== bMatch) return aMatch - bMatch;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
 }
 
 function GeneratedArtPreview({
@@ -258,10 +284,7 @@ export function ContentDesignAssistant({
     queryFn: () => listDesignTemplates(clientId),
   });
   const templates = useMemo(
-    () =>
-      (templatesQuery.data ?? []).filter(
-        (template) => templateAspect(template) === aspectRatio,
-      ),
+    () => sortTemplatesForAspect(templatesQuery.data ?? [], aspectRatio),
     [templatesQuery.data, aspectRatio],
   );
 
@@ -696,7 +719,7 @@ export function ContentDesignAssistant({
                   <SelectValue placeholder={t("project.detail.designAssistant.templateSelect")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
-                  <TemplateSelectItems templates={templates} />
+                  <TemplateSelectItems templates={templates} showAspect />
                 </SelectContent>
               </Select>
             )
@@ -707,16 +730,33 @@ export function ContentDesignAssistant({
                 : t("project.detail.designAssistant.templateUploadHint")}
             </p>
           )}
-          {selectedTemplateId && templateSource === "library" ? (
-            <img
-              src={templates.find((item) => item.id === selectedTemplateId)?.file_url}
-              alt=""
-              className={cn(
-                "mt-2 rounded-md border object-cover",
-                designAspectPreviewClass(aspectRatio, "sm"),
-              )}
-            />
-          ) : null}
+          {selectedTemplateId && templateSource === "library"
+            ? (() => {
+                const selected = templates.find((item) => item.id === selectedTemplateId);
+                if (!selected?.file_url) return null;
+                const nativeAspect = templateAspect(selected);
+                return (
+                  <>
+                    {nativeAspect !== aspectRatio ? (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        {t("project.detail.designAssistant.templateAspectMismatch", {
+                          templateAspect: nativeAspect,
+                          aspect: aspectRatio,
+                        })}
+                      </p>
+                    ) : null}
+                    <img
+                      src={selected.file_url}
+                      alt=""
+                      className={cn(
+                        "mt-2 rounded-md border object-cover",
+                        designAspectPreviewClass(nativeAspect, "sm"),
+                      )}
+                    />
+                  </>
+                );
+              })()
+            : null}
           {templateFile && templateSource === "upload" ? (
             <p className="text-xs font-medium text-foreground">{templateFile.name}</p>
           ) : null}
@@ -1070,7 +1110,7 @@ export function ContentDesignAssistant({
                               aspect={aspectRatio}
                             />
                           </SelectItem>
-                          <TemplateSelectItems templates={templates} />
+                          <TemplateSelectItems templates={templates} showAspect />
                         </SelectContent>
                       </Select>
                       <input
