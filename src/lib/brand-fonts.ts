@@ -2,35 +2,60 @@ export type BrandFontOption = {
   id: string;
   family: string;
   category: "sans" | "serif" | "display";
+  /** google = CDN; kit = nome curado que exige arquivo da marca (licença comercial). */
+  source: "google" | "kit";
 };
 
-/** Curated Google Fonts used in the brand kit and on-image text editor. */
+/** Free Google Fonts — load without upload. */
+export const BRAND_GOOGLE_FONT_OPTIONS: BrandFontOption[] = [
+  { id: "Montserrat", family: "Montserrat", category: "sans", source: "google" },
+  { id: "Inter", family: "Inter", category: "sans", source: "google" },
+  { id: "Poppins", family: "Poppins", category: "sans", source: "google" },
+  { id: "Nunito", family: "Nunito", category: "sans", source: "google" },
+  { id: "Lato", family: "Lato", category: "sans", source: "google" },
+  { id: "Open Sans", family: "Open Sans", category: "sans", source: "google" },
+  { id: "Roboto", family: "Roboto", category: "sans", source: "google" },
+  { id: "Work Sans", family: "Work Sans", category: "sans", source: "google" },
+  { id: "DM Sans", family: "DM Sans", category: "sans", source: "google" },
+  { id: "Manrope", family: "Manrope", category: "sans", source: "google" },
+  { id: "Outfit", family: "Outfit", category: "sans", source: "google" },
+  { id: "Raleway", family: "Raleway", category: "sans", source: "google" },
+  { id: "Barlow", family: "Barlow", category: "sans", source: "google" },
+  { id: "Archivo", family: "Archivo", category: "sans", source: "google" },
+  { id: "Space Grotesk", family: "Space Grotesk", category: "sans", source: "google" },
+  { id: "Oswald", family: "Oswald", category: "sans", source: "google" },
+  { id: "Playfair Display", family: "Playfair Display", category: "serif", source: "google" },
+  { id: "Lora", family: "Lora", category: "serif", source: "google" },
+  { id: "Merriweather", family: "Merriweather", category: "serif", source: "google" },
+  { id: "Libre Baskerville", family: "Libre Baskerville", category: "serif", source: "google" },
+  { id: "PT Serif", family: "PT Serif", category: "serif", source: "google" },
+  { id: "Cormorant Garamond", family: "Cormorant Garamond", category: "serif", source: "google" },
+  { id: "Source Serif 4", family: "Source Serif 4", category: "serif", source: "google" },
+  { id: "Cinzel", family: "Cinzel", category: "display", source: "google" },
+  { id: "Bebas Neue", family: "Bebas Neue", category: "display", source: "google" },
+];
+
+/**
+ * Commercial / licensed names shown in the kit picker.
+ * Cannot be bundled or loaded from Google — the brand must upload its licensed file.
+ */
+export const BRAND_KIT_FONT_OPTIONS: BrandFontOption[] = [
+  { id: "The Seasons", family: "The Seasons", category: "serif", source: "kit" },
+  { id: "Gill Sans", family: "Gill Sans", category: "sans", source: "kit" },
+  { id: "Gotham", family: "Gotham", category: "sans", source: "kit" },
+  { id: "Futura", family: "Futura", category: "sans", source: "kit" },
+  { id: "Proxima Nova", family: "Proxima Nova", category: "sans", source: "kit" },
+  { id: "Avenir", family: "Avenir", category: "sans", source: "kit" },
+  { id: "Helvetica Neue", family: "Helvetica Neue", category: "sans", source: "kit" },
+  { id: "Didot", family: "Didot", category: "serif", source: "kit" },
+  { id: "Bodoni", family: "Bodoni", category: "serif", source: "kit" },
+  { id: "Garamond", family: "Garamond", category: "serif", source: "kit" },
+];
+
+/** Full catalog for selects (kit commercial first, then Google). */
 export const BRAND_FONT_OPTIONS: BrandFontOption[] = [
-  { id: "Montserrat", family: "Montserrat", category: "sans" },
-  { id: "Inter", family: "Inter", category: "sans" },
-  { id: "Poppins", family: "Poppins", category: "sans" },
-  { id: "Nunito", family: "Nunito", category: "sans" },
-  { id: "Lato", family: "Lato", category: "sans" },
-  { id: "Open Sans", family: "Open Sans", category: "sans" },
-  { id: "Roboto", family: "Roboto", category: "sans" },
-  { id: "Work Sans", family: "Work Sans", category: "sans" },
-  { id: "DM Sans", family: "DM Sans", category: "sans" },
-  { id: "Manrope", family: "Manrope", category: "sans" },
-  { id: "Outfit", family: "Outfit", category: "sans" },
-  { id: "Raleway", family: "Raleway", category: "sans" },
-  { id: "Barlow", family: "Barlow", category: "sans" },
-  { id: "Archivo", family: "Archivo", category: "sans" },
-  { id: "Space Grotesk", family: "Space Grotesk", category: "sans" },
-  { id: "Oswald", family: "Oswald", category: "sans" },
-  { id: "Playfair Display", family: "Playfair Display", category: "serif" },
-  { id: "Lora", family: "Lora", category: "serif" },
-  { id: "Merriweather", family: "Merriweather", category: "serif" },
-  { id: "Libre Baskerville", family: "Libre Baskerville", category: "serif" },
-  { id: "PT Serif", family: "PT Serif", category: "serif" },
-  { id: "Cormorant Garamond", family: "Cormorant Garamond", category: "serif" },
-  { id: "Source Serif 4", family: "Source Serif 4", category: "serif" },
-  { id: "Cinzel", family: "Cinzel", category: "display" },
-  { id: "Bebas Neue", family: "Bebas Neue", category: "display" },
+  ...BRAND_KIT_FONT_OPTIONS,
+  ...BRAND_GOOGLE_FONT_OPTIONS,
 ];
 
 const FONT_LINK_ID = "som-brand-google-fonts";
@@ -51,7 +76,16 @@ export function brandFontFamilyCss(family: string) {
 export function isGoogleBrandFont(value: string | undefined | null) {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return false;
-  return BRAND_FONT_OPTIONS.some((font) => font.family.toLowerCase() === trimmed.toLowerCase());
+  return BRAND_GOOGLE_FONT_OPTIONS.some(
+    (font) => font.family.toLowerCase() === trimmed.toLowerCase(),
+  );
+}
+
+/** True when the face cannot be loaded from Google and needs a kit file upload. */
+export function brandFontNeedsFile(value: string | undefined | null) {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return false;
+  return !isGoogleBrandFont(trimmed);
 }
 
 export function resolveBrandFont(value: string | undefined | null, fallback = "Montserrat") {
@@ -69,7 +103,10 @@ export function fontOptionsForSelect(stored?: string | null): BrandFontOption[] 
   if (BRAND_FONT_OPTIONS.some((font) => font.family.toLowerCase() === trimmed.toLowerCase())) {
     return BRAND_FONT_OPTIONS;
   }
-  return [{ id: trimmed, family: trimmed, category: "sans" }, ...BRAND_FONT_OPTIONS];
+  return [
+    { id: trimmed, family: trimmed, category: "sans", source: "kit" },
+    ...BRAND_FONT_OPTIONS,
+  ];
 }
 
 /** Build family → file URL map from brand kit fonts. */

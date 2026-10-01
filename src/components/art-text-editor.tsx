@@ -17,9 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   brandFontFamilyCss,
+  brandFontNeedsFile,
   brandFontsToFileMap,
   fontOptionsForSelect,
-  isGoogleBrandFont,
   loadBrandFonts,
   resolveBrandFont,
 } from "@/lib/brand-fonts";
@@ -460,7 +460,7 @@ export function ArtTextEditorPanel({
   );
   const selectedNeedsFile =
     Boolean(selected?.fontFamily?.trim()) &&
-    !isGoogleBrandFont(selected?.fontFamily) &&
+    brandFontNeedsFile(selected?.fontFamily) &&
     !fontFiles[selected?.fontFamily?.trim() ?? ""];
 
   useEffect(() => {
@@ -568,9 +568,15 @@ export function ArtTextEditorPanel({
                           <SelectItem
                             key={font.id}
                             value={font.family}
-                            style={{ fontFamily: brandFontFamilyCss(font.family) }}
+                            style={
+                              font.source === "google"
+                                ? { fontFamily: brandFontFamilyCss(font.family) }
+                                : undefined
+                            }
                           >
-                            {font.family}
+                            {font.source === "kit"
+                              ? `${font.family} · ${t("project.detail.artText.brandFontFile")}`
+                              : font.family}
                           </SelectItem>
                         ))}
                     </SelectContent>

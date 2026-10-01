@@ -21,15 +21,17 @@ import {
   type BrandFonts,
 } from "@/lib/api";
 import {
+  BRAND_GOOGLE_FONT_OPTIONS,
+  BRAND_KIT_FONT_OPTIONS,
   brandFontFamilyCss,
+  brandFontNeedsFile,
   brandFontsToFileMap,
-  fontOptionsForSelect,
   isGoogleBrandFont,
   loadBrandFonts,
 } from "@/lib/brand-fonts";
 
 const FONT_NONE = "__none__";
-const FONT_CUSTOM = "__custom__";
+const FONT_OTHER = "__other__";
 
 export type BrandKitValue = {
   brand_colors: BrandColor[];
@@ -54,14 +56,8 @@ export function BrandKitFields({
   const { t } = useTranslation();
   const colors = value.brand_colors ?? [];
   const fonts = value.brand_fonts ?? {};
-  const primaryOptions = fontOptionsForSelect(fonts.primary);
-  const secondaryOptions = fontOptionsForSelect(fonts.secondary);
-  const [customPrimary, setCustomPrimary] = useState(
-    () => Boolean(fonts.primary?.trim() && !isGoogleBrandFont(fonts.primary)),
-  );
-  const [customSecondary, setCustomSecondary] = useState(
-    () => Boolean(fonts.secondary?.trim() && !isGoogleBrandFont(fonts.secondary)),
-  );
+  const [otherPrimary, setOtherPrimary] = useState(() => isOtherName(fonts.primary));
+  const [otherSecondary, setOtherSecondary] = useState(() => isOtherName(fonts.secondary));
   const [uploadingSlot, setUploadingSlot] = useState<"primary" | "secondary" | null>(null);
   const primaryFileRef = useRef<HTMLInputElement>(null);
   const secondaryFileRef = useRef<HTMLInputElement>(null);
@@ -94,14 +90,15 @@ export function BrandKitFields({
     setUploadingSlot(slot);
     try {
       const url = await uploadBrandFont(clientId, file);
-      const familyFromName = file.name.replace(/\.(woff2?|ttf|otf)$/i, "").replace(/[-_]+/g, " ").trim();
+      const familyFromName = file.name
+        .replace(/\.(woff2?|ttf|otf)$/i, "")
+        .replace(/[-_]+/g, " ")
+        .trim();
       if (slot === "primary") {
         const family = fonts.primary?.trim() || familyFromName || "Custom Font";
-        setCustomPrimary(true);
         setFonts({ primary: family, primaryFileUrl: url });
       } else {
         const family = fonts.secondary?.trim() || familyFromName || "Custom Font";
-        setCustomSecondary(true);
         setFonts({ secondary: family, secondaryFileUrl: url });
       }
       toast.success(t("clients.brandKit.fontUploadOk"));
@@ -113,25 +110,45 @@ export function BrandKitFields({
   }
 
   function renderFontSlot(slot: "primary" | "secondary") {
-    const family = slot === "primary" ? fonts.primary : fonts.secondary;
+    const family = (slot === "primary" ? fonts.primary : fonts.secondary) ?? "";
     const fileUrl = slot === "primary" ? fonts.primaryFileUrl : fonts.secondaryFileUrl;
-    const options = slot === "primary" ? primaryOptions : secondaryOptions;
-    const customMode = slot === "primary" ? customPrimary : customSecondary;
-    const setCustom = slot === "primary" ? setCustomPrimary : setCustomSecondary;
+    const otherMode = slot === "primary" ? otherPrimary : otherSecondary;
+    const setOther = slot === "primary" ? setOtherPrimary : setOtherSecondary;
     const fileRef = slot === "primary" ? primaryFileRef : secondaryFileRef;
     const label =
       slot === "primary" ? t("clients.brandKit.fontPrimary") : t("clients.brandKit.fontSecondary");
     const selectId = `${idPrefix}-font-${slot}`;
-    const needsFile = Boolean(family?.trim()) && !isGoogleBrandFont(family) && !fileUrl?.trim();
+    const trimmed = family.trim();
+    const needsFile = brandFontNeedsFile(trimmed) && !fileUrl?.trim();
+    const showUpload = Boolean(trimmed) && brandFontNeedsFile(trimmed);
+    const inCurated =
+      BRAND_KIT_FONT_OPTIONS.some((f) => f.family.toLowerCase() === trimmed.toLowerCase()) ||
+      BRAND_GOOGLE_FONT_OPTIONS.some((f) => f.family.toLowerCase() === trimmed.toLowerCase());
+    const selectValue = !trimmed
+      ? FONT_NONE
+      : otherMode || (!inCurated && brandFontNeedsFile(trimmed))
+        ? FONT_OTHER
+        : trimmed;
+
+    const kitOptions = BRAND_KIT_FONT_OPTIONS;
+    const googleOptions = BRAND_GOOGLE_FONT_OPTIONS;
+    // Keep a one-off stored name visible if it isn't in the curated lists.
+    const orphan =
+      trimmed &&
+      !kitOptions.some((f) => f.family.toLowerCase() === trimmed.toLowerCase()) &&
+      !googleOptions.some((f) => f.family.toLowerCase() === trimmed.toLowerCase()) &&
+      !otherMode
+        ? trimmed
+        : null;
 
     return (
       <div className="space-y-1.5">
         <Label htmlFor={selectId}>{label}</Label>
         <Select
-          value={customMode ? FONT_CUSTOM : family?.trim() || FONT_NONE}
+          value={selectValue}
           onValueChange={(next) => {
             if (next === FONT_NONE) {
-              setCustom(false);
+              setOther(false);
               setFonts(
                 slot === "primary"
                   ? { primary: "", primaryFileUrl: "" }
@@ -139,19 +156,34 @@ export function BrandKitFields({
               );
               return;
             }
-            if (next === FONT_CUSTOM) {
-              setCustom(true);
-              if (isGoogleBrandFont(family)) {
+            if (next === FONT_OTHER) {
+              setOther(true);
+              if (isGoogleBrandFont(family) || !family.trim()) {
                 setFonts(slot === "primary" ? { primary: "" } : { secondary: "" });
               }
               return;
             }
-            setCustom(false);
-            setFonts(
-              slot === "primary"
-                ? { primary: next, primaryFileUrl: "" }
-                : { secondary: next, secondaryFileUrl: "" },
-            );
+            setOther(false);
+            const sameFamily = trimmed.toLowerCase() === next.toLowerCase();
+            if (slot === "primary") {
+              setFonts({
+                primary: next,
+                primaryFileUrl: sameFamily
+                  ? fonts.primaryFileUrl
+                  : isGoogleBrandFont(next)
+                    ? ""
+                    : "",
+              });
+            } else {
+              setFonts({
+                secondary: next,
+                secondaryFileUrl: sameFamily
+                  ? fonts.secondaryFileUrl
+                  : isGoogleBrandFont(next)
+                    ? ""
+                    : "",
+              });
+            }
           }}
         >
           <SelectTrigger id={selectId}>
@@ -159,34 +191,64 @@ export function BrandKitFields({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={FONT_NONE}>{t("clients.brandKit.fontNone")}</SelectItem>
-            <SelectItem value={FONT_CUSTOM}>{t("clients.brandKit.fontCustom")}</SelectItem>
-            {options
-              .filter((font) => isGoogleBrandFont(font.family))
-              .map((font) => (
-                <SelectItem
-                  key={font.id}
-                  value={font.family}
-                  style={{ fontFamily: brandFontFamilyCss(font.family) }}
-                >
-                  {font.family}
-                </SelectItem>
-              ))}
+            <SelectItem value={FONT_OTHER}>{t("clients.brandKit.fontOther")}</SelectItem>
+            {orphan ? (
+              <SelectItem value={orphan} style={{ fontFamily: brandFontFamilyCss(orphan) }}>
+                {orphan}
+              </SelectItem>
+            ) : null}
+            <div className="px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t("clients.brandKit.fontGroupKit")}
+            </div>
+            {kitOptions.map((font) => (
+              <SelectItem key={`kit-${font.id}`} value={font.family}>
+                {font.family}
+              </SelectItem>
+            ))}
+            <div className="px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {t("clients.brandKit.fontGroupGoogle")}
+            </div>
+            {googleOptions.map((font) => (
+              <SelectItem
+                key={`google-${font.id}`}
+                value={font.family}
+                style={{ fontFamily: brandFontFamilyCss(font.family) }}
+              >
+                {font.family}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        {customMode ? (
+        {otherMode ? (
+          <div className="space-y-1.5">
+            <Label htmlFor={`${selectId}-name`}>{t("clients.brandKit.fontCustomName")}</Label>
+            <Input
+              id={`${selectId}-name`}
+              value={family}
+              onChange={(e) => {
+                const next = e.target.value;
+                const same = trimmed.toLowerCase() === next.trim().toLowerCase();
+                setFonts(
+                  slot === "primary"
+                    ? {
+                        primary: next,
+                        primaryFileUrl: same ? fonts.primaryFileUrl : "",
+                      }
+                    : {
+                        secondary: next,
+                        secondaryFileUrl: same ? fonts.secondaryFileUrl : "",
+                      },
+                );
+              }}
+              placeholder={t("clients.brandKit.fontCustomNamePlaceholder")}
+            />
+          </div>
+        ) : null}
+
+        {showUpload ? (
           <div className="space-y-2 rounded-md border border-dashed p-3">
-            <div className="space-y-1.5">
-              <Label htmlFor={`${selectId}-name`}>{t("clients.brandKit.fontCustomName")}</Label>
-              <Input
-                id={`${selectId}-name`}
-                value={family ?? ""}
-                onChange={(e) =>
-                  setFonts(slot === "primary" ? { primary: e.target.value } : { secondary: e.target.value })
-                }
-                placeholder={t("clients.brandKit.fontCustomNamePlaceholder")}
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">{t("clients.brandKit.fontFileHint")}</p>
             <input
               ref={fileRef}
               type="file"
@@ -230,18 +292,12 @@ export function BrandKitFields({
             </div>
             {fileUrl?.trim() ? (
               <p className="text-xs text-muted-foreground">{t("clients.brandKit.fontFileReady")}</p>
-            ) : (
+            ) : needsFile ? (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                {t("clients.brandKit.fontFileHint")}
+                {t("clients.brandKit.fontFileRequired")}
               </p>
-            )}
+            ) : null}
           </div>
-        ) : null}
-
-        {needsFile && !customMode ? (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            {t("clients.brandKit.fontFileHint")}
-          </p>
         ) : null}
       </div>
     );
@@ -264,9 +320,7 @@ export function BrandKitFields({
             variant="outline"
             size="sm"
             disabled={colors.length >= MAX_BRAND_COLORS}
-            onClick={() =>
-              setColors([...colors, { name: "", hex: "#000000" }])
-            }
+            onClick={() => setColors([...colors, { name: "", hex: "#000000" }])}
           >
             <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
             {t("clients.brandKit.addColor")}
@@ -355,6 +409,13 @@ export function BrandKitFields({
       </div>
     </div>
   );
+}
+
+function isOtherName(value: string | undefined | null) {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return false;
+  if (isGoogleBrandFont(trimmed)) return false;
+  return !BRAND_KIT_FONT_OPTIONS.some((f) => f.family.toLowerCase() === trimmed.toLowerCase());
 }
 
 function normalizeHex(value: string | undefined): string {
