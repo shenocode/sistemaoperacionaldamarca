@@ -2449,7 +2449,14 @@ function isMissingSortOrderColumn(message: string) {
   return /sort_order/i.test(message) && /column|schema cache|does not exist/i.test(message);
 }
 
+function isMissingArchivedAtColumn(message: string) {
+  return /archived_at/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
 const CONTENT_LIST_COLUMNS =
+  "id, project_id, title, status, format, theme, funnel_stage, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, archived_at, created_at, updated_at, current_version, created_by";
+
+const CONTENT_LIST_COLUMNS_WITHOUT_ARCHIVED =
   "id, project_id, title, status, format, theme, funnel_stage, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, created_at, updated_at, current_version, created_by";
 
 function asListContentItem(row: Record<string, unknown>): ContentItem {
@@ -2465,8 +2472,13 @@ function asListContentItem(row: Record<string, unknown>): ContentItem {
     performance_reach: "",
     performance_retention: "",
     repeat_format: false,
+    archived_at: null,
     ...row,
   } as ContentItem;
+}
+
+export function isContentArchived(row: Pick<ContentItem, "archived_at"> | { archived_at?: string | null }) {
+  return Boolean(row.archived_at);
 }
 
 export async function listContent(projectId: string) {
@@ -2478,6 +2490,17 @@ export async function listContent(projectId: string) {
     .order("created_at", { ascending: true });
   if (!ordered.error) {
     return (ordered.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
+  }
+
+  if (isMissingArchivedAtColumn(ordered.error.message)) {
+    const fallback = await supabase
+      .from("content_items")
+      .select(CONTENT_LIST_COLUMNS_WITHOUT_ARCHIVED)
+      .eq("project_id", projectId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (fallback.error) throw new Error(fallback.error.message);
+    return (fallback.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
   }
 
   if (isMissingFunnelStageColumn(ordered.error.message)) {
@@ -2496,7 +2519,7 @@ export async function listContent(projectId: string) {
   if (isMissingSortOrderColumn(ordered.error.message)) {
     const fallback = await supabase
       .from("content_items")
-      .select(CONTENT_LIST_COLUMNS)
+      .select(CONTENT_LIST_COLUMNS_WITHOUT_ARCHIVED)
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
     if (fallback.error) throw new Error(fallback.error.message);
@@ -2814,6 +2837,58 @@ export async function deleteContent(input: {
   if (storagePaths.length > 0) {
     await supabase.storage.from(CONTENT_MEDIA_BUCKET).remove(storagePaths);
   }
+}
+
+export async function archiveContent(input: {
+  contentId: string;
+  projectId: string;
+}): Promise<ContentItem> {
+  const current = await getContent(input.contentId);
+  if (!current) throw new Error("Conteúdo não encontrado");
+  if (current.project_id !== input.projectId) {
+    throw new Error("Conteúdo não pertence a este projeto");
+  }
+  const { data, error } = await supabase
+    .from("content_items")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", input.contentId)
+    .select("*")
+    .single();
+  if (error) {
+    if (isMissingArchivedAtColumn(error.message)) {
+      throw new Error(
+        "Arquivar ainda não está disponível neste projeto (coluna archived_at). Peça para aplicar a migration no Supabase.",
+      );
+    }
+    throw new Error(error.message);
+  }
+  return ensureData(data, error);
+}
+
+export async function restoreContent(input: {
+  contentId: string;
+  projectId: string;
+}): Promise<ContentItem> {
+  const current = await getContent(input.contentId);
+  if (!current) throw new Error("Conteúdo não encontrado");
+  if (current.project_id !== input.projectId) {
+    throw new Error("Conteúdo não pertence a este projeto");
+  }
+  const { data, error } = await supabase
+    .from("content_items")
+    .update({ archived_at: null })
+    .eq("id", input.contentId)
+    .select("*")
+    .single();
+  if (error) {
+    if (isMissingArchivedAtColumn(error.message)) {
+      throw new Error(
+        "Restaurar ainda não está disponível neste projeto (coluna archived_at). Peça para aplicar a migration no Supabase.",
+      );
+    }
+    throw new Error(error.message);
+  }
+  return ensureData(data, error);
 }
 
 export async function saveContentAsNewVersion(input: {
@@ -3186,15 +3261,35 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
       .from("content_items")
       .select("id")
       .eq("project_id", projectId)
-      .is("calendar_block_id", null);
-    if (!unassigned.error && (unassigned.data?.length ?? 0) > 0) {
+      .is("calendar_block_id", null)
+      .is("archived_at", null);
+    let unassignedRows = unassigned.data;
+    let unassignedError = unassigned.error;
+    if (unassignedError && isMissingArchivedAtColumn(unassignedError.message)) {
+      const fallback = await supabase
+        .from("content_items")
+        .select("id")
+        .eq("project_id", projectId)
+        .is("calendar_block_id", null);
+      unassignedRows = fallback.data;
+      unassignedError = fallback.error;
+    }
+    if (!unassignedError && (unassignedRows?.length ?? 0) > 0) {
       const targetId = existing[existing.length - 1]?.id;
       if (targetId) {
-        await supabase
+        const link = await supabase
           .from("content_items")
           .update({ calendar_block_id: targetId })
           .eq("project_id", projectId)
-          .is("calendar_block_id", null);
+          .is("calendar_block_id", null)
+          .is("archived_at", null);
+        if (link.error && isMissingArchivedAtColumn(link.error.message)) {
+          await supabase
+            .from("content_items")
+            .update({ calendar_block_id: targetId })
+            .eq("project_id", projectId)
+            .is("calendar_block_id", null);
+        }
       }
     }
 
@@ -3203,7 +3298,9 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
     if (untitled.length > 0) {
       await Promise.all(
         untitled.map((block) => {
-          const items = content.filter((item) => item.calendar_block_id === block.id);
+          const items = content.filter(
+            (item) => item.calendar_block_id === block.id && !isContentArchived(item),
+          );
           const title = suggestCalendarBlockTitle(items);
           return supabase.from("calendar_blocks").update({ title }).eq("id", block.id);
         }),
@@ -3214,7 +3311,7 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
     return existing;
   }
 
-  const content = await listContent(projectId);
+  const content = (await listContent(projectId)).filter((item) => !isContentArchived(item));
   if (content.length === 0) return [];
 
   const title = suggestCalendarBlockTitle(content);
@@ -3229,13 +3326,25 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
   }
   const block = ensureData(data, error);
 
-  const { error: linkError } = await supabase
+  const linkActive = await supabase
     .from("content_items")
     .update({ calendar_block_id: block.id })
     .eq("project_id", projectId)
-    .is("calendar_block_id", null);
-  if (linkError && !isMissingCalendarBlockIdColumn(linkError.message)) {
-    throw new Error(linkError.message);
+    .is("calendar_block_id", null)
+    .is("archived_at", null);
+  if (linkActive.error) {
+    if (isMissingArchivedAtColumn(linkActive.error.message)) {
+      const fallback = await supabase
+        .from("content_items")
+        .update({ calendar_block_id: block.id })
+        .eq("project_id", projectId)
+        .is("calendar_block_id", null);
+      if (fallback.error && !isMissingCalendarBlockIdColumn(fallback.error.message)) {
+        throw new Error(fallback.error.message);
+      }
+    } else if (!isMissingCalendarBlockIdColumn(linkActive.error.message)) {
+      throw new Error(linkActive.error.message);
+    }
   }
 
   return [block];
@@ -3291,7 +3400,7 @@ export async function duplicateCalendarBlock(input: {
 
   const allContent = await listContent(input.projectId);
   const sourceItems = allContent
-    .filter((item) => item.calendar_block_id === source.id)
+    .filter((item) => item.calendar_block_id === source.id && !isContentArchived(item))
     .sort(sortContentByManualOrder);
 
   const advanceDays = calendarPeriodAdvanceDays(sourceItems);
@@ -3371,12 +3480,42 @@ export async function deleteCalendarBlock(input: {
   const target = blocks.find((block) => block.id === input.blockId);
   if (!target) throw new Error("Bloco de calendário não encontrado");
 
-  const { error: contentError } = await supabase
+  // Keep archived content: unlink from the block instead of hard-deleting it.
+  const { error: unlinkArchivedError } = await supabase
     .from("content_items")
-    .delete()
+    .update({ calendar_block_id: null })
     .eq("project_id", input.projectId)
-    .eq("calendar_block_id", input.blockId);
-  if (contentError) throw new Error(contentError.message);
+    .eq("calendar_block_id", input.blockId)
+    .not("archived_at", "is", null);
+  if (unlinkArchivedError && !isMissingArchivedAtColumn(unlinkArchivedError.message)) {
+    throw new Error(unlinkArchivedError.message);
+  }
+
+  const activeDelete = unlinkArchivedError && isMissingArchivedAtColumn(unlinkArchivedError.message)
+    ? await supabase
+        .from("content_items")
+        .delete()
+        .eq("project_id", input.projectId)
+        .eq("calendar_block_id", input.blockId)
+    : await supabase
+        .from("content_items")
+        .delete()
+        .eq("project_id", input.projectId)
+        .eq("calendar_block_id", input.blockId)
+        .is("archived_at", null);
+
+  if (activeDelete.error) {
+    if (isMissingArchivedAtColumn(activeDelete.error.message)) {
+      const fallback = await supabase
+        .from("content_items")
+        .delete()
+        .eq("project_id", input.projectId)
+        .eq("calendar_block_id", input.blockId);
+      if (fallback.error) throw new Error(fallback.error.message);
+    } else {
+      throw new Error(activeDelete.error.message);
+    }
+  }
 
   const { error: blockError } = await supabase
     .from("calendar_blocks")

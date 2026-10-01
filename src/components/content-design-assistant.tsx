@@ -9,6 +9,7 @@ import {
   ImagePlus,
   Loader2,
   Palette,
+  Pencil,
   Plus,
   Trash2,
   Upload,
@@ -27,12 +28,22 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -49,6 +60,7 @@ import {
   getClient,
   isReelsFormat,
   listDesignTemplates,
+  listLibraryAssets,
   parseDesignAspectRatio,
   saveGeneratedArtToLibrary,
   uploadContentMedia,
@@ -56,9 +68,11 @@ import {
   type DesignAspectRatio,
   type DesignProvider,
   type DesignTemplate,
+  type LibraryAsset,
 } from "@/lib/api";
 import { MediaLightbox } from "@/components/content-media-preview";
 import { ArtTextOverlayView } from "@/components/art-text-editor";
+import { ContentMediaLibraryPicker } from "@/components/content-media-library-picker";
 import { downloadImageFromUrl } from "@/lib/download-image";
 import { cn } from "@/lib/utils";
 import {
@@ -74,13 +88,26 @@ import {
 
 const MAX_SLIDES = 8;
 const NONE_TEMPLATE = "__none__";
+const GENERATED_TEMPLATE_PREFIX = "gen:";
 const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp";
 
 type TemplateSource = "library" | "upload";
 
+type LibraryPhoto = { url: string; name: string };
+
+function generatedTemplateId(assetId: string) {
+  return `${GENERATED_TEMPLATE_PREFIX}${assetId}`;
+}
+
+function parseGeneratedTemplateId(value: string): string | null {
+  if (!value.startsWith(GENERATED_TEMPLATE_PREFIX)) return null;
+  return value.slice(GENERATED_TEMPLATE_PREFIX.length);
+}
+
 type SlideDraft = {
   id: string;
   photoFile: File | null;
+  photoLibrary: LibraryPhoto | null;
   overlayText: string;
   secondaryText: string;
   templateId: string;
@@ -89,6 +116,8 @@ type SlideDraft = {
   overlay: MediaTextOverlay | null;
   /** Arte já enviada ao mockup / mídia do conteúdo. */
   approved: boolean;
+  /** Arte gerada por IA e salva na biblioteca. */
+  savedToLibrary?: boolean;
 };
 
 type DesignApplyItem = { url: string; overlay?: MediaTextOverlay };
@@ -155,6 +184,32 @@ function TemplateSelectItems({
   );
 }
 
+function GeneratedArtSelectItems({
+  arts,
+  preferredAspect,
+  groupLabel,
+}: {
+  arts: LibraryAsset[];
+  preferredAspect: DesignAspectRatio;
+  groupLabel: string;
+}) {
+  if (arts.length === 0) return null;
+  return (
+    <SelectGroup>
+      <SelectLabel>{groupLabel}</SelectLabel>
+      {arts.map((art) => (
+        <SelectItem key={art.id} value={generatedTemplateId(art.id)} className="h-auto py-1.5">
+          <TemplateOptionLabel
+            name={art.name}
+            imageUrl={art.file_url}
+            aspect={preferredAspect}
+          />
+        </SelectItem>
+      ))}
+    </SelectGroup>
+  );
+}
+
 function sortTemplatesForAspect(
   templates: DesignTemplate[],
   preferredAspect: DesignAspectRatio,
@@ -205,10 +260,64 @@ function GeneratedArtPreview({
   );
 }
 
+function GenerateArtMenu({
+  busy,
+  isPending,
+  size = "default",
+  label,
+  onGenerate,
+}: {
+  busy: boolean;
+  isPending: boolean;
+  size?: "default" | "sm";
+  label?: string;
+  onGenerate: (provider: DesignProvider) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size={size} disabled={busy}>
+          {isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              {t("project.detail.designAssistant.generating")}
+            </>
+          ) : (
+            <>
+              <Palette className="size-4" />
+              {label ?? t("project.detail.designAssistant.generate")}
+              <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
+            </>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel>{t("project.detail.designAssistant.provider")}</DropdownMenuLabel>
+        <p className="px-2 pb-1.5 text-xs text-muted-foreground">
+          {t("project.detail.designAssistant.providerHint")}
+        </p>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => onGenerate("openai")}
+        >
+          {t("project.detail.designAssistant.providerOpenAI")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => onGenerate("gemini")}
+        >
+          {t("project.detail.designAssistant.providerGemini")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function createSlide(overlayText = "", secondaryText = ""): SlideDraft {
   return {
     id: crypto.randomUUID(),
     photoFile: null,
+    photoLibrary: null,
     overlayText,
     secondaryText,
     templateId: NONE_TEMPLATE,
@@ -217,6 +326,12 @@ function createSlide(overlayText = "", secondaryText = ""): SlideDraft {
     overlay: null,
     approved: false,
   };
+}
+
+function isImageLibraryAsset(asset: LibraryAsset) {
+  if (!asset.file_url?.trim()) return false;
+  if (asset.category === "images" || asset.category === "generated_arts") return true;
+  return Boolean(asset.mime_type?.startsWith("image/"));
 }
 
 function parseRoteiroSlides(roteiro: string): string[] {
@@ -281,7 +396,7 @@ export function ContentDesignAssistant({
   title,
   caption,
   roteiro,
-  onRoteiroChange,
+  onRoteiroChange: _onRoteiroChange,
   onApply,
   onApplyAtIndex,
 }: {
@@ -292,6 +407,7 @@ export function ContentDesignAssistant({
   title: string;
   caption: string;
   roteiro: string;
+  /** @deprecated Kept for API compat — slide edits no longer rewrite the form roteiro. */
   onRoteiroChange?: (roteiro: string) => void;
   onApply: (items: DesignApplyItem[]) => void;
   /** Inclui/substitui um slide na mídia (mockup) pela posição. Retorna false se a ordem impedir. */
@@ -319,6 +435,20 @@ export function ContentDesignAssistant({
     [templatesQuery.data, aspectRatio],
   );
 
+  const libraryQuery = useQuery({
+    queryKey: ["library", clientId],
+    queryFn: () => listLibraryAssets(clientId),
+  });
+  const generatedArts = useMemo(
+    () =>
+      (libraryQuery.data ?? []).filter(
+        (asset) => asset.category === "generated_arts" && Boolean(asset.file_url?.trim()),
+      ),
+    [libraryQuery.data],
+  );
+  const hasLibraryTemplates = templates.length > 0 || generatedArts.length > 0;
+  const generatedArtsGroupLabel = t("project.detail.designAssistant.generatedArtsGroup");
+
   const clientQuery = useQuery({
     queryKey: ["clients", clientId],
     queryFn: () => getClient(clientId),
@@ -331,11 +461,15 @@ export function ContentDesignAssistant({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoLibrary, setPhotoLibrary] = useState<LibraryPhoto | null>(null);
+  const [photoLibraryOpen, setPhotoLibraryOpen] = useState(false);
+  const [slidePhotoLibraryOpenId, setSlidePhotoLibraryOpenId] = useState<string | null>(null);
   const [overlayText, setOverlayText] = useState("");
   const [secondaryText, setSecondaryText] = useState("");
   const [guidance, setGuidance] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultOverlay, setResultOverlay] = useState<MediaTextOverlay | null>(null);
+  const [resultSavedToLibrary, setResultSavedToLibrary] = useState(false);
   const [slides, setSlides] = useState<SlideDraft[]>([createSlide()]);
   const [openSlideId, setOpenSlideId] = useState("");
   const lastEmittedRoteiroRef = useRef<string | null>(null);
@@ -343,7 +477,6 @@ export function ContentDesignAssistant({
   const [lightbox, setLightbox] = useState<{ mode: "static" | "carousel"; index: number } | null>(
     null,
   );
-  const [provider, setProvider] = useState<DesignProvider>("openai");
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const slidePhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -387,22 +520,30 @@ export function ContentDesignAssistant({
 
   function applySlides(next: SlideDraft[]) {
     setSlides(next);
-    const formatted = formatRoteiroFromSlides(next);
-    lastEmittedRoteiroRef.current = formatted;
-    if (formatted !== roteiro) onRoteiroChange?.(formatted);
+    // Do not push reformatted text back into the content form.
+    // Round-tripping through Slide N: lines was overwriting the user's saved roteiro
+    // (collapsing multi-line slides / resurrecting stale slide drafts after save).
+    lastEmittedRoteiroRef.current = formatRoteiroFromSlides(next);
   }
 
   useEffect(() => {
-    if (templates.length === 0) {
+    if (!hasLibraryTemplates) {
       setSelectedTemplateId("");
       setTemplateSource("upload");
       return;
     }
-    setSelectedTemplateId((current) =>
-      templates.some((item) => item.id === current) ? current : templates[0].id,
-    );
+    setSelectedTemplateId((current) => {
+      const generatedId = parseGeneratedTemplateId(current);
+      if (generatedId && generatedArts.some((art) => art.id === generatedId)) {
+        return current;
+      }
+      if (templates.some((item) => item.id === current)) return current;
+      if (templates[0]) return templates[0].id;
+      if (generatedArts[0]?.id) return generatedTemplateId(generatedArts[0].id);
+      return "";
+    });
     setTemplateSource("library");
-  }, [templates]);
+  }, [templates, generatedArts, hasLibraryTemplates]);
 
   async function resolveTemplateUrl(opts: {
     source: TemplateSource;
@@ -410,6 +551,12 @@ export function ContentDesignAssistant({
     file: File | null;
   }): Promise<string> {
     if (opts.source === "library") {
+      const generatedId = parseGeneratedTemplateId(opts.templateId);
+      if (generatedId) {
+        const art = generatedArts.find((item) => item.id === generatedId);
+        if (!art?.file_url) throw new Error(t("project.detail.designAssistant.needTemplate"));
+        return art.file_url;
+      }
       const template = templates.find((item) => item.id === opts.templateId);
       if (!template?.file_url) throw new Error(t("project.detail.designAssistant.needTemplate"));
       return template.file_url;
@@ -465,13 +612,13 @@ export function ContentDesignAssistant({
     return { url, overlay };
   }
 
-  async function persistGeneratedArt(imageUrl: string, label: string) {
+  async function persistGeneratedArt(imageUrl: string, label: string, notes?: string) {
     try {
       await saveGeneratedArtToLibrary({
         clientId,
         imageUrl,
         name: label,
-        notes: `Gerada no conteúdo ${contentId}`,
+        notes: notes ?? `Gerada no conteúdo ${contentId}`,
       });
       void queryClient.invalidateQueries({ queryKey: ["library", clientId] });
     } catch (err) {
@@ -484,22 +631,58 @@ export function ContentDesignAssistant({
     }
   }
 
+  async function resolvePhotoUrl(file: File | null, library: LibraryPhoto | null) {
+    if (file) return uploadContentMedia(projectId, file);
+    if (library?.url) return library.url;
+    return undefined;
+  }
+
+  async function resolveEditBaseUrl(opts: {
+    file: File | null;
+    library: LibraryPhoto | null;
+    templateSource: TemplateSource;
+    templateId: string;
+    templateFile: File | null;
+  }) {
+    const fromPhoto = await resolvePhotoUrl(opts.file, opts.library);
+    if (fromPhoto) return fromPhoto;
+    if (opts.templateSource === "upload") {
+      if (!opts.templateFile) return undefined;
+      return resolveTemplateUrl({
+        source: "upload",
+        templateId: opts.templateId,
+        file: opts.templateFile,
+      });
+    }
+    if (!opts.templateId || opts.templateId === NONE_TEMPLATE) return undefined;
+    return resolveTemplateUrl({
+      source: "library",
+      templateId: opts.templateId,
+      file: null,
+    });
+  }
+
+  const hasStaticPhoto = Boolean(photoFile || photoLibrary);
+  const canEditStatic =
+    hasStaticPhoto ||
+    (templateSource === "upload" ? Boolean(templateFile) : Boolean(selectedTemplateId));
+
   const generateStaticMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (selectedProvider: DesignProvider) => {
       const templateUrl = await resolveTemplateUrl({
         source: templateSource,
         templateId: selectedTemplateId,
         file: templateFile,
       });
       if (!overlayText.trim()) throw new Error(t("project.detail.designAssistant.needText"));
-      const photoUrl = photoFile ? await uploadContentMedia(projectId, photoFile) : undefined;
+      const photoUrl = await resolvePhotoUrl(photoFile, photoLibrary);
       const result = await generateDesign({
         contentId,
         projectId,
         clientId,
         format,
         aspectRatio,
-        provider,
+        provider: selectedProvider,
         templateUrl,
         photoUrl,
         overlayText,
@@ -512,12 +695,40 @@ export function ContentDesignAssistant({
       setResultUrl(composed.url);
       setResultOverlay(composed.overlay);
       await persistGeneratedArt(composed.url, artBaseName);
+      setResultSavedToLibrary(true);
       toast.success(t("project.detail.designAssistant.generated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
-  async function generateOneSlide(slide: SlideDraft) {
+  const editStaticMutation = useMutation({
+    mutationFn: async () => {
+      const photoUrl = await resolveEditBaseUrl({
+        file: photoFile,
+        library: photoLibrary,
+        templateSource,
+        templateId: selectedTemplateId,
+        templateFile,
+      });
+      if (!photoUrl) throw new Error(t("project.detail.designAssistant.needPhoto"));
+      return composeGeneratedArt(photoUrl, overlayText, secondaryText, artBaseName, photoUrl);
+    },
+    onSuccess: async (composed) => {
+      setResultUrl(composed.url);
+      setResultOverlay(composed.overlay);
+      await persistGeneratedArt(
+        composed.url,
+        artBaseName,
+        `Editada no conteúdo ${contentId}`,
+      );
+      setResultSavedToLibrary(true);
+      setLightbox({ mode: "static", index: 0 });
+      toast.success(t("project.detail.designAssistant.edited"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  async function generateOneSlide(slide: SlideDraft, selectedProvider: DesignProvider) {
     const slideTemplateFile = slide.templateFile;
     const slideTemplateId = slide.templateId !== NONE_TEMPLATE ? slide.templateId : selectedTemplateId;
     const useUpload =
@@ -531,16 +742,14 @@ export function ContentDesignAssistant({
     });
     if (!slide.overlayText.trim()) throw new Error(t("project.detail.designAssistant.needText"));
 
-    const photoUrl = slide.photoFile
-      ? await uploadContentMedia(projectId, slide.photoFile)
-      : undefined;
+    const photoUrl = await resolvePhotoUrl(slide.photoFile, slide.photoLibrary);
     const result = await generateDesign({
       contentId,
       projectId,
       clientId,
       format: "carousel",
       aspectRatio,
-      provider,
+      provider: selectedProvider,
       templateUrl,
       photoUrl: photoUrl,
       overlayText: slide.overlayText,
@@ -558,18 +767,24 @@ export function ContentDesignAssistant({
   }
 
   const generateSlideMutation = useMutation({
-    mutationFn: async (slideId: string) => {
+    mutationFn: async ({
+      slideId,
+      provider: selectedProvider,
+    }: {
+      slideId: string;
+      provider: DesignProvider;
+    }) => {
       const slide = slides.find((item) => item.id === slideId);
       if (!slide) throw new Error("Slide não encontrado");
       setGeneratingSlideId(slideId);
-      const composed = await generateOneSlide(slide);
+      const composed = await generateOneSlide(slide, selectedProvider);
       return { slideId, ...composed };
     },
     onSuccess: async ({ slideId, url, overlay }) => {
       setSlides((prev) =>
         prev.map((slide) =>
           slide.id === slideId
-            ? { ...slide, resultUrl: url, overlay, approved: false }
+            ? { ...slide, resultUrl: url, overlay, approved: false, savedToLibrary: true }
             : slide,
         ),
       );
@@ -584,12 +799,74 @@ export function ContentDesignAssistant({
     onSettled: () => setGeneratingSlideId(null),
   });
 
+  const editSlideMutation = useMutation({
+    mutationFn: async (slideId: string) => {
+      const slide = slides.find((item) => item.id === slideId);
+      if (!slide) throw new Error("Slide não encontrado");
+      const slideTemplateFile = slide.templateFile;
+      const slideTemplateId =
+        slide.templateId !== NONE_TEMPLATE ? slide.templateId : selectedTemplateId;
+      const useUpload =
+        Boolean(slideTemplateFile) ||
+        (slide.templateId === NONE_TEMPLATE && templateSource === "upload");
+      const photoUrl = await resolveEditBaseUrl({
+        file: slide.photoFile,
+        library: slide.photoLibrary,
+        templateSource: useUpload ? "upload" : "library",
+        templateId: slideTemplateId,
+        templateFile: slideTemplateFile ?? (useUpload ? templateFile : null),
+      });
+      if (!photoUrl) throw new Error(t("project.detail.designAssistant.needPhoto"));
+      setGeneratingSlideId(slideId);
+      const composed = await composeGeneratedArt(
+        photoUrl,
+        slide.overlayText,
+        slide.secondaryText,
+        `${artBaseName}-slide`,
+        photoUrl,
+      );
+      return { slideId, ...composed };
+    },
+    onSuccess: async ({ slideId, url, overlay }) => {
+      let lightboxIndex = 0;
+      setSlides((prev) => {
+        const next = prev.map((slide) =>
+          slide.id === slideId
+            ? {
+                ...slide,
+                resultUrl: url,
+                overlay,
+                approved: false,
+                savedToLibrary: true,
+              }
+            : slide,
+        );
+        const items = next.filter((slide) => slide.resultUrl);
+        lightboxIndex = Math.max(
+          items.findIndex((slide) => slide.id === slideId),
+          0,
+        );
+        return next;
+      });
+      const index = slides.findIndex((item) => item.id === slideId);
+      await persistGeneratedArt(
+        url,
+        `${artBaseName}-slide-${Math.max(index, 0) + 1}`,
+        `Editada no conteúdo ${contentId}`,
+      );
+      setLightbox({ mode: "carousel", index: lightboxIndex });
+      toast.success(t("project.detail.designAssistant.edited"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: () => setGeneratingSlideId(null),
+  });
+
   const generateAllMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (selectedProvider: DesignProvider) => {
       const urls: string[] = [];
       for (const [index, slide] of slides.entries()) {
         setGeneratingSlideId(slide.id);
-        const composed = await generateOneSlide(slide);
+        const composed = await generateOneSlide(slide, selectedProvider);
         urls.push(composed.url);
         setSlides((prev) =>
           prev.map((item) =>
@@ -599,6 +876,7 @@ export function ContentDesignAssistant({
                   resultUrl: composed.url,
                   overlay: composed.overlay,
                   approved: false,
+                  savedToLibrary: true,
                 }
               : item,
           ),
@@ -616,7 +894,9 @@ export function ContentDesignAssistant({
 
   const busy =
     generateStaticMutation.isPending ||
+    editStaticMutation.isPending ||
     generateSlideMutation.isPending ||
+    editSlideMutation.isPending ||
     generateAllMutation.isPending;
 
   const applyLabel =
@@ -804,29 +1084,6 @@ export function ContentDesignAssistant({
         <CollapsibleContent>
           <CardContent className="space-y-4 pt-0">
         <div className="space-y-1.5">
-          <Label variant="highlight">{t("project.detail.designAssistant.provider")}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t("project.detail.designAssistant.providerHint")}
-          </p>
-          <Select
-            value={provider}
-            onValueChange={(value) => setProvider(value as DesignProvider)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="openai">
-                {t("project.detail.designAssistant.providerOpenAI")}
-              </SelectItem>
-              <SelectItem value="gemini">
-                {t("project.detail.designAssistant.providerGemini")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
           <Label variant="highlight">{t("project.detail.designAssistant.aspect")}</Label>
           <p className="text-xs text-muted-foreground">
             {t("project.detail.designAssistant.aspectHint")}
@@ -871,7 +1128,7 @@ export function ContentDesignAssistant({
               size="sm"
               variant={templateSource === "library" ? "default" : "outline"}
               onClick={() => setTemplateSource("library")}
-              disabled={templates.length === 0}
+              disabled={!hasLibraryTemplates}
             >
               {t("project.detail.designAssistant.templateLibrary")}
             </Button>
@@ -889,7 +1146,7 @@ export function ContentDesignAssistant({
             </Button>
           </div>
           {templateSource === "library" ? (
-            templates.length === 0 ? (
+            !hasLibraryTemplates ? (
               <p className="text-xs text-muted-foreground">
                 {t("project.detail.designAssistant.templateNone")}
               </p>
@@ -899,7 +1156,19 @@ export function ContentDesignAssistant({
                   <SelectValue placeholder={t("project.detail.designAssistant.templateSelect")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
-                  <TemplateSelectItems templates={templates} showAspect />
+                  {templates.length > 0 ? (
+                    <SelectGroup>
+                      <SelectLabel>
+                        {t("project.detail.designAssistant.templatesGroup")}
+                      </SelectLabel>
+                      <TemplateSelectItems templates={templates} showAspect />
+                    </SelectGroup>
+                  ) : null}
+                  <GeneratedArtSelectItems
+                    arts={generatedArts}
+                    preferredAspect={aspectRatio}
+                    groupLabel={generatedArtsGroupLabel}
+                  />
                 </SelectContent>
               </Select>
             )
@@ -912,6 +1181,21 @@ export function ContentDesignAssistant({
           )}
           {selectedTemplateId && templateSource === "library"
             ? (() => {
+                const generatedId = parseGeneratedTemplateId(selectedTemplateId);
+                if (generatedId) {
+                  const selected = generatedArts.find((item) => item.id === generatedId);
+                  if (!selected?.file_url) return null;
+                  return (
+                    <img
+                      src={selected.file_url}
+                      alt=""
+                      className={cn(
+                        "mt-2 rounded-md border object-cover",
+                        designAspectPreviewClass(aspectRatio, "sm"),
+                      )}
+                    />
+                  );
+                }
                 const selected = templates.find((item) => item.id === selectedTemplateId);
                 if (!selected?.file_url) return null;
                 const nativeAspect = templateAspect(selected);
@@ -965,22 +1249,50 @@ export function ContentDesignAssistant({
                 className="sr-only"
                 onChange={(e) => {
                   setPhotoFile(e.target.files?.[0] ?? null);
+                  setPhotoLibrary(null);
                   e.target.value = "";
                 }}
               />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => photoFileInputRef.current?.click()}
-              >
-                <ImagePlus className="mr-1.5 size-4" aria-hidden="true" />
-                {t("project.detail.designAssistant.photo")}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => photoFileInputRef.current?.click()}
+                >
+                  <ImagePlus className="mr-1.5 size-4" aria-hidden="true" />
+                  {t("project.detail.designAssistant.photo")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPhotoLibraryOpen(true)}
+                >
+                  {t("project.detail.designAssistant.photoFromLibrary")}
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {photoFile
                   ? t("project.detail.designAssistant.fileSelected", { name: photoFile.name })
-                  : t("project.detail.designAssistant.photoHint")}
+                  : photoLibrary
+                    ? t("project.detail.designAssistant.fileSelected", {
+                        name: photoLibrary.name,
+                      })
+                    : t("project.detail.designAssistant.photoHint")}
               </p>
+              <ContentMediaLibraryPicker
+                clientId={clientId}
+                open={photoLibraryOpen}
+                onOpenChange={setPhotoLibraryOpen}
+                onSelect={(asset) => {
+                  if (!isImageLibraryAsset(asset) || !asset.file_url) {
+                    toast.error(t("project.detail.designAssistant.needPhoto"));
+                    return;
+                  }
+                  setPhotoFile(null);
+                  setPhotoLibrary({ url: asset.file_url, name: asset.name });
+                  setPhotoLibraryOpen(false);
+                }}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="design-overlay" variant="highlight">
@@ -1012,23 +1324,33 @@ export function ContentDesignAssistant({
                 placeholder={t("project.detail.designAssistant.secondaryPlaceholder")}
               />
             </div>
-            <Button
-              type="button"
-              onClick={() => generateStaticMutation.mutate()}
-              disabled={busy}
-            >
-              {busy ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {t("project.detail.designAssistant.generating")}
-                </>
-              ) : (
-                <>
-                  <Palette className="size-4" />
-                  {t("project.detail.designAssistant.generate")}
-                </>
-              )}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => editStaticMutation.mutate()}
+                disabled={busy || !canEditStatic}
+              >
+                {editStaticMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {t("project.detail.designAssistant.editingImage")}
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="size-4" />
+                    {t("project.detail.designAssistant.editImage")}
+                  </>
+                )}
+              </Button>
+              <GenerateArtMenu
+                busy={busy}
+                isPending={generateStaticMutation.isPending}
+                onGenerate={(selectedProvider) =>
+                  generateStaticMutation.mutate(selectedProvider)
+                }
+              />
+            </div>
             {resultUrl ? (
               <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
                 <p className="text-sm font-medium">
@@ -1065,13 +1387,15 @@ export function ContentDesignAssistant({
                     <Download className="size-4" />
                     {t("project.detail.designAssistant.downloadJpg")}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => { setResultUrl(null); setResultOverlay(null); }}>
+                  <Button type="button" variant="outline" onClick={() => { setResultUrl(null); setResultOverlay(null); setResultSavedToLibrary(false); }}>
                     {t("project.detail.designAssistant.discard")}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("project.detail.designAssistant.savedToLibrary")}
-                </p>
+                {resultSavedToLibrary ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("project.detail.designAssistant.savedToLibrary")}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </>
@@ -1098,21 +1422,15 @@ export function ContentDesignAssistant({
                   <Plus className="mr-1 size-4" />
                   {t("project.detail.designAssistant.addSlide")}
                 </Button>
-                <Button
-                  type="button"
+                <GenerateArtMenu
+                  busy={busy || slides.length === 0}
+                  isPending={generateAllMutation.isPending}
                   size="sm"
-                  onClick={() => generateAllMutation.mutate()}
-                  disabled={busy || slides.length === 0}
-                >
-                  {generateAllMutation.isPending ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      {t("project.detail.designAssistant.generating")}
-                    </>
-                  ) : (
-                    t("project.detail.designAssistant.generateAll")
-                  )}
-                </Button>
+                  label={t("project.detail.designAssistant.generateAll")}
+                  onGenerate={(selectedProvider) =>
+                    generateAllMutation.mutate(selectedProvider)
+                  }
+                />
               </div>
             </div>
 
@@ -1126,6 +1444,14 @@ export function ContentDesignAssistant({
               {slides.map((slide, index) => {
                 const slideBusy = generatingSlideId === slide.id;
                 const preview = slide.overlayText.replace(/\s+/g, " ").trim();
+                const slideCanEdit =
+                  Boolean(slide.photoFile || slide.photoLibrary) ||
+                  Boolean(slide.templateFile) ||
+                  (slide.templateId !== NONE_TEMPLATE && Boolean(slide.templateId)) ||
+                  (slide.templateId === NONE_TEMPLATE &&
+                    (templateSource === "upload"
+                      ? Boolean(templateFile)
+                      : Boolean(selectedTemplateId)));
                 return (
                   <AccordionItem
                     key={slide.id}
@@ -1166,15 +1492,29 @@ export function ContentDesignAssistant({
                           type="button"
                           size="sm"
                           variant="secondary"
-                          disabled={busy}
-                          onClick={() => generateSlideMutation.mutate(slide.id)}
+                          disabled={busy || !slideCanEdit}
+                          onClick={() => editSlideMutation.mutate(slide.id)}
                         >
-                          {slideBusy ? (
+                          {slideBusy && editSlideMutation.isPending ? (
                             <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            t("project.detail.designAssistant.generate")
+                            <>
+                              <Pencil className="size-3.5" />
+                              {t("project.detail.designAssistant.editImage")}
+                            </>
                           )}
                         </Button>
+                        <GenerateArtMenu
+                          busy={busy}
+                          isPending={slideBusy && generateSlideMutation.isPending}
+                          size="sm"
+                          onGenerate={(selectedProvider) =>
+                            generateSlideMutation.mutate({
+                              slideId: slide.id,
+                              provider: selectedProvider,
+                            })
+                          }
+                        />
                         {slides.length > 1 ? (
                           <Button
                             type="button"
@@ -1206,27 +1546,43 @@ export function ContentDesignAssistant({
                           const file = e.target.files?.[0] ?? null;
                           setSlides((prev) =>
                             prev.map((item) =>
-                              item.id === slide.id ? { ...item, photoFile: file } : item,
+                              item.id === slide.id
+                                ? { ...item, photoFile: file, photoLibrary: null }
+                                : item,
                             ),
                           );
                           e.target.value = "";
                         }}
                       />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => slidePhotoInputRefs.current[slide.id]?.click()}
-                      >
-                        <ImagePlus className="mr-1.5 size-3.5" aria-hidden="true" />
-                        {t("project.detail.designAssistant.slidePhoto")}
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => slidePhotoInputRefs.current[slide.id]?.click()}
+                        >
+                          <ImagePlus className="mr-1.5 size-3.5" aria-hidden="true" />
+                          {t("project.detail.designAssistant.slidePhoto")}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSlidePhotoLibraryOpenId(slide.id)}
+                        >
+                          {t("project.detail.designAssistant.photoFromLibrary")}
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {slide.photoFile
                           ? t("project.detail.designAssistant.fileSelected", {
                               name: slide.photoFile.name,
                             })
-                          : t("project.detail.designAssistant.photoHint")}
+                          : slide.photoLibrary
+                            ? t("project.detail.designAssistant.fileSelected", {
+                                name: slide.photoLibrary.name,
+                              })
+                            : t("project.detail.designAssistant.photoHint")}
                       </p>
                     </div>
 
@@ -1292,12 +1648,30 @@ export function ContentDesignAssistant({
                             <TemplateOptionLabel
                               name={t("project.detail.designAssistant.defaultTemplate")}
                               imageUrl={
-                                templates.find((item) => item.id === selectedTemplateId)?.file_url
+                                parseGeneratedTemplateId(selectedTemplateId)
+                                  ? generatedArts.find(
+                                      (item) =>
+                                        item.id === parseGeneratedTemplateId(selectedTemplateId),
+                                    )?.file_url
+                                  : templates.find((item) => item.id === selectedTemplateId)
+                                      ?.file_url
                               }
                               aspect={aspectRatio}
                             />
                           </SelectItem>
-                          <TemplateSelectItems templates={templates} showAspect />
+                          {templates.length > 0 ? (
+                            <SelectGroup>
+                              <SelectLabel>
+                                {t("project.detail.designAssistant.templatesGroup")}
+                              </SelectLabel>
+                              <TemplateSelectItems templates={templates} showAspect />
+                            </SelectGroup>
+                          ) : null}
+                          <GeneratedArtSelectItems
+                            arts={generatedArts}
+                            preferredAspect={aspectRatio}
+                            groupLabel={generatedArtsGroupLabel}
+                          />
                         </SelectContent>
                       </Select>
                       <input
@@ -1433,6 +1807,7 @@ export function ContentDesignAssistant({
                           resultUrl: null,
                           overlay: null,
                           approved: false,
+                          savedToLibrary: false,
                         })),
                       )
                     }
@@ -1440,9 +1815,11 @@ export function ContentDesignAssistant({
                     {t("project.detail.designAssistant.discard")}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("project.detail.designAssistant.savedToLibrary")}
-                </p>
+                {slides.some((slide) => slide.resultUrl && slide.savedToLibrary) ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("project.detail.designAssistant.savedToLibrary")}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </>
@@ -1473,6 +1850,33 @@ export function ContentDesignAssistant({
             ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.secondaryText
             : secondaryText,
         onSave: handleLightboxSave,
+      }}
+    />
+    <ContentMediaLibraryPicker
+      clientId={clientId}
+      open={Boolean(slidePhotoLibraryOpenId)}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) setSlidePhotoLibraryOpenId(null);
+      }}
+      onSelect={(asset) => {
+        if (!slidePhotoLibraryOpenId) return;
+        if (!isImageLibraryAsset(asset) || !asset.file_url) {
+          toast.error(t("project.detail.designAssistant.needPhoto"));
+          return;
+        }
+        const slideId = slidePhotoLibraryOpenId;
+        setSlides((prev) =>
+          prev.map((item) =>
+            item.id === slideId
+              ? {
+                  ...item,
+                  photoFile: null,
+                  photoLibrary: { url: asset.file_url!, name: asset.name },
+                }
+              : item,
+          ),
+        );
+        setSlidePhotoLibraryOpenId(null);
       }}
     />
     </>

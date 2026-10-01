@@ -513,6 +513,7 @@ export type Database = {
       }
       content_items: {
         Row: {
+          archived_at: string | null
           calendar_block_id: string | null
           caption: string
           created_at: string
@@ -547,6 +548,7 @@ export type Database = {
           width_cm: number | null
         }
         Insert: {
+          archived_at?: string | null
           calendar_block_id?: string | null
           caption?: string
           created_at?: string
@@ -581,6 +583,7 @@ export type Database = {
           width_cm?: number | null
         }
         Update: {
+          archived_at?: string | null
           calendar_block_id?: string | null
           caption?: string
           created_at?: string

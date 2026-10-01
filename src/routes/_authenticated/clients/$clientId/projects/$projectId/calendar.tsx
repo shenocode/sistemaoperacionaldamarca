@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { format, isToday } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import {
+  Archive,
+  ArchiveRestore,
   CalendarDays,
   ChevronDown,
   ChevronUp,
@@ -76,6 +78,7 @@ import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
 import {
   addProjectThemePreset,
+  archiveContent,
   buildProjectReviewUrl,
   buildWhatsAppNotifyUrl,
   canManageClient,
@@ -91,6 +94,7 @@ import {
   getClient,
   getGraphicArtsMaterialPreset,
   getPrimaryProjectCategory,
+  isContentArchived,
   listCalendarBlocks,
   listContent,
   getProject,
@@ -104,6 +108,7 @@ import {
   reorderContentItems,
   resolveContentMediaUrls,
   resolveContentThumbnail,
+  restoreContent,
   updateCalendarBlockTitle,
   updateContentCalendar,
   type CalendarBlock,
@@ -640,6 +645,7 @@ function ProjectCalendarPage() {
     title: string;
     itemCount: number;
   } | null>(null);
+  const [archivedSectionOpen, setArchivedSectionOpen] = useState(true);
   const [localRows, setLocalRows] = useState<ContentItem[] | null>(null);
   const [dragState, setDragState] = useState<{ blockKey: string; index: number } | null>(null);
   const [dropState, setDropState] = useState<{ blockKey: string; index: number } | null>(null);
@@ -734,10 +740,19 @@ function ProjectCalendarPage() {
     [contentQuery.data],
   );
   // Clients must not see "Em produção" (draft) content.
-  const rows = useMemo(() => {
+  // Archived items are listed separately (gestores only) and stay out of active periods/feed.
+  const allVisibleRows = useMemo(() => {
     const base = localRows ?? serverRows;
     return canEdit ? base : base.filter((r) => r.status !== "draft");
   }, [canEdit, localRows, serverRows]);
+  const archivedRows = useMemo(
+    () => (canEdit ? allVisibleRows.filter((r) => isContentArchived(r)) : []),
+    [allVisibleRows, canEdit],
+  );
+  const rows = useMemo(
+    () => allVisibleRows.filter((r) => !isContentArchived(r)),
+    [allVisibleRows],
+  );
   const blocks = blocksQuery.data ?? [];
 
   const itemsByBlock = useMemo(() => {
@@ -869,10 +884,12 @@ function ProjectCalendarPage() {
   });
 
   const applyReorder = (next: ContentItem[]) => {
-    setLocalRows(next);
+    // Keep archived items in local state so they don't vanish during optimistic reorder.
+    const nextActive = next.filter((item) => !isContentArchived(item));
+    setLocalRows([...nextActive, ...archivedRows]);
     const previousById = new Map(rows.map((item) => [item.id, item]));
     reorderMutation.mutate(
-      next.map((item, sort_order) => {
+      nextActive.map((item, sort_order) => {
         const payload: {
           id: string;
           sort_order: number;
@@ -1081,6 +1098,28 @@ function ProjectCalendarPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (contentId: string) => archiveContent({ contentId, projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(t("project.calendar.archived"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (contentId: string) => restoreContent({ contentId, projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["calendar-blocks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(t("project.calendar.restored"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const deleteBlockMutation = useMutation({
     mutationFn: (blockId: string) => deleteCalendarBlock({ blockId, projectId }),
     onSuccess: () => {
@@ -1107,6 +1146,8 @@ function ProjectCalendarPage() {
     duplicateMutation.isPending ||
     duplicateBlockMutation.isPending ||
     deleteMutation.isPending ||
+    archiveMutation.isPending ||
+    restoreMutation.isPending ||
     deleteBlockMutation.isPending ||
     reorderMutation.isPending ||
     updateBlockTitleMutation.isPending;
@@ -1198,7 +1239,7 @@ function ProjectCalendarPage() {
     </Select>
   );
 
-  const renderRowActions = (row: ContentItem, compact = false) => (
+  const renderRowActions = (row: ContentItem, compact = false, opts?: { archived?: boolean }) => (
     <div className={cn("flex flex-wrap items-center gap-1.5", !compact && "md:justify-end")}>
       <Button
         asChild
@@ -1217,46 +1258,99 @@ function ProjectCalendarPage() {
         </Link>
       </Button>
       {canEdit ? (
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            size={compact ? "icon" : "sm"}
-            className={compact ? "h-8 w-8" : undefined}
-            disabled={isBusy}
-            title={t("project.calendar.duplicateHint")}
-            onClick={() => duplicateMutation.mutate(row.id)}
-          >
-            <Copy className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
-            {compact ? (
-              <span className="sr-only">{t("project.calendar.duplicate")}</span>
-            ) : (
-              t("project.calendar.duplicate")
-            )}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size={compact ? "icon" : "sm"}
-            disabled={isBusy}
-            className={cn("text-destructive hover:text-destructive", compact && "h-8 w-8")}
-            title={t("project.calendar.deleteHint")}
-            onClick={() => setDeleteTarget({ id: row.id, title: localizedTitle(row) })}
-          >
-            <Trash2 className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
-            {compact ? (
-              <span className="sr-only">{t("project.calendar.delete")}</span>
-            ) : (
-              t("project.calendar.delete")
-            )}
-          </Button>
-        </>
+        opts?.archived ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size={compact ? "icon" : "sm"}
+              className={compact ? "h-8 w-8" : undefined}
+              disabled={isBusy}
+              title={t("project.calendar.restoreHint")}
+              onClick={() => restoreMutation.mutate(row.id)}
+            >
+              <ArchiveRestore className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+              {compact ? (
+                <span className="sr-only">{t("project.calendar.restore")}</span>
+              ) : (
+                t("project.calendar.restore")
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size={compact ? "icon" : "sm"}
+              disabled={isBusy}
+              className={cn("text-destructive hover:text-destructive", compact && "h-8 w-8")}
+              title={t("project.calendar.deleteHint")}
+              onClick={() => setDeleteTarget({ id: row.id, title: localizedTitle(row) })}
+            >
+              <Trash2 className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+              {compact ? (
+                <span className="sr-only">{t("project.calendar.delete")}</span>
+              ) : (
+                t("project.calendar.delete")
+              )}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size={compact ? "icon" : "sm"}
+              className={compact ? "h-8 w-8" : undefined}
+              disabled={isBusy}
+              title={t("project.calendar.duplicateHint")}
+              onClick={() => duplicateMutation.mutate(row.id)}
+            >
+              <Copy className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+              {compact ? (
+                <span className="sr-only">{t("project.calendar.duplicate")}</span>
+              ) : (
+                t("project.calendar.duplicate")
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size={compact ? "icon" : "sm"}
+              className={compact ? "h-8 w-8" : undefined}
+              disabled={isBusy}
+              title={t("project.calendar.archiveHint")}
+              onClick={() => archiveMutation.mutate(row.id)}
+            >
+              <Archive className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+              {compact ? (
+                <span className="sr-only">{t("project.calendar.archive")}</span>
+              ) : (
+                t("project.calendar.archive")
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size={compact ? "icon" : "sm"}
+              disabled={isBusy}
+              className={cn("text-destructive hover:text-destructive", compact && "h-8 w-8")}
+              title={t("project.calendar.deleteHint")}
+              onClick={() => setDeleteTarget({ id: row.id, title: localizedTitle(row) })}
+            >
+              <Trash2 className={cn("h-3.5 w-3.5", !compact && "mr-1.5")} aria-hidden="true" />
+              {compact ? (
+                <span className="sr-only">{t("project.calendar.delete")}</span>
+              ) : (
+                t("project.calendar.delete")
+              )}
+            </Button>
+          </>
+        )
       ) : null}
     </div>
   );
 
-  const renderBlockTable = (blockKey: string, blockRows: ContentItem[]) => {
-    const canReorder = canEdit && rows.length > 1;
+  const renderBlockTable = (blockKey: string, blockRows: ContentItem[], opts?: { archived?: boolean }) => {
+    const canReorder = !opts?.archived && canEdit && rows.length > 1;
     const isDroppingAtEnd =
       dropState?.blockKey === blockKey && dropState.index === blockRows.length && dragState !== null;
 
@@ -1364,7 +1458,7 @@ function ProjectCalendarPage() {
                   </div>
                 </div>
 
-                {renderRowActions(row)}
+                {renderRowActions(row, false, opts)}
               </div>
             );
           })}
@@ -1479,7 +1573,7 @@ function ProjectCalendarPage() {
                         }}
                       />
                     </td>
-                    <td className="px-3 py-2.5">{renderRowActions(row)}</td>
+                    <td className="px-3 py-2.5">{renderRowActions(row, false, opts)}</td>
                   </tr>
                 );
               })}
@@ -1663,10 +1757,14 @@ function ProjectCalendarPage() {
     );
   };
 
-  const renderBlockItems = (blockKey: string, blockRows: ContentItem[]) =>
-    viewMode === "month"
+  const renderBlockItems = (
+    blockKey: string,
+    blockRows: ContentItem[],
+    opts?: { archived?: boolean },
+  ) =>
+    !opts?.archived && viewMode === "month"
       ? renderBlockMonthGrid(blockKey, blockRows)
-      : renderBlockTable(blockKey, blockRows);
+      : renderBlockTable(blockKey, blockRows, opts);
 
   const toggleBlockCollapsed = (blockId: string) => {
     if (viewMode === "month") {
@@ -1987,26 +2085,86 @@ function ProjectCalendarPage() {
             ? contentQuery.error.message
             : t("common.error")}
         </p>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && archivedRows.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
           title={t("project.calendar.empty")}
           description={canEdit ? t("project.calendar.emptyCreateHint") : undefined}
           onClick={canEdit ? openCreateDialog : undefined}
         />
-      ) : blocks.length > 0 ? (
+      ) : (
         <div className="min-w-0 space-y-4">
-          {blocks.map((block) => renderBlockCard(block))}
-          {itemsByBlock.unassigned.length > 0 ? (
-            <Card className="rounded-xl">
-              {renderBlockItems("__unassigned__", itemsByBlock.unassigned)}
+          {archivedRows.length > 0 ? (
+            <Card className="rounded-xl border-dashed">
+              <Collapsible open={archivedSectionOpen} onOpenChange={setArchivedSectionOpen}>
+                <div
+                  className={cn(
+                    "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
+                    archivedSectionOpen && "border-b",
+                  )}
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Archive className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <h3 className="text-sm font-medium">{t("project.calendar.archivedSection")}</h3>
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                        {archivedRows.length}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("project.calendar.archivedSectionHint")}
+                    </p>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-expanded={archivedSectionOpen}
+                      title={
+                        archivedSectionOpen
+                          ? t("project.calendar.collapseBlockHint")
+                          : t("project.calendar.expandBlockHint")
+                      }
+                    >
+                      {archivedSectionOpen ? (
+                        <ChevronUp className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                      ) : (
+                        <ChevronDown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+                      {archivedSectionOpen
+                        ? t("project.calendar.collapseBlock")
+                        : t("project.calendar.expandBlock")}
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent>
+                  {renderBlockItems("__archived__", archivedRows, { archived: true })}
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
           ) : null}
+
+          {rows.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title={t("project.calendar.empty")}
+              description={canEdit ? t("project.calendar.emptyCreateHint") : undefined}
+              onClick={canEdit ? openCreateDialog : undefined}
+            />
+          ) : blocks.length > 0 ? (
+            <>
+              {blocks.map((block) => renderBlockCard(block))}
+              {itemsByBlock.unassigned.length > 0 ? (
+                <Card className="rounded-xl">
+                  {renderBlockItems("__unassigned__", itemsByBlock.unassigned)}
+                </Card>
+              ) : null}
+            </>
+          ) : (
+            <Card className="rounded-xl">{renderBlockItems("__all__", rows)}</Card>
+          )}
         </div>
-      ) : (
-        <Card className="rounded-xl">
-          {renderBlockItems("__all__", rows)}
-        </Card>
       )}
 
       {!loading && !contentQuery.isError && showFeedMockup ? (

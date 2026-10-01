@@ -37,6 +37,7 @@ import {
 } from "@/components/content-media-preview";
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { ContentDesignAssistant } from "@/components/content-design-assistant";
+import { ContentMediaLibraryPicker } from "@/components/content-media-library-picker";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
 import { CommentComposer, CommentThreadItem } from "@/components/comment-composer";
@@ -112,6 +113,7 @@ import {
   type ContentVersion,
   type CommentWithAuthor,
   type GraphicArtsMaterialType,
+  type LibraryAsset,
   type LocalizedField,
   type RowI18n,
   brandKitFromClient,
@@ -152,7 +154,7 @@ const ART_TEXT_EDITOR_ENABLED = true;
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 const NONE_THEME_VALUE = "__none__";
 const NEW_THEME_VALUE = "__new_theme__";
-type SourceMode = "file" | "url";
+type SourceMode = "file" | "url" | "library";
 
 type MediaEntry =
   | { id: string; kind: "url"; url: string; overlay?: MediaTextOverlay | null }
@@ -314,6 +316,7 @@ function ContentDetailPage() {
   const { isAdmin, loading: roleLoading } = useAppRole();
   const { entitlements } = useEntitlements();
   const presetsAllowed = entitlements.presets;
+  const libraryAllowed = entitlements.library;
   const { user } = useAuth();
 
   const [title, setTitle] = useState("");
@@ -341,6 +344,7 @@ function ContentDetailPage() {
   const [thumbnailBlobUrl, setThumbnailBlobUrl] = useState<string | null>(null);
   const [source, setSource] = useState<SourceMode>("file");
   const [urlDraft, setUrlDraft] = useState("");
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [versionNote, setVersionNote] = useState("");
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
@@ -483,20 +487,14 @@ function ContentDetailPage() {
     const nextTitle = getLocalizedText(nextI18n, "title", row.title, uiLocale);
     const nextCaption = getLocalizedText(nextI18n, "caption", row.caption, uiLocale);
     const nextLocucao = getLocalizedText(nextI18n, "locucao", row.locucao ?? "", uiLocale);
-    // Carousel roteiro: prefer the column when i18n was AI-rewritten (e.g. "Slide N:"
-    // mis-detected as English). That mismatch made the "saved" text disappear on reload.
-    const columnRoteiro = row.roteiro ?? "";
-    const localizedRoteiro = getLocalizedText(nextI18n, "roteiro", columnRoteiro, uiLocale);
-    const roteiroNeedsHeal =
-      columnRoteiro.trim().length > 0 && columnRoteiro !== localizedRoteiro;
-    const nextRoteiro = roteiroNeedsHeal ? columnRoteiro : localizedRoteiro;
-    const healedI18n = roteiroNeedsHeal
-      ? setLocalizedField(
-          nextI18n,
-          "roteiro",
-          buildVerbatimLocalizedField(columnRoteiro, uiLocale),
-        )
-      : nextI18n;
+    // Roteiro is structural (Slide N:) — always use the column as source of truth.
+    // Never display AI/i18n rewrites; keep i18n mirrored verbatim for other locales.
+    const nextRoteiro = row.roteiro ?? "";
+    const healedI18n = setLocalizedField(
+      nextI18n,
+      "roteiro",
+      buildVerbatimLocalizedField(nextRoteiro, uiLocale),
+    );
     const nextCta = getLocalizedText(healedI18n, "cta", row.cta, uiLocale);
     const nextHashtags = getLocalizedText(healedI18n, "hashtags", row.hashtags, uiLocale);
     const nextTheme = getLocalizedText(healedI18n, "theme", row.theme ?? "", uiLocale);
@@ -641,7 +639,12 @@ function ContentDetailPage() {
     },
     onApplied: (nextI18n) => {
       if (!content || isDirtyRef.current) return;
-      applyContentToForm({ ...content, i18n: nextI18n as typeof content.i18n });
+      // Keep the column roteiro — backfill must never remount a rewritten script.
+      applyContentToForm({
+        ...content,
+        i18n: nextI18n as typeof content.i18n,
+        roteiro: content.roteiro,
+      });
     },
   });
 
@@ -852,7 +855,7 @@ function ContentDetailPage() {
       if (isPrintPiece && (payload.widthCm == null || payload.heightCm == null)) {
         throw new Error(t("project.graphicArts.invalidDimensions"));
       }
-      return updateContentFields({
+      const row = await updateContentFields({
         contentId,
         title: payload.title,
         caption: payload.caption,
@@ -876,10 +879,15 @@ function ContentDetailPage() {
         repeatFormat,
         i18n: payload.i18n,
       });
+      return { row, savedRoteiro: payload.roteiro };
     },
-    onSuccess: (row) => {
-      queryClient.setQueryData(["content", "detail", contentId], row);
-      applyContentToForm(row);
+    onSuccess: ({ row, savedRoteiro }) => {
+      queryClient.setQueryData(["content", "detail", contentId], {
+        ...row,
+        roteiro: savedRoteiro,
+      });
+      applyContentToForm({ ...row, roteiro: savedRoteiro });
+      setRoteiro(savedRoteiro);
       setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("common.saved"));
@@ -943,8 +951,18 @@ function ContentDetailPage() {
       const { versionNote: _omit, ...cleanI18n } = nextI18n as RowI18n & {
         versionNote?: unknown;
       };
-      queryClient.setQueryData(["content", "detail", contentId], row);
-      applyContentToForm({ ...row, i18n: cleanI18n as typeof row.i18n });
+      const savedRoteiro = roteiro;
+      queryClient.setQueryData(["content", "detail", contentId], {
+        ...row,
+        roteiro: savedRoteiro,
+        i18n: cleanI18n as typeof row.i18n,
+      });
+      applyContentToForm({
+        ...row,
+        roteiro: savedRoteiro,
+        i18n: cleanI18n as typeof row.i18n,
+      });
+      setRoteiro(savedRoteiro);
       setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
@@ -1133,8 +1151,8 @@ function ContentDetailPage() {
     };
   }, [viewingVersion, content, uiLocale]);
 
-  const addUrl = () => {
-    const next = urlDraft.trim();
+  const addMediaUrl = (rawUrl: string) => {
+    const next = rawUrl.trim();
     if (!next) return;
     const entry: MediaEntry = { id: createMediaId(), kind: "url", url: next };
 
@@ -1148,7 +1166,23 @@ function ContentDetailPage() {
     } else {
       setMediaItems([entry]);
     }
+  };
+
+  const addUrl = () => {
+    const next = urlDraft.trim();
+    if (!next) return;
+    addMediaUrl(next);
     setUrlDraft("");
+  };
+
+  const addLibraryAsset = (asset: LibraryAsset) => {
+    const url = asset.file_url?.trim();
+    if (!url) {
+      toast.error(t("project.detail.mediaLibraryMissingUrl"));
+      return;
+    }
+    addMediaUrl(url);
+    toast.success(t("project.detail.mediaLibraryAdded"));
   };
 
   const addFiles = (files: File[]) => {
@@ -1412,10 +1446,9 @@ function ContentDetailPage() {
                   formatType === "youtube_short"
                     ? { locucao: suggestion.locucao }
                     : {}),
-                  ...(formatType === "carousel" ? { roteiro: suggestion.roteiro } : {}),
+                  // Roteiro is never AI-translated — applied verbatim below.
                 });
-                const merged = mergeRowI18n(rowI18n, translated);
-                setRowI18n(merged);
+                let merged = mergeRowI18n(rowI18n, translated);
                 setTitle(getLocalizedText(merged, "title", suggestion.title, uiLocale));
                 setCaption(getLocalizedText(merged, "caption", suggestion.caption, uiLocale));
                 setCta(getLocalizedText(merged, "cta", suggestion.cta, uiLocale));
@@ -1431,8 +1464,15 @@ function ContentDetailPage() {
                   setLocucao(getLocalizedText(merged, "locucao", suggestion.locucao, uiLocale));
                 }
                 if (formatType === "carousel") {
-                  setRoteiro(getLocalizedText(merged, "roteiro", suggestion.roteiro, uiLocale));
+                  const nextRoteiro = suggestion.roteiro ?? "";
+                  merged = setLocalizedField(
+                    merged,
+                    "roteiro",
+                    buildVerbatimLocalizedField(nextRoteiro, uiLocale),
+                  );
+                  setRoteiro(nextRoteiro);
                 }
+                setRowI18n(merged);
               }}
               onClearAppliedFields={() => {
                 const empty = buildLocalizedFieldFromSource("", uiLocale);
@@ -1472,16 +1512,6 @@ function ContentDetailPage() {
               title={title}
               caption={caption}
               roteiro={roteiro}
-              onRoteiroChange={(next) => {
-                const block = buildVerbatimLocalizedField(next, uiLocale);
-                onFieldI18nCommit({
-                  field: "roteiro",
-                  display: next,
-                  canonical: next,
-                  block,
-                  i18n: setLocalizedField(rowI18n, "roteiro", block),
-                });
-              }}
               onApply={(items) => {
                 if (usesDedicatedThumbnail && items[0]) {
                   setThumbnailFromFile(null);
@@ -1719,17 +1749,23 @@ function ContentDetailPage() {
                     {t("project.detail.roteiro")}
                   </Label>
                   <p className="text-xs text-muted-foreground">{t("project.detail.roteiroHint")}</p>
-                  <LocalizedTextarea
+                  <Textarea
                     id="roteiro"
-                    field="roteiro"
-                    i18n={rowI18n}
-                    fallback={roteiro}
                     rows={6}
-                    autoResize
-                    verbatim
                     className="min-h-[10rem]"
                     placeholder={t("project.detail.roteiroPlaceholder")}
-                    onI18nCommit={onFieldI18nCommit}
+                    value={roteiro}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setRoteiro(next);
+                      setRowI18n((prev) =>
+                        setLocalizedField(
+                          prev,
+                          "roteiro",
+                          buildVerbatimLocalizedField(next, uiLocale),
+                        ),
+                      );
+                    }}
                   />
                 </div>
               ) : null}
@@ -1901,7 +1937,12 @@ function ContentDetailPage() {
                       onValueChange={(v) => setSource(v as SourceMode)}
                       className="w-full"
                     >
-                      <TabsList className="grid w-full grid-cols-2">
+                      <TabsList
+                        className={cn(
+                          "grid w-full",
+                          libraryAllowed ? "grid-cols-3" : "grid-cols-2",
+                        )}
+                      >
                         <TabsTrigger
                           value="file"
                           onClick={() => mediaFileInputRef.current?.click()}
@@ -1909,6 +1950,14 @@ function ContentDetailPage() {
                           {t("project.detail.sourceFile")}
                         </TabsTrigger>
                         <TabsTrigger value="url">{t("project.detail.sourceUrl")}</TabsTrigger>
+                        {libraryAllowed ? (
+                          <TabsTrigger
+                            value="library"
+                            onClick={() => setMediaLibraryOpen(true)}
+                          >
+                            {t("project.detail.sourceLibrary")}
+                          </TabsTrigger>
+                        ) : null}
                       </TabsList>
                       <TabsContent value="file" className="space-y-1.5 pt-3">
                         <p className="text-xs text-muted-foreground">
@@ -1935,7 +1984,30 @@ function ContentDetailPage() {
                           </Button>
                         </div>
                       </TabsContent>
+                      {libraryAllowed ? (
+                        <TabsContent value="library" className="space-y-1.5 pt-3">
+                          <p className="text-xs text-muted-foreground">
+                            {t("project.detail.mediaLibraryHint")}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMediaLibraryOpen(true)}
+                          >
+                            {t("project.detail.mediaLibraryOpen")}
+                          </Button>
+                        </TabsContent>
+                      ) : null}
                     </Tabs>
+                    {libraryAllowed ? (
+                      <ContentMediaLibraryPicker
+                        clientId={clientId}
+                        open={mediaLibraryOpen}
+                        onOpenChange={setMediaLibraryOpen}
+                        onSelect={addLibraryAsset}
+                      />
+                    ) : null}
 
                     {mediaItems.length > 0 ? (
                       <ul className="space-y-2 rounded-lg border p-3">
