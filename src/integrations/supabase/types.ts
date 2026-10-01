@@ -72,29 +72,6 @@ export type Database = {
           },
         ]
       }
-      activity_digest_receipts: {
-        Row: {
-          activity_event_id: string
-          sent_at: string
-        }
-        Insert: {
-          activity_event_id: string
-          sent_at?: string
-        }
-        Update: {
-          activity_event_id?: string
-          sent_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "activity_digest_receipts_activity_event_id_fkey"
-            columns: ["activity_event_id"]
-            isOneToOne: true
-            referencedRelation: "activity_events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       admin_ai_credentials: {
         Row: {
           created_at: string
@@ -277,27 +254,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      gestor_digest_settings: {
-        Row: {
-          cron_secret: string | null
-          enabled: boolean
-          function_url: string
-          id: boolean
-        }
-        Insert: {
-          cron_secret?: string | null
-          enabled?: boolean
-          function_url?: string
-          id?: boolean
-        }
-        Update: {
-          cron_secret?: string | null
-          enabled?: boolean
-          function_url?: string
-          id?: boolean
-        }
-        Relationships: []
       }
       client_members: {
         Row: {
@@ -748,6 +704,7 @@ export type Database = {
       }
       design_templates: {
         Row: {
+          aspect_ratio: string
           client_id: string
           created_at: string
           created_by: string | null
@@ -758,9 +715,9 @@ export type Database = {
           mime_type: string | null
           name: string
           storage_path: string | null
-          aspect_ratio: string
         }
         Insert: {
+          aspect_ratio?: string
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -771,9 +728,9 @@ export type Database = {
           mime_type?: string | null
           name: string
           storage_path?: string | null
-          aspect_ratio?: string
         }
         Update: {
+          aspect_ratio?: string
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -784,7 +741,6 @@ export type Database = {
           mime_type?: string | null
           name?: string
           storage_path?: string | null
-          aspect_ratio?: string
         }
         Relationships: [
           {
@@ -1359,32 +1315,6 @@ export type Database = {
       library_storage_scope_id: {
         Args: { object_name: string }
         Returns: string
-      }
-      list_client_gestor_emails: {
-        Args: { _client_id: string }
-        Returns: {
-          email: string
-          full_name: string | null
-          user_id: string
-        }[]
-      }
-      list_pending_gestor_activity_digest: {
-        Args: never
-        Returns: {
-          client_id: string
-          client_name: string
-          content_id: string | null
-          content_title: string | null
-          created_at: string
-          event_id: string
-          event_type: Database["public"]["Enums"]["activity_type"]
-          project_id: string | null
-          project_name: string | null
-        }[]
-      }
-      mark_gestor_activity_digest_sent: {
-        Args: { _event_ids: string[] }
-        Returns: undefined
       }
       plan_max_clients: {
         Args: { _plan: Database["public"]["Enums"]["subscription_plan"] }
