@@ -1362,7 +1362,7 @@ function ContentDetailPage() {
             />
           ) : null}
 
-          {isAdmin && entitlements.designAi ? (
+          {isAdmin ? (
             <ContentDesignAssistant
               contentId={contentId}
               projectId={projectId}
