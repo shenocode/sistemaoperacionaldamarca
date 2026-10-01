@@ -11,11 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { getAdminAiKeysStatus, saveAdminAiKeys } from "@/lib/api";
 
+type ClearTarget = "openai" | "gemini" | "claude";
+
 export function AdminAiSettingsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [openaiKey, setOpenaiKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
+  const [claudeKey, setClaudeKey] = useState("");
 
   const statusQuery = useQuery({
     queryKey: ["admin-ai-keys"],
@@ -29,10 +32,12 @@ export function AdminAiSettingsPage() {
       saveAdminAiKeys({
         openaiKey: openaiKey.trim() || undefined,
         geminiKey: geminiKey.trim() || undefined,
+        claudeKey: claudeKey.trim() || undefined,
       }),
     onSuccess: () => {
       setOpenaiKey("");
       setGeminiKey("");
+      setClaudeKey("");
       queryClient.invalidateQueries({ queryKey: ["admin-ai-keys"] });
       toast.success(t("adminAiSettings.saved"));
     },
@@ -40,9 +45,13 @@ export function AdminAiSettingsPage() {
   });
 
   const clearMutation = useMutation({
-    mutationFn: (target: "openai" | "gemini") =>
+    mutationFn: (target: ClearTarget) =>
       saveAdminAiKeys(
-        target === "openai" ? { clearOpenAI: true } : { clearGemini: true },
+        target === "openai"
+          ? { clearOpenAI: true }
+          : target === "gemini"
+            ? { clearGemini: true }
+            : { clearClaude: true },
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-ai-keys"] });
@@ -51,7 +60,7 @@ export function AdminAiSettingsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const canSave = Boolean(openaiKey.trim() || geminiKey.trim());
+  const canSave = Boolean(openaiKey.trim() || geminiKey.trim() || claudeKey.trim());
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-4 py-6 sm:px-6 sm:py-8 md:p-8">
@@ -170,6 +179,54 @@ export function AdminAiSettingsPage() {
                 className="h-8 px-0 text-destructive hover:text-destructive"
                 disabled={clearMutation.isPending}
                 onClick={() => clearMutation.mutate("gemini")}
+              >
+                {t("adminAiSettings.clear")}
+              </Button>
+            ) : null}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="admin-claude-key">{t("adminAiSettings.claudeLabel")}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {status?.claudeConfigured
+                    ? t("adminAiSettings.configured", { last4: status.claudeLast4 })
+                    : t("adminAiSettings.notConfigured")}
+                </p>
+              </div>
+              <a
+                href={status?.claudeHelpUrl || "https://console.anthropic.com/settings/keys"}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
+              >
+                {t("adminAiSettings.howToGet")}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <Input
+              id="admin-claude-key"
+              type="password"
+              autoComplete="off"
+              placeholder={
+                status?.claudeConfigured
+                  ? t("adminAiSettings.replacePlaceholder")
+                  : "sk-ant-..."
+              }
+              value={claudeKey}
+              onChange={(e) => setClaudeKey(e.target.value)}
+            />
+            {status?.claudeConfigured ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-0 text-destructive hover:text-destructive"
+                disabled={clearMutation.isPending}
+                onClick={() => clearMutation.mutate("claude")}
               >
                 {t("adminAiSettings.clear")}
               </Button>

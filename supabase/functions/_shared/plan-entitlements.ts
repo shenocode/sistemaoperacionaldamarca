@@ -56,7 +56,8 @@ const ENTITLEMENTS: Record<AssignablePlan, Omit<PlanEntitlements, "plan" | "isMa
     brandBriefing: true,
     library: true,
     presets: true,
-    designAi: false,
+    // BYOK: gestores em cortesia usam a própria chave (Gemini/OpenAI) em Configurações.
+    designAi: true,
   },
 };
 

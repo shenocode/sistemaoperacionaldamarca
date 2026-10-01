@@ -686,11 +686,12 @@
   },
   "adminAiSettings": {
     "title": "AI keys",
-    "subtitle": "Each manager uses their own OpenAI and Gemini keys. Usage is billed to their account.",
+    "subtitle": "Each manager uses their own OpenAI, Gemini, and Claude keys. Usage is billed to their account.",
     "billingTitle": "You control the tokens",
     "billingBody": "Keys are encrypted and only used for generations on your account. If unset, the platform keys are used when available.",
     "openaiLabel": "OpenAI API key",
     "geminiLabel": "Gemini API key",
+    "claudeLabel": "Claude API key (Anthropic)",
     "howToGet": "How to get one",
     "configured": "Configured (••••{{last4}})",
     "notConfigured": "Not configured yet",

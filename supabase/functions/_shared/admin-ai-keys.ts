@@ -4,7 +4,7 @@
 
 import { decryptApiKey } from "./ai-key-crypto.ts";
 
-export type AiProvider = "openai" | "gemini";
+export type AiProvider = "openai" | "gemini" | "claude";
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -31,7 +31,20 @@ function platformKey(provider: AiProvider): string | null {
   if (provider === "gemini") {
     return Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || null;
   }
+  if (provider === "claude") {
+    return Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("CLAUDE_API_KEY") || null;
+  }
   return Deno.env.get("OPENAI_API_KEY") || null;
+}
+
+function providerColumns(provider: AiProvider): { ciphertext: string; last4: string } {
+  if (provider === "gemini") {
+    return { ciphertext: "gemini_key_ciphertext", last4: "gemini_key_last4" };
+  }
+  if (provider === "claude") {
+    return { ciphertext: "claude_key_ciphertext", last4: "claude_key_last4" };
+  }
+  return { ciphertext: "openai_key_ciphertext", last4: "openai_key_last4" };
 }
 
 type OwnKeyLookup = {
@@ -47,7 +60,9 @@ async function lookupOwnKey(
   try {
     const { data, error } = await admin
       .from("admin_ai_credentials")
-      .select("openai_key_ciphertext, gemini_key_ciphertext, openai_key_last4, gemini_key_last4")
+      .select(
+        "openai_key_ciphertext, gemini_key_ciphertext, claude_key_ciphertext, openai_key_last4, gemini_key_last4, claude_key_last4",
+      )
       .eq("user_id", userId)
       .maybeSingle();
     if (error) {
@@ -55,12 +70,9 @@ async function lookupOwnKey(
       return { apiKey: null, stored: false };
     }
 
-    const ciphertext = (
-      provider === "gemini" ? data?.gemini_key_ciphertext : data?.openai_key_ciphertext
-    ) as string | null | undefined;
-    const last4 = (
-      provider === "gemini" ? data?.gemini_key_last4 : data?.openai_key_last4
-    ) as string | null | undefined;
+    const cols = providerColumns(provider);
+    const ciphertext = data?.[cols.ciphertext] as string | null | undefined;
+    const last4 = data?.[cols.last4] as string | null | undefined;
     const stored = Boolean((ciphertext && String(ciphertext).trim()) || last4);
     if (!ciphertext) return { apiKey: null, stored };
 
@@ -101,8 +113,8 @@ export async function resolveAiKeyWithBudget(
   if (own.apiKey) return { apiKey: own.apiKey, source: "admin" };
   if (own.stored) return { apiKey: null, source: "decrypt_failed" };
 
-  const openaiPlatform = platformKey(provider);
-  if (!openaiPlatform) return { apiKey: null, source: "none" };
+  const platform = platformKey(provider);
+  if (!platform) return { apiKey: null, source: "none" };
 
   if (typeof admin.rpc !== "function") {
     return { apiKey: null, source: "quota" };
@@ -118,13 +130,17 @@ export async function resolveAiKeyWithBudget(
     return { apiKey: null, source: "quota" };
   }
   if (!data) return { apiKey: null, source: "quota" };
-  return { apiKey: openaiPlatform, source: "platform" };
+  return { apiKey: platform, source: "platform" };
 }
 
 export function missingKeyMessage(provider: AiProvider): string {
-  return provider === "gemini"
-    ? "Nenhuma chave Gemini disponível. Salve a sua chave em Configurações → Chaves de IA."
-    : "Nenhuma chave OpenAI disponível. Salve a sua chave em Configurações → Chaves de IA.";
+  if (provider === "gemini") {
+    return "Nenhuma chave Gemini disponível. Salve a sua chave em Configurações → Chaves de IA.";
+  }
+  if (provider === "claude") {
+    return "Nenhuma chave Claude disponível. Salve a sua chave em Configurações → Chaves de IA.";
+  }
+  return "Nenhuma chave OpenAI disponível. Salve a sua chave em Configurações → Chaves de IA.";
 }
 
 export function quotaExceededMessage(): string {

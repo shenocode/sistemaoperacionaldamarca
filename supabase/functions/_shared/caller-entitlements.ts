@@ -42,6 +42,11 @@ export async function loadCallerEntitlements(
   if (teamError) throw new Error(teamError.message);
 
   if (membership?.owner_user_id) {
+    const owner = await findUserById(admin, membership.owner_user_id);
+    if (isAdminMasterEmail(owner?.email)) {
+      return inheritPlanFeatures(entitlementsForPlan(null, { isMaster: true }));
+    }
+
     const { data: ownerRows, error: ownerError } = await admin
       .from("subscriptions")
       .select("user_id, plan, status, source, updated_at, current_period_end")

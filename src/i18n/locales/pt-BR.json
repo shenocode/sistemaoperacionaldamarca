@@ -686,11 +686,12 @@
   },
   "adminAiSettings": {
     "title": "Chaves de IA",
-    "subtitle": "Cada gestor usa as próprias chaves OpenAI e Gemini. O consumo fica na sua conta.",
+    "subtitle": "Cada gestor usa as próprias chaves OpenAI, Gemini e Claude. O consumo fica na sua conta.",
     "billingTitle": "Você controla os tokens",
     "billingBody": "As chaves ficam criptografadas e só são usadas nas gerações da sua conta. Se não configurar, o sistema tenta as chaves da plataforma (quando existirem).",
     "openaiLabel": "OpenAI API key",
     "geminiLabel": "Gemini API key",
+    "claudeLabel": "Claude API key (Anthropic)",
     "howToGet": "Como obter",
     "configured": "Configurada (••••{{last4}})",
     "notConfigured": "Ainda não configurada",
