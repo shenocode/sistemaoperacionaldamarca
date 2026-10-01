@@ -14,7 +14,7 @@ type AnalyzeRequest = {
   creatorId: string;
   clientId: string;
   locale?: string;
-  provider?: "openai" | "gemini";
+  provider?: "openai" | "gemini" | "claude";
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -62,10 +62,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Parâmetros inválidos" }, 400);
     }
 
-    const preferredProvider = body.provider === "gemini" ? "gemini" : "openai";
+    const preferredProvider =
+      body.provider === "gemini" ? "gemini" : body.provider === "claude" ? "claude" : "openai";
     let openaiKey: string | null = null;
     let keySource: "admin" | "platform" | "none" | "quota" | "decrypt_failed" = "none";
     let geminiKey: string | null = null;
+    let claudeKey: string | null = null;
 
     if (preferredProvider === "gemini") {
       const geminiResolved = adminClient
@@ -77,6 +79,17 @@ Deno.serve(async (req) => {
       geminiKey = geminiResolved.source === "admin" ? geminiResolved.apiKey : null;
       if (!geminiKey) {
         return jsonResponse({ error: "Salve sua chave Gemini em Configurações → Chaves de IA." }, 400);
+      }
+    } else if (preferredProvider === "claude") {
+      const claudeResolved = adminClient
+        ? await resolveAiKey(adminClient, user.id, "claude")
+        : { apiKey: null as string | null, source: "none" as const };
+      if (claudeResolved.source === "decrypt_failed") {
+        return jsonResponse({ error: resolvedKeyError(claudeResolved, "claude") }, 400);
+      }
+      claudeKey = claudeResolved.source === "admin" ? claudeResolved.apiKey : null;
+      if (!claudeKey) {
+        return jsonResponse({ error: "Salve sua chave Claude em Configurações → Chaves de IA." }, 400);
       }
     } else {
       const openaiResolved = adminClient
@@ -133,6 +146,7 @@ Deno.serve(async (req) => {
         temperature: 0.5,
         fallbackMessage: "Falha ao analisar o perfil",
         geminiKey,
+        claudeKey,
         preferredProvider,
       },
     );

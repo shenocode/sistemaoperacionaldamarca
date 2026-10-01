@@ -3631,6 +3631,13 @@ async function readFunctionsInvokeError(
 }
 
 export type DesignProvider = "openai" | "gemini";
+/** Providers for text assistants (copy, ideas). Claude cannot generate design images. */
+export type AiChatProvider = "openai" | "gemini" | "claude";
+
+export function normalizeAiChatProvider(value: unknown): AiChatProvider {
+  if (value === "gemini" || value === "claude") return value;
+  return "openai";
+}
 
 /** Max library items the content assistant can send in one generation. */
 export const ASSISTANT_REFERENCE_MAX = 8;
@@ -3658,7 +3665,7 @@ export async function suggestContent(input: {
   documentName?: string;
   format: ContentFormat;
   locale?: string;
-  provider?: DesignProvider;
+  provider?: AiChatProvider;
   webSearch?: boolean;
   mode?: "generate" | "refine";
   refineInstruction?: string;
@@ -3690,7 +3697,7 @@ export async function suggestContent(input: {
       documentName: input.documentName?.trim() || undefined,
       format: input.format,
       locale: input.locale,
-      provider: input.provider === "gemini" ? "gemini" : "openai",
+      provider: normalizeAiChatProvider(input.provider),
       webSearch: Boolean(input.webSearch),
       mode: input.mode === "refine" ? "refine" : "generate",
       refineInstruction: refineInstruction || undefined,
@@ -3760,7 +3767,7 @@ export async function suggestContentIdeas(input: {
   count?: number;
   prompt?: string;
   locale?: string;
-  provider?: DesignProvider;
+  provider?: AiChatProvider;
   webSearch?: boolean;
   allowedFormats?: ContentFormat[];
 }): Promise<{ ideas: ContentIdea[]; mix: ContentMix; webSources: WebSource[]; webSearchUnavailable: boolean }> {
@@ -3773,7 +3780,7 @@ export async function suggestContentIdeas(input: {
     count: input.count,
     prompt: input.prompt?.trim() || undefined,
     locale: input.locale,
-    provider: input.provider === "gemini" ? "gemini" : "openai",
+    provider: normalizeAiChatProvider(input.provider),
     webSearch: Boolean(input.webSearch),
     allowedFormats: input.allowedFormats,
   };
@@ -3836,14 +3843,14 @@ export async function analyzeReferenceCreator(input: {
   creatorId: string;
   clientId: string;
   locale?: string;
-  provider?: DesignProvider;
+  provider?: AiChatProvider;
 }): Promise<BrandReferenceCreator> {
   const { data, error } = await supabase.functions.invoke("analyze-reference-creator", {
     body: {
       creatorId: input.creatorId,
       clientId: input.clientId,
       locale: input.locale,
-      provider: input.provider === "gemini" ? "gemini" : "openai",
+      provider: normalizeAiChatProvider(input.provider),
     },
   });
   const payload = data as { creator?: BrandReferenceCreator; error?: string } | null;

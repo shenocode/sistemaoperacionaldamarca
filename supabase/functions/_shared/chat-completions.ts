@@ -1,7 +1,8 @@
 import type { ResolvedKey } from "./admin-ai-keys.ts";
 
 export type ChatMessage = { role: string; content: string };
-export type ChatProvider = "openai" | "lovable" | "gemini";
+export type ChatProvider = "openai" | "lovable" | "gemini" | "claude";
+export type PreferredChatProvider = "openai" | "gemini" | "claude";
 export type KeySource = ResolvedKey["source"];
 
 type ChatJson = {
@@ -73,6 +74,13 @@ export function classifyChatError(
           "Os créditos da sua chave Gemini acabaram. Verifique o billing no Google AI Studio ou atualize a chave em Configurações → Chaves de IA.",
       };
     }
+    if (provider === "claude") {
+      return {
+        status: 402,
+        error:
+          "Os créditos da sua chave Claude acabaram. Verifique o billing no console Anthropic ou atualize a chave em Configurações → Chaves de IA.",
+      };
+    }
     return {
       status: 402,
       error:
@@ -86,7 +94,9 @@ export function classifyChatError(
       error:
         provider === "gemini"
           ? "Chave Gemini rejeitada. Confira e salve de novo em Configurações → Chaves de IA."
-          : "Chave OpenAI rejeitada. Confira e salve de novo em Configurações → Chaves de IA.",
+          : provider === "claude"
+            ? "Chave Claude rejeitada. Confira e salve de novo em Configurações → Chaves de IA."
+            : "Chave OpenAI rejeitada. Confira e salve de novo em Configurações → Chaves de IA.",
     };
   }
 
@@ -103,6 +113,13 @@ export function classifyChatError(
         status: 429,
         error:
           "O Gemini limitou esta chave no momento (não é um contador de uso do SOM). Aguarde cerca de 1 minuto e tente de novo.",
+      };
+    }
+    if (provider === "claude") {
+      return {
+        status: 429,
+        error:
+          "A Anthropic limitou esta chave no momento (não é um contador de uso do SOM). Aguarde cerca de 1 minuto e tente de novo.",
       };
     }
     return {
@@ -176,6 +193,49 @@ async function fetchGemini(
   });
 }
 
+async function fetchClaude(
+  messages: ChatMessage[],
+  claudeKey: string,
+  temperature: number,
+): Promise<Response> {
+  const model = Deno.env.get("CLAUDE_MODEL") || Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-5";
+  const system = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content)
+    .join("\n\n");
+  const user = messages
+    .filter((message) => message.role !== "system")
+    .map((message) => `${message.role}: ${message.content}`)
+    .join("\n\n");
+  return await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": claudeKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 4096,
+      temperature,
+      ...(system ? { system } : {}),
+      messages: [{ role: "user", content: user }],
+    }),
+  });
+}
+
+function claudeToChatJson(payload: unknown): ChatJson {
+  const content = (payload as { content?: Array<{ type?: string; text?: string }> })?.content;
+  const text = Array.isArray(content)
+    ? content
+        .filter((part) => part?.type === "text" && typeof part.text === "string")
+        .map((part) => part.text)
+        .join("\n")
+        .trim()
+    : "";
+  return { choices: [{ message: { content: text } }] };
+}
+
 function geminiToChatJson(payload: unknown): ChatJson {
   const json = payload as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
@@ -246,8 +306,33 @@ async function tryGemini(
     : { ok: false, provider: "gemini", status: 502, error: fallbackMessage };
 }
 
+async function tryClaude(
+  messages: ChatMessage[],
+  claudeKey: string,
+  source: KeySource,
+  temperature: number,
+  fallbackMessage: string,
+): Promise<ChatCompletionOk | ChatCompletionFail> {
+  let delay = 1000;
+  let last: Response | null = null;
+  for (let attempt = 0; attempt < OPENAI_RETRIES; attempt++) {
+    last = await fetchClaude(messages, claudeKey, temperature);
+    if (last.ok) {
+      return { ok: true, provider: "claude", json: claudeToChatJson(await last.json()) };
+    }
+    const retryable = last.status === 429 || last.status === 529 || last.status === 503;
+    if (!retryable || attempt === OPENAI_RETRIES - 1) break;
+    await last.text().catch(() => undefined);
+    await sleep(retryAfterMs(last, delay));
+    delay *= 2;
+  }
+  return last
+    ? await readFailed(last, "claude", source === "admin" ? "admin" : source, fallbackMessage)
+    : { ok: false, provider: "claude", status: 502, error: fallbackMessage };
+}
+
 /**
- * Prefer the admin's OpenAI, then Gemini BYOK, then the platform OpenAI secret.
+ * Prefer the admin's OpenAI, then Gemini/Claude BYOK, then the platform OpenAI secret.
  * Never use the shared Lovable gateway — it 429s independently of the user's OpenAI usage.
  */
 export async function completeChatJson(
@@ -258,15 +343,23 @@ export async function completeChatJson(
     temperature: number;
     fallbackMessage: string;
     geminiKey?: string | null;
-    preferredProvider?: "openai" | "gemini";
+    claudeKey?: string | null;
+    preferredProvider?: PreferredChatProvider;
   },
 ): Promise<ChatCompletionOk | ChatCompletionFail> {
-  const { temperature, fallbackMessage, geminiKey = null, preferredProvider } = options;
+  const {
+    temperature,
+    fallbackMessage,
+    geminiKey = null,
+    claudeKey = null,
+    preferredProvider,
+  } = options;
   console.log("completeChatJson", {
     source,
     preferredProvider: preferredProvider ?? "auto",
     hasOpenAI: Boolean(openaiKey),
     hasGemini: Boolean(geminiKey),
+    hasClaude: Boolean(claudeKey),
   });
 
   if (preferredProvider === "gemini") {
@@ -279,6 +372,18 @@ export async function completeChatJson(
       };
     }
     return await tryGemini(messages, geminiKey, "admin", temperature, fallbackMessage);
+  }
+
+  if (preferredProvider === "claude") {
+    if (!claudeKey) {
+      return {
+        ok: false,
+        provider: "claude",
+        status: 400,
+        error: "Salve sua chave Claude em Configurações → Chaves de IA.",
+      };
+    }
+    return await tryClaude(messages, claudeKey, "admin", temperature, fallbackMessage);
   }
 
   if (preferredProvider === "openai") {
@@ -318,6 +423,10 @@ export async function completeChatJson(
 
   if (geminiKey) {
     return await tryGemini(messages, geminiKey, "admin", temperature, fallbackMessage);
+  }
+
+  if (claudeKey) {
+    return await tryClaude(messages, claudeKey, "admin", temperature, fallbackMessage);
   }
 
   if (openaiKey) {

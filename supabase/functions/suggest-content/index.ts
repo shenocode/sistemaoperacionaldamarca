@@ -72,7 +72,7 @@ type SuggestRequest = {
   documentName?: string;
   format?: ContentFormat;
   locale?: string;
-  provider?: "openai" | "gemini";
+  provider?: "openai" | "gemini" | "claude";
   webSearch?: boolean;
   mode?: "generate" | "refine" | "ideas";
   refineInstruction?: string;
@@ -466,12 +466,14 @@ Deno.serve(async (req) => {
 
     const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
     const body = (await req.json()) as SuggestRequest;
-    const preferredProvider = body.provider === "gemini" ? "gemini" : "openai";
+    const preferredProvider =
+      body.provider === "gemini" ? "gemini" : body.provider === "claude" ? "claude" : "openai";
     const mode = body.mode === "refine" ? "refine" : body.mode === "ideas" ? "ideas" : "generate";
 
     let openaiKey: string | null = null;
     let keySource: "admin" | "platform" | "none" | "quota" | "decrypt_failed" = "none";
     let geminiKey: string | null = null;
+    let claudeKey: string | null = null;
 
     if (preferredProvider === "gemini") {
       const geminiResolved = adminClient
@@ -483,6 +485,17 @@ Deno.serve(async (req) => {
       geminiKey = geminiResolved.source === "admin" ? geminiResolved.apiKey : null;
       if (!geminiKey) {
         return jsonResponse({ error: "Salve sua chave Gemini em Configurações → Chaves de IA." }, 400);
+      }
+    } else if (preferredProvider === "claude") {
+      const claudeResolved = adminClient
+        ? await resolveAiKey(adminClient, user.id, "claude")
+        : { apiKey: null as string | null, source: "none" as const };
+      if (claudeResolved.source === "decrypt_failed") {
+        return jsonResponse({ error: resolvedKeyError(claudeResolved, "claude") }, 400);
+      }
+      claudeKey = claudeResolved.source === "admin" ? claudeResolved.apiKey : null;
+      if (!claudeKey) {
+        return jsonResponse({ error: "Salve sua chave Claude em Configurações → Chaves de IA." }, 400);
       }
     } else {
       const openaiResolved = adminClient
@@ -507,6 +520,7 @@ Deno.serve(async (req) => {
         openaiKey,
         keySource,
         geminiKey,
+        claudeKey,
         preferredProvider,
       });
       if (!ideas.ok) return jsonResponse({ error: ideas.error }, ideas.status);
@@ -774,6 +788,7 @@ Deno.serve(async (req) => {
         temperature: hasLibrarySelection ? 0.45 : 0.7,
         fallbackMessage: "Falha ao gerar sugestão com a IA",
         geminiKey,
+        claudeKey,
         preferredProvider,
       },
     );

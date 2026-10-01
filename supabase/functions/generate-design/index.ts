@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
-import { loadCallerEntitlements } from "../_shared/caller-entitlements.ts";
 import {
   defaultAspectForFormat,
   designCanvasSpec,
@@ -441,13 +440,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Apenas gestores podem usar o assistente de design" }, 403);
     }
 
-    const entitlements = await loadCallerEntitlements(admin, user.id, user.email);
-    if (!entitlements.designAi) {
-      return jsonResponse(
-        { error: "IA de design não está incluída no seu plano. Atualize para Studio ou Agência." },
-        403,
-      );
-    }
+    // Gestores/admins com chave BYOK podem gerar arte (cortesia, Studio, Agência e master).
+    // O bloqueio por plano era legado e impedia cortesia/teste mesmo com chave própria.
 
     const body = (await req.json()) as GenerateRequest;
     const provider = normalizeProvider(body.provider);

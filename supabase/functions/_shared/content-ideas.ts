@@ -106,9 +106,10 @@ export async function generateCalendarIdeas(input: {
   openaiKey: string | null;
   keySource: KeySource;
   geminiKey: string | null;
-  preferredProvider: "openai" | "gemini";
+  claudeKey?: string | null;
+  preferredProvider: "openai" | "gemini" | "claude";
 }): Promise<IdeasOk | IdeasFail> {
-  const { supabase, body, openaiKey, keySource, geminiKey, preferredProvider } = input;
+  const { supabase, body, openaiKey, keySource, geminiKey, claudeKey = null, preferredProvider } = input;
   if (!body.projectId || !body.clientId) {
     return { ok: false, status: 400, error: "Parâmetros inválidos" };
   }
@@ -216,6 +217,7 @@ export async function generateCalendarIdeas(input: {
       temperature: 0.8,
       fallbackMessage: "Falha ao gerar ideias com a IA",
       geminiKey,
+      claudeKey,
       preferredProvider,
     },
   );

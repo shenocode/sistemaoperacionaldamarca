@@ -31,7 +31,7 @@ import {
   type ContentFormat,
   type ContentIdea,
   type ContentMix,
-  type DesignProvider,
+  type AiChatProvider,
 } from "@/lib/api";
 import { DEFAULT_CONTENT_MIX, parseContentMix } from "@/lib/content-strategy";
 
@@ -61,7 +61,7 @@ export function ContentIdeasPanel({
   const [count, setCount] = useState("7");
   const [prompt, setPrompt] = useState("");
   const [webSearch, setWebSearch] = useState(false);
-  const [provider, setProvider] = useState<DesignProvider>("openai");
+  const [provider, setProvider] = useState<AiChatProvider>("openai");
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [addingIndex, setAddingIndex] = useState<number | null>(null);
 
@@ -72,7 +72,13 @@ export function ContentIdeasPanel({
   });
   const openaiConfigured = Boolean(keysQuery.data?.openaiConfigured);
   const geminiConfigured = Boolean(keysQuery.data?.geminiConfigured);
-  const selectedKeyConfigured = provider === "gemini" ? geminiConfigured : openaiConfigured;
+  const claudeConfigured = Boolean(keysQuery.data?.claudeConfigured);
+  const selectedKeyConfigured =
+    provider === "gemini"
+      ? geminiConfigured
+      : provider === "claude"
+        ? claudeConfigured
+        : openaiConfigured;
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +86,8 @@ export function ContentIdeasPanel({
     setBlockId((current) => current || last?.id || "");
     if (last) setMix(calendarBlockMix(last));
     if (!openaiConfigured && geminiConfigured) setProvider("gemini");
-  }, [open, blocks, openaiConfigured, geminiConfigured]);
+    else if (!openaiConfigured && !geminiConfigured && claudeConfigured) setProvider("claude");
+  }, [open, blocks, openaiConfigured, geminiConfigured, claudeConfigured]);
 
   const selectedBlock = blocks.find((block) => block.id === blockId) ?? null;
 
@@ -191,13 +198,14 @@ export function ContentIdeasPanel({
             </div>
             <div className="space-y-1.5">
               <Label>{t("project.detail.assistant.provider")}</Label>
-              <Select value={provider} onValueChange={(value) => setProvider(value as DesignProvider)}>
+              <Select value={provider} onValueChange={(value) => setProvider(value as AiChatProvider)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="openai">{t("project.detail.assistant.providerOpenAI")}</SelectItem>
                   <SelectItem value="gemini">{t("project.detail.assistant.providerGemini")}</SelectItem>
+                  <SelectItem value="claude">{t("project.detail.assistant.providerClaude")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

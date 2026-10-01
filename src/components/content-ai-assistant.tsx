@@ -41,9 +41,9 @@ import {
 import {
   getAdminAiKeysStatus,
   suggestContent,
+  type AiChatProvider,
   type ContentFormat,
   type ContentSuggestion,
-  type DesignProvider,
 } from "@/lib/api";
 
 export type ContentAiAssistantApply = {
@@ -74,7 +74,7 @@ type PersistedAssistantState = {
   webSearch: boolean;
   refineInstruction: string;
   draft: ContentSuggestion | null;
-  provider: DesignProvider;
+  provider: AiChatProvider;
   appliedOnce: boolean;
 };
 
@@ -84,8 +84,8 @@ function assistantStorageKey(contentId: string) {
   return `${ASSISTANT_STORAGE_PREFIX}${contentId}`;
 }
 
-function isDesignProvider(value: unknown): value is DesignProvider {
-  return value === "openai" || value === "gemini";
+function isAiChatProvider(value: unknown): value is AiChatProvider {
+  return value === "openai" || value === "gemini" || value === "claude";
 }
 
 function isContentSuggestion(value: unknown): value is ContentSuggestion {
@@ -122,7 +122,7 @@ function readPersistedAssistantState(contentId: string): PersistedAssistantState
       refineInstruction:
         typeof parsed.refineInstruction === "string" ? parsed.refineInstruction : "",
       draft: isContentSuggestion(parsed.draft) ? parsed.draft : null,
-      provider: isDesignProvider(parsed.provider) ? parsed.provider : "openai",
+      provider: isAiChatProvider(parsed.provider) ? parsed.provider : "openai",
       appliedOnce: Boolean(parsed.appliedOnce),
     };
   } catch {
@@ -180,7 +180,7 @@ export function ContentAiAssistant({
     () => hydrated?.refineInstruction ?? "",
   );
   const [draft, setDraft] = useState<ContentSuggestion | null>(() => hydrated?.draft ?? null);
-  const [provider, setProvider] = useState<DesignProvider>(() => hydrated?.provider ?? "openai");
+  const [provider, setProvider] = useState<AiChatProvider>(() => hydrated?.provider ?? "openai");
   const [appliedOnce, setAppliedOnce] = useState(() => Boolean(hydrated?.appliedOnce));
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const generatingRef = useRef(false);
@@ -192,14 +192,21 @@ export function ContentAiAssistant({
   });
   const openaiConfigured = Boolean(keysQuery.data?.openaiConfigured);
   const geminiConfigured = Boolean(keysQuery.data?.geminiConfigured);
-  const selectedKeyConfigured = provider === "gemini" ? geminiConfigured : openaiConfigured;
+  const claudeConfigured = Boolean(keysQuery.data?.claudeConfigured);
+  const selectedKeyConfigured =
+    provider === "gemini"
+      ? geminiConfigured
+      : provider === "claude"
+        ? claudeConfigured
+        : openaiConfigured;
   const blockForMissingKey = !keysQuery.isLoading && !keysQuery.isError && !selectedKeyConfigured;
 
   useEffect(() => {
     if (didInitProvider.current || keysQuery.isLoading || keysQuery.isError) return;
     didInitProvider.current = true;
     if (!openaiConfigured && geminiConfigured) setProvider("gemini");
-  }, [keysQuery.isLoading, keysQuery.isError, openaiConfigured, geminiConfigured]);
+    else if (!openaiConfigured && !geminiConfigured && claudeConfigured) setProvider("claude");
+  }, [keysQuery.isLoading, keysQuery.isError, openaiConfigured, geminiConfigured, claudeConfigured]);
 
   // Keep draft/prompt until Discard / Start over — remounts (nav, role flicker) must not wipe it.
   useEffect(() => {
@@ -423,7 +430,7 @@ export function ContentAiAssistant({
               </p>
               <Select
                 value={provider}
-                onValueChange={(value) => setProvider(value as DesignProvider)}
+                onValueChange={(value) => setProvider(value as AiChatProvider)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -435,6 +442,9 @@ export function ContentAiAssistant({
                   <SelectItem value="gemini">
                     {t("project.detail.assistant.providerGemini")}
                   </SelectItem>
+                  <SelectItem value="claude">
+                    {t("project.detail.assistant.providerClaude")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -444,13 +454,17 @@ export function ContentAiAssistant({
                 <AlertTitle>
                   {provider === "gemini"
                     ? t("project.detail.assistant.missingGeminiTitle")
-                    : t("project.detail.assistant.platformKeyTitle")}
+                    : provider === "claude"
+                      ? t("project.detail.assistant.missingClaudeTitle")
+                      : t("project.detail.assistant.platformKeyTitle")}
                 </AlertTitle>
                 <AlertDescription className="space-y-2">
                   <p>
                     {provider === "gemini"
                       ? t("project.detail.assistant.missingGeminiBody")
-                      : t("project.detail.assistant.platformKeyBody")}
+                      : provider === "claude"
+                        ? t("project.detail.assistant.missingClaudeBody")
+                        : t("project.detail.assistant.platformKeyBody")}
                   </p>
                   <Link to="/settings" className="inline-flex text-xs font-medium text-primary hover:underline">
                     {t("project.detail.assistant.openAiSettings")}
@@ -514,7 +528,9 @@ export function ContentAiAssistant({
                     toast.error(
                       provider === "gemini"
                         ? t("project.detail.assistant.missingGeminiError")
-                        : t("project.detail.assistant.missingKeyError"),
+                        : provider === "claude"
+                          ? t("project.detail.assistant.missingClaudeError")
+                          : t("project.detail.assistant.missingKeyError"),
                     );
                     return;
                   }
