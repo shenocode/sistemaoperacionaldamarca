@@ -1199,7 +1199,12 @@ function ProjectCalendarPage() {
   );
 
   const renderRowActions = (row: ContentItem, compact = false) => (
-    <div className={cn("flex flex-wrap items-center gap-1.5", !compact && "md:justify-end")}>
+    <div
+      className={cn(
+        "flex items-center gap-1.5",
+        compact ? "flex-nowrap justify-end" : "flex-wrap md:justify-end",
+      )}
+    >
       <Button
         asChild
         variant="outline"
@@ -1384,19 +1389,19 @@ function ProjectCalendarPage() {
           ) : null}
         </div>
 
-        <div className="hidden md:block">
-          <table className="w-full min-w-[1040px] text-sm">
+        <div className="hidden overflow-x-auto overscroll-x-contain md:block">
+          <table className="w-full min-w-[960px] table-fixed text-sm">
             <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-3 py-3">#</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.day")}</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.datetime")}</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.status")}</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.format")}</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.layout")}</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.theme")}</th>
-                <th className="px-3 py-3">{t("project.calendar.columns.title")}</th>
-                <th className="px-3 py-3 text-right">{t("project.calendar.columns.access")}</th>
+                <th className="w-12 px-2 py-2">#</th>
+                <th className="w-[7.5rem] px-2 py-2">{t("project.calendar.columns.day")}</th>
+                <th className="w-[12.5rem] px-2 py-2">{t("project.calendar.columns.datetime")}</th>
+                <th className="w-[11.5rem] px-2 py-2">{t("project.calendar.columns.status")}</th>
+                <th className="w-[8.5rem] px-2 py-2">{t("project.calendar.columns.format")}</th>
+                <th className="w-12 px-2 py-2">{t("project.calendar.columns.layout")}</th>
+                <th className="w-[9rem] px-2 py-2">{t("project.calendar.columns.theme")}</th>
+                <th className="min-w-[10rem] px-2 py-2">{t("project.calendar.columns.title")}</th>
+                <th className="w-40 px-2 py-2 text-right">{t("project.calendar.columns.access")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -1425,12 +1430,12 @@ function ProjectCalendarPage() {
                         "bg-muted",
                     )}
                   >
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1.5">
+                    <td className="px-2 py-1.5 align-middle">
+                      <div className="flex items-center gap-1">
                         {canReorder ? (
                           <span
                             onPointerDown={onHandlePointerDown(blockKey, index)}
-                            className="inline-flex shrink-0 cursor-grab touch-none select-none p-1 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
+                            className="inline-flex shrink-0 cursor-grab touch-none select-none p-0.5 text-foreground/55 hover:text-foreground active:cursor-grabbing [&_svg]:pointer-events-none"
                             aria-label={t("project.calendar.dragHandle")}
                             title={t("project.calendar.dragHandle")}
                             role="button"
@@ -1442,9 +1447,13 @@ function ProjectCalendarPage() {
                         <span className="text-muted-foreground">{index + 1}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 capitalize text-muted-foreground">{dayLabel}</td>
-                    <td className="px-3 py-2.5">{renderDatetimeField(row, "w-[14rem]")}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="truncate px-2 py-1.5 align-middle capitalize text-muted-foreground">
+                      {dayLabel}
+                    </td>
+                    <td className="px-2 py-1.5 align-middle">
+                      {renderDatetimeField(row, "w-full max-w-full")}
+                    </td>
+                    <td className="px-2 py-1.5 align-middle">
                       <ContentStatusSelect
                         status={row.status as ContentStatus}
                         contentId={row.id}
@@ -1452,24 +1461,29 @@ function ProjectCalendarPage() {
                         projectId={projectId}
                         title={localizedTitle(row)}
                         disabled={!canEdit || isBusy}
-                        className="w-[13.5rem] max-w-[13.5rem]"
+                        className="w-full max-w-full"
                       />
                     </td>
-                    <td className="px-3 py-2.5">{renderFormatField(row, rowFormat, "w-[9.5rem]")}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 py-1.5 align-middle">
+                      {renderFormatField(row, rowFormat, "w-full max-w-full")}
+                    </td>
+                    <td className="px-2 py-1.5 align-middle">
                       <CalendarLayoutThumb
                         item={row}
-                        sizeClass="h-10 w-10"
+                        sizeClass="h-8 w-8"
                         expandLabel={t("project.detail.expandMedia")}
                         onOpen={openMediaLightbox}
                       />
                     </td>
-                    <td className="px-3 py-2.5">{renderThemeField(row, "w-[10.5rem]")}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-2 py-1.5 align-middle">
+                      {renderThemeField(row, "w-full max-w-full")}
+                    </td>
+                    <td className="px-2 py-1.5 align-middle">
                       <CalendarTitleCell
                         title={localizedTitle(row)}
                         i18n={row.i18n}
                         disabled={!canEdit || isBusy}
+                        className="md:min-w-0"
                         onSave={(nextTitle, nextI18n) => {
                           updateMutation.mutate({
                             contentId: row.id,
@@ -1479,7 +1493,9 @@ function ProjectCalendarPage() {
                         }}
                       />
                     </td>
-                    <td className="px-3 py-2.5">{renderRowActions(row)}</td>
+                    <td className="px-2 py-1.5 align-middle">
+                      {renderRowActions(row, true)}
+                    </td>
                   </tr>
                 );
               })}
@@ -1492,7 +1508,7 @@ function ProjectCalendarPage() {
                 >
                   <td
                     colSpan={9}
-                    className="px-3 py-3 text-center text-xs text-muted-foreground"
+                    className="px-2 py-2 text-center text-xs text-muted-foreground"
                   >
                     {t("project.calendar.dropAtEnd")}
                   </td>
