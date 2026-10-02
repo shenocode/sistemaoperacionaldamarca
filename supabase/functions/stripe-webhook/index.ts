@@ -4,6 +4,7 @@ import { isPlanKey, planFromPriceId, type PlanKey } from "../_shared/stripe-plan
 import {
   findUserIdByEmail,
   isSubscriptionActiveStatus,
+  type AnyClient,
 } from "../_shared/admin-clients.ts";
 
 const ADMIN_MASTER_EMAIL = "sherocha03@gmail.com";
@@ -16,7 +17,7 @@ function json(body: unknown, status = 200) {
 }
 
 async function ensureGestorAccess(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   email: string,
   siteUrl: string,
 ): Promise<{ userId: string; created: boolean }> {
@@ -59,7 +60,7 @@ async function ensureGestorAccess(
 }
 
 async function expireManualSubscriptions(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   userId: string | null,
   email: string,
 ) {
@@ -87,7 +88,7 @@ async function expireManualSubscriptions(
 }
 
 async function revokeGestorAccessIfNeeded(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   userId: string | null,
   email: string,
 ) {
@@ -127,7 +128,7 @@ function periodEnd(subscription: Stripe.Subscription): string | null {
 }
 
 async function upsertStripeSubscription(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   input: {
     userId: string | null;
     email: string;
@@ -170,7 +171,7 @@ async function upsertStripeSubscription(
 }
 
 async function syncStripeSubscription(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   stripe: Stripe,
   subscription: Stripe.Subscription,
   siteUrl: string,

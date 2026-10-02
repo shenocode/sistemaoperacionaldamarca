@@ -35,7 +35,7 @@ type GenerateRequest = {
 type BrandColor = { name?: string; hex?: string };
 type BrandFonts = { primary?: string; secondary?: string; notes?: string };
 
-type RefImage = { bytes: Uint8Array; mime: string; fileName: string };
+type RefImage = { bytes: Uint8Array<ArrayBuffer>; mime: string; fileName: string };
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -459,11 +459,12 @@ Deno.serve(async (req) => {
     void overlayText;
     void secondaryText;
 
-    const { apiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 10);
-    const keyError = resolvedKeyError({ apiKey, source: keySource }, provider);
+    const { apiKey: rawApiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 10);
+    const keyError = resolvedKeyError({ apiKey: rawApiKey, source: keySource }, provider);
     if (keyError) {
       return jsonResponse({ error: keyError }, 400);
     }
+    const apiKey = rawApiKey ?? "";
     void keySource;
 
     const [

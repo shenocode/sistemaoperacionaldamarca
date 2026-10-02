@@ -56,7 +56,8 @@ Deno.serve(async (req) => {
     if (adminError) return jsonResponse({ error: adminError.message }, 500);
     if (!isAdmin) return jsonResponse({ error: "Apenas administradores podem analisar referências" }, 403);
 
-    const adminClient = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+    // deno-lint-ignore no-explicit-any
+    const adminClient: any = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
     const body = (await req.json()) as AnalyzeRequest;
     if (!body.creatorId || !body.clientId) {
       return jsonResponse({ error: "Parâmetros inválidos" }, 400);
