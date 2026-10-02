@@ -513,6 +513,7 @@ export type Database = {
       }
       content_items: {
         Row: {
+          archived_at: string | null
           calendar_block_id: string | null
           caption: string
           created_at: string
@@ -547,6 +548,7 @@ export type Database = {
           width_cm: number | null
         }
         Insert: {
+          archived_at?: string | null
           calendar_block_id?: string | null
           caption?: string
           created_at?: string
@@ -581,6 +583,7 @@ export type Database = {
           width_cm?: number | null
         }
         Update: {
+          archived_at?: string | null
           calendar_block_id?: string | null
           caption?: string
           created_at?: string
@@ -711,6 +714,7 @@ export type Database = {
       design_templates: {
         Row: {
           aspect_ratio: string
+          background_url: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -718,12 +722,14 @@ export type Database = {
           file_url: string
           format: Database["public"]["Enums"]["design_template_format"]
           id: string
+          layout: Json
           mime_type: string | null
           name: string
           storage_path: string | null
         }
         Insert: {
           aspect_ratio?: string
+          background_url?: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -731,12 +737,14 @@ export type Database = {
           file_url: string
           format: Database["public"]["Enums"]["design_template_format"]
           id?: string
+          layout?: Json
           mime_type?: string | null
           name: string
           storage_path?: string | null
         }
         Update: {
           aspect_ratio?: string
+          background_url?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -744,6 +752,7 @@ export type Database = {
           file_url?: string
           format?: Database["public"]["Enums"]["design_template_format"]
           id?: string
+          layout?: Json
           mime_type?: string | null
           name?: string
           storage_path?: string | null
@@ -1348,6 +1357,7 @@ export type Database = {
           _title?: string
         }
         Returns: {
+          archived_at: string | null
           calendar_block_id: string | null
           caption: string
           created_at: string
@@ -1391,6 +1401,7 @@ export type Database = {
       save_gestor_content_version: {
         Args: { _change_note?: string; _content_id: string; _patch: Json }
         Returns: {
+          archived_at: string | null
           calendar_block_id: string | null
           caption: string
           created_at: string
