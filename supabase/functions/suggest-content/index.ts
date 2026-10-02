@@ -291,7 +291,7 @@ async function loadLibraryReferenceBlocks(input: {
     .in("id", ids);
   if (error) throw new Error(error.message);
 
-  const byId = new Map((data ?? []).map((row) => [row.id as string, row as LibraryAssetRow]));
+  const byId = new Map<string, LibraryAssetRow>((data ?? []).map((row: any) => [row.id as string, row as LibraryAssetRow]));
   const blocks: string[] = [];
   const youtubeUrls: string[] = [];
   const instagramUrls: string[] = [];

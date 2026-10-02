@@ -78,7 +78,7 @@ async function ensureBucket(
   const { data: buckets, error: listError } = await admin.storage.listBuckets();
   if (listError) return { ok: false, message: listError.message };
 
-  const exists = (buckets ?? []).some((bucket) => bucket.id === BUCKET || bucket.name === BUCKET);
+  const exists = (buckets ?? []).some((bucket: any) => bucket.id === BUCKET || bucket.name === BUCKET);
   if (exists) {
     await admin.storage.updateBucket(BUCKET, {
       public: false,
@@ -135,7 +135,7 @@ async function resolveClientGestorUserId(
     .eq("role", "owner");
   if (ownersError) throw new Error(ownersError.message);
 
-  const ownerIds = (owners ?? []).map((row) => row.user_id as string);
+  const ownerIds = (owners ?? []).map((row: any) => row.user_id as string);
   const preferredId =
     (client.created_by && ownerIds.includes(client.created_by) ? client.created_by : null) ??
     client.created_by ??

@@ -56,7 +56,7 @@ async function ensureGestorAccess(
     throw new Error(roleError.message);
   }
 
-  return { userId, created };
+  return { userId: userId as string, created };
 }
 
 async function expireManualSubscriptions(
@@ -100,7 +100,7 @@ async function revokeGestorAccessIfNeeded(
     .select("id, status, current_period_end")
     .eq("user_id", userId);
 
-  const hasOther = (stillActive ?? []).some((row) =>
+  const hasOther = (stillActive ?? []).some((row: any) =>
     isSubscriptionActiveStatus(row.status, row.current_period_end),
   );
   if (hasOther) return;

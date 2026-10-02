@@ -572,7 +572,7 @@ Deno.serve(async (req) => {
       for (let i = 0; i < 2; i += 1) {
         try {
           next = await run({
-            image: { bytes: next, mime: "image/png", fileName: `draft-${i}.png` },
+            image: { bytes: next as Uint8Array<ArrayBuffer>, mime: "image/png", fileName: `draft-${i}.png` },
             apiKey,
             aspectRatio,
           });

@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     if (keyError || !resolved.apiKey) {
       return jsonResponse({ error: keyError ?? "Configure sua chave de IA." }, 400);
     }
-    const openaiKey = resolved.apiKey;
+    const openaiKey = resolved.apiKey as string;
 
     const body = (await req.json()) as CoachRequest;
     if (!body.clientId || !body.questionId || !body.questionLabel?.trim()) {
