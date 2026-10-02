@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
 import { loadViewerEntitlements } from "../_shared/caller-entitlements.ts";
+import type { AnyClient } from "../_shared/admin-clients.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Não autenticado" }, 401);
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const admin: AnyClient = createClient(supabaseUrl, serviceRoleKey);
     const entitlements = await loadViewerEntitlements(admin, user.id, user.email);
     if (!entitlements.brandBriefing) {
       return jsonResponse(
