@@ -4,6 +4,7 @@ import { isPlanKey, planFromPriceId, type PlanKey } from "../_shared/stripe-plan
 import {
   findUserIdByEmail,
   isSubscriptionActiveStatus,
+  type AnyClient,
 } from "../_shared/admin-clients.ts";
 
 const ADMIN_MASTER_EMAIL = "sherocha03@gmail.com";
@@ -16,7 +17,7 @@ function json(body: unknown, status = 200) {
 }
 
 async function ensureGestorAccess(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   email: string,
   siteUrl: string,
 ): Promise<{ userId: string; created: boolean }> {
@@ -55,11 +56,11 @@ async function ensureGestorAccess(
     throw new Error(roleError.message);
   }
 
-  return { userId, created };
+  return { userId: userId as string, created };
 }
 
 async function expireManualSubscriptions(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   userId: string | null,
   email: string,
 ) {
@@ -87,7 +88,7 @@ async function expireManualSubscriptions(
 }
 
 async function revokeGestorAccessIfNeeded(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   userId: string | null,
   email: string,
 ) {
@@ -99,7 +100,7 @@ async function revokeGestorAccessIfNeeded(
     .select("id, status, current_period_end")
     .eq("user_id", userId);
 
-  const hasOther = (stillActive ?? []).some((row) =>
+  const hasOther = (stillActive ?? []).some((row: any) =>
     isSubscriptionActiveStatus(row.status, row.current_period_end),
   );
   if (hasOther) return;
@@ -127,7 +128,7 @@ function periodEnd(subscription: Stripe.Subscription): string | null {
 }
 
 async function upsertStripeSubscription(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   input: {
     userId: string | null;
     email: string;
@@ -170,7 +171,7 @@ async function upsertStripeSubscription(
 }
 
 async function syncStripeSubscription(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   stripe: Stripe,
   subscription: Stripe.Subscription,
   siteUrl: string,

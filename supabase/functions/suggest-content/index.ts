@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import type { AnyClient } from "../_shared/admin-clients.ts";
 import { resolveAiKey, resolveAiKeyWithBudget, resolvedKeyError } from "../_shared/admin-ai-keys.ts";
 import { completeChatJson } from "../_shared/chat-completions.ts";
 import {
@@ -140,7 +141,7 @@ async function fetchDocumentBytes(url: string): Promise<{ bytes: Uint8Array; mim
 
 async function loadAttachedDocument(input: {
   body: SuggestRequest;
-  supabase: ReturnType<typeof createClient>;
+  supabase: AnyClient;
   serviceRoleKey: string | undefined;
   supabaseUrl: string;
 }): Promise<{ name: string; text: string; truncated: boolean } | null> {
@@ -256,7 +257,7 @@ async function extractLibraryDocument(
 
 async function loadLibraryReferenceBlocks(input: {
   body: SuggestRequest;
-  supabase: ReturnType<typeof createClient>;
+  supabase: AnyClient;
   serviceRoleKey: string | undefined;
   supabaseUrl: string;
 }): Promise<{
@@ -290,7 +291,7 @@ async function loadLibraryReferenceBlocks(input: {
     .in("id", ids);
   if (error) throw new Error(error.message);
 
-  const byId = new Map((data ?? []).map((row) => [row.id as string, row as LibraryAssetRow]));
+  const byId = new Map<string, LibraryAssetRow>((data ?? []).map((row: any) => [row.id as string, row as LibraryAssetRow]));
   const blocks: string[] = [];
   const youtubeUrls: string[] = [];
   const instagramUrls: string[] = [];

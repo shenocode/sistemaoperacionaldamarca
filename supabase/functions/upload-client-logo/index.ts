@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import type { AnyClient } from "../_shared/admin-clients.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -43,12 +44,12 @@ function decodeBase64(base64: string): Uint8Array {
 }
 
 async function ensureBucket(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { data: buckets, error: listError } = await admin.storage.listBuckets();
   if (listError) return { ok: false, message: listError.message };
 
-  const exists = (buckets ?? []).some((bucket) => bucket.id === BUCKET || bucket.name === BUCKET);
+  const exists = (buckets ?? []).some((bucket: any) => bucket.id === BUCKET || bucket.name === BUCKET);
   if (exists) {
     await admin.storage.updateBucket(BUCKET, {
       public: true,

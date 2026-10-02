@@ -119,11 +119,9 @@ export function isSubscriptionActiveStatus(
 }
 
 export function pickActiveSubscription(rows: SubscriptionRow[]): SubscriptionRow | null {
-  // Preferência alinhada a public.active_subscription_plan: plano manual
-  // (ex.: Cortesia atribuída pelo admin) vence Stripe ativo.
   const sourceRank = (source: string | null) => {
-    if (source === "manual") return 0;
-    if (source === "stripe") return 1;
+    if (source === "stripe") return 0;
+    if (source === "manual") return 1;
     return 2;
   };
   const active = rows

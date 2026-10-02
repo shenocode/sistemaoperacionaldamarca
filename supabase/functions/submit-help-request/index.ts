@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { ADMIN_MASTER_EMAIL } from "../_shared/admin-master.ts";
-import { findUserIdByEmail } from "../_shared/admin-clients.ts";
+import { findUserIdByEmail, type AnyClient } from "../_shared/admin-clients.ts";
 
 const BUCKET = "help-attachments";
 const MAX_MESSAGE = 5000;
@@ -73,12 +73,12 @@ function decodeBase64(base64: string): Uint8Array {
 }
 
 async function ensureBucket(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { data: buckets, error: listError } = await admin.storage.listBuckets();
   if (listError) return { ok: false, message: listError.message };
 
-  const exists = (buckets ?? []).some((bucket) => bucket.id === BUCKET || bucket.name === BUCKET);
+  const exists = (buckets ?? []).some((bucket: any) => bucket.id === BUCKET || bucket.name === BUCKET);
   if (exists) {
     await admin.storage.updateBucket(BUCKET, {
       public: false,
@@ -99,7 +99,7 @@ async function ensureBucket(
   return { ok: true };
 }
 
-async function userIsAdmin(userClient: ReturnType<typeof createClient>, userId: string): Promise<boolean> {
+async function userIsAdmin(userClient: AnyClient, userId: string): Promise<boolean> {
   const { data, error } = await userClient
     .from("user_roles")
     .select("role")
@@ -110,14 +110,14 @@ async function userIsAdmin(userClient: ReturnType<typeof createClient>, userId: 
   return Boolean(data);
 }
 
-async function resolveAdminMasterUserId(admin: ReturnType<typeof createClient>): Promise<string> {
+async function resolveAdminMasterUserId(admin: AnyClient): Promise<string> {
   const id = await findUserIdByEmail(admin, ADMIN_MASTER_EMAIL);
   if (!id) throw new Error("Administrador da plataforma não encontrado.");
   return id;
 }
 
 async function resolveClientGestorUserId(
-  admin: ReturnType<typeof createClient>,
+  admin: AnyClient,
   clientId: string,
 ): Promise<string> {
   const { data: client, error: clientError } = await admin
@@ -135,7 +135,7 @@ async function resolveClientGestorUserId(
     .eq("role", "owner");
   if (ownersError) throw new Error(ownersError.message);
 
-  const ownerIds = (owners ?? []).map((row) => row.user_id as string);
+  const ownerIds = (owners ?? []).map((row: any) => row.user_id as string);
   const preferredId =
     (client.created_by && ownerIds.includes(client.created_by) ? client.created_by : null) ??
     client.created_by ??

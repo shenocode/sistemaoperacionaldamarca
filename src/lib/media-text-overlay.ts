@@ -31,9 +31,7 @@ export type MediaTextLayer = {
   id: string;
   text: string;
   fontFamily: string;
-  fontWeight: string;
-  /** CSS font-style for kit variants (italic faces). */
-  fontStyle?: "normal" | "italic";
+  fontWeight: "400" | "700";
   /** Font size as a fraction of image height (e.g. 0.055). */
   fontSize: number;
   color: string;
@@ -55,13 +53,6 @@ export type MediaTextOverlay = {
   baseUrl: string;
   layers: MediaTextLayer[];
   adjustments?: MediaImageAdjustments;
-  /** Custom kit font family → public file URL (for FontFace load). */
-  fontFiles?: Record<string, string>;
-  /** Custom kit font family → weight/style faces. */
-  fontFaces?: Record<
-    string,
-    Array<{ fileUrl: string; weight: string; style: "normal" | "italic"; label: string }>
-  >;
 };
 
 const DEFAULT_PRIMARY_COLOR = "#FFFFFF";
@@ -78,17 +69,8 @@ function asAlign(value: unknown): TextLayerAlign {
   return "center";
 }
 
-function asWeight(value: unknown): string {
-  if (typeof value === "string" && /^\d{3}$/.test(value.trim())) return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const rounded = Math.round(value);
-    if (rounded >= 100 && rounded <= 900) return String(rounded);
-  }
-  return value === "400" ? "400" : value === "700" ? "700" : "700";
-}
-
-function asFontStyle(value: unknown): "normal" | "italic" {
-  return value === "italic" ? "italic" : "normal";
+function asWeight(value: unknown): "400" | "700" {
+  return value === "400" ? "400" : "700";
 }
 
 function asOpacity(value: unknown): number {
@@ -202,7 +184,6 @@ export function createTextLayer(
     text,
     fontFamily: opts?.fontFamily || "Montserrat",
     fontWeight: opts?.fontWeight ?? "700",
-    fontStyle: opts?.fontStyle === "italic" ? "italic" : "normal",
     fontSize: opts?.fontSize ?? 0.055,
     color: opts?.color || DEFAULT_PRIMARY_COLOR,
     opacity: asOpacity(opts?.opacity ?? 1),
@@ -226,7 +207,6 @@ export function createDefaultOverlay(input: {
   primaryFont?: string;
   secondaryFont?: string;
   colors?: BrandColor[];
-  fontFiles?: Record<string, string>;
 }): MediaTextOverlay {
   const primary = resolveBrandFont(input.primaryFont);
   const secondary = resolveBrandFont(input.secondaryFont, primary);
@@ -290,7 +270,6 @@ export function createDefaultOverlay(input: {
     baseUrl: input.baseUrl,
     layers,
     adjustments: createDefaultImageAdjustments(),
-    fontFiles: input.fontFiles && Object.keys(input.fontFiles).length > 0 ? input.fontFiles : undefined,
   };
 }
 
@@ -309,7 +288,6 @@ export function ensureArtLayoutLayers(
     primaryFont?: string;
     secondaryFont?: string;
     colors?: BrandColor[];
-    fontFiles?: Record<string, string>;
   },
 ): MediaTextOverlay {
   const fallbackHeadline = (opts?.overlayText ?? "").trim();
@@ -337,11 +315,6 @@ export function ensureArtLayoutLayers(
         layer.text.trim(),
     );
 
-  const mergedFontFiles = {
-    ...(overlay.fontFiles ?? {}),
-    ...(opts?.fontFiles ?? {}),
-  };
-
   const scaffold = createDefaultOverlay({
     baseUrl: overlay.baseUrl,
     overlayText: existingHeadline?.text?.trim() || fallbackHeadline,
@@ -351,7 +324,6 @@ export function ensureArtLayoutLayers(
     primaryFont: opts?.primaryFont ?? existingHeadline?.fontFamily,
     secondaryFont: opts?.secondaryFont,
     colors: opts?.colors,
-    fontFiles: Object.keys(mergedFontFiles).length > 0 ? mergedFontFiles : undefined,
   });
 
   const pick = (role: TextLayerRole): MediaTextLayer => {
@@ -360,19 +332,18 @@ export function ensureArtLayoutLayers(
     if (!existing) return fresh;
     if (role === "headline") {
       const text = existing.text.trim() || fallbackHeadline || fresh.text;
-      const keepPlacement = Boolean(existing.text.trim());
       return {
         ...fresh,
         ...existing,
         text,
         role: "headline",
         label: existing.label || "Título",
-        // Preserve extracted/authored placement; only use scaffold for empty headlines.
-        x: keepPlacement ? existing.x : fresh.x,
-        y: keepPlacement ? existing.y : fresh.y,
-        fontSize: keepPlacement ? existing.fontSize : Math.max(existing.fontSize, fresh.fontSize),
-        maxWidth: keepPlacement ? existing.maxWidth : fresh.maxWidth,
-        align: keepPlacement ? existing.align : "center",
+        // Keep the title on the lower half where carousel copy lives.
+        x: fresh.x,
+        y: fresh.y,
+        fontSize: Math.max(existing.fontSize, fresh.fontSize),
+        maxWidth: fresh.maxWidth,
+        align: "center",
       };
     }
     if (role === "support") {
@@ -413,11 +384,11 @@ export function ensureArtLayoutLayers(
           text: existingHeadline.text.trim() || fallbackHeadline,
           role: "headline" as const,
           label: existingHeadline.label || "Título",
-          x: existingHeadline.x,
-          y: existingHeadline.y,
-          fontSize: existingHeadline.fontSize || 0.07,
-          maxWidth: existingHeadline.maxWidth || 0.86,
-          align: existingHeadline.align || ("center" as const),
+          x: 0.5,
+          y: 0.58,
+          fontSize: Math.max(existingHeadline.fontSize, 0.07),
+          maxWidth: 0.86,
+          align: "center" as const,
         }
       : null;
 
@@ -439,7 +410,6 @@ export function ensureArtLayoutLayers(
   return {
     ...overlay,
     layers: [pick("handle"), pick("tagline"), headline, pick("support"), ...extras],
-    fontFiles: Object.keys(mergedFontFiles).length > 0 ? mergedFontFiles : overlay.fontFiles,
   };
 }
 
@@ -456,60 +426,13 @@ export function resolveBrandTagline(notes?: string | null): string {
   return value;
 }
 
-function parseFontFiles(value: unknown): Record<string, string> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const out: Record<string, string> = {};
-  for (const [family, url] of Object.entries(value as Record<string, unknown>)) {
-    const key = family.trim();
-    const href = typeof url === "string" ? url.trim() : "";
-    if (key && href) out[key] = href;
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-function parseFontFaces(
-  value: unknown,
-): MediaTextOverlay["fontFaces"] | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const out: NonNullable<MediaTextOverlay["fontFaces"]> = {};
-  for (const [family, faces] of Object.entries(value as Record<string, unknown>)) {
-    const key = family.trim();
-    if (!key || !Array.isArray(faces)) continue;
-    const list = faces
-      .map((entry) => {
-        if (!entry || typeof entry !== "object") return null;
-        const row = entry as Record<string, unknown>;
-        const fileUrl = typeof row.fileUrl === "string" ? row.fileUrl.trim() : "";
-        if (!fileUrl) return null;
-        return {
-          fileUrl,
-          weight: typeof row.weight === "string" && row.weight.trim() ? row.weight.trim() : "400",
-          style: row.style === "italic" ? ("italic" as const) : ("normal" as const),
-          label:
-            typeof row.label === "string" && row.label.trim()
-              ? row.label.trim()
-              : row.style === "italic"
-                ? "Italic"
-                : "Regular",
-        };
-      })
-      .filter(Boolean) as NonNullable<MediaTextOverlay["fontFaces"]>[string];
-    if (list.length) out[key] = list;
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-export type DesignTemplateLayout = {
-  layers: MediaTextLayer[];
-  adjustments?: MediaImageAdjustments;
-  fontFiles?: Record<string, string>;
-  fontFaces?: MediaTextOverlay["fontFaces"];
-};
-
-function parseTextLayers(value: unknown): MediaTextLayer[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((entry): MediaTextLayer | null => {
+export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as { baseUrl?: unknown; layers?: unknown; adjustments?: unknown };
+  const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
+  if (!baseUrl || !Array.isArray(row.layers)) return null;
+  const layers = row.layers
+    .map((entry) => {
       if (!entry || typeof entry !== "object") return null;
       const layer = entry as Record<string, unknown>;
       const text = typeof layer.text === "string" ? layer.text : "";
@@ -522,7 +445,6 @@ function parseTextLayers(value: unknown): MediaTextLayer[] {
         text,
         fontFamily,
         fontWeight: asWeight(layer.fontWeight),
-        fontStyle: asFontStyle(layer.fontStyle),
         fontSize: clamp01(typeof layer.fontSize === "number" ? layer.fontSize : 0.05) || 0.05,
         color: typeof layer.color === "string" && layer.color.trim() ? layer.color.trim() : "#FFFFFF",
         opacity: asOpacity(layer.opacity),
@@ -532,101 +454,13 @@ function parseTextLayers(value: unknown): MediaTextLayer[] {
         maxWidth: Math.min(0.98, Math.max(0.2, typeof layer.maxWidth === "number" ? layer.maxWidth : 0.82)),
         label: typeof layer.label === "string" && layer.label.trim() ? layer.label.trim() : undefined,
         role: asRole(layer.role),
-      };
+      } satisfies MediaTextLayer;
     })
-    .filter((layer): layer is MediaTextLayer => layer != null);
-}
-
-/** Layout persistido em design_templates (sem baseUrl). */
-export function parseDesignTemplateLayout(value: unknown): DesignTemplateLayout | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const row = value as {
-    layers?: unknown;
-    adjustments?: unknown;
-    fontFiles?: unknown;
-    fontFaces?: unknown;
-  };
-  const layers = parseTextLayers(row.layers);
-  if (layers.length === 0) return null;
-  return {
-    layers,
-    adjustments: parseImageAdjustments(row.adjustments),
-    fontFiles: parseFontFiles(row.fontFiles),
-    fontFaces: parseFontFaces(row.fontFaces),
-  };
-}
-
-export function serializeDesignTemplateLayout(overlay: MediaTextOverlay): DesignTemplateLayout {
-  return {
-    layers: overlay.layers,
-    adjustments: overlay.adjustments,
-    fontFiles: overlay.fontFiles,
-    fontFaces: overlay.fontFaces,
-  };
-}
-
-/** Monta overlay editável a partir do projeto do template + fundo limpo. */
-export function overlayFromTemplateLayout(
-  baseUrl: string,
-  layout: DesignTemplateLayout,
-  opts?: {
-    overlayText?: string;
-    secondaryText?: string;
-    headerLeft?: string;
-    headerRight?: string;
-    primaryFont?: string;
-    secondaryFont?: string;
-  },
-): MediaTextOverlay {
-  const primary = resolveBrandFont(opts?.primaryFont);
-  const secondary = resolveBrandFont(opts?.secondaryFont, primary);
-  const headline = (opts?.overlayText ?? "").trim();
-  const support = (opts?.secondaryText ?? "").trim();
-  const handle = formatInstagramHandle(opts?.headerLeft) || (opts?.headerLeft ?? "").trim();
-  const tagline = (opts?.headerRight ?? "").trim();
-
-  const layers = layout.layers.map((layer) => {
-    let text = layer.text;
-    let fontFamily = layer.fontFamily;
-    if (layer.role === "headline" && headline) text = headline;
-    if (layer.role === "support" && support) text = support;
-    if (layer.role === "handle" && handle) text = handle;
-    if (layer.role === "tagline" && tagline) text = tagline;
-    if (layer.role === "headline" || layer.role === "support") {
-      fontFamily = layer.role === "headline" ? primary : secondary;
-    } else if (layer.role === "handle" || layer.role === "tagline") {
-      fontFamily = secondary;
-    }
-    return { ...layer, text, fontFamily };
-  });
-
-  return {
-    baseUrl,
-    layers,
-    adjustments: layout.adjustments ?? createDefaultImageAdjustments(),
-    fontFiles: layout.fontFiles,
-    fontFaces: layout.fontFaces,
-  };
-}
-
-export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const row = value as {
-    baseUrl?: unknown;
-    layers?: unknown;
-    adjustments?: unknown;
-    fontFiles?: unknown;
-    fontFaces?: unknown;
-  };
-  const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
-  if (!baseUrl || !Array.isArray(row.layers)) return null;
-  const layers = parseTextLayers(row.layers);
+    .filter((layer): layer is MediaTextLayer => Boolean(layer));
   return {
     baseUrl,
     layers,
     adjustments: parseImageAdjustments(row.adjustments),
-    fontFiles: parseFontFiles(row.fontFiles),
-    fontFaces: parseFontFaces(row.fontFaces),
   };
 }
 
@@ -665,7 +499,7 @@ function wrapLines(
 
 export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promise<Blob> {
   const families = overlay.layers.map((layer) => layer.fontFamily);
-  await loadBrandFonts(families, overlay.fontFiles, overlay.fontFaces);
+  await loadBrandFonts(families);
 
   const res = await fetch(overlay.baseUrl);
   if (!res.ok) throw new Error("Não foi possível carregar a arte base.");
@@ -697,7 +531,7 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
     const fontPx = Math.max(12, layer.fontSize * canvas.height);
     const opacity = asOpacity(layer.opacity);
     ctx.globalAlpha = opacity;
-    ctx.font = `${layer.fontStyle === "italic" ? "italic " : ""}${layer.fontWeight} ${fontPx}px "${layer.fontFamily}", system-ui, sans-serif`;
+    ctx.font = `${layer.fontWeight} ${fontPx}px "${layer.fontFamily}", system-ui, sans-serif`;
     ctx.textAlign = layer.align;
     ctx.fillStyle = layer.color;
     ctx.shadowColor = `rgba(0,0,0,${(0.45 * opacity).toFixed(3)})`;

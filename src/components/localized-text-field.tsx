@@ -5,7 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   buildLocalizedFieldFromSource,
-  buildVerbatimLocalizedField,
   getLocalizedText,
   normalizeAppLocale,
   setLocalizedField,
@@ -30,8 +29,6 @@ type SharedProps = {
   className?: string;
   id?: string;
   placeholder?: string;
-  /** When true, skip AI translate and mirror the typed text to all locales. */
-  verbatim?: boolean;
   onI18nCommit: (payload: CommitPayload) => void | Promise<void>;
 };
 
@@ -46,7 +43,6 @@ function useLocalizedDraft(props: SharedProps) {
   const i18nRef = useRef(props.i18n);
   const onCommitRef = useRef(props.onI18nCommit);
   const commitSeq = useRef(0);
-  const verbatim = Boolean(props.verbatim);
 
   i18nRef.current = props.i18n;
   onCommitRef.current = props.onI18nCommit;
@@ -65,12 +61,6 @@ function useLocalizedDraft(props: SharedProps) {
       lastCommitted.current = displayFromStore;
     }
   }, [locale, displayFromStore, props.i18n, props.field, props.fallback, draft]);
-
-  function buildBlock(next: string): LocalizedField {
-    return verbatim
-      ? buildVerbatimLocalizedField(next, locale)
-      : buildLocalizedFieldFromSource(next, locale);
-  }
 
   function pushToParent(next: string, block: LocalizedField) {
     const merged = setLocalizedField(i18nRef.current, props.field, block);
@@ -92,7 +82,8 @@ function useLocalizedDraft(props: SharedProps) {
   /** Keep parent form state in sync while typing (save/dirty must not wait for blur). */
   function syncDraft(next: string) {
     setDraft(next);
-    pushToParent(next, buildBlock(next));
+    const block = buildLocalizedFieldFromSource(next, locale);
+    pushToParent(next, block);
   }
 
   async function commit() {
@@ -106,14 +97,10 @@ function useLocalizedDraft(props: SharedProps) {
 
     // Push provisional value synchronously before any await so submit-after-blur
     // (or click Save while focused) never races past an in-flight translation.
-    const provisional = buildBlock(next);
+    const provisional = buildLocalizedFieldFromSource(next, locale);
     const pushed = pushToParent(next, provisional);
     lastCommitted.current = pushed.display;
     setDraft(pushed.display);
-
-    if (verbatim) {
-      return;
-    }
 
     setTranslating(true);
     try {
@@ -165,7 +152,6 @@ export function LocalizedTextInput({
   className,
   id,
   placeholder,
-  verbatim,
   onI18nCommit,
 }: SharedProps) {
   const { draft, syncDraft, commit, translating, translatingLabel } = useLocalizedDraft({
@@ -176,7 +162,6 @@ export function LocalizedTextInput({
     className,
     id,
     placeholder,
-    verbatim,
     onI18nCommit,
   });
 
@@ -210,7 +195,6 @@ export function LocalizedTextarea({
   placeholder,
   rows,
   autoResize,
-  verbatim,
   onI18nCommit,
 }: SharedProps & { rows?: number; autoResize?: boolean }) {
   const { draft, syncDraft, commit, translating, translatingLabel } = useLocalizedDraft({
@@ -221,7 +205,6 @@ export function LocalizedTextarea({
     className,
     id,
     placeholder,
-    verbatim,
     onI18nCommit,
   });
   const textareaRef = useRef<HTMLTextAreaElement>(null);

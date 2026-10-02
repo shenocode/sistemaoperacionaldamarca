@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database, Json, Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { Database, Json, Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { ContentStatus } from "@/components/status-badge";
 import {
   DEFAULT_BRAND_BRIEFING_TEMPLATE,
@@ -73,7 +73,6 @@ export {
   setLocalizedField,
   mergeRowI18n,
   buildLocalizedFieldFromSource,
-  buildVerbatimLocalizedField,
   isLocalizedField,
   getLocalizedAnswer,
   setLocalizedAnswer,
@@ -1039,288 +1038,12 @@ export type BrandColor = {
 };
 
 export const MAX_BRAND_COLORS = 24;
-/** Distinct secondary families (not weight variants). */
-export const MAX_BRAND_SECONDARY_FONTS = 12;
-export const MAX_BRAND_FONT_FACES = 24;
-
-/** One weight/style file belonging to a family. */
-export type BrandFontFace = {
-  fileUrl: string;
-  /** CSS font-weight, e.g. "400", "700". */
-  weight: string;
-  style: "normal" | "italic";
-  /** UI label, e.g. "Regular", "Bold Italic". */
-  label: string;
-};
-
-export type BrandFontEntry = {
-  family: string;
-  /** Preferred / legacy single file (usually Regular). */
-  fileUrl?: string;
-  /** Weight/style variants uploaded for this family. */
-  faces?: BrandFontFace[];
-};
 
 export type BrandFonts = {
   primary?: string;
   secondary?: string;
-  /** Public URL of a uploaded .woff2/.ttf for the primary family (custom/commercial fonts). */
-  primaryFileUrl?: string;
-  /** Public URL of a uploaded font file for the secondary family. */
-  secondaryFileUrl?: string;
-  /** Weight/style variants of the primary family. */
-  primaryFaces?: BrandFontFace[];
-  /** Weight/style variants of the first secondary family. */
-  secondaryFaces?: BrandFontFace[];
-  /**
-   * Extra secondary families (each may carry its own faces).
-   * Stored in jsonb — no DB migration required.
-   */
-  extras?: BrandFontEntry[];
   notes?: string;
 };
-
-export const BRAND_FONT_ACCEPT =
-  ".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf,application/font-woff,application/font-woff2";
-export const BRAND_FONT_MAX_BYTES = 2 * 1024 * 1024;
-
-export function isBrandFontFileName(name: string) {
-  return /\.(woff2?|ttf|otf)$/i.test(name || "");
-}
-
-export function brandFontFamilyFromFileName(name: string) {
-  return (name || "")
-    .replace(/^.*[/\\]/, "")
-    .replace(/\.(woff2?|ttf|otf)$/i, "")
-    .replace(/[-_]+/g, " ")
-    .trim();
-}
-
-/** Infer weight/style/label from a font file name (Fontspring, common suffixes, etc.). */
-export function inferBrandFontFaceMeta(fileName: string): Pick<BrandFontFace, "weight" | "style" | "label"> {
-  const base = (fileName || "")
-    .replace(/^.*[/\\]/, "")
-    .replace(/\.(woff2?|ttf|otf)$/i, "")
-    .toLowerCase();
-  const compact = base.replace(/[^a-z0-9]+/g, "");
-
-  const italic =
-    /(?:^|[^a-z])(it|italic|oblique)(?:[^a-z]|$)/.test(base) ||
-    /(?:bdit|ltit|mdit|sbit|blackit|bolditalic|lightitalic|mediumitalic|semibolditalic)$/.test(
-      compact,
-    ) ||
-    compact.endsWith("it");
-
-  let weight = "400";
-  let label = "Regular";
-
-  if (/(?:^|[^a-z])(thin|hairline)(?:[^a-z]|$)/.test(base) || compact.includes("thin")) {
-    weight = "100";
-    label = "Thin";
-  } else if (/(?:^|[^a-z])(extralight|ultralight|xlight)(?:[^a-z]|$)/.test(base)) {
-    weight = "200";
-    label = "Extra Light";
-  } else if (
-    /(?:^|[^a-z])(lt|light)(?:[^a-z]|$)/.test(base) ||
-    compact.includes("ltit") ||
-    /(?:^|[^a-z])lt(?:it)?(?:[^a-z]|$)/.test(base)
-  ) {
-    weight = "300";
-    label = "Light";
-  } else if (
-    /(?:^|[^a-z])(bd|bold)(?:[^a-z]|$)/.test(base) ||
-    compact.includes("bdit") ||
-    compact.includes("bold")
-  ) {
-    weight = "700";
-    label = "Bold";
-  } else if (
-    /(?:^|[^a-z])(blk|black|heavy)(?:[^a-z]|$)/.test(base) ||
-    compact.includes("black")
-  ) {
-    weight = "900";
-    label = "Black";
-  } else if (
-    /(?:^|[^a-z])(sb|semibold|demibold)(?:[^a-z]|$)/.test(base) ||
-    compact.includes("semibold")
-  ) {
-    weight = "600";
-    label = "Semi Bold";
-  } else if (
-    /(?:^|[^a-z])(md|medium)(?:[^a-z]|$)/.test(base) ||
-    compact.includes("medium")
-  ) {
-    weight = "500";
-    label = "Medium";
-  } else if (
-    /(?:^|[^a-z])(reg|regular|book|roman)(?:[^a-z]|$)/.test(base) ||
-    compact.endsWith("reg")
-  ) {
-    weight = "400";
-    label = "Regular";
-  }
-
-  // Trailing Fontspring-style codes: -bd, -bdit, -lt, -ltit, -it, -reg
-  const code = base.match(/[-_](bdit|ltit|mdit|sbit|bd|lt|md|sb|blk|it|reg|bold|light|italic)(?:[-_.]|$)/i)?.[1]?.toLowerCase();
-  if (code === "bd" || code === "bold") {
-    weight = "700";
-    label = "Bold";
-  } else if (code === "bdit") {
-    weight = "700";
-    label = "Bold";
-  } else if (code === "lt" || code === "light") {
-    weight = "300";
-    label = "Light";
-  } else if (code === "ltit") {
-    weight = "300";
-    label = "Light";
-  } else if (code === "md" || code === "medium") {
-    weight = "500";
-    label = "Medium";
-  } else if (code === "sb" || code === "semibold") {
-    weight = "600";
-    label = "Semi Bold";
-  } else if (code === "blk" || code === "black") {
-    weight = "900";
-    label = "Black";
-  } else if (code === "reg" || code === "regular") {
-    weight = "400";
-    label = "Regular";
-  } else if (code === "it" || code === "italic") {
-    weight = "400";
-    label = "Regular";
-  }
-
-  const isItalic =
-    italic ||
-    code === "it" ||
-    code === "italic" ||
-    code === "bdit" ||
-    code === "ltit" ||
-    code === "mdit" ||
-    code === "sbit";
-
-  if (isItalic) {
-    label = label === "Regular" ? "Italic" : `${label} Italic`;
-  }
-
-  return {
-    weight,
-    style: isItalic ? "italic" : "normal",
-    label,
-  };
-}
-
-export function preferredBrandFontFaceUrl(faces: BrandFontFace[] | undefined | null): string | undefined {
-  if (!faces?.length) return undefined;
-  const preferred =
-    faces.find((face) => face.weight === "400" && face.style === "normal") ||
-    faces.find((face) => face.style === "normal") ||
-    faces[0];
-  return preferred?.fileUrl?.trim() || undefined;
-}
-
-export function normalizeBrandFontFaces(faces: BrandFontFace[] | undefined | null): BrandFontFace[] {
-  if (!faces?.length) return [];
-  const seen = new Set<string>();
-  const out: BrandFontFace[] = [];
-  for (const face of faces) {
-    const fileUrl = (face.fileUrl ?? "").trim();
-    if (!fileUrl) continue;
-    const weight = String(face.weight || "400").trim() || "400";
-    const style = face.style === "italic" ? "italic" : "normal";
-    const label = (face.label || "").trim() || (style === "italic" ? "Italic" : "Regular");
-    const key = `${weight}:${style}:${fileUrl}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ fileUrl, weight, style, label });
-    if (out.length >= MAX_BRAND_FONT_FACES) break;
-  }
-  return out;
-}
-
-function parseBrandFontFace(value: unknown): BrandFontFace | null {
-  if (!value || typeof value !== "object") return null;
-  const row = value as {
-    fileUrl?: unknown;
-    weight?: unknown;
-    style?: unknown;
-    label?: unknown;
-  };
-  const fileUrl = typeof row.fileUrl === "string" ? row.fileUrl.trim() : "";
-  if (!fileUrl) return null;
-  const weight = typeof row.weight === "string" && row.weight.trim() ? row.weight.trim() : "400";
-  const style = row.style === "italic" ? "italic" : "normal";
-  const label =
-    typeof row.label === "string" && row.label.trim()
-      ? row.label.trim()
-      : style === "italic"
-        ? "Italic"
-        : "Regular";
-  return { fileUrl, weight, style, label };
-}
-
-/** Normalize kit fonts into a secondary list (first slot = legacy secondary fields). */
-export function listBrandSecondaryFonts(fonts: BrandFonts | null | undefined): BrandFontEntry[] {
-  const secondaryFaces = normalizeBrandFontFaces(fonts?.secondaryFaces);
-  const first: BrandFontEntry = {
-    family: (fonts?.secondary ?? "").trim(),
-    fileUrl:
-      (fonts?.secondaryFileUrl ?? "").trim() ||
-      preferredBrandFontFaceUrl(secondaryFaces) ||
-      undefined,
-    faces: secondaryFaces,
-  };
-  const extras = (fonts?.extras ?? [])
-    .map((entry): BrandFontEntry | null => {
-      const faces = normalizeBrandFontFaces(entry?.faces);
-      const family = (entry?.family ?? "").trim();
-      const fileUrl =
-        (entry?.fileUrl ?? "").trim() || preferredBrandFontFaceUrl(faces) || undefined;
-      if (!family && !fileUrl && faces.length === 0) return null;
-      return { family, fileUrl, faces };
-    })
-    .filter((entry): entry is BrandFontEntry => entry != null);
-  if (!first.family && !first.fileUrl && (!first.faces || first.faces.length === 0) && extras.length === 0) {
-    return [{ family: "", faces: [] }];
-  }
-  return [{ ...first, faces: first.faces ?? [] }, ...extras].slice(0, MAX_BRAND_SECONDARY_FONTS);
-}
-
-/** Write secondary list back into legacy fields + extras. */
-export function brandFontsFromSecondaries(
-  fonts: BrandFonts,
-  secondaries: BrandFontEntry[],
-): BrandFonts {
-  const cleaned = secondaries
-    .map((entry) => {
-      const faces = normalizeBrandFontFaces(entry.faces);
-      const family = (entry.family ?? "").trim();
-      const fileUrl =
-        (entry.fileUrl ?? "").trim() || preferredBrandFontFaceUrl(faces) || undefined;
-      return { family, fileUrl, faces };
-    })
-    .slice(0, MAX_BRAND_SECONDARY_FONTS);
-  const [first, ...rest] =
-    cleaned.length > 0 ? cleaned : [{ family: "", fileUrl: undefined as string | undefined, faces: [] as BrandFontFace[] }];
-  return {
-    ...fonts,
-    secondary: first?.family ?? "",
-    secondaryFileUrl: first?.fileUrl ?? "",
-    secondaryFaces: first?.faces ?? [],
-    extras: rest.filter((entry) => entry.family || entry.fileUrl || entry.faces.length > 0),
-  };
-}
-
-/** Sync primary faces + preferred file URL onto a BrandFonts patch. */
-export function withPrimaryFaces(fonts: BrandFonts, faces: BrandFontFace[]): BrandFonts {
-  const normalized = normalizeBrandFontFaces(faces);
-  return {
-    ...fonts,
-    primaryFaces: normalized,
-    primaryFileUrl: preferredBrandFontFaceUrl(normalized) ?? "",
-  };
-}
 
 export type ClientContactInput = {
   name: string;
@@ -1479,140 +1202,14 @@ export function parseBrandColors(value: unknown): BrandColor[] {
     .slice(0, MAX_BRAND_COLORS);
 }
 
-function parseBrandFontEntry(value: unknown): BrandFontEntry | null {
-  if (!value || typeof value !== "object") return null;
-  const row = value as {
-    family?: unknown;
-    fileUrl?: unknown;
-    name?: unknown;
-    faces?: unknown;
-  };
-  const family =
-    typeof row.family === "string"
-      ? row.family.trim()
-      : typeof row.name === "string"
-        ? row.name.trim()
-        : "";
-  const faces = Array.isArray(row.faces)
-    ? normalizeBrandFontFaces(row.faces.map(parseBrandFontFace).filter(Boolean) as BrandFontFace[])
-    : [];
-  const fileUrl =
-    (typeof row.fileUrl === "string" ? row.fileUrl.trim() : "") ||
-    preferredBrandFontFaceUrl(faces) ||
-    "";
-  if (!family && !fileUrl && faces.length === 0) return null;
-  // Legacy single-file entry without faces → synthesize one face.
-  const resolvedFaces =
-    faces.length > 0
-      ? faces
-      : fileUrl
-        ? [{ fileUrl, weight: "400", style: "normal" as const, label: "Regular" }]
-        : [];
-  return {
-    family,
-    fileUrl: fileUrl || preferredBrandFontFaceUrl(resolvedFaces),
-    faces: resolvedFaces,
-  };
-}
-
 export function parseBrandFonts(value: unknown): BrandFonts {
   if (!value || typeof value !== "object") return {};
-  const row = value as {
-    primary?: unknown;
-    secondary?: unknown;
-    primaryFileUrl?: unknown;
-    secondaryFileUrl?: unknown;
-    primaryFaces?: unknown;
-    secondaryFaces?: unknown;
-    extras?: unknown;
-    notes?: unknown;
-  };
-  const primaryFacesRaw = Array.isArray(row.primaryFaces)
-    ? normalizeBrandFontFaces(
-        row.primaryFaces.map(parseBrandFontFace).filter(Boolean) as BrandFontFace[],
-      )
-    : [];
-  const secondaryFacesRaw = Array.isArray(row.secondaryFaces)
-    ? normalizeBrandFontFaces(
-        row.secondaryFaces.map(parseBrandFontFace).filter(Boolean) as BrandFontFace[],
-      )
-    : [];
-  const primaryFileUrl =
-    (typeof row.primaryFileUrl === "string" ? row.primaryFileUrl : "") ||
-    preferredBrandFontFaceUrl(primaryFacesRaw) ||
-    "";
-  const secondaryFileUrl =
-    (typeof row.secondaryFileUrl === "string" ? row.secondaryFileUrl : "") ||
-    preferredBrandFontFaceUrl(secondaryFacesRaw) ||
-    "";
-  const primaryFaces =
-    primaryFacesRaw.length > 0
-      ? primaryFacesRaw
-      : primaryFileUrl
-        ? [{ fileUrl: primaryFileUrl, weight: "400", style: "normal" as const, label: "Regular" }]
-        : [];
-  const secondaryFaces =
-    secondaryFacesRaw.length > 0
-      ? secondaryFacesRaw
-      : secondaryFileUrl
-        ? [{ fileUrl: secondaryFileUrl, weight: "400", style: "normal" as const, label: "Regular" }]
-        : [];
-  const extras = Array.isArray(row.extras)
-    ? row.extras
-        .map(parseBrandFontEntry)
-        .filter((entry): entry is BrandFontEntry => Boolean(entry))
-        .slice(0, MAX_BRAND_SECONDARY_FONTS - 1)
-    : [];
+  const row = value as { primary?: unknown; secondary?: unknown; notes?: unknown };
   return {
     primary: typeof row.primary === "string" ? row.primary : "",
     secondary: typeof row.secondary === "string" ? row.secondary : "",
-    primaryFileUrl,
-    secondaryFileUrl,
-    primaryFaces,
-    secondaryFaces,
-    extras,
     notes: typeof row.notes === "string" ? row.notes : "",
   };
-}
-
-/** Upload a brand kit font file (.woff2 / .woff / .ttf / .otf) to library-assets. */
-export async function uploadBrandFont(clientId: string, file: File): Promise<string> {
-  const name = (file.name || "").toLowerCase();
-  if (!/\.(woff2?|ttf|otf)$/i.test(name)) {
-    throw new Error("Envie um arquivo de fonte (.woff2, .woff, .ttf ou .otf).");
-  }
-  if (file.size > BRAND_FONT_MAX_BYTES) {
-    throw new Error("A fonte deve ter no máximo 2 MB.");
-  }
-
-  const safeName = sanitizeFileName(file.name || "font.woff2");
-  const storagePath = `${clientId}/fonts/${crypto.randomUUID()}-${safeName}`;
-  const contentType =
-    file.type ||
-    (name.endsWith(".woff2")
-      ? "font/woff2"
-      : name.endsWith(".woff")
-        ? "font/woff"
-        : name.endsWith(".otf")
-          ? "font/otf"
-          : "font/ttf");
-
-  const { error } = await supabase.storage.from(LIBRARY_BUCKET).upload(storagePath, file, {
-    cacheControl: "31536000",
-    contentType,
-    upsert: false,
-  });
-  if (error) {
-    if (/mime type|not supported|invalid|415/i.test(error.message)) {
-      throw new Error(
-        "O armazenamento ainda não aceita arquivos de fonte. No Lovable, abra Cloud → SQL Editor e execute a migration supabase/migrations/20261001140000_brand_font_uploads.sql.",
-      );
-    }
-    throw new Error(error.message);
-  }
-
-  const { data } = supabase.storage.from(LIBRARY_BUCKET).getPublicUrl(storagePath);
-  return data.publicUrl;
 }
 
 export function parseBrandGuidance(value: unknown): string {
@@ -2449,14 +2046,7 @@ function isMissingSortOrderColumn(message: string) {
   return /sort_order/i.test(message) && /column|schema cache|does not exist/i.test(message);
 }
 
-function isMissingArchivedAtColumn(message: string) {
-  return /archived_at/i.test(message) && /column|schema cache|does not exist/i.test(message);
-}
-
 const CONTENT_LIST_COLUMNS =
-  "id, project_id, title, status, format, theme, funnel_stage, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, archived_at, created_at, updated_at, current_version, created_by";
-
-const CONTENT_LIST_COLUMNS_WITHOUT_ARCHIVED =
   "id, project_id, title, status, format, theme, funnel_stage, scheduled_at, sort_order, calendar_block_id, media_url, media_urls, thumbnail_url, media_overlays, i18n, material_type, width_cm, height_cm, created_at, updated_at, current_version, created_by";
 
 function asListContentItem(row: Record<string, unknown>): ContentItem {
@@ -2472,13 +2062,8 @@ function asListContentItem(row: Record<string, unknown>): ContentItem {
     performance_reach: "",
     performance_retention: "",
     repeat_format: false,
-    archived_at: null,
     ...row,
   } as ContentItem;
-}
-
-export function isContentArchived(row: Pick<ContentItem, "archived_at"> | { archived_at?: string | null }) {
-  return Boolean(row.archived_at);
 }
 
 export async function listContent(projectId: string) {
@@ -2490,17 +2075,6 @@ export async function listContent(projectId: string) {
     .order("created_at", { ascending: true });
   if (!ordered.error) {
     return (ordered.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
-  }
-
-  if (isMissingArchivedAtColumn(ordered.error.message)) {
-    const fallback = await supabase
-      .from("content_items")
-      .select(CONTENT_LIST_COLUMNS_WITHOUT_ARCHIVED)
-      .eq("project_id", projectId)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (fallback.error) throw new Error(fallback.error.message);
-    return (fallback.data ?? []).map((row) => asListContentItem(row as Record<string, unknown>));
   }
 
   if (isMissingFunnelStageColumn(ordered.error.message)) {
@@ -2519,7 +2093,7 @@ export async function listContent(projectId: string) {
   if (isMissingSortOrderColumn(ordered.error.message)) {
     const fallback = await supabase
       .from("content_items")
-      .select(CONTENT_LIST_COLUMNS_WITHOUT_ARCHIVED)
+      .select(CONTENT_LIST_COLUMNS)
       .eq("project_id", projectId)
       .order("created_at", { ascending: true });
     if (fallback.error) throw new Error(fallback.error.message);
@@ -2837,58 +2411,6 @@ export async function deleteContent(input: {
   if (storagePaths.length > 0) {
     await supabase.storage.from(CONTENT_MEDIA_BUCKET).remove(storagePaths);
   }
-}
-
-export async function archiveContent(input: {
-  contentId: string;
-  projectId: string;
-}): Promise<ContentItem> {
-  const current = await getContent(input.contentId);
-  if (!current) throw new Error("Conteúdo não encontrado");
-  if (current.project_id !== input.projectId) {
-    throw new Error("Conteúdo não pertence a este projeto");
-  }
-  const { data, error } = await supabase
-    .from("content_items")
-    .update({ archived_at: new Date().toISOString() })
-    .eq("id", input.contentId)
-    .select("*")
-    .single();
-  if (error) {
-    if (isMissingArchivedAtColumn(error.message)) {
-      throw new Error(
-        "Arquivar ainda não está disponível neste projeto (coluna archived_at). Peça para aplicar a migration no Supabase.",
-      );
-    }
-    throw new Error(error.message);
-  }
-  return ensureData(data, error);
-}
-
-export async function restoreContent(input: {
-  contentId: string;
-  projectId: string;
-}): Promise<ContentItem> {
-  const current = await getContent(input.contentId);
-  if (!current) throw new Error("Conteúdo não encontrado");
-  if (current.project_id !== input.projectId) {
-    throw new Error("Conteúdo não pertence a este projeto");
-  }
-  const { data, error } = await supabase
-    .from("content_items")
-    .update({ archived_at: null })
-    .eq("id", input.contentId)
-    .select("*")
-    .single();
-  if (error) {
-    if (isMissingArchivedAtColumn(error.message)) {
-      throw new Error(
-        "Restaurar ainda não está disponível neste projeto (coluna archived_at). Peça para aplicar a migration no Supabase.",
-      );
-    }
-    throw new Error(error.message);
-  }
-  return ensureData(data, error);
 }
 
 export async function saveContentAsNewVersion(input: {
@@ -3261,35 +2783,15 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
       .from("content_items")
       .select("id")
       .eq("project_id", projectId)
-      .is("calendar_block_id", null)
-      .is("archived_at", null);
-    let unassignedRows = unassigned.data;
-    let unassignedError = unassigned.error;
-    if (unassignedError && isMissingArchivedAtColumn(unassignedError.message)) {
-      const fallback = await supabase
-        .from("content_items")
-        .select("id")
-        .eq("project_id", projectId)
-        .is("calendar_block_id", null);
-      unassignedRows = fallback.data;
-      unassignedError = fallback.error;
-    }
-    if (!unassignedError && (unassignedRows?.length ?? 0) > 0) {
+      .is("calendar_block_id", null);
+    if (!unassigned.error && (unassigned.data?.length ?? 0) > 0) {
       const targetId = existing[existing.length - 1]?.id;
       if (targetId) {
-        const link = await supabase
+        await supabase
           .from("content_items")
           .update({ calendar_block_id: targetId })
           .eq("project_id", projectId)
-          .is("calendar_block_id", null)
-          .is("archived_at", null);
-        if (link.error && isMissingArchivedAtColumn(link.error.message)) {
-          await supabase
-            .from("content_items")
-            .update({ calendar_block_id: targetId })
-            .eq("project_id", projectId)
-            .is("calendar_block_id", null);
-        }
+          .is("calendar_block_id", null);
       }
     }
 
@@ -3298,9 +2800,7 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
     if (untitled.length > 0) {
       await Promise.all(
         untitled.map((block) => {
-          const items = content.filter(
-            (item) => item.calendar_block_id === block.id && !isContentArchived(item),
-          );
+          const items = content.filter((item) => item.calendar_block_id === block.id);
           const title = suggestCalendarBlockTitle(items);
           return supabase.from("calendar_blocks").update({ title }).eq("id", block.id);
         }),
@@ -3311,7 +2811,7 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
     return existing;
   }
 
-  const content = (await listContent(projectId)).filter((item) => !isContentArchived(item));
+  const content = await listContent(projectId);
   if (content.length === 0) return [];
 
   const title = suggestCalendarBlockTitle(content);
@@ -3326,25 +2826,13 @@ export async function ensureCalendarBlocks(projectId: string): Promise<CalendarB
   }
   const block = ensureData(data, error);
 
-  const linkActive = await supabase
+  const { error: linkError } = await supabase
     .from("content_items")
     .update({ calendar_block_id: block.id })
     .eq("project_id", projectId)
-    .is("calendar_block_id", null)
-    .is("archived_at", null);
-  if (linkActive.error) {
-    if (isMissingArchivedAtColumn(linkActive.error.message)) {
-      const fallback = await supabase
-        .from("content_items")
-        .update({ calendar_block_id: block.id })
-        .eq("project_id", projectId)
-        .is("calendar_block_id", null);
-      if (fallback.error && !isMissingCalendarBlockIdColumn(fallback.error.message)) {
-        throw new Error(fallback.error.message);
-      }
-    } else if (!isMissingCalendarBlockIdColumn(linkActive.error.message)) {
-      throw new Error(linkActive.error.message);
-    }
+    .is("calendar_block_id", null);
+  if (linkError && !isMissingCalendarBlockIdColumn(linkError.message)) {
+    throw new Error(linkError.message);
   }
 
   return [block];
@@ -3400,7 +2888,7 @@ export async function duplicateCalendarBlock(input: {
 
   const allContent = await listContent(input.projectId);
   const sourceItems = allContent
-    .filter((item) => item.calendar_block_id === source.id && !isContentArchived(item))
+    .filter((item) => item.calendar_block_id === source.id)
     .sort(sortContentByManualOrder);
 
   const advanceDays = calendarPeriodAdvanceDays(sourceItems);
@@ -3480,42 +2968,12 @@ export async function deleteCalendarBlock(input: {
   const target = blocks.find((block) => block.id === input.blockId);
   if (!target) throw new Error("Bloco de calendário não encontrado");
 
-  // Keep archived content: unlink from the block instead of hard-deleting it.
-  const { error: unlinkArchivedError } = await supabase
+  const { error: contentError } = await supabase
     .from("content_items")
-    .update({ calendar_block_id: null })
+    .delete()
     .eq("project_id", input.projectId)
-    .eq("calendar_block_id", input.blockId)
-    .not("archived_at", "is", null);
-  if (unlinkArchivedError && !isMissingArchivedAtColumn(unlinkArchivedError.message)) {
-    throw new Error(unlinkArchivedError.message);
-  }
-
-  const activeDelete = unlinkArchivedError && isMissingArchivedAtColumn(unlinkArchivedError.message)
-    ? await supabase
-        .from("content_items")
-        .delete()
-        .eq("project_id", input.projectId)
-        .eq("calendar_block_id", input.blockId)
-    : await supabase
-        .from("content_items")
-        .delete()
-        .eq("project_id", input.projectId)
-        .eq("calendar_block_id", input.blockId)
-        .is("archived_at", null);
-
-  if (activeDelete.error) {
-    if (isMissingArchivedAtColumn(activeDelete.error.message)) {
-      const fallback = await supabase
-        .from("content_items")
-        .delete()
-        .eq("project_id", input.projectId)
-        .eq("calendar_block_id", input.blockId);
-      if (fallback.error) throw new Error(fallback.error.message);
-    } else {
-      throw new Error(activeDelete.error.message);
-    }
-  }
+    .eq("calendar_block_id", input.blockId);
+  if (contentError) throw new Error(contentError.message);
 
   const { error: blockError } = await supabase
     .from("calendar_blocks")
@@ -4411,8 +3869,6 @@ export async function analyzeReferenceCreator(input: {
 export type DesignGenerationResult = {
   imageUrl: string;
   provider?: DesignProvider;
-  /** Camadas extraídas no modo open_editable (textos do template viram editáveis). */
-  layers?: unknown;
 };
 
 export async function generateDesign(input: {
@@ -4427,10 +3883,7 @@ export async function generateDesign(input: {
   overlayText: string;
   secondaryText?: string;
   guidance?: string;
-  /** Extrai textos do template e devolve fundo limpo + layers. */
-  mode?: "generate" | "open_editable";
 }): Promise<DesignGenerationResult> {
-  const mode = input.mode === "open_editable" ? "open_editable" : "generate";
   const overlayText = input.overlayText.trim();
   const secondaryText = input.secondaryText?.trim() || "";
   const templateUrl = input.templateUrl.trim();
@@ -4441,7 +3894,7 @@ export async function generateDesign(input: {
     defaultAspectForFormat(input.format),
   );
   if (!templateUrl) throw new Error("Informe o template de referência");
-  if (mode === "generate" && !overlayText) throw new Error("Informe o texto da arte");
+  if (!overlayText) throw new Error("Informe o texto da arte");
 
   const { data, error } = await supabase.functions.invoke("generate-design", {
     body: {
@@ -4451,21 +3904,15 @@ export async function generateDesign(input: {
       format: input.format,
       aspectRatio,
       provider,
-      mode,
       templateUrl,
       photoUrl: photoUrl || undefined,
-      overlayText: overlayText || " ",
+      overlayText,
       secondaryText: secondaryText || undefined,
       guidance: input.guidance?.trim() || undefined,
     },
   });
 
-  const payload = data as {
-    imageUrl?: string;
-    provider?: DesignProvider;
-    layers?: unknown;
-    error?: string;
-  } | null;
+  const payload = data as { imageUrl?: string; provider?: DesignProvider; error?: string } | null;
   if (error) {
     throw new Error(await readFunctionsInvokeError(error, data));
   }
@@ -4476,11 +3923,7 @@ export async function generateDesign(input: {
     throw new Error("Resposta inválida do assistente de design");
   }
 
-  return {
-    imageUrl: payload.imageUrl,
-    provider: payload.provider ?? provider,
-    layers: payload.layers,
-  };
+  return { imageUrl: payload.imageUrl, provider: payload.provider ?? provider };
 }
 
 // —— Admin AI credentials ——
@@ -5562,8 +5005,6 @@ export async function createDesignTemplate(input: {
   format: DesignTemplateFormat;
   aspectRatio?: DesignAspectRatio;
   file: File;
-  backgroundUrl?: string | null;
-  layout?: unknown;
 }): Promise<DesignTemplate> {
   await assertPlanFeature("library", "Biblioteca disponível a partir do plano Studio.");
   const userId = await requireUserId();
@@ -5584,10 +5025,6 @@ export async function createDesignTemplate(input: {
       mime_type: uploaded.mimeType,
       file_size: uploaded.fileSize,
       created_by: userId,
-      ...(input.backgroundUrl?.trim()
-        ? { background_url: input.backgroundUrl.trim() }
-        : {}),
-      ...(input.layout != null ? { layout: input.layout as TablesInsert<"design_templates">["layout"] } : {}),
     } satisfies TablesInsert<"design_templates">)
     .select("*")
     .single();
@@ -5601,26 +5038,6 @@ export async function createDesignTemplate(input: {
 
 function fileTitleFallback(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "") || fileName;
-}
-
-/** Persiste projeto em camadas (fundo limpo + textos) num template da biblioteca. */
-export async function updateDesignTemplateProject(
-  templateId: string,
-  input: { backgroundUrl: string; layout: unknown },
-): Promise<DesignTemplate> {
-  const backgroundUrl = input.backgroundUrl.trim();
-  if (!backgroundUrl) throw new Error("Informe o fundo do template.");
-  const { data, error } = await supabase
-    .from("design_templates")
-    .update({
-      background_url: backgroundUrl,
-      layout: input.layout as TablesUpdate<"design_templates">["layout"],
-    })
-    .eq("id", templateId)
-    .select("*")
-    .single();
-  if (error) throw new Error(error.message);
-  return ensureData(data, error);
 }
 
 export async function deleteDesignTemplate(templateId: string): Promise<void> {

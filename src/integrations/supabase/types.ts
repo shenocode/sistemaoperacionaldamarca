@@ -1357,6 +1357,7 @@ export type Database = {
           _title?: string
         }
         Returns: {
+          archived_at: string | null
           calendar_block_id: string | null
           caption: string
           created_at: string
@@ -1400,6 +1401,7 @@ export type Database = {
       save_gestor_content_version: {
         Args: { _change_note?: string; _content_id: string; _patch: Json }
         Returns: {
+          archived_at: string | null
           calendar_block_id: string | null
           caption: string
           created_at: string

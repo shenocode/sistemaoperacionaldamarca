@@ -168,7 +168,7 @@ async function fetchGemini(
   geminiKey: string,
   temperature: number,
 ): Promise<Response> {
-  const model = Deno.env.get("GEMINI_CHAT_MODEL") || Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
+  const model = Deno.env.get("GEMINI_CHAT_MODEL") || Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`;
   const system = messages

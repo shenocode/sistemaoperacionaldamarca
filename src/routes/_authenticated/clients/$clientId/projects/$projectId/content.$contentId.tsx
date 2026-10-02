@@ -37,7 +37,6 @@ import {
 } from "@/components/content-media-preview";
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
 import { ContentDesignAssistant } from "@/components/content-design-assistant";
-import { ContentMediaLibraryPicker } from "@/components/content-media-library-picker";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
 import { CommentComposer, CommentThreadItem } from "@/components/comment-composer";
@@ -106,14 +105,12 @@ import {
   translateTextField,
   translateManyFields,
   buildLocalizedFieldFromSource,
-  buildVerbatimLocalizedField,
   isLocalizedField,
   type ContentFormat,
   type ContentItem,
   type ContentVersion,
   type CommentWithAuthor,
   type GraphicArtsMaterialType,
-  type LibraryAsset,
   type LocalizedField,
   type RowI18n,
   brandKitFromClient,
@@ -154,7 +151,7 @@ const ART_TEXT_EDITOR_ENABLED = true;
 const dateLocales = { "pt-BR": ptBR, "en-US": enUS, "es-ES": es };
 const NONE_THEME_VALUE = "__none__";
 const NEW_THEME_VALUE = "__new_theme__";
-type SourceMode = "file" | "url" | "library";
+type SourceMode = "file" | "url";
 
 type MediaEntry =
   | { id: string; kind: "url"; url: string; overlay?: MediaTextOverlay | null }
@@ -282,24 +279,6 @@ function syncI18nDisplayField(
   );
 }
 
-/** Force the same display text into every locale (carousel roteiro must not be AI-rewritten). */
-function syncI18nVerbatimField(
-  payload: RowI18n,
-  field: string,
-  display: string,
-  locale: string,
-): RowI18n {
-  if (!display.trim()) {
-    const { [field]: _omit, ...rest } = payload;
-    return rest;
-  }
-  return setLocalizedField(
-    payload,
-    field,
-    buildVerbatimLocalizedField(display, locale),
-  );
-}
-
 export const Route = createFileRoute(
   "/_authenticated/clients/$clientId/projects/$projectId/content/$contentId",
 )({
@@ -316,7 +295,6 @@ function ContentDetailPage() {
   const { isAdmin, loading: roleLoading } = useAppRole();
   const { entitlements } = useEntitlements();
   const presetsAllowed = entitlements.presets;
-  const libraryAllowed = entitlements.library;
   const { user } = useAuth();
 
   const [title, setTitle] = useState("");
@@ -344,7 +322,6 @@ function ContentDetailPage() {
   const [thumbnailBlobUrl, setThumbnailBlobUrl] = useState<string | null>(null);
   const [source, setSource] = useState<SourceMode>("file");
   const [urlDraft, setUrlDraft] = useState("");
-  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [comment, setComment] = useState("");
   const [versionNote, setVersionNote] = useState("");
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
@@ -487,17 +464,10 @@ function ContentDetailPage() {
     const nextTitle = getLocalizedText(nextI18n, "title", row.title, uiLocale);
     const nextCaption = getLocalizedText(nextI18n, "caption", row.caption, uiLocale);
     const nextLocucao = getLocalizedText(nextI18n, "locucao", row.locucao ?? "", uiLocale);
-    // Roteiro is structural (Slide N:) — always use the column as source of truth.
-    // Never display AI/i18n rewrites; keep i18n mirrored verbatim for other locales.
-    const nextRoteiro = row.roteiro ?? "";
-    const healedI18n = setLocalizedField(
-      nextI18n,
-      "roteiro",
-      buildVerbatimLocalizedField(nextRoteiro, uiLocale),
-    );
-    const nextCta = getLocalizedText(healedI18n, "cta", row.cta, uiLocale);
-    const nextHashtags = getLocalizedText(healedI18n, "hashtags", row.hashtags, uiLocale);
-    const nextTheme = getLocalizedText(healedI18n, "theme", row.theme ?? "", uiLocale);
+    const nextRoteiro = getLocalizedText(nextI18n, "roteiro", row.roteiro ?? "", uiLocale);
+    const nextCta = getLocalizedText(nextI18n, "cta", row.cta, uiLocale);
+    const nextHashtags = getLocalizedText(nextI18n, "hashtags", row.hashtags, uiLocale);
+    const nextTheme = getLocalizedText(nextI18n, "theme", row.theme ?? "", uiLocale);
     const nextFormat =
       row.format ?? defaultContentFormatForProject(projectQuery.data?.categories);
     const nextPreset = getGraphicArtsMaterialPreset(row.material_type);
@@ -519,7 +489,7 @@ function ContentDetailPage() {
       parseMediaOverlays((row as ContentItem).media_overlays),
     );
     const nextThumbnail = row.thumbnail_url?.trim() || "";
-    setRowI18n(healedI18n);
+    setRowI18n(nextI18n);
     setTitle(nextTitle);
     setCaption(nextCaption);
     setLocucao(nextLocucao);
@@ -566,7 +536,7 @@ function ContentDetailPage() {
         mediaItems: nextMedia,
         thumbnailUrl: nextThumbnail,
         thumbnailFileName: "",
-        rowI18n: healedI18n,
+        rowI18n: nextI18n,
       }),
     );
     setIgnoreUnsavedChanges(false);
@@ -617,7 +587,7 @@ function ContentDetailPage() {
             title: content.title,
             caption: content.caption,
             locucao: content.locucao,
-            // Omit roteiro — "Slide N:" labels break AI locale detection; field is verbatim.
+            roteiro: content.roteiro,
             cta: content.cta,
             hashtags: content.hashtags,
             theme: content.theme,
@@ -639,12 +609,7 @@ function ContentDetailPage() {
     },
     onApplied: (nextI18n) => {
       if (!content || isDirtyRef.current) return;
-      // Keep the column roteiro — backfill must never remount a rewritten script.
-      applyContentToForm({
-        ...content,
-        i18n: nextI18n as typeof content.i18n,
-        roteiro: content.roteiro,
-      });
+      applyContentToForm({ ...content, i18n: nextI18n as typeof content.i18n });
     },
   });
 
@@ -759,11 +724,12 @@ function ContentDetailPage() {
         );
       }
     }
+    // Persist what is visible on screen so a late/mis-detected i18n translation
+    // (common on carousel roteiro with "Slide N:" labels) cannot overwrite edits.
     i18nPayload = syncI18nDisplayField(i18nPayload, "title", title, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "caption", caption, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "locucao", locucao, uiLocale);
-    // Roteiro is structural (Slide N:) — never leave a divergent AI translation in i18n.
-    i18nPayload = syncI18nVerbatimField(i18nPayload, "roteiro", roteiro, uiLocale);
+    i18nPayload = syncI18nDisplayField(i18nPayload, "roteiro", roteiro, uiLocale);
     i18nPayload = syncI18nDisplayField(i18nPayload, "cta", cta, uiLocale);
     i18nPayload = isPrintPiece
       ? syncI18nDisplayField(i18nPayload, "hashtags", "", uiLocale)
@@ -776,7 +742,7 @@ function ContentDetailPage() {
       cta: getCanonicalText(i18nPayload, "cta", cta),
       hashtags: isPrintPiece ? "" : getCanonicalText(i18nPayload, "hashtags", hashtags),
       locucao: getCanonicalText(i18nPayload, "locucao", locucao),
-      roteiro,
+      roteiro: getCanonicalText(i18nPayload, "roteiro", roteiro),
       theme: displayTheme
         ? getCanonicalText(i18nPayload, "theme", displayTheme) || null
         : null,
@@ -855,7 +821,7 @@ function ContentDetailPage() {
       if (isPrintPiece && (payload.widthCm == null || payload.heightCm == null)) {
         throw new Error(t("project.graphicArts.invalidDimensions"));
       }
-      const row = await updateContentFields({
+      return updateContentFields({
         contentId,
         title: payload.title,
         caption: payload.caption,
@@ -879,15 +845,10 @@ function ContentDetailPage() {
         repeatFormat,
         i18n: payload.i18n,
       });
-      return { row, savedRoteiro: payload.roteiro };
     },
-    onSuccess: ({ row, savedRoteiro }) => {
-      queryClient.setQueryData(["content", "detail", contentId], {
-        ...row,
-        roteiro: savedRoteiro,
-      });
-      applyContentToForm({ ...row, roteiro: savedRoteiro });
-      setRoteiro(savedRoteiro);
+    onSuccess: (row) => {
+      queryClient.setQueryData(["content", "detail", contentId], row);
+      applyContentToForm(row);
       setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("common.saved"));
@@ -951,18 +912,8 @@ function ContentDetailPage() {
       const { versionNote: _omit, ...cleanI18n } = nextI18n as RowI18n & {
         versionNote?: unknown;
       };
-      const savedRoteiro = roteiro;
-      queryClient.setQueryData(["content", "detail", contentId], {
-        ...row,
-        roteiro: savedRoteiro,
-        i18n: cleanI18n as typeof row.i18n,
-      });
-      applyContentToForm({
-        ...row,
-        roteiro: savedRoteiro,
-        i18n: cleanI18n as typeof row.i18n,
-      });
-      setRoteiro(savedRoteiro);
+      queryClient.setQueryData(["content", "detail", contentId], row);
+      applyContentToForm({ ...row, i18n: cleanI18n as typeof row.i18n });
       setHydratedKey(formHydrateKey);
       invalidateAll();
       toast.success(t("project.detail.versionCreated"));
@@ -1151,8 +1102,8 @@ function ContentDetailPage() {
     };
   }, [viewingVersion, content, uiLocale]);
 
-  const addMediaUrl = (rawUrl: string) => {
-    const next = rawUrl.trim();
+  const addUrl = () => {
+    const next = urlDraft.trim();
     if (!next) return;
     const entry: MediaEntry = { id: createMediaId(), kind: "url", url: next };
 
@@ -1166,23 +1117,7 @@ function ContentDetailPage() {
     } else {
       setMediaItems([entry]);
     }
-  };
-
-  const addUrl = () => {
-    const next = urlDraft.trim();
-    if (!next) return;
-    addMediaUrl(next);
     setUrlDraft("");
-  };
-
-  const addLibraryAsset = (asset: LibraryAsset) => {
-    const url = asset.file_url?.trim();
-    if (!url) {
-      toast.error(t("project.detail.mediaLibraryMissingUrl"));
-      return;
-    }
-    addMediaUrl(url);
-    toast.success(t("project.detail.mediaLibraryAdded"));
   };
 
   const addFiles = (files: File[]) => {
@@ -1273,76 +1208,6 @@ function ContentDetailPage() {
   const statusButtons = isAdmin ? CONTENT_STATUSES : CLIENT_REVIEW_STATUSES;
   const saving = saveMutation.isPending || versionMutation.isPending;
 
-  const renderSaveAndStatusCard = (noteId: string) => (
-    <Card className="rounded-xl">
-      <CardContent className="space-y-4 p-6">
-        <div className="space-y-1.5">
-          <Label htmlFor={noteId} variant="highlight">
-            {t("project.detail.versionNote")}
-          </Label>
-          <LocalizedTextInput
-            id={noteId}
-            field="versionNote"
-            i18n={rowI18n}
-            fallback={versionNote}
-            placeholder={t("project.detail.versionNotePlaceholder")}
-            onI18nCommit={onFieldI18nCommit}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isAdmin ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={() => saveMutation.mutate()}
-            >
-              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
-              {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
-            </Button>
-          ) : null}
-          <Button type="button" disabled={saving} onClick={() => versionMutation.mutate()}>
-            <History className="mr-2 h-4 w-4" aria-hidden="true" />
-            {saving && versionMutation.isPending
-              ? t("common.loading")
-              : t("project.detail.saveVersion")}
-          </Button>
-        </div>
-        {statusButtons.length > 0 ? (
-          <div className="space-y-2 border-t pt-4">
-            <Label variant="highlight">{t("project.content.columns.status")}</Label>
-            <div className="flex flex-wrap gap-2">
-              {statusButtons.map((value) => {
-                const isCurrent = value === status;
-                return (
-                  <Button
-                    key={value}
-                    type="button"
-                    size="sm"
-                    disabled={statusMutation.isPending || isCurrent}
-                    aria-pressed={isCurrent}
-                    className={cn(
-                      "border shadow-sm",
-                      isCurrent
-                        ? contentStatusStyles[value]
-                        : "border-border bg-background text-foreground hover:bg-muted",
-                    )}
-                    onClick={() => {
-                      if (isCurrent) return;
-                      statusMutation.mutate(value);
-                    }}
-                  >
-                    {t(`project.content.status.${value}`)}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-6">
       <UnsavedChangesGuard isDirty={isDirty} />
@@ -1427,94 +1292,6 @@ function ContentDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {isPrintPiece ? (
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <GraphicArtsMaterialFields
-                      idPrefix="content-detail"
-                      materialType={materialType}
-                      widthCm={widthCm}
-                      heightCm={heightCm}
-                      onMaterialTypeChange={setMaterialType}
-                      onWidthCmChange={setWidthCm}
-                      onHeightCmChange={setHeightCm}
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <Label variant="highlight">{t("project.detail.format")}</Label>
-                    <ContentFormatSelect
-                      format={formatType}
-                      formats={allowedFormats}
-                      onValueChange={(next) => {
-                        setFormatType(next);
-                        if (next !== "carousel" && mediaItems.length > 1) {
-                          setMediaItems((prev) => prev.slice(0, 1));
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-                <div className={cn("space-y-1.5", isPrintPiece && "sm:col-span-2")}>
-                  <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
-                  <Select
-                    value={theme.trim() || NONE_THEME_VALUE}
-                    onValueChange={(value) => {
-                      if (value === NEW_THEME_VALUE) {
-                        setNewTheme("");
-                        setThemeDialogOpen(true);
-                        return;
-                      }
-                      applyThemeSelection(value === NONE_THEME_VALUE ? "" : value);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder={t("project.calendar.selectTheme")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE_THEME_VALUE}>
-                        {t("project.calendar.noTheme")}
-                      </SelectItem>
-                      {themeOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value={NEW_THEME_VALUE}>
-                        {t("project.calendar.newTheme")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {!isPrintPiece ? (
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label variant="highlight">{t("project.funnel.label")}</Label>
-                    <Select
-                      value={funnelStage ?? "none"}
-                      onValueChange={(value) =>
-                        setFunnelStage(value === "none" ? null : parseFunnelStage(value))
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder={t("project.funnel.none")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t("project.funnel.none")}</SelectItem>
-                        {FUNNEL_STAGES.map((stage) => (
-                          <SelectItem key={stage} value={stage}>
-                            {t(`project.funnel.${stage}`)} — {t(`project.funnel.${stage}Hint`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
-
           {isAdmin ? (
             <ContentAiAssistant
               key={contentId}
@@ -1534,9 +1311,10 @@ function ContentDetailPage() {
                   formatType === "youtube_short"
                     ? { locucao: suggestion.locucao }
                     : {}),
-                  // Roteiro is never AI-translated — applied verbatim below.
+                  ...(formatType === "carousel" ? { roteiro: suggestion.roteiro } : {}),
                 });
-                let merged = mergeRowI18n(rowI18n, translated);
+                const merged = mergeRowI18n(rowI18n, translated);
+                setRowI18n(merged);
                 setTitle(getLocalizedText(merged, "title", suggestion.title, uiLocale));
                 setCaption(getLocalizedText(merged, "caption", suggestion.caption, uiLocale));
                 setCta(getLocalizedText(merged, "cta", suggestion.cta, uiLocale));
@@ -1552,15 +1330,8 @@ function ContentDetailPage() {
                   setLocucao(getLocalizedText(merged, "locucao", suggestion.locucao, uiLocale));
                 }
                 if (formatType === "carousel") {
-                  const nextRoteiro = suggestion.roteiro ?? "";
-                  merged = setLocalizedField(
-                    merged,
-                    "roteiro",
-                    buildVerbatimLocalizedField(nextRoteiro, uiLocale),
-                  );
-                  setRoteiro(nextRoteiro);
+                  setRoteiro(getLocalizedText(merged, "roteiro", suggestion.roteiro, uiLocale));
                 }
-                setRowI18n(merged);
               }}
               onClearAppliedFields={() => {
                 const empty = buildLocalizedFieldFromSource("", uiLocale);
@@ -1591,7 +1362,7 @@ function ContentDetailPage() {
             />
           ) : null}
 
-          {isAdmin ? (
+          {isAdmin && entitlements.designAi ? (
             <ContentDesignAssistant
               contentId={contentId}
               projectId={projectId}
@@ -1600,6 +1371,16 @@ function ContentDetailPage() {
               title={title}
               caption={caption}
               roteiro={roteiro}
+              onRoteiroChange={(next) => {
+                const block = buildLocalizedFieldFromSource(next, uiLocale);
+                onFieldI18nCommit({
+                  field: "roteiro",
+                  display: next,
+                  canonical: next,
+                  block,
+                  i18n: setLocalizedField(rowI18n, "roteiro", block),
+                });
+              }}
               onApply={(items) => {
                 if (usesDedicatedThumbnail && items[0]) {
                   setThumbnailFromFile(null);
@@ -1675,6 +1456,91 @@ function ContentDetailPage() {
 
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {isPrintPiece ? (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <GraphicArtsMaterialFields
+                        idPrefix="content-detail"
+                        materialType={materialType}
+                        widthCm={widthCm}
+                        heightCm={heightCm}
+                        onMaterialTypeChange={setMaterialType}
+                        onWidthCmChange={setWidthCm}
+                        onHeightCmChange={setHeightCm}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label variant="highlight">{t("project.detail.format")}</Label>
+                      <ContentFormatSelect
+                        format={formatType}
+                        formats={allowedFormats}
+                        onValueChange={(next) => {
+                          setFormatType(next);
+                          if (next !== "carousel" && mediaItems.length > 1) {
+                            setMediaItems((prev) => prev.slice(0, 1));
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className={cn("space-y-1.5", isPrintPiece && "sm:col-span-2")}>
+                    <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
+                    <Select
+                      value={theme.trim() || NONE_THEME_VALUE}
+                      onValueChange={(value) => {
+                        if (value === NEW_THEME_VALUE) {
+                          setNewTheme("");
+                          setThemeDialogOpen(true);
+                          return;
+                        }
+                        applyThemeSelection(value === NONE_THEME_VALUE ? "" : value);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={t("project.calendar.selectTheme")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE_THEME_VALUE}>
+                          {t("project.calendar.noTheme")}
+                        </SelectItem>
+                        {themeOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={NEW_THEME_VALUE}>
+                          {t("project.calendar.newTheme")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!isPrintPiece ? (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label variant="highlight">{t("project.funnel.label")}</Label>
+                      <Select
+                        value={funnelStage ?? "none"}
+                        onValueChange={(value) =>
+                          setFunnelStage(value === "none" ? null : parseFunnelStage(value))
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder={t("project.funnel.none")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t("project.funnel.none")}</SelectItem>
+                          {FUNNEL_STAGES.map((stage) => (
+                            <SelectItem key={stage} value={stage}>
+                              {t(`project.funnel.${stage}`)} — {t(`project.funnel.${stage}Hint`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" variant="highlight">
                   {isPrintPiece
@@ -1752,23 +1618,16 @@ function ContentDetailPage() {
                     {t("project.detail.roteiro")}
                   </Label>
                   <p className="text-xs text-muted-foreground">{t("project.detail.roteiroHint")}</p>
-                  <Textarea
+                  <LocalizedTextarea
                     id="roteiro"
+                    field="roteiro"
+                    i18n={rowI18n}
+                    fallback={roteiro}
                     rows={6}
+                    autoResize
                     className="min-h-[10rem]"
                     placeholder={t("project.detail.roteiroPlaceholder")}
-                    value={roteiro}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setRoteiro(next);
-                      setRowI18n((prev) =>
-                        setLocalizedField(
-                          prev,
-                          "roteiro",
-                          buildVerbatimLocalizedField(next, uiLocale),
-                        ),
-                      );
-                    }}
+                    onI18nCommit={onFieldI18nCommit}
                   />
                 </div>
               ) : null}
@@ -1940,12 +1799,7 @@ function ContentDetailPage() {
                       onValueChange={(v) => setSource(v as SourceMode)}
                       className="w-full"
                     >
-                      <TabsList
-                        className={cn(
-                          "grid w-full",
-                          libraryAllowed ? "grid-cols-3" : "grid-cols-2",
-                        )}
-                      >
+                      <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger
                           value="file"
                           onClick={() => mediaFileInputRef.current?.click()}
@@ -1953,14 +1807,6 @@ function ContentDetailPage() {
                           {t("project.detail.sourceFile")}
                         </TabsTrigger>
                         <TabsTrigger value="url">{t("project.detail.sourceUrl")}</TabsTrigger>
-                        {libraryAllowed ? (
-                          <TabsTrigger
-                            value="library"
-                            onClick={() => setMediaLibraryOpen(true)}
-                          >
-                            {t("project.detail.sourceLibrary")}
-                          </TabsTrigger>
-                        ) : null}
                       </TabsList>
                       <TabsContent value="file" className="space-y-1.5 pt-3">
                         <p className="text-xs text-muted-foreground">
@@ -1987,30 +1833,7 @@ function ContentDetailPage() {
                           </Button>
                         </div>
                       </TabsContent>
-                      {libraryAllowed ? (
-                        <TabsContent value="library" className="space-y-1.5 pt-3">
-                          <p className="text-xs text-muted-foreground">
-                            {t("project.detail.mediaLibraryHint")}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setMediaLibraryOpen(true)}
-                          >
-                            {t("project.detail.mediaLibraryOpen")}
-                          </Button>
-                        </TabsContent>
-                      ) : null}
                     </Tabs>
-                    {libraryAllowed ? (
-                      <ContentMediaLibraryPicker
-                        clientId={clientId}
-                        open={mediaLibraryOpen}
-                        onOpenChange={setMediaLibraryOpen}
-                        onSelect={addLibraryAsset}
-                      />
-                    ) : null}
 
                     {mediaItems.length > 0 ? (
                       <ul className="space-y-2 rounded-lg border p-3">
@@ -2173,12 +1996,76 @@ function ContentDetailPage() {
             </Card>
           ) : null}
 
-          {renderSaveAndStatusCard("version-note")}
+          <Card className="rounded-xl">
+            <CardContent className="space-y-4 p-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="version-note" variant="highlight">
+                  {t("project.detail.versionNote")}
+                </Label>
+                <LocalizedTextInput
+                  id="version-note"
+                  field="versionNote"
+                  i18n={rowI18n}
+                  fallback={versionNote}
+                  placeholder={t("project.detail.versionNotePlaceholder")}
+                  onI18nCommit={onFieldI18nCommit}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {isAdmin ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => saveMutation.mutate()}
+                  >
+                    <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {saving && saveMutation.isPending ? t("common.loading") : t("common.save")}
+                  </Button>
+                ) : null}
+                <Button type="button" disabled={saving} onClick={() => versionMutation.mutate()}>
+                  <History className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {saving && versionMutation.isPending
+                    ? t("common.loading")
+                    : t("project.detail.saveVersion")}
+                </Button>
+              </div>
+              {statusButtons.length > 0 ? (
+                <div className="space-y-2 border-t pt-4">
+                  <Label variant="highlight">{t("project.content.columns.status")}</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {statusButtons.map((value) => {
+                      const isCurrent = value === status;
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          size="sm"
+                          disabled={statusMutation.isPending || isCurrent}
+                          aria-pressed={isCurrent}
+                          className={cn(
+                            "border shadow-sm",
+                            isCurrent
+                              ? contentStatusStyles[value]
+                              : "border-border bg-background text-foreground hover:bg-muted",
+                          )}
+                          onClick={() => {
+                            if (isCurrent) return;
+                            statusMutation.mutate(value);
+                          }}
+                        >
+                          {t(`project.content.status.${value}`)}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
-          {renderSaveAndStatusCard("version-note-top")}
-
           <Card className="h-fit rounded-xl">
             <CardHeader>
               <CardTitle className="text-base">{t("project.detail.versions")}</CardTitle>

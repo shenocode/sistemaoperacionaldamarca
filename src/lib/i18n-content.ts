@@ -83,19 +83,6 @@ export function buildLocalizedFieldFromSource(
   };
 }
 
-/** Same text in every locale — for fields that must not be AI-rewritten (e.g. carousel roteiro). */
-export function buildVerbatimLocalizedField(
-  text: string,
-  sourceLocale: string,
-): LocalizedField {
-  const source = normalizeAppLocale(sourceLocale);
-  const values = {} as Partial<Record<AppLocale, string>>;
-  for (const locale of APP_LOCALES) {
-    values[locale] = text;
-  }
-  return { source, values };
-}
-
 export async function translateTextField(input: {
   text: string;
   sourceLocale?: AppLocale;
