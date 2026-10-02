@@ -7,6 +7,7 @@ import {
   Download,
   Expand,
   ImagePlus,
+  ListOrdered,
   Loader2,
   Palette,
   Pencil,
@@ -63,6 +64,7 @@ import {
   listLibraryAssets,
   parseDesignAspectRatio,
   saveGeneratedArtToLibrary,
+  updateDesignTemplateProject,
   uploadContentMedia,
   type ContentFormat,
   type DesignAspectRatio,
@@ -78,11 +80,16 @@ import { cn } from "@/lib/utils";
 import {
   createDefaultImageAdjustments,
   createDefaultOverlay,
+  createTextLayer,
   ensureArtLayoutLayers,
   flattenOverlayToFile,
   formatInstagramHandle,
   normalizeImageToDesignCanvas,
+  overlayFromTemplateLayout,
+  parseDesignTemplateLayout,
   resolveBrandTagline,
+  serializeDesignTemplateLayout,
+  type MediaTextLayer,
   type MediaTextOverlay,
 } from "@/lib/media-text-overlay";
 
@@ -131,26 +138,60 @@ function TemplateOptionLabel({
   imageUrl,
   aspect,
   showAspect = false,
+  onExpandImage,
+  expandLabel,
 }: {
   name: string;
   imageUrl?: string | null;
   aspect: DesignAspectRatio;
   showAspect?: boolean;
+  /** When set, clicking the thumbnail expands the image without opening the select. */
+  onExpandImage?: () => void;
+  expandLabel?: string;
 }) {
   const thumbClass = designAspectThumbClass(aspect);
-  return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {imageUrl ? (
+  const thumb = imageUrl ? (
+    onExpandImage ? (
+      <button
+        type="button"
+        className={cn(
+          "relative shrink-0 cursor-zoom-in overflow-hidden rounded-md border bg-muted",
+          thumbClass,
+        )}
+        aria-label={expandLabel}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onExpandImage();
+        }}
+      >
         <img
           src={imageUrl}
           alt=""
           loading="lazy"
           decoding="async"
-          className={cn("pointer-events-none shrink-0 rounded-md border bg-muted object-cover", thumbClass)}
+          className="pointer-events-none h-full w-full object-cover"
         />
-      ) : (
-        <span className={cn("shrink-0 rounded-md border bg-muted", thumbClass)} aria-hidden="true" />
-      )}
+      </button>
+    ) : (
+      <img
+        src={imageUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className={cn("pointer-events-none shrink-0 rounded-md border bg-muted object-cover", thumbClass)}
+      />
+    )
+  ) : (
+    <span className={cn("shrink-0 rounded-md border bg-muted", thumbClass)} aria-hidden="true" />
+  );
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {thumb}
       <span className="min-w-0 truncate">
         {name}
         {showAspect ? (
@@ -264,28 +305,35 @@ function GenerateArtMenu({
   busy,
   isPending,
   size = "default",
+  variant = "default",
   label,
+  pendingLabel,
+  icon = "palette",
   onGenerate,
 }: {
   busy: boolean;
   isPending: boolean;
   size?: "default" | "sm";
+  variant?: "default" | "secondary";
   label?: string;
+  pendingLabel?: string;
+  icon?: "palette" | "pencil";
   onGenerate: (provider: DesignProvider) => void;
 }) {
   const { t } = useTranslation();
+  const Icon = icon === "pencil" ? Pencil : Palette;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" size={size} disabled={busy}>
+        <Button type="button" size={size} variant={variant} disabled={busy}>
           {isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              {t("project.detail.designAssistant.generating")}
+              {pendingLabel ?? t("project.detail.designAssistant.generating")}
             </>
           ) : (
             <>
-              <Palette className="size-4" />
+              <Icon className="size-4" />
               {label ?? t("project.detail.designAssistant.generate")}
               <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
             </>
@@ -334,39 +382,77 @@ function isImageLibraryAsset(asset: LibraryAsset) {
   return Boolean(asset.mime_type?.startsWith("image/"));
 }
 
-function parseRoteiroSlides(roteiro: string): string[] {
-  const lines = roteiro
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return [];
+/** Labels on the header line (e.g. "SLIDE 1 — CAPA") that are not slide copy. */
+const SLIDE_ROLE_LABELS = new Set([
+  "capa",
+  "cover",
+  "fecho",
+  "final",
+  "end",
+  "cta",
+  "abertura",
+  "encerramento",
+  "intro",
+  "hook",
+  "punch",
+]);
 
-  const numbered: string[] = [];
-  let usedNumbered = false;
-  for (const line of lines) {
-    const match = line.match(/^slide\s*(\d+)\s*[:\-–]\s*(.*)$/i);
-    if (match) {
-      usedNumbered = true;
-      const index = Number(match[1]) - 1;
-      if (index >= 0 && index < MAX_SLIDES) {
-        numbered[index] = match[2].trim();
-      }
-    }
-  }
-  if (usedNumbered) {
-    const length = Math.min(Math.max(numbered.length, 1), MAX_SLIDES);
-    return Array.from({ length }, (_, i) => numbered[i] ?? "");
-  }
-  return lines.slice(0, MAX_SLIDES);
+function isSlideRoleLabel(text: string): boolean {
+  const normalized = text.trim().toLowerCase().replace(/[.!…]+$/u, "");
+  return SLIDE_ROLE_LABELS.has(normalized);
 }
 
-function formatRoteiroFromSlides(slides: SlideDraft[]): string {
-  return slides
-    .map((slide, index) => {
-      const text = slide.overlayText.replace(/\s+/g, " ").trim();
-      return text ? `Slide ${index + 1}: ${text}` : `Slide ${index + 1}:`;
-    })
-    .join("\n");
+/**
+ * Splits carousel roteiro into per-slide texts.
+ * Supports:
+ * - `Slide 1: texto na mesma linha`
+ * - Block form: `SLIDE 1 — CAPA` / `SLIDE 2` + multiline body until the next header
+ */
+function parseRoteiroSlides(roteiro: string): string[] {
+  const raw = roteiro.replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+
+  const lines = raw.split("\n");
+  // SLIDE 1 | SLIDE 1 — CAPA | Slide 1: copy…
+  const headerRe = /^slide\s*(\d+)\s*(?:[:\-–—]\s*(.*))?$/iu;
+
+  const blocks = new Map<number, string[]>();
+  let currentIndex: number | null = null;
+  let foundHeaders = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(headerRe);
+    if (match) {
+      foundHeaders = true;
+      const index = Number(match[1]) - 1;
+      if (index < 0 || index >= MAX_SLIDES) {
+        currentIndex = null;
+        continue;
+      }
+      currentIndex = index;
+      if (!blocks.has(index)) blocks.set(index, []);
+      const sameLine = (match[2] ?? "").trim();
+      if (sameLine && !isSlideRoleLabel(sameLine)) {
+        blocks.get(index)!.push(sameLine);
+      }
+      continue;
+    }
+    if (currentIndex !== null && trimmed) {
+      blocks.get(currentIndex)!.push(trimmed);
+    }
+  }
+
+  if (foundHeaders) {
+    const maxIndex = blocks.size === 0 ? 0 : Math.max(...blocks.keys());
+    const length = Math.min(Math.max(maxIndex + 1, 1), MAX_SLIDES);
+    return Array.from({ length }, (_, i) => (blocks.get(i) ?? []).join("\n").trim());
+  }
+
+  return lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, MAX_SLIDES);
 }
 
 function mergeSlidesFromRoteiro(prev: SlideDraft[], texts: string[]): SlideDraft[] {
@@ -376,7 +462,7 @@ function mergeSlidesFromRoteiro(prev: SlideDraft[], texts: string[]): SlideDraft
     const next = prev.map((slide) => {
       if (!slide.overlayText) return slide;
       changed = true;
-      return { ...slide, overlayText: "" };
+      return { ...slide, overlayText: "", approved: false };
     });
     return changed ? next : prev;
   }
@@ -384,7 +470,7 @@ function mergeSlidesFromRoteiro(prev: SlideDraft[], texts: string[]): SlideDraft
     const existing = prev[index];
     if (!existing) return createSlide(text);
     if (existing.overlayText === text) return existing;
-    return { ...existing, overlayText: text };
+    return { ...existing, overlayText: text, approved: false };
   });
 }
 
@@ -470,13 +556,18 @@ export function ContentDesignAssistant({
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultOverlay, setResultOverlay] = useState<MediaTextOverlay | null>(null);
   const [resultSavedToLibrary, setResultSavedToLibrary] = useState(false);
+  /** Template da biblioteca cuja edição deve persistir layout em camadas. */
+  const [editSourceTemplateId, setEditSourceTemplateId] = useState<string | null>(null);
   const [slides, setSlides] = useState<SlideDraft[]>([createSlide()]);
   const [openSlideId, setOpenSlideId] = useState("");
-  const lastEmittedRoteiroRef = useRef<string | null>(null);
   const [generatingSlideId, setGeneratingSlideId] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<{ mode: "static" | "carousel"; index: number } | null>(
-    null,
-  );
+  const [lightbox, setLightbox] = useState<
+    | { mode: "static"; index: number }
+    | { mode: "carousel"; index: number }
+    | { mode: "template"; url: string }
+    | null
+  >(null);
+  const [templateSectionOpen, setTemplateSectionOpen] = useState(!isCarousel);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const slidePhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -494,36 +585,31 @@ export function ContentDesignAssistant({
   }, [format]);
 
   useEffect(() => {
+    setTemplateSectionOpen(!isCarousel);
+  }, [isCarousel]);
+
+  useEffect(() => {
     if (isCarousel) return;
     setOverlayText((prev) => (prev.trim() ? prev : defaultOverlay));
   }, [isCarousel, defaultOverlay]);
 
-  useEffect(() => {
-    if (!isCarousel) return;
-    if (lastEmittedRoteiroRef.current !== null && lastEmittedRoteiroRef.current === roteiro) {
-      return;
-    }
-    lastEmittedRoteiroRef.current = roteiro;
-    const fromRoteiro = parseRoteiroSlides(roteiro);
-    setSlides((prev) => {
-      if (fromRoteiro.length === 0) {
-        if (prev.length === 0) return [createSlide(defaultOverlay)];
-        return mergeSlidesFromRoteiro(prev, []);
-      }
-      const merged = mergeSlidesFromRoteiro(prev, fromRoteiro);
-      const unchanged =
-        merged.length === prev.length &&
-        merged.every((slide, index) => slide.id === prev[index].id && slide.overlayText === prev[index].overlayText);
-      return unchanged ? prev : merged;
-    });
-  }, [isCarousel, roteiro, defaultOverlay]);
-
   function applySlides(next: SlideDraft[]) {
     setSlides(next);
-    // Do not push reformatted text back into the content form.
-    // Round-tripping through Slide N: lines was overwriting the user's saved roteiro
-    // (collapsing multi-line slides / resurrecting stale slide drafts after save).
-    lastEmittedRoteiroRef.current = formatRoteiroFromSlides(next);
+  }
+
+  function handleApplyRoteiro() {
+    const fromRoteiro = parseRoteiroSlides(roteiro);
+    const filled = fromRoteiro.filter((text) => text.trim());
+    if (filled.length === 0) {
+      toast.error(t("project.detail.designAssistant.applyRoteiroEmpty"));
+      return;
+    }
+    const merged = mergeSlidesFromRoteiro(slides, fromRoteiro);
+    applySlides(merged);
+    if (merged[0]) setOpenSlideId(merged[0].id);
+    toast.success(
+      t("project.detail.designAssistant.applyRoteiroDone", { count: filled.length }),
+    );
   }
 
   useEffect(() => {
@@ -538,12 +624,14 @@ export function ContentDesignAssistant({
         return current;
       }
       if (templates.some((item) => item.id === current)) return current;
+      // Carrossel: template global opcional — não pré-seleciona.
+      if (isCarousel) return "";
       if (templates[0]) return templates[0].id;
       if (generatedArts[0]?.id) return generatedTemplateId(generatedArts[0].id);
       return "";
     });
     setTemplateSource("library");
-  }, [templates, generatedArts, hasLibraryTemplates]);
+  }, [templates, generatedArts, hasLibraryTemplates, isCarousel]);
 
   async function resolveTemplateUrl(opts: {
     source: TemplateSource;
@@ -576,40 +664,184 @@ export function ContentDesignAssistant({
     secondaryTextValue: string,
     label: string,
     photoUrl?: string,
+    existingLayers?: MediaTextLayer[],
   ) {
     // Com foto: fundo = foto (sem tipografia do template/IA).
     // Textos do formulário viram só camadas editáveis (título, @, topo, apoio).
+    // Com existingLayers: projeto aberto a partir do template (textos já extraídos).
     const baseSource = photoUrl || aiUrl;
     const normalizedBlob = await normalizeImageToDesignCanvas(baseSource, aspectRatio);
     const normalizedFile = new File([normalizedBlob], `${label}-canvas.png`, { type: "image/png" });
     const normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
 
-    const overlay: MediaTextOverlay = {
-      ...createDefaultOverlay({
-        baseUrl: normalizedUrl,
-        overlayText: overlayTextValue,
-        secondaryText: secondaryTextValue,
-        headerLeft: brandHandle,
-        headerRight: brandTagline,
-        primaryFont: kit.brand_fonts.primary,
-        secondaryFont: kit.brand_fonts.secondary,
-        colors: kit.brand_colors,
-      }),
-      adjustments: photoUrl
-        ? {
-            ...createDefaultImageAdjustments(),
-            contrast: 14,
-            saturation: -6,
-            vignette: 0.42,
-            brightness: -8,
-            warmth: -4,
-          }
-        : createDefaultImageAdjustments(),
-    };
+    const overlay: MediaTextOverlay = existingLayers?.length
+      ? {
+          baseUrl: normalizedUrl,
+          layers: existingLayers,
+          adjustments: createDefaultImageAdjustments(),
+        }
+      : {
+          ...createDefaultOverlay({
+            baseUrl: normalizedUrl,
+            overlayText: overlayTextValue,
+            secondaryText: secondaryTextValue,
+            headerLeft: brandHandle,
+            headerRight: brandTagline,
+            primaryFont: kit.brand_fonts.primary,
+            secondaryFont: kit.brand_fonts.secondary,
+            colors: kit.brand_colors,
+          }),
+          adjustments: photoUrl
+            ? {
+                ...createDefaultImageAdjustments(),
+                contrast: 14,
+                saturation: -6,
+                vignette: 0.42,
+                brightness: -8,
+                warmth: -4,
+              }
+            : createDefaultImageAdjustments(),
+        };
 
     const file = await flattenOverlayToFile(overlay, `${label}.png`);
     const url = await uploadContentMedia(projectId, file);
     return { url, overlay };
+  }
+
+  function layersFromExtracted(raw: unknown): MediaTextLayer[] {
+    const layout = parseDesignTemplateLayout({ layers: raw });
+    if (layout?.layers.length) {
+      return layout.layers.map((layer) =>
+        createTextLayer(layer.text, {
+          ...layer,
+          fontFamily:
+            layer.role === "headline"
+              ? kit.brand_fonts.primary || layer.fontFamily
+              : kit.brand_fonts.secondary || layer.fontFamily,
+        }),
+      );
+    }
+    return [];
+  }
+
+  function resolveLibraryTemplateProject(templateId: string): {
+    templateId: string | null;
+    backgroundUrl: string | null;
+    layout: ReturnType<typeof parseDesignTemplateLayout>;
+  } {
+    if (!templateId || templateId === NONE_TEMPLATE || parseGeneratedTemplateId(templateId)) {
+      return { templateId: null, backgroundUrl: null, layout: null };
+    }
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return { templateId: null, backgroundUrl: null, layout: null };
+    const layout = parseDesignTemplateLayout(template.layout);
+    if (!layout) return { templateId: template.id, backgroundUrl: null, layout: null };
+    const backgroundUrl = (template.background_url || template.file_url || "").trim() || null;
+    return { templateId: template.id, backgroundUrl, layout };
+  }
+
+  /** Abre foto/template como projeto editável (todas as camadas de texto selecionáveis). */
+  async function openEditableProject(opts: {
+    file: File | null;
+    library: LibraryPhoto | null;
+    templateSource: TemplateSource;
+    templateId: string;
+    templateFile: File | null;
+    overlayTextValue: string;
+    secondaryTextValue: string;
+    label: string;
+    provider?: DesignProvider;
+  }) {
+    const hasPhoto = Boolean(opts.file || opts.library);
+    if (hasPhoto) {
+      const photoUrl = await resolveEditBaseUrl(opts);
+      if (!photoUrl) throw new Error(t("project.detail.designAssistant.needPhoto"));
+      setEditSourceTemplateId(null);
+      return composeGeneratedArt(
+        photoUrl,
+        opts.overlayTextValue,
+        opts.secondaryTextValue,
+        opts.label,
+        photoUrl,
+      );
+    }
+
+    const libraryProject =
+      opts.templateSource === "library"
+        ? resolveLibraryTemplateProject(opts.templateId)
+        : { templateId: null, backgroundUrl: null, layout: null };
+
+    if (libraryProject.layout && libraryProject.backgroundUrl) {
+      setEditSourceTemplateId(libraryProject.templateId);
+      const normalizedBlob = await normalizeImageToDesignCanvas(
+        libraryProject.backgroundUrl,
+        aspectRatio,
+      );
+      const normalizedFile = new File([normalizedBlob], `${opts.label}-canvas.png`, {
+        type: "image/png",
+      });
+      const normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
+      const overlay = overlayFromTemplateLayout(normalizedUrl, libraryProject.layout, {
+        overlayText: opts.overlayTextValue,
+        secondaryText: opts.secondaryTextValue,
+        headerLeft: brandHandle,
+        headerRight: brandTagline,
+        primaryFont: kit.brand_fonts.primary,
+        secondaryFont: kit.brand_fonts.secondary,
+      });
+      const file = await flattenOverlayToFile(overlay, `${opts.label}.png`);
+      const url = await uploadContentMedia(projectId, file);
+      return { url, overlay };
+    }
+
+    const templateUrl = await resolveTemplateUrl({
+      source: opts.templateSource,
+      templateId: opts.templateId,
+      file: opts.templateFile,
+    });
+    const provider = opts.provider === "gemini" ? "gemini" : "openai";
+    const opened = await generateDesign({
+      contentId,
+      projectId,
+      clientId,
+      format,
+      aspectRatio,
+      provider,
+      mode: "open_editable",
+      templateUrl,
+      overlayText: opts.overlayTextValue || " ",
+      secondaryText: opts.secondaryTextValue,
+      guidance,
+    });
+    const extracted = layersFromExtracted(opened.layers);
+    const layers =
+      extracted.length > 0
+        ? extracted
+        : createDefaultOverlay({
+            baseUrl: opened.imageUrl,
+            overlayText: opts.overlayTextValue,
+            secondaryText: opts.secondaryTextValue,
+            headerLeft: brandHandle,
+            headerRight: brandTagline,
+            primaryFont: kit.brand_fonts.primary,
+            secondaryFont: kit.brand_fonts.secondary,
+            colors: kit.brand_colors,
+          }).layers;
+
+    setEditSourceTemplateId(
+      opts.templateSource === "library" && !parseGeneratedTemplateId(opts.templateId)
+        ? opts.templateId || null
+        : null,
+    );
+
+    return composeGeneratedArt(
+      opened.imageUrl,
+      opts.overlayTextValue,
+      opts.secondaryTextValue,
+      opts.label,
+      opened.imageUrl,
+      layers,
+    );
   }
 
   async function persistGeneratedArt(imageUrl: string, label: string, notes?: string) {
@@ -663,9 +895,16 @@ export function ContentDesignAssistant({
   }
 
   const hasStaticPhoto = Boolean(photoFile || photoLibrary);
+  const selectedLibraryLayout =
+    templateSource === "library" && selectedTemplateId
+      ? parseDesignTemplateLayout(
+          templates.find((item) => item.id === selectedTemplateId)?.layout,
+        )
+      : null;
   const canEditStatic =
     hasStaticPhoto ||
     (templateSource === "upload" ? Boolean(templateFile) : Boolean(selectedTemplateId));
+  const editNeedsAi = !hasStaticPhoto && !selectedLibraryLayout;
 
   const generateStaticMutation = useMutation({
     mutationFn: async (selectedProvider: DesignProvider) => {
@@ -702,16 +941,18 @@ export function ContentDesignAssistant({
   });
 
   const editStaticMutation = useMutation({
-    mutationFn: async () => {
-      const photoUrl = await resolveEditBaseUrl({
+    mutationFn: async (selectedProvider?: DesignProvider) => {
+      return openEditableProject({
         file: photoFile,
         library: photoLibrary,
         templateSource,
         templateId: selectedTemplateId,
         templateFile,
+        overlayTextValue: overlayText,
+        secondaryTextValue: secondaryText,
+        label: artBaseName,
+        provider: selectedProvider,
       });
-      if (!photoUrl) throw new Error(t("project.detail.designAssistant.needPhoto"));
-      return composeGeneratedArt(photoUrl, overlayText, secondaryText, artBaseName, photoUrl);
     },
     onSuccess: async (composed) => {
       setResultUrl(composed.url);
@@ -800,7 +1041,13 @@ export function ContentDesignAssistant({
   });
 
   const editSlideMutation = useMutation({
-    mutationFn: async (slideId: string) => {
+    mutationFn: async ({
+      slideId,
+      provider: selectedProvider,
+    }: {
+      slideId: string;
+      provider?: DesignProvider;
+    }) => {
       const slide = slides.find((item) => item.id === slideId);
       if (!slide) throw new Error("Slide não encontrado");
       const slideTemplateFile = slide.templateFile;
@@ -809,22 +1056,18 @@ export function ContentDesignAssistant({
       const useUpload =
         Boolean(slideTemplateFile) ||
         (slide.templateId === NONE_TEMPLATE && templateSource === "upload");
-      const photoUrl = await resolveEditBaseUrl({
+      setGeneratingSlideId(slideId);
+      const composed = await openEditableProject({
         file: slide.photoFile,
         library: slide.photoLibrary,
         templateSource: useUpload ? "upload" : "library",
         templateId: slideTemplateId,
         templateFile: slideTemplateFile ?? (useUpload ? templateFile : null),
+        overlayTextValue: slide.overlayText,
+        secondaryTextValue: slide.secondaryText,
+        label: `${artBaseName}-slide`,
+        provider: selectedProvider,
       });
-      if (!photoUrl) throw new Error(t("project.detail.designAssistant.needPhoto"));
-      setGeneratingSlideId(slideId);
-      const composed = await composeGeneratedArt(
-        photoUrl,
-        slide.overlayText,
-        slide.secondaryText,
-        `${artBaseName}-slide`,
-        photoUrl,
-      );
       return { slideId, ...composed };
     },
     onSuccess: async ({ slideId, url, overlay }) => {
@@ -890,6 +1133,13 @@ export function ContentDesignAssistant({
     },
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => setGeneratingSlideId(null),
+  });
+
+  const allSlidesHaveTemplate = slides.every((slide) => {
+    if (slide.templateFile) return true;
+    if (slide.templateId !== NONE_TEMPLATE && slide.templateId) return true;
+    if (templateSource === "upload") return Boolean(templateFile);
+    return Boolean(selectedTemplateId);
   });
 
   const busy =
@@ -963,6 +1213,9 @@ export function ContentDesignAssistant({
 
   const lightboxItems = useMemo(() => {
     if (!lightbox) return [];
+    if (lightbox.mode === "template") {
+      return [{ url: lightbox.url }];
+    }
     const withLayout = (overlay: MediaTextOverlay, copy?: { overlayText?: string; secondaryText?: string }) =>
       ensureArtLayoutLayers(overlay, {
         overlayText: copy?.overlayText,
@@ -1008,14 +1261,61 @@ export function ContentDesignAssistant({
             }),
           { overlayText: slide.overlayText, secondaryText: slide.secondaryText },
         );
-        return { url: overlay.baseUrl, overlay, slideId: slide.id };
+        return { url: overlay.baseUrl, overlay };
       });
   }, [lightbox, resultUrl, resultOverlay, slides, kit, brandHandle, brandTagline, overlayText, secondaryText]);
 
+  const selectedGlobalTemplate = useMemo(() => {
+    if (templateSource !== "library" || !selectedTemplateId) return null;
+    const generatedId = parseGeneratedTemplateId(selectedTemplateId);
+    if (generatedId) {
+      const art = generatedArts.find((item) => item.id === generatedId);
+      if (!art?.file_url) return null;
+      return { name: art.name, imageUrl: art.file_url, aspect: aspectRatio as DesignAspectRatio };
+    }
+    const selected = templates.find((item) => item.id === selectedTemplateId);
+    if (!selected?.file_url) return null;
+    return {
+      name: selected.name,
+      imageUrl: selected.file_url,
+      aspect: templateAspect(selected),
+    };
+  }, [templateSource, selectedTemplateId, generatedArts, templates, aspectRatio]);
+
+  const templateFilePreviewUrl = useMemo(() => {
+    if (!templateFile) return null;
+    return URL.createObjectURL(templateFile);
+  }, [templateFile]);
+
+  useEffect(() => {
+    return () => {
+      if (templateFilePreviewUrl) URL.revokeObjectURL(templateFilePreviewUrl);
+    };
+  }, [templateFilePreviewUrl]);
+
+  const globalTemplateSummary = useMemo(() => {
+    if (templateSource === "upload" && templateFile) return templateFile.name;
+    if (selectedGlobalTemplate) return selectedGlobalTemplate.name;
+    return null;
+  }, [templateSource, templateFile, selectedGlobalTemplate]);
+
   async function handleLightboxSave(index: number, overlay: MediaTextOverlay) {
+    if (!lightbox || lightbox.mode === "template") return;
     try {
       const file = await flattenOverlayToFile(overlay, `${artBaseName}-edit.png`);
       const url = await uploadContentMedia(projectId, file);
+
+      if (editSourceTemplateId) {
+        try {
+          await updateDesignTemplateProject(editSourceTemplateId, {
+            backgroundUrl: overlay.baseUrl,
+            layout: serializeDesignTemplateLayout(overlay),
+          });
+          void queryClient.invalidateQueries({ queryKey: ["design-templates", clientId] });
+        } catch (persistErr) {
+          console.error(persistErr);
+        }
+      }
 
       if (lightbox?.mode === "static") {
         setResultUrl(url);
@@ -1106,9 +1406,54 @@ export function ContentDesignAssistant({
         </div>
 
         <div className="space-y-1.5">
-          <Label variant="highlight">{t("project.detail.designAssistant.template")}</Label>
+          <Collapsible
+            open={templateSectionOpen}
+            onOpenChange={setTemplateSectionOpen}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 space-y-0.5">
+                <Label variant="highlight">
+                  {isCarousel
+                    ? t("project.detail.designAssistant.defaultTemplate")
+                    : t("project.detail.designAssistant.template")}
+                </Label>
+                {!templateSectionOpen ? (
+                  <p className="text-xs text-muted-foreground">
+                    {globalTemplateSummary
+                      ? t("project.detail.designAssistant.templateCollapsedSelected", {
+                          name: globalTemplateSummary,
+                        })
+                      : t("project.detail.designAssistant.templateCollapsedEmpty")}
+                  </p>
+                ) : null}
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 gap-1 px-2 text-muted-foreground"
+                  aria-label={
+                    templateSectionOpen
+                      ? t("project.detail.designAssistant.templateCollapse")
+                      : t("project.detail.designAssistant.templateExpand")
+                  }
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      templateSectionOpen && "rotate-180",
+                    )}
+                    aria-hidden="true"
+                  />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent className="space-y-1.5 pt-1.5">
           <p className="text-xs text-muted-foreground">
-            {t("project.detail.designAssistant.templateHint", { aspect: aspectRatio })}
+            {isCarousel
+              ? t("project.detail.designAssistant.templateHintCarousel", { aspect: aspectRatio })
+              : t("project.detail.designAssistant.templateHint", { aspect: aspectRatio })}
           </p>
           <input
             ref={templateFileInputRef}
@@ -1144,6 +1489,20 @@ export function ContentDesignAssistant({
               <Upload className="mr-1.5 size-3.5" aria-hidden="true" />
               {t("project.detail.designAssistant.templateUpload")}
             </Button>
+            {isCarousel && (selectedTemplateId || templateFile) ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSelectedTemplateId("");
+                  setTemplateFile(null);
+                  setTemplateSource(hasLibraryTemplates ? "library" : "upload");
+                }}
+              >
+                {t("project.detail.designAssistant.templateClear")}
+              </Button>
+            ) : null}
           </div>
           {templateSource === "library" ? (
             !hasLibraryTemplates ? (
@@ -1151,9 +1510,25 @@ export function ContentDesignAssistant({
                 {t("project.detail.designAssistant.templateNone")}
               </p>
             ) : (
-              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={setSelectedTemplateId}
+              >
                 <SelectTrigger className="h-auto min-h-14 py-1.5 [&>span]:line-clamp-none">
-                  <SelectValue placeholder={t("project.detail.designAssistant.templateSelect")} />
+                  {selectedGlobalTemplate ? (
+                    <TemplateOptionLabel
+                      name={selectedGlobalTemplate.name}
+                      imageUrl={selectedGlobalTemplate.imageUrl}
+                      aspect={selectedGlobalTemplate.aspect}
+                      showAspect
+                      expandLabel={t("project.detail.designAssistant.expandTemplate")}
+                      onExpandImage={() =>
+                        setLightbox({ mode: "template", url: selectedGlobalTemplate.imageUrl })
+                      }
+                    />
+                  ) : (
+                    <SelectValue placeholder={t("project.detail.designAssistant.templateSelect")} />
+                  )}
                 </SelectTrigger>
                 <SelectContent className="max-h-80">
                   {templates.length > 0 ? (
@@ -1173,57 +1548,36 @@ export function ContentDesignAssistant({
               </Select>
             )
           ) : (
-            <p className="text-xs text-muted-foreground">
-              {templateFile
-                ? t("project.detail.designAssistant.fileSelected", { name: templateFile.name })
-                : t("project.detail.designAssistant.templateUploadHint")}
-            </p>
+            <div className="space-y-1.5">
+              {templateFile && templateFilePreviewUrl ? (
+                <TemplateOptionLabel
+                  name={templateFile.name}
+                  imageUrl={templateFilePreviewUrl}
+                  aspect={aspectRatio}
+                  expandLabel={t("project.detail.designAssistant.expandTemplate")}
+                  onExpandImage={() =>
+                    setLightbox({ mode: "template", url: templateFilePreviewUrl })
+                  }
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {t("project.detail.designAssistant.templateUploadHint")}
+                </p>
+              )}
+            </div>
           )}
-          {selectedTemplateId && templateSource === "library"
-            ? (() => {
-                const generatedId = parseGeneratedTemplateId(selectedTemplateId);
-                if (generatedId) {
-                  const selected = generatedArts.find((item) => item.id === generatedId);
-                  if (!selected?.file_url) return null;
-                  return (
-                    <img
-                      src={selected.file_url}
-                      alt=""
-                      className={cn(
-                        "mt-2 rounded-md border object-cover",
-                        designAspectPreviewClass(aspectRatio, "sm"),
-                      )}
-                    />
-                  );
-                }
-                const selected = templates.find((item) => item.id === selectedTemplateId);
-                if (!selected?.file_url) return null;
-                const nativeAspect = templateAspect(selected);
-                return (
-                  <>
-                    {nativeAspect !== aspectRatio ? (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
-                        {t("project.detail.designAssistant.templateAspectMismatch", {
-                          templateAspect: nativeAspect,
-                          aspect: aspectRatio,
-                        })}
-                      </p>
-                    ) : null}
-                    <img
-                      src={selected.file_url}
-                      alt=""
-                      className={cn(
-                        "mt-2 rounded-md border object-cover",
-                        designAspectPreviewClass(nativeAspect, "sm"),
-                      )}
-                    />
-                  </>
-                );
-              })()
-            : null}
-          {templateFile && templateSource === "upload" ? (
-            <p className="text-xs font-medium text-foreground">{templateFile.name}</p>
+          {selectedGlobalTemplate &&
+          selectedGlobalTemplate.aspect !== aspectRatio &&
+          templateSource === "library" ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("project.detail.designAssistant.templateAspectMismatch", {
+                templateAspect: selectedGlobalTemplate.aspect,
+                aspect: aspectRatio,
+              })}
+            </p>
           ) : null}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         <div className="space-y-1.5">
@@ -1325,24 +1679,38 @@ export function ContentDesignAssistant({
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => editStaticMutation.mutate()}
-                disabled={busy || !canEditStatic}
-              >
-                {editStaticMutation.isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    {t("project.detail.designAssistant.editingImage")}
-                  </>
-                ) : (
-                  <>
-                    <Pencil className="size-4" />
-                    {t("project.detail.designAssistant.editImage")}
-                  </>
-                )}
-              </Button>
+              {editNeedsAi ? (
+                <GenerateArtMenu
+                  busy={busy}
+                  isPending={editStaticMutation.isPending}
+                  variant="secondary"
+                  icon="pencil"
+                  label={t("project.detail.designAssistant.editImage")}
+                  pendingLabel={t("project.detail.designAssistant.editingImage")}
+                  onGenerate={(selectedProvider) =>
+                    editStaticMutation.mutate(selectedProvider)
+                  }
+                />
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => editStaticMutation.mutate(undefined)}
+                  disabled={busy || !canEditStatic}
+                >
+                  {editStaticMutation.isPending ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      {t("project.detail.designAssistant.editingImage")}
+                    </>
+                  ) : (
+                    <>
+                      <Pencil className="size-4" />
+                      {t("project.detail.designAssistant.editImage")}
+                    </>
+                  )}
+                </Button>
+              )}
               <GenerateArtMenu
                 busy={busy}
                 isPending={generateStaticMutation.isPending}
@@ -1402,8 +1770,18 @@ export function ContentDesignAssistant({
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium">{t("project.detail.designAssistant.defaultTemplate")}</p>
+              <p className="text-sm font-medium">{t("project.detail.designAssistant.slidesHeading")}</p>
               <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !roteiro.trim()}
+                  onClick={handleApplyRoteiro}
+                >
+                  <ListOrdered className="mr-1 size-4" />
+                  {t("project.detail.designAssistant.applyRoteiro")}
+                </Button>
                 <Button
                   type="button"
                   size="sm"
@@ -1423,7 +1801,7 @@ export function ContentDesignAssistant({
                   {t("project.detail.designAssistant.addSlide")}
                 </Button>
                 <GenerateArtMenu
-                  busy={busy || slides.length === 0}
+                  busy={busy || slides.length === 0 || !allSlidesHaveTemplate}
                   isPending={generateAllMutation.isPending}
                   size="sm"
                   label={t("project.detail.designAssistant.generateAll")}
@@ -1444,14 +1822,23 @@ export function ContentDesignAssistant({
               {slides.map((slide, index) => {
                 const slideBusy = generatingSlideId === slide.id;
                 const preview = slide.overlayText.replace(/\s+/g, " ").trim();
-                const slideCanEdit =
-                  Boolean(slide.photoFile || slide.photoLibrary) ||
+                const slideHasTemplate =
                   Boolean(slide.templateFile) ||
                   (slide.templateId !== NONE_TEMPLATE && Boolean(slide.templateId)) ||
                   (slide.templateId === NONE_TEMPLATE &&
                     (templateSource === "upload"
                       ? Boolean(templateFile)
                       : Boolean(selectedTemplateId)));
+                const slideCanEdit =
+                  Boolean(slide.photoFile || slide.photoLibrary) || slideHasTemplate;
+                const slideTemplateIdForEdit =
+                  slide.templateId !== NONE_TEMPLATE ? slide.templateId : selectedTemplateId;
+                const slideEditNeedsAi =
+                  !slide.photoFile &&
+                  !slide.photoLibrary &&
+                  !parseDesignTemplateLayout(
+                    templates.find((item) => item.id === slideTemplateIdForEdit)?.layout,
+                  );
                 return (
                   <AccordionItem
                     key={slide.id}
@@ -1488,24 +1875,44 @@ export function ContentDesignAssistant({
                       </AccordionTrigger>
                       </div>
                       <div className="flex shrink-0 items-center gap-1 py-2.5">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          disabled={busy || !slideCanEdit}
-                          onClick={() => editSlideMutation.mutate(slide.id)}
-                        >
-                          {slideBusy && editSlideMutation.isPending ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Pencil className="size-3.5" />
-                              {t("project.detail.designAssistant.editImage")}
-                            </>
-                          )}
-                        </Button>
+                        {slideEditNeedsAi ? (
+                          <GenerateArtMenu
+                            busy={busy || !slideCanEdit}
+                            isPending={slideBusy && editSlideMutation.isPending}
+                            size="sm"
+                            variant="secondary"
+                            icon="pencil"
+                            label={t("project.detail.designAssistant.editImage")}
+                            pendingLabel={t("project.detail.designAssistant.editingImage")}
+                            onGenerate={(selectedProvider) =>
+                              editSlideMutation.mutate({
+                                slideId: slide.id,
+                                provider: selectedProvider,
+                              })
+                            }
+                          />
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy || !slideCanEdit}
+                            onClick={() =>
+                              editSlideMutation.mutate({ slideId: slide.id })
+                            }
+                          >
+                            {slideBusy && editSlideMutation.isPending ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Pencil className="size-3.5" />
+                                {t("project.detail.designAssistant.editImage")}
+                              </>
+                            )}
+                          </Button>
+                        )}
                         <GenerateArtMenu
-                          busy={busy}
+                          busy={busy || !slideHasTemplate}
                           isPending={slideBusy && generateSlideMutation.isPending}
                           size="sm"
                           onGenerate={(selectedProvider) =>
@@ -1627,7 +2034,16 @@ export function ContentDesignAssistant({
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label>{t("project.detail.designAssistant.slideTemplate")}</Label>
+                      <Label>
+                        {selectedTemplateId || templateFile
+                          ? t("project.detail.designAssistant.slideTemplate")
+                          : t("project.detail.designAssistant.slideTemplateRequired")}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedTemplateId || templateFile
+                          ? t("project.detail.designAssistant.slideTemplateHint")
+                          : t("project.detail.designAssistant.slideTemplateHintRequired")}
+                      </p>
                       <Select
                         value={slide.templateId}
                         onValueChange={(value) =>
@@ -1833,24 +2249,35 @@ export function ContentDesignAssistant({
       onOpenChange={(open) => {
         if (!open) setLightbox(null);
       }}
-      items={lightboxItems.map(({ url, overlay }) => ({ url, overlay }))}
-      title={t("project.detail.designAssistant.previewTitle")}
-      initialIndex={lightbox?.index ?? 0}
-      textEditor={{
-        brandFonts: kit.brand_fonts,
-        colors: kit.brand_colors,
-        headerLeft: brandHandle,
-        headerRight: brandTagline || undefined,
-        overlayText:
-          lightbox?.mode === "carousel"
-            ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.overlayText
-            : overlayText,
-        secondaryText:
-          lightbox?.mode === "carousel"
-            ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.secondaryText
-            : secondaryText,
-        onSave: handleLightboxSave,
-      }}
+      items={lightboxItems.map((item) => ({
+        url: item.url,
+        overlay: "overlay" in item ? item.overlay : undefined,
+      }))}
+      title={
+        lightbox?.mode === "template"
+          ? t("project.detail.designAssistant.template")
+          : t("project.detail.designAssistant.previewTitle")
+      }
+      initialIndex={lightbox && lightbox.mode !== "template" ? lightbox.index : 0}
+      textEditor={
+        lightbox?.mode === "template"
+          ? undefined
+          : {
+              brandFonts: kit.brand_fonts,
+              colors: kit.brand_colors,
+              headerLeft: brandHandle,
+              headerRight: brandTagline || undefined,
+              overlayText:
+                lightbox?.mode === "carousel"
+                  ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.overlayText
+                  : overlayText,
+              secondaryText:
+                lightbox?.mode === "carousel"
+                  ? slides.filter((slide) => slide.resultUrl)[lightbox.index ?? 0]?.secondaryText
+                  : secondaryText,
+              onSave: handleLightboxSave,
+            }
+      }
     />
     <ContentMediaLibraryPicker
       clientId={clientId}

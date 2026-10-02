@@ -714,6 +714,7 @@ export type Database = {
       design_templates: {
         Row: {
           aspect_ratio: string
+          background_url: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -721,12 +722,14 @@ export type Database = {
           file_url: string
           format: Database["public"]["Enums"]["design_template_format"]
           id: string
+          layout: Json
           mime_type: string | null
           name: string
           storage_path: string | null
         }
         Insert: {
           aspect_ratio?: string
+          background_url?: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -734,12 +737,14 @@ export type Database = {
           file_url: string
           format: Database["public"]["Enums"]["design_template_format"]
           id?: string
+          layout?: Json
           mime_type?: string | null
           name: string
           storage_path?: string | null
         }
         Update: {
           aspect_ratio?: string
+          background_url?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -747,6 +752,7 @@ export type Database = {
           file_url?: string
           format?: Database["public"]["Enums"]["design_template_format"]
           id?: string
+          layout?: Json
           mime_type?: string | null
           name?: string
           storage_path?: string | null

@@ -1427,6 +1427,94 @@ function ContentDetailPage() {
             </CardContent>
           </Card>
 
+          <Card className="rounded-xl">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {isPrintPiece ? (
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <GraphicArtsMaterialFields
+                      idPrefix="content-detail"
+                      materialType={materialType}
+                      widthCm={widthCm}
+                      heightCm={heightCm}
+                      onMaterialTypeChange={setMaterialType}
+                      onWidthCmChange={setWidthCm}
+                      onHeightCmChange={setHeightCm}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label variant="highlight">{t("project.detail.format")}</Label>
+                    <ContentFormatSelect
+                      format={formatType}
+                      formats={allowedFormats}
+                      onValueChange={(next) => {
+                        setFormatType(next);
+                        if (next !== "carousel" && mediaItems.length > 1) {
+                          setMediaItems((prev) => prev.slice(0, 1));
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                <div className={cn("space-y-1.5", isPrintPiece && "sm:col-span-2")}>
+                  <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
+                  <Select
+                    value={theme.trim() || NONE_THEME_VALUE}
+                    onValueChange={(value) => {
+                      if (value === NEW_THEME_VALUE) {
+                        setNewTheme("");
+                        setThemeDialogOpen(true);
+                        return;
+                      }
+                      applyThemeSelection(value === NONE_THEME_VALUE ? "" : value);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder={t("project.calendar.selectTheme")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE_THEME_VALUE}>
+                        {t("project.calendar.noTheme")}
+                      </SelectItem>
+                      {themeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={NEW_THEME_VALUE}>
+                        {t("project.calendar.newTheme")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {!isPrintPiece ? (
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label variant="highlight">{t("project.funnel.label")}</Label>
+                    <Select
+                      value={funnelStage ?? "none"}
+                      onValueChange={(value) =>
+                        setFunnelStage(value === "none" ? null : parseFunnelStage(value))
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={t("project.funnel.none")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t("project.funnel.none")}</SelectItem>
+                        {FUNNEL_STAGES.map((stage) => (
+                          <SelectItem key={stage} value={stage}>
+                            {t(`project.funnel.${stage}`)} — {t(`project.funnel.${stage}Hint`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+
           {isAdmin ? (
             <ContentAiAssistant
               key={contentId}
@@ -1587,91 +1675,6 @@ function ContentDetailPage() {
 
           <Card className="rounded-xl">
             <CardContent className="space-y-4 p-6">
-              <div className="rounded-lg border bg-muted/20 p-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {isPrintPiece ? (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <GraphicArtsMaterialFields
-                        idPrefix="content-detail"
-                        materialType={materialType}
-                        widthCm={widthCm}
-                        heightCm={heightCm}
-                        onMaterialTypeChange={setMaterialType}
-                        onWidthCmChange={setWidthCm}
-                        onHeightCmChange={setHeightCm}
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <Label variant="highlight">{t("project.detail.format")}</Label>
-                      <ContentFormatSelect
-                        format={formatType}
-                        formats={allowedFormats}
-                        onValueChange={(next) => {
-                          setFormatType(next);
-                          if (next !== "carousel" && mediaItems.length > 1) {
-                            setMediaItems((prev) => prev.slice(0, 1));
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className={cn("space-y-1.5", isPrintPiece && "sm:col-span-2")}>
-                    <Label variant="highlight">{t("project.calendar.columns.theme")}</Label>
-                    <Select
-                      value={theme.trim() || NONE_THEME_VALUE}
-                      onValueChange={(value) => {
-                        if (value === NEW_THEME_VALUE) {
-                          setNewTheme("");
-                          setThemeDialogOpen(true);
-                          return;
-                        }
-                        applyThemeSelection(value === NONE_THEME_VALUE ? "" : value);
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder={t("project.calendar.selectTheme")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE_THEME_VALUE}>
-                          {t("project.calendar.noTheme")}
-                        </SelectItem>
-                        {themeOptions.map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={NEW_THEME_VALUE}>
-                          {t("project.calendar.newTheme")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {!isPrintPiece ? (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label variant="highlight">{t("project.funnel.label")}</Label>
-                      <Select
-                        value={funnelStage ?? "none"}
-                        onValueChange={(value) =>
-                          setFunnelStage(value === "none" ? null : parseFunnelStage(value))
-                        }
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder={t("project.funnel.none")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{t("project.funnel.none")}</SelectItem>
-                          {FUNNEL_STAGES.map((stage) => (
-                            <SelectItem key={stage} value={stage}>
-                              {t(`project.funnel.${stage}`)} — {t(`project.funnel.${stage}Hint`)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="title" variant="highlight">
                   {isPrintPiece

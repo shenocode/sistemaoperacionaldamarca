@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database, Json, Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Database, Json, Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import type { ContentStatus } from "@/components/status-badge";
 import {
   DEFAULT_BRAND_BRIEFING_TEMPLATE,
@@ -4411,6 +4411,8 @@ export async function analyzeReferenceCreator(input: {
 export type DesignGenerationResult = {
   imageUrl: string;
   provider?: DesignProvider;
+  /** Camadas extraídas no modo open_editable (textos do template viram editáveis). */
+  layers?: unknown;
 };
 
 export async function generateDesign(input: {
@@ -4425,7 +4427,10 @@ export async function generateDesign(input: {
   overlayText: string;
   secondaryText?: string;
   guidance?: string;
+  /** Extrai textos do template e devolve fundo limpo + layers. */
+  mode?: "generate" | "open_editable";
 }): Promise<DesignGenerationResult> {
+  const mode = input.mode === "open_editable" ? "open_editable" : "generate";
   const overlayText = input.overlayText.trim();
   const secondaryText = input.secondaryText?.trim() || "";
   const templateUrl = input.templateUrl.trim();
@@ -4436,7 +4441,7 @@ export async function generateDesign(input: {
     defaultAspectForFormat(input.format),
   );
   if (!templateUrl) throw new Error("Informe o template de referência");
-  if (!overlayText) throw new Error("Informe o texto da arte");
+  if (mode === "generate" && !overlayText) throw new Error("Informe o texto da arte");
 
   const { data, error } = await supabase.functions.invoke("generate-design", {
     body: {
@@ -4446,15 +4451,21 @@ export async function generateDesign(input: {
       format: input.format,
       aspectRatio,
       provider,
+      mode,
       templateUrl,
       photoUrl: photoUrl || undefined,
-      overlayText,
+      overlayText: overlayText || " ",
       secondaryText: secondaryText || undefined,
       guidance: input.guidance?.trim() || undefined,
     },
   });
 
-  const payload = data as { imageUrl?: string; provider?: DesignProvider; error?: string } | null;
+  const payload = data as {
+    imageUrl?: string;
+    provider?: DesignProvider;
+    layers?: unknown;
+    error?: string;
+  } | null;
   if (error) {
     throw new Error(await readFunctionsInvokeError(error, data));
   }
@@ -4465,7 +4476,11 @@ export async function generateDesign(input: {
     throw new Error("Resposta inválida do assistente de design");
   }
 
-  return { imageUrl: payload.imageUrl, provider: payload.provider ?? provider };
+  return {
+    imageUrl: payload.imageUrl,
+    provider: payload.provider ?? provider,
+    layers: payload.layers,
+  };
 }
 
 // —— Admin AI credentials ——
@@ -5547,6 +5562,8 @@ export async function createDesignTemplate(input: {
   format: DesignTemplateFormat;
   aspectRatio?: DesignAspectRatio;
   file: File;
+  backgroundUrl?: string | null;
+  layout?: unknown;
 }): Promise<DesignTemplate> {
   await assertPlanFeature("library", "Biblioteca disponível a partir do plano Studio.");
   const userId = await requireUserId();
@@ -5567,6 +5584,10 @@ export async function createDesignTemplate(input: {
       mime_type: uploaded.mimeType,
       file_size: uploaded.fileSize,
       created_by: userId,
+      ...(input.backgroundUrl?.trim()
+        ? { background_url: input.backgroundUrl.trim() }
+        : {}),
+      ...(input.layout != null ? { layout: input.layout as TablesInsert<"design_templates">["layout"] } : {}),
     } satisfies TablesInsert<"design_templates">)
     .select("*")
     .single();
@@ -5580,6 +5601,26 @@ export async function createDesignTemplate(input: {
 
 function fileTitleFallback(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "") || fileName;
+}
+
+/** Persiste projeto em camadas (fundo limpo + textos) num template da biblioteca. */
+export async function updateDesignTemplateProject(
+  templateId: string,
+  input: { backgroundUrl: string; layout: unknown },
+): Promise<DesignTemplate> {
+  const backgroundUrl = input.backgroundUrl.trim();
+  if (!backgroundUrl) throw new Error("Informe o fundo do template.");
+  const { data, error } = await supabase
+    .from("design_templates")
+    .update({
+      background_url: backgroundUrl,
+      layout: input.layout as TablesUpdate<"design_templates">["layout"],
+    })
+    .eq("id", templateId)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return ensureData(data, error);
 }
 
 export async function deleteDesignTemplate(templateId: string): Promise<void> {

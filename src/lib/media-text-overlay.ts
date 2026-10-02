@@ -360,18 +360,19 @@ export function ensureArtLayoutLayers(
     if (!existing) return fresh;
     if (role === "headline") {
       const text = existing.text.trim() || fallbackHeadline || fresh.text;
+      const keepPlacement = Boolean(existing.text.trim());
       return {
         ...fresh,
         ...existing,
         text,
         role: "headline",
         label: existing.label || "Título",
-        // Keep the title on the lower half where carousel copy lives.
-        x: fresh.x,
-        y: fresh.y,
-        fontSize: Math.max(existing.fontSize, fresh.fontSize),
-        maxWidth: fresh.maxWidth,
-        align: "center",
+        // Preserve extracted/authored placement; only use scaffold for empty headlines.
+        x: keepPlacement ? existing.x : fresh.x,
+        y: keepPlacement ? existing.y : fresh.y,
+        fontSize: keepPlacement ? existing.fontSize : Math.max(existing.fontSize, fresh.fontSize),
+        maxWidth: keepPlacement ? existing.maxWidth : fresh.maxWidth,
+        align: keepPlacement ? existing.align : "center",
       };
     }
     if (role === "support") {
@@ -412,11 +413,11 @@ export function ensureArtLayoutLayers(
           text: existingHeadline.text.trim() || fallbackHeadline,
           role: "headline" as const,
           label: existingHeadline.label || "Título",
-          x: 0.5,
-          y: 0.58,
-          fontSize: Math.max(existingHeadline.fontSize, 0.07),
-          maxWidth: 0.86,
-          align: "center" as const,
+          x: existingHeadline.x,
+          y: existingHeadline.y,
+          fontSize: existingHeadline.fontSize || 0.07,
+          maxWidth: existingHeadline.maxWidth || 0.86,
+          align: existingHeadline.align || ("center" as const),
         }
       : null;
 
@@ -498,18 +499,16 @@ function parseFontFaces(
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const row = value as {
-    baseUrl?: unknown;
-    layers?: unknown;
-    adjustments?: unknown;
-    fontFiles?: unknown;
-    fontFaces?: unknown;
-  };
-  const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
-  if (!baseUrl || !Array.isArray(row.layers)) return null;
-  const layers = row.layers
+export type DesignTemplateLayout = {
+  layers: MediaTextLayer[];
+  adjustments?: MediaImageAdjustments;
+  fontFiles?: Record<string, string>;
+  fontFaces?: MediaTextOverlay["fontFaces"];
+};
+
+function parseTextLayers(value: unknown): MediaTextLayer[] {
+  if (!Array.isArray(value)) return [];
+  return value
     .map((entry): MediaTextLayer | null => {
       if (!entry || typeof entry !== "object") return null;
       const layer = entry as Record<string, unknown>;
@@ -536,6 +535,92 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
       };
     })
     .filter((layer): layer is MediaTextLayer => layer != null);
+}
+
+/** Layout persistido em design_templates (sem baseUrl). */
+export function parseDesignTemplateLayout(value: unknown): DesignTemplateLayout | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as {
+    layers?: unknown;
+    adjustments?: unknown;
+    fontFiles?: unknown;
+    fontFaces?: unknown;
+  };
+  const layers = parseTextLayers(row.layers);
+  if (layers.length === 0) return null;
+  return {
+    layers,
+    adjustments: parseImageAdjustments(row.adjustments),
+    fontFiles: parseFontFiles(row.fontFiles),
+    fontFaces: parseFontFaces(row.fontFaces),
+  };
+}
+
+export function serializeDesignTemplateLayout(overlay: MediaTextOverlay): DesignTemplateLayout {
+  return {
+    layers: overlay.layers,
+    adjustments: overlay.adjustments,
+    fontFiles: overlay.fontFiles,
+    fontFaces: overlay.fontFaces,
+  };
+}
+
+/** Monta overlay editável a partir do projeto do template + fundo limpo. */
+export function overlayFromTemplateLayout(
+  baseUrl: string,
+  layout: DesignTemplateLayout,
+  opts?: {
+    overlayText?: string;
+    secondaryText?: string;
+    headerLeft?: string;
+    headerRight?: string;
+    primaryFont?: string;
+    secondaryFont?: string;
+  },
+): MediaTextOverlay {
+  const primary = resolveBrandFont(opts?.primaryFont);
+  const secondary = resolveBrandFont(opts?.secondaryFont, primary);
+  const headline = (opts?.overlayText ?? "").trim();
+  const support = (opts?.secondaryText ?? "").trim();
+  const handle = formatInstagramHandle(opts?.headerLeft) || (opts?.headerLeft ?? "").trim();
+  const tagline = (opts?.headerRight ?? "").trim();
+
+  const layers = layout.layers.map((layer) => {
+    let text = layer.text;
+    let fontFamily = layer.fontFamily;
+    if (layer.role === "headline" && headline) text = headline;
+    if (layer.role === "support" && support) text = support;
+    if (layer.role === "handle" && handle) text = handle;
+    if (layer.role === "tagline" && tagline) text = tagline;
+    if (layer.role === "headline" || layer.role === "support") {
+      fontFamily = layer.role === "headline" ? primary : secondary;
+    } else if (layer.role === "handle" || layer.role === "tagline") {
+      fontFamily = secondary;
+    }
+    return { ...layer, text, fontFamily };
+  });
+
+  return {
+    baseUrl,
+    layers,
+    adjustments: layout.adjustments ?? createDefaultImageAdjustments(),
+    fontFiles: layout.fontFiles,
+    fontFaces: layout.fontFaces,
+  };
+}
+
+export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as {
+    baseUrl?: unknown;
+    layers?: unknown;
+    adjustments?: unknown;
+    fontFiles?: unknown;
+    fontFaces?: unknown;
+  };
+  const baseUrl = typeof row.baseUrl === "string" ? row.baseUrl.trim() : "";
+  if (!baseUrl || !Array.isArray(row.layers)) return null;
+  const layers = parseTextLayers(row.layers);
   return {
     baseUrl,
     layers,
