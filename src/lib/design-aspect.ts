@@ -119,10 +119,10 @@ export function designAspectPreviewClass(
     if (aspect === "1:1") return `w-32 ${ratio}`;
     return `w-40 ${ratio}`;
   }
-  if (aspect === "16:9") return `mx-auto w-full max-w-xl ${ratio}`;
-  if (aspect === "9:16") return `mx-auto w-full max-w-[220px] ${ratio}`;
-  if (aspect === "1:1") return `mx-auto w-full max-w-xs ${ratio}`;
-  return `mx-auto w-full max-w-sm ${ratio}`;
+  if (aspect === "16:9") return `mx-auto w-full max-w-2xl ${ratio}`;
+  if (aspect === "9:16") return `mx-auto w-full max-w-[320px] ${ratio}`;
+  if (aspect === "1:1") return `mx-auto w-full max-w-[420px] ${ratio}`;
+  return `mx-auto w-full max-w-[420px] ${ratio}`;
 }
 
 export function designAspectI18nKey(aspect: DesignAspectRatio): string {
