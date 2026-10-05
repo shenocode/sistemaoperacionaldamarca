@@ -623,6 +623,7 @@ export function ClientLibraryView({
                   <BrandKitFields
                     showHeader={false}
                     idPrefix="library-brand-kit"
+                    clientId={clientId}
                     value={brandKit}
                     onChange={setBrandKit}
                   />

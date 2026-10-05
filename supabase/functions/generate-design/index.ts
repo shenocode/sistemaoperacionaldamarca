@@ -18,6 +18,8 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 
 type DesignProvider = "openai" | "gemini";
 
+type GenerateMode = "generate" | "open_editable";
+
 type GenerateRequest = {
   contentId: string;
   projectId: string;
@@ -25,6 +27,8 @@ type GenerateRequest = {
   format?: string;
   aspectRatio?: string;
   provider?: DesignProvider;
+  /** generate = arte limpa para overlay do form; open_editable = extrai textos do template. */
+  mode?: GenerateMode;
   templateUrl: string;
   photoUrl?: string;
   overlayText: string;
@@ -32,10 +36,28 @@ type GenerateRequest = {
   guidance?: string;
 };
 
-type BrandColor = { name?: string; hex?: string };
-type BrandFonts = { primary?: string; secondary?: string; notes?: string };
+type ExtractedLayer = {
+  text: string;
+  x: number;
+  y: number;
+  align: "left" | "center" | "right";
+  fontSize: number;
+  color: string;
+  maxWidth: number;
+  fontWeight: string;
+  role: "handle" | "tagline" | "headline" | "support" | "custom";
+  label?: string;
+};
 
-type RefImage = { bytes: Uint8Array<ArrayBuffer>; mime: string; fileName: string };
+type BrandColor = { name?: string; hex?: string };
+type BrandFonts = {
+  primary?: string;
+  secondary?: string;
+  extras?: Array<{ family?: string }>;
+  notes?: string;
+};
+
+type RefImage = { bytes: Uint8Array; mime: string; fileName: string };
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -115,9 +137,18 @@ function formatBrandColors(raw: unknown): string {
 function formatBrandFonts(raw: unknown): string {
   if (!raw || typeof raw !== "object") return "(não informado)";
   const fonts = raw as BrandFonts;
+  const extras = (fonts.extras ?? [])
+    .map((entry) => (entry?.family ?? "").trim())
+    .filter(Boolean);
+  const secondaryParts = [
+    fonts.secondary?.trim() || null,
+    ...extras,
+  ].filter(Boolean);
   const parts = [
     fonts.primary?.trim() ? `principal: ${fonts.primary.trim()}` : null,
-    fonts.secondary?.trim() ? `secundária: ${fonts.secondary.trim()}` : null,
+    secondaryParts.length
+      ? `secundária${secondaryParts.length > 1 ? "s" : ""}: ${secondaryParts.join(", ")}`
+      : null,
     fonts.notes?.trim() ? `notas: ${fonts.notes.trim()}` : null,
   ].filter(Boolean);
   return parts.length ? parts.join("; ") : "(não informado)";
@@ -238,6 +269,151 @@ async function scrubTextWithOpenAI(input: {
     aspectRatio: input.aspectRatio,
     inputFidelity: "low",
   });
+}
+
+function clamp01(value: number, fallback = 0.5) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(1, Math.max(0, value));
+}
+
+function normalizeExtractedLayers(raw: unknown): ExtractedLayer[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { layers?: unknown }).layers)
+      ? (raw as { layers: unknown[] }).layers
+      : [];
+  const roles = new Set(["handle", "tagline", "headline", "support", "custom"]);
+  const out: ExtractedLayer[] = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    const text = typeof row.text === "string" ? row.text.trim() : "";
+    if (!text) continue;
+    const align =
+      row.align === "left" || row.align === "right" || row.align === "center" ? row.align : "center";
+    const roleRaw = typeof row.role === "string" ? row.role : "custom";
+    const role = roles.has(roleRaw) ? (roleRaw as ExtractedLayer["role"]) : "custom";
+    const fontSizeRaw = typeof row.fontSize === "number" ? row.fontSize : 0.05;
+    out.push({
+      text,
+      x: clamp01(typeof row.x === "number" ? row.x : 0.5),
+      y: clamp01(typeof row.y === "number" ? row.y : 0.5),
+      align,
+      fontSize: Math.min(0.18, Math.max(0.014, fontSizeRaw > 1 ? fontSizeRaw / 1000 : fontSizeRaw)),
+      color:
+        typeof row.color === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(row.color.trim())
+          ? row.color.trim()
+          : "#FFFFFF",
+      maxWidth: Math.min(
+        0.98,
+        Math.max(0.2, typeof row.maxWidth === "number" ? row.maxWidth : 0.82),
+      ),
+      fontWeight: row.fontWeight === "400" || row.fontWeight === "300" ? "400" : "700",
+      role,
+      label: typeof row.label === "string" && row.label.trim() ? row.label.trim() : undefined,
+    });
+  }
+  return out;
+}
+
+const EXTRACT_LAYERS_PROMPT = [
+  "You analyze a finished social-media design image and return ONLY JSON.",
+  'Schema: {"layers":[{"text":"exact visible text","x":0-1,"y":0-1,"align":"left|center|right","fontSize":0.014-0.18,"color":"#RRGGBB","maxWidth":0.2-0.98,"fontWeight":"400"|"700","role":"handle|tagline|headline|support|custom","label":"optional"}]}',
+  "x/y are the text block anchor as fractions of image width/height (0=left/top, 1=right/bottom).",
+  "fontSize is fraction of image HEIGHT (headline ~0.05–0.09, chrome ~0.018–0.028).",
+  "Include EVERY distinct text block visible (handles, titles, subtitles, captions). Preserve exact wording/language.",
+  "role hints: @handle top-left=handle; small top-right=tagline; main title=headline; bottom support=support; else custom.",
+  "Do not invent text that is not visible. Ignore pure decorative marks without letters.",
+].join("\n");
+
+async function extractLayersWithOpenAI(input: {
+  image: RefImage;
+  apiKey: string;
+}): Promise<ExtractedLayer[]> {
+  const dataUrl = `data:${normalizeMime(input.image.mime)};base64,${bytesToBase64(input.image.bytes)}`;
+  const model = Deno.env.get("OPENAI_VISION_MODEL") || Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: EXTRACT_LAYERS_PROMPT },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extract all editable text layers from this design." },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("OpenAI layer extract error:", res.status, errText);
+    throw Object.assign(new Error("Falha ao ler textos do template (OpenAI)"), {
+      status: res.status >= 400 && res.status < 600 ? res.status : 502,
+    });
+  }
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = json.choices?.[0]?.message?.content ?? "{}";
+  try {
+    return normalizeExtractedLayers(JSON.parse(content));
+  } catch {
+    return [];
+  }
+}
+
+async function extractLayersWithGemini(input: {
+  image: RefImage;
+  apiKey: string;
+}): Promise<ExtractedLayer[]> {
+  const model =
+    Deno.env.get("GEMINI_CHAT_MODEL") || Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(input.apiKey)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: `${EXTRACT_LAYERS_PROMPT}\n\nExtract all editable text layers from this design.` },
+            {
+              inline_data: {
+                mime_type: normalizeMime(input.image.mime),
+                data: bytesToBase64(input.image.bytes),
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+  if (!res.ok) {
+    throwGeminiImageError(res.status, await res.text());
+  }
+  const json = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const content = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") || "{}";
+  try {
+    return normalizeExtractedLayers(JSON.parse(content));
+  } catch {
+    return [];
+  }
 }
 
 function isGeminiApiKeyError(status: number, errText: string): boolean {
@@ -445,6 +621,7 @@ Deno.serve(async (req) => {
 
     const body = (await req.json()) as GenerateRequest;
     const provider = normalizeProvider(body.provider);
+    const mode: GenerateMode = body.mode === "open_editable" ? "open_editable" : "generate";
     const templateUrl = body.templateUrl?.trim() ?? "";
     const photoUrl = body.photoUrl?.trim() ?? "";
     const overlayText = body.overlayText?.trim() ?? "";
@@ -455,16 +632,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Parâmetros inválidos" }, 400);
     }
     if (!templateUrl) return jsonResponse({ error: "Informe o template de referência" }, 400);
-    if (!overlayText) return jsonResponse({ error: "Informe o texto da arte" }, 400);
+    if (mode === "generate" && !overlayText) {
+      return jsonResponse({ error: "Informe o texto da arte" }, 400);
+    }
     void overlayText;
     void secondaryText;
 
-    const { apiKey: rawApiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 10);
-    const keyError = resolvedKeyError({ apiKey: rawApiKey, source: keySource }, provider);
+    const { apiKey, source: keySource } = await resolveAiKeyWithBudget(admin, user.id, provider, 10);
+    const keyError = resolvedKeyError({ apiKey, source: keySource }, provider);
     if (keyError) {
       return jsonResponse({ error: keyError }, 400);
     }
-    const apiKey = rawApiKey ?? "";
     void keySource;
 
     const [
@@ -536,6 +714,89 @@ Deno.serve(async (req) => {
     const templateImage = await fetchImage(templateUrl);
     const photoImage = photoUrl ? await fetchImage(photoUrl) : null;
 
+    async function scrubTwice(bytes: Uint8Array): Promise<Uint8Array> {
+      let next = bytes;
+      const run = provider === "gemini" ? scrubTextWithGemini : scrubTextWithOpenAI;
+      for (let i = 0; i < 2; i += 1) {
+        try {
+          next = await run({
+            image: { bytes: next, mime: "image/png", fileName: `draft-${i}.png` },
+            apiKey,
+            aspectRatio,
+          });
+        } catch (scrubErr) {
+          console.error(`Text scrub pass ${i + 1} failed:`, scrubErr);
+          break;
+        }
+      }
+      return next;
+    }
+
+    // Modo projeto editável: extrai tipografia do template e devolve fundo limpo + layers.
+    if (mode === "open_editable") {
+      const sourceImage = photoImage ?? templateImage;
+      let layers: ExtractedLayer[] = [];
+      try {
+        layers =
+          provider === "gemini"
+            ? await extractLayersWithGemini({ image: sourceImage, apiKey })
+            : await extractLayersWithOpenAI({ image: sourceImage, apiKey });
+      } catch (extractErr) {
+        console.error("Layer extract failed:", extractErr);
+        // Continua com fundo limpo mesmo se a leitura de texto falhar.
+      }
+
+      let imageBytes: Uint8Array;
+      try {
+        const run = provider === "gemini" ? scrubTextWithGemini : scrubTextWithOpenAI;
+        let current: RefImage = sourceImage;
+        for (let i = 0; i < 2; i += 1) {
+          try {
+            const bytes = await run({
+              image: current,
+              apiKey,
+              aspectRatio,
+            });
+            current = { bytes, mime: "image/png", fileName: `editable-bg-${i}.png` };
+          } catch (scrubErr) {
+            console.error(`Editable scrub pass ${i + 1} failed:`, scrubErr);
+            break;
+          }
+        }
+        imageBytes = current.bytes;
+      } catch (err) {
+        const status =
+          typeof err === "object" && err && "status" in err
+            ? Number((err as { status?: number }).status) || 502
+            : 502;
+        return jsonResponse(
+          { error: err instanceof Error ? err.message : "Falha ao separar camadas do template" },
+          status,
+        );
+      }
+
+      const storagePath = `${body.projectId}/ai-edit-${crypto.randomUUID()}.png`;
+      const { error: uploadError } = await admin.storage.from(CONTENT_MEDIA_BUCKET).upload(
+        storagePath,
+        imageBytes,
+        {
+          contentType: "image/png",
+          upsert: false,
+          cacheControl: "3600",
+        },
+      );
+      if (uploadError) {
+        console.error("Upload editable base failed:", uploadError.message);
+        return jsonResponse({ error: "Falha ao salvar o fundo editável" }, 500);
+      }
+      const { data: publicUrlData } = admin.storage.from(CONTENT_MEDIA_BUCKET).getPublicUrl(storagePath);
+      return jsonResponse({
+        imageUrl: publicUrlData.publicUrl,
+        provider,
+        layers,
+      });
+    }
+
     const prompt = [
       photoImage
         ? "TAREFA: tratar ESTA FOTO como fundo de arte social — UMA imagem limpa, SEM nenhuma letra."
@@ -565,24 +826,6 @@ Deno.serve(async (req) => {
     ]
       .filter(Boolean)
       .join("\n");
-
-    async function scrubTwice(bytes: Uint8Array): Promise<Uint8Array> {
-      let next = bytes;
-      const run = provider === "gemini" ? scrubTextWithGemini : scrubTextWithOpenAI;
-      for (let i = 0; i < 2; i += 1) {
-        try {
-          next = await run({
-            image: { bytes: next as Uint8Array<ArrayBuffer>, mime: "image/png", fileName: `draft-${i}.png` },
-            apiKey,
-            aspectRatio,
-          });
-        } catch (scrubErr) {
-          console.error(`Text scrub pass ${i + 1} failed:`, scrubErr);
-          break;
-        }
-      }
-      return next;
-    }
 
     let imageBytes: Uint8Array;
     try {

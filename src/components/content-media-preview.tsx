@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PrintMaterialPreview } from "@/components/print-material-preview";
 import { ArtTextEditorPanel, ArtTextOverlayView } from "@/components/art-text-editor";
+import { brandFontsToFaceMap, brandFontsToFileMap } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
 import {
   extractYoutubeVideoId,
@@ -41,6 +42,7 @@ import {
   isYoutubeVideoFormat,
   youtubeThumbnailUrl,
   type BrandColor,
+  type BrandFonts,
   type ContentFormat,
 } from "@/lib/api";
 import {
@@ -63,7 +65,7 @@ export type PreviewMediaItem = {
 };
 
 export type MediaTextEditorConfig = {
-  brandFonts: { primary?: string; secondary?: string; notes?: string };
+  brandFonts: BrandFonts;
   colors: BrandColor[];
   /** Prefills the top-left handle layer when expanding layout layers. */
   headerLeft?: string;
@@ -305,6 +307,8 @@ export function MediaLightbox({
   useEffect(() => {
     if (!open) return;
     setCurrent(Math.min(Math.max(initialIndex, 0), Math.max(items.length - 1, 0)));
+    const fontFiles = textEditor ? brandFontsToFileMap(textEditor.brandFonts) : undefined;
+    const fontFaces = textEditor ? brandFontsToFaceMap(textEditor.brandFonts) : undefined;
     const nextDrafts = items.map((item) => {
       if (resolveKind(item) !== "image") return null;
       const base =
@@ -318,8 +322,9 @@ export function MediaLightbox({
           primaryFont: textEditor?.brandFonts.primary,
           secondaryFont: textEditor?.brandFonts.secondary,
           colors: textEditor?.colors,
+          fontFiles,
         });
-      return ensureArtLayoutLayers(base, {
+      const withLayout = ensureArtLayoutLayers(base, {
         overlayText: textEditor?.overlayText,
         secondaryText: textEditor?.secondaryText,
         headerLeft: textEditor?.headerLeft,
@@ -327,7 +332,13 @@ export function MediaLightbox({
         primaryFont: textEditor?.brandFonts.primary,
         secondaryFont: textEditor?.brandFonts.secondary,
         colors: textEditor?.colors,
+        fontFiles,
       });
+      return {
+        ...withLayout,
+        fontFiles: fontFiles ?? withLayout.fontFiles,
+        fontFaces: fontFaces ?? withLayout.fontFaces,
+      };
     });
     setDrafts(nextDrafts);
     const start = Math.min(Math.max(initialIndex, 0), Math.max(nextDrafts.length - 1, 0));

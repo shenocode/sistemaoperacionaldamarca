@@ -16,8 +16,11 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
-  BRAND_FONT_OPTIONS,
   brandFontFamilyCss,
+  brandFontNeedsFile,
+  brandFontsToFaceMap,
+  brandFontsToFileMap,
+  facesForBrandFamily,
   fontOptionsForSelect,
   loadBrandFonts,
   resolveBrandFont,
@@ -36,7 +39,7 @@ import {
   type MediaTextOverlay,
   type TextLayerAlign,
 } from "@/lib/media-text-overlay";
-import type { BrandColor } from "@/lib/api";
+import type { BrandColor, BrandFonts } from "@/lib/api";
 
 function containedRect(
   containerW: number,
@@ -96,10 +99,17 @@ export function ArtTextOverlayView({
     () => overlay.layers.map((layer) => layer.fontFamily),
     [overlay.layers],
   );
+  const [fontsEpoch, setFontsEpoch] = useState(0);
 
   useEffect(() => {
-    void loadBrandFonts(families);
-  }, [families]);
+    let cancelled = false;
+    void loadBrandFonts(families, overlay.fontFiles, overlay.fontFaces).then(() => {
+      if (!cancelled) setFontsEpoch((n) => n + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [families, overlay.fontFiles, overlay.fontFaces]);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -227,9 +237,11 @@ export function ArtTextOverlayView({
                   opacity: empty ? 1 : layer.opacity ?? 1,
                   fontFamily: brandFontFamilyCss(layer.fontFamily),
                   fontWeight: layer.fontWeight,
+                  fontStyle: layer.fontStyle === "italic" ? "italic" : "normal",
                   fontSize: `${Math.max(10, layer.fontSize * box.height)}px`,
                   textShadow: empty ? "none" : "0 1px 2px rgba(0,0,0,0.45)",
                 }}
+                data-fonts-epoch={fontsEpoch}
               >
                 {empty ? layer.label || "…" : layer.text}
               </div>
@@ -428,32 +440,64 @@ export function ArtTextEditorPanel({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onChange: (overlay: MediaTextOverlay) => void;
-  brandFonts: { primary?: string; secondary?: string };
+  brandFonts: BrandFonts;
   colors: BrandColor[];
 }) {
   const { t } = useTranslation();
   const selected = overlay.layers.find((layer) => layer.id === selectedId) ?? overlay.layers[0] ?? null;
   const options = fontOptionsForSelect(selected?.fontFamily);
   const pinned = [...new Set(
-    [brandFonts.primary, brandFonts.secondary]
+    [
+      brandFonts.primary,
+      brandFonts.secondary,
+      ...(brandFonts.extras ?? []).map((entry) => entry.family),
+    ]
       .map((name) => (name ?? "").trim())
       .filter(Boolean),
   )];
+  const faceMap = useMemo(() => brandFontsToFaceMap(brandFonts), [brandFonts]);
+  const fontFiles = useMemo(
+    () => ({
+      ...(overlay.fontFiles ?? {}),
+      ...brandFontsToFileMap(brandFonts),
+    }),
+    [overlay.fontFiles, brandFonts],
+  );
+  const fontFaces = useMemo(
+    () => ({
+      ...(overlay.fontFaces ?? {}),
+      ...faceMap,
+    }),
+    [overlay.fontFaces, faceMap],
+  );
   const adjustments = normalizeImageAdjustments(
     overlay.adjustments ?? createDefaultImageAdjustments(),
   );
+  const selectedFaces = facesForBrandFamily(brandFonts, selected?.fontFamily);
+  const selectedFaceKey = (() => {
+    if (!selected || selectedFaces.length === 0) return "700:normal";
+    const current = `${selected.fontWeight}:${selected.fontStyle === "italic" ? "italic" : "normal"}`;
+    if (selectedFaces.some((face) => `${face.weight}:${face.style}` === current)) return current;
+    const preferred =
+      selectedFaces.find((face) => face.weight === "400" && face.style === "normal") ||
+      selectedFaces[0];
+    return `${preferred.weight}:${preferred.style}`;
+  })();
+  const selectedNeedsFile =
+    Boolean(selected?.fontFamily?.trim()) &&
+    brandFontNeedsFile(selected?.fontFamily) &&
+    !fontFiles[selected?.fontFamily?.trim() ?? ""] &&
+    selectedFaces.length === 0;
 
   useEffect(() => {
-    void loadBrandFonts([
-      ...BRAND_FONT_OPTIONS.map((font) => font.family),
-      ...pinned,
-      selected?.fontFamily ?? "",
-    ]);
-  }, [pinned, selected?.fontFamily]);
+    void loadBrandFonts([...pinned, selected?.fontFamily ?? ""], fontFiles, fontFaces);
+  }, [pinned, selected?.fontFamily, fontFiles, fontFaces]);
 
   function patchLayer(id: string, patch: Partial<MediaTextLayer>) {
     onChange({
       ...overlay,
+      fontFiles,
+      fontFaces,
       layers: overlay.layers.map((layer) => (layer.id === id ? { ...layer, ...patch } : layer)),
     });
   }
@@ -464,17 +508,45 @@ export function ArtTextEditorPanel({
       label: t("project.detail.artText.layer", { n: overlay.layers.length + 1 }),
       fontFamily: resolveBrandFont(brandFonts.primary),
       fontWeight: "700",
+      fontStyle: "normal",
       y: overlay.layers.length === 0 ? 0.22 : 0.5,
       color: colors[0]?.hex || "#FFFFFF",
     });
-    onChange({ ...overlay, layers: [...overlay.layers, next] });
+    onChange({ ...overlay, fontFiles, fontFaces, layers: [...overlay.layers, next] });
     onSelect(next.id);
   }
 
   function removeLayer(id: string) {
     const next = overlay.layers.filter((layer) => layer.id !== id);
-    onChange({ ...overlay, layers: next });
+    onChange({ ...overlay, fontFiles, fontFaces, layers: next });
     onSelect(next[0]?.id ?? "");
+  }
+
+  function applyFamily(family: string) {
+    if (!selected) return;
+    const faces = facesForBrandFamily(brandFonts, family);
+    if (faces.length > 0) {
+      const preferred =
+        faces.find((face) => face.weight === "400" && face.style === "normal") ||
+        faces.find((face) => face.style === "normal") ||
+        faces[0];
+      patchLayer(selected.id, {
+        fontFamily: family,
+        fontWeight: preferred.weight,
+        fontStyle: preferred.style,
+      });
+      return;
+    }
+    patchLayer(selected.id, { fontFamily: family, fontStyle: "normal" });
+  }
+
+  function applyFace(faceKey: string) {
+    if (!selected) return;
+    const [weight, style] = faceKey.split(":");
+    patchLayer(selected.id, {
+      fontWeight: weight || "400",
+      fontStyle: style === "italic" ? "italic" : "normal",
+    });
   }
 
   return (
@@ -526,7 +598,7 @@ export function ArtTextEditorPanel({
                   <Label>{t("project.detail.artText.font")}</Label>
                   <Select
                     value={resolveBrandFont(selected.fontFamily, selected.fontFamily)}
-                    onValueChange={(value) => patchLayer(selected.id, { fontFamily: value })}
+                    onValueChange={applyFamily}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -551,31 +623,71 @@ export function ArtTextEditorPanel({
                           <SelectItem
                             key={font.id}
                             value={font.family}
-                            style={{ fontFamily: brandFontFamilyCss(font.family) }}
+                            style={
+                              font.source === "google"
+                                ? { fontFamily: brandFontFamilyCss(font.family) }
+                                : undefined
+                            }
                           >
-                            {font.family}
+                            {font.source === "kit"
+                              ? `${font.family} · ${t("project.detail.artText.brandFontFile")}`
+                              : font.family}
                           </SelectItem>
                         ))}
                     </SelectContent>
                   </Select>
+                  {selectedNeedsFile ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {t("project.detail.artText.fontFileMissing")}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
-                    <Label>{t("project.detail.artText.weight")}</Label>
-                    <Select
-                      value={selected.fontWeight}
-                      onValueChange={(value) =>
-                        patchLayer(selected.id, { fontWeight: value as "400" | "700" })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="400">{t("project.detail.artText.weightRegular")}</SelectItem>
-                        <SelectItem value="700">{t("project.detail.artText.weightBold")}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>
+                      {selectedFaces.length > 0
+                        ? t("project.detail.artText.variant")
+                        : t("project.detail.artText.weight")}
+                    </Label>
+                    {selectedFaces.length > 0 ? (
+                      <Select value={selectedFaceKey} onValueChange={applyFace}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedFaces.map((face) => {
+                            const key = `${face.weight}:${face.style}`;
+                            return (
+                              <SelectItem key={key} value={key}>
+                                {face.label}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Select
+                        value={selected.fontWeight === "400" ? "400" : "700"}
+                        onValueChange={(value) =>
+                          patchLayer(selected.id, {
+                            fontWeight: value,
+                            fontStyle: "normal",
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="400">
+                            {t("project.detail.artText.weightRegular")}
+                          </SelectItem>
+                          <SelectItem value="700">
+                            {t("project.detail.artText.weightBold")}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t("project.detail.artText.align")}</Label>
