@@ -223,9 +223,8 @@ async function syncStripeSubscription(
     });
   }
 
-  if (isSubscriptionActiveStatus(status, endedAt)) {
-    await expireManualSubscriptions(admin, userId, email);
-  }
+  // Renovação, troca de cartão e subscription.updated não encerram cortesia.
+  // O plano manual atribuído pelo admin só termina num novo checkout pago.
 
   const inactive =
     status === "canceled" ||

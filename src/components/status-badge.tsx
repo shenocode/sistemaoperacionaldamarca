@@ -9,7 +9,8 @@ export type ContentStatus =
   | "approved"
   | "changes"
   | "changes_done"
-  | "published";
+  | "published"
+  | "archived";
 
 export type { SitePrototypeStatus };
 
@@ -23,7 +24,7 @@ export function isClientActionableStatus(
 /**
  * Visual styles for content workflow status.
  * Color gradient (red → green): waiting_material → draft → review → changes →
- * changes_done → approved → published.
+ * changes_done → approved → published. Archived is neutral (out of active calendar).
  * Darker fills use white text for contrast; mid yellow/lime keep dark text.
  */
 export const contentStatusStyles: Record<ContentStatus, string> = {
@@ -41,6 +42,8 @@ export const contentStatusStyles: Record<ContentStatus, string> = {
     "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-500/90",
   published:
     "border-green-800 bg-green-800 text-white hover:bg-green-800/90",
+  archived:
+    "border-slate-500 bg-slate-500 text-white hover:bg-slate-500/90",
 };
 
 export function StatusBadge({

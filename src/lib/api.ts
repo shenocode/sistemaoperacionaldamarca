@@ -37,7 +37,12 @@ import {
   getCanonicalText,
   parseRowI18n,
 } from "@/lib/i18n-content";
-import type { PlanEntitlements } from "@/lib/plan-entitlements";
+import {
+  entitlementsForPlan,
+  isAssignablePlan,
+  type AssignablePlan,
+  type PlanEntitlements,
+} from "@/lib/plan-entitlements";
 import {
   defaultAspectForFormat,
   parseDesignAspectRatio,
@@ -1893,9 +1898,59 @@ export async function listGestores() {
   return listGestoresFn();
 }
 
+type AssinantePlanFields = {
+  userId: string;
+  isMaster: boolean;
+  plan: AssignablePlan | null;
+  planStatus: string | null;
+  planSource: "stripe" | "manual" | null;
+  isActive: boolean;
+  maxClients: number | null;
+};
+
+/**
+ * A listagem da edge function pode devolver o plano Stripe mesmo depois de
+ * uma cortesia manual ter sido gravada. `active_subscription_plan` já prefere
+ * o plano manual ativo — é essa a fonte que a tela deve mostrar.
+ */
+async function withPreferredPlans<T extends AssinantePlanFields>(items: T[]): Promise<T[]> {
+  const targets = items.filter((item) => !item.isMaster);
+  if (targets.length === 0) return items;
+
+  const resolved = await Promise.all(
+    targets.map(async (item) => {
+      const { data, error } = await supabase.rpc("active_subscription_plan", {
+        _user_id: item.userId,
+      });
+      if (error || !isAssignablePlan(data)) return null;
+      return { userId: item.userId, plan: data };
+    }),
+  );
+
+  const planByUser = new Map(
+    resolved.flatMap((row) => (row ? [[row.userId, row.plan] as const] : [])),
+  );
+
+  return items.map((item) => {
+    if (item.isMaster) return item;
+    const plan = planByUser.get(item.userId);
+    if (!plan) return item;
+    const entitlements = entitlementsForPlan(plan, { isTeamOwner: true });
+    return {
+      ...item,
+      plan,
+      planSource: plan === item.plan ? item.planSource : "manual",
+      planStatus: "active",
+      isActive: true,
+      maxClients: entitlements.maxClients,
+    };
+  });
+}
+
 export async function listAssinantes() {
   const { listAssinantesFn } = await import("./provision-gestor-access.functions");
-  return listAssinantesFn();
+  const items = await listAssinantesFn();
+  return withPreferredPlans(items);
 }
 
 export async function setAssinanteStatus(input: {
@@ -1956,7 +2011,15 @@ export async function getMyEntitlements() {
     return myEntitlementsCache.value;
   }
   const { getMyEntitlementsFn } = await import("./provision-gestor-access.functions");
-  const value = await getMyEntitlementsFn();
+  const [edge, planResult] = await Promise.all([
+    getMyEntitlementsFn(),
+    supabase.rpc("active_subscription_plan"),
+  ]);
+  const dbPlan = planResult.data;
+  const value =
+    !edge.isMaster && !planResult.error && isAssignablePlan(dbPlan)
+      ? entitlementsForPlan(dbPlan, { isTeamOwner: true })
+      : edge;
   myEntitlementsCache = { at: Date.now(), value };
   return value;
 }
@@ -4003,10 +4066,10 @@ export async function setContentStatus(input: {
   contentId: string;
   clientId: string;
   projectId: string;
-  status: ContentStatus;
+  status: Exclude<ContentStatus, "archived">;
   title: string;
 }): Promise<ContentItem> {
-  const activityMap: Partial<Record<ContentStatus, ActivityType>> = {
+  const activityMap: Partial<Record<Exclude<ContentStatus, "archived">, ActivityType>> = {
     review: "submitted_for_review",
     changes_done: "submitted_for_review",
     approved: "approved",
@@ -4014,7 +4077,7 @@ export async function setContentStatus(input: {
     published: "published",
   };
 
-  const summaryMap: Partial<Record<ContentStatus, string>> = {
+  const summaryMap: Partial<Record<Exclude<ContentStatus, "archived">, string>> = {
     review: `Enviado para revisão: ${input.title}`,
     changes_done: `Ajustes concluídos: ${input.title}`,
     approved: `Aprovado: ${input.title}`,

@@ -24,7 +24,7 @@ import {
   contentStatusStyles,
   type ContentStatus,
 } from "@/components/status-badge";
-import { CONTENT_STATUSES } from "@/components/content-status-select";
+import { CONTENT_STATUSES, type WorkflowContentStatus } from "@/components/content-status-select";
 import { ContentFormatSelect } from "@/components/content-format-select";
 import {
   GraphicArtsMaterialFields,
@@ -87,6 +87,9 @@ import {
   listVersions,
   resolveContentMediaUrls,
   restoreVersion,
+  archiveContent,
+  restoreContent,
+  isContentArchived,
   saveClientContentVersion,
   saveContentAsNewVersion,
   setContentStatus,
@@ -439,7 +442,9 @@ function ContentDetailPage() {
     });
   }, [projectContentQuery.data]);
   const canManage = manageQuery.data ?? false;
-  const status = (content?.status ?? "draft") as ContentStatus;
+  const status = (content?.status ?? "draft") as WorkflowContentStatus;
+  const contentArchived = content ? isContentArchived(content) : false;
+  const displayStatus: ContentStatus = contentArchived ? "archived" : status;
   const isPrintPiece = isPrintMaterialFormat(formatType);
   const isReelsPiece = isReelsFormat(formatType);
   const usesDedicatedThumbnail = contentUsesDedicatedThumbnail(formatType);
@@ -986,17 +991,41 @@ function ContentDetailPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: (next: ContentStatus) =>
-      setContentStatus({
-        contentId,
-        clientId,
-        projectId,
-        status: next,
-        title: content?.title ?? title,
-      }),
-    onSuccess: (row, next) => {
-      queryClient.setQueryData(["content", "detail", contentId], row);
+    mutationFn: async (next: ContentStatus) => {
+      if (next === "archived") {
+        if (contentArchived) return { kind: "archived" as const };
+        const row = await archiveContent({ contentId, projectId });
+        return { kind: "archived" as const, row };
+      }
+      let row = content;
+      if (contentArchived) {
+        row = await restoreContent({ contentId, projectId });
+      }
+      if (next !== status) {
+        row = await setContentStatus({
+          contentId,
+          clientId,
+          projectId,
+          status: next,
+          title: content?.title ?? title,
+        });
+      }
+      return { kind: "workflow" as const, next, row, wasArchived: contentArchived };
+    },
+    onSuccess: (result) => {
+      if (result.row) {
+        queryClient.setQueryData(["content", "detail", contentId], result.row);
+      }
       invalidateAll();
+      if (result.kind === "archived") {
+        toast.success(t("project.calendar.archived"));
+        return;
+      }
+      if (result.wasArchived && result.next === status) {
+        toast.success(t("project.calendar.restored"));
+        return;
+      }
+      const next = result.next;
       if (next === "approved") toast.success(t("project.detail.approvedToast"));
       else if (next === "changes") toast.success(t("project.detail.changesToast"));
       else if (next === "changes_done")
@@ -1313,7 +1342,7 @@ function ContentDetailPage() {
             <Label variant="highlight">{t("project.content.columns.status")}</Label>
             <div className="flex flex-wrap gap-2">
               {statusButtons.map((value) => {
-                const isCurrent = value === status;
+                const isCurrent = !contentArchived && value === status;
                 return (
                   <Button
                     key={value}
@@ -1336,6 +1365,28 @@ function ContentDetailPage() {
                   </Button>
                 );
               })}
+              {isAdmin ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={statusMutation.isPending || contentArchived}
+                  aria-pressed={contentArchived}
+                  className={cn(
+                    "border shadow-sm",
+                    contentArchived
+                      ? contentStatusStyles.archived
+                      : "border-border bg-background text-foreground hover:bg-muted",
+                  )}
+                  onClick={() => {
+                    if (contentArchived) return;
+                    statusMutation.mutate("archived");
+                  }}
+                >
+                  {contentArchived
+                    ? t("project.content.status.archived")
+                    : t("project.calendar.archive")}
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1360,7 +1411,7 @@ function ContentDetailPage() {
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           {t(CONTENT_TAB_ENABLED ? "project.tabs.content" : "project.tabs.calendar")}
         </Link>
-        <StatusBadge status={status} asButton />
+        <StatusBadge status={displayStatus} asButton />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

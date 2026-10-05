@@ -1429,7 +1429,8 @@
         "approved": "Approved",
         "changes": "Production adjustments",
         "changes_done": "Adjustments completed",
-        "published": "Published"
+        "published": "Published",
+        "archived": "Archived"
       }
     },
     "detail": {

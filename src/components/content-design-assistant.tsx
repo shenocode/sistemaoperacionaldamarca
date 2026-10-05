@@ -1287,15 +1287,6 @@ export function ContentDesignAssistant({
     return URL.createObjectURL(templateFile);
   }, [templateFile]);
 
-  const templatePreviewUrl =
-    templateSource === "upload"
-      ? templateFilePreviewUrl
-      : (selectedGlobalTemplate?.imageUrl ?? null);
-  const templatePreviewAspect =
-    templateSource === "upload"
-      ? aspectRatio
-      : (selectedGlobalTemplate?.aspect ?? aspectRatio);
-
   useEffect(() => {
     return () => {
       if (templateFilePreviewUrl) URL.revokeObjectURL(templateFilePreviewUrl);
@@ -1584,23 +1575,6 @@ export function ContentDesignAssistant({
                 aspect: aspectRatio,
               })}
             </p>
-          ) : null}
-          {templatePreviewUrl ? (
-            <button
-              type="button"
-              className="mt-2 block w-full text-left"
-              aria-label={t("project.detail.designAssistant.expandTemplate")}
-              onClick={() => setLightbox({ mode: "template", url: templatePreviewUrl })}
-            >
-              <img
-                src={templatePreviewUrl}
-                alt=""
-                className={cn(
-                  "rounded-lg border bg-muted object-cover",
-                  designAspectPreviewClass(templatePreviewAspect, "md"),
-                )}
-              />
-            </button>
           ) : null}
             </CollapsibleContent>
           </Collapsible>

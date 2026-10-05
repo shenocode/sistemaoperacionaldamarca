@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight, Settings2, Users } from "lucide-react";
 import { isAdminMasterEmail } from "@/lib/admin-master";
-import { ASSIGNABLE_PLANS, type AssignablePlan } from "@/lib/plan-entitlements";
+import { ASSIGNABLE_PLANS, entitlementsForPlan, type AssignablePlan } from "@/lib/plan-entitlements";
 import {
   isAdmin,
   listAssinantes,
@@ -175,11 +175,34 @@ function AssinantesPage() {
 
   const planMutation = useMutation({
     mutationFn: (input: { userId: string; plan: AssignablePlan }) => setGestorPlan(input),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: ["assinantes"] });
+      const previous = queryClient.getQueryData<AssinanteListItem[]>(["assinantes"]);
+      const entitlements = entitlementsForPlan(input.plan, { isTeamOwner: true });
+      queryClient.setQueryData<AssinanteListItem[]>(["assinantes"], (current) =>
+        current?.map((item) =>
+          item.userId === input.userId
+            ? {
+                ...item,
+                plan: input.plan,
+                planSource: "manual",
+                planStatus: "active",
+                isActive: true,
+                maxClients: entitlements.maxClients,
+              }
+            : item,
+        ),
+      );
+      return { previous };
+    },
     onSuccess: () => {
       invalidate();
       toast.success(t("subscribers.planUpdated"));
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(["assinantes"], context.previous);
+      toast.error(err.message);
+    },
   });
 
   const statusMutation = useMutation({
@@ -503,7 +526,11 @@ function AssinantesPage() {
                         disabled={planMutation.isPending}
                       >
                         <SelectTrigger id="settings-plan">
-                          <SelectValue placeholder={t("subscribers.noPlan")} />
+                          <SelectValue placeholder={t("subscribers.noPlan")}>
+                            {settingsFromQuery.plan
+                              ? t(`subscribers.plans.${settingsFromQuery.plan}`)
+                              : t("subscribers.noPlan")}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {ASSIGNABLE_PLANS.map((key) => (

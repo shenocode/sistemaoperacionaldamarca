@@ -51,15 +51,16 @@ async function upsertManualPlan(
   admin: any,
   input: { userId: string; email: string; plan: AssignablePlan },
 ) {
-  const { data: existing } = await admin
+  const { data: existing, error: lookupError } = await admin
     .from("subscriptions")
     .select("id")
     .eq("user_id", input.userId)
     .eq("source", "manual")
     .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
 
   if (existing?.id) {
-    const { error } = await admin
+    const { data, error } = await admin
       .from("subscriptions")
       .update({
         plan: input.plan,
@@ -67,24 +68,32 @@ async function upsertManualPlan(
         email: input.email,
         cancel_at_period_end: false,
       })
-      .eq("id", existing.id);
+      .eq("id", existing.id)
+      .select("plan")
+      .single();
     if (error) throw new Error(error.message);
+    if (data?.plan !== input.plan) throw new Error("Não foi possível gravar o plano.");
     return;
   }
 
-  const { error } = await admin.from("subscriptions").insert({
-    user_id: input.userId,
-    email: input.email,
-    plan: input.plan,
-    status: "active",
-    source: "manual",
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    stripe_price_id: null,
-    current_period_end: null,
-    cancel_at_period_end: false,
-  });
+  const { data, error } = await admin
+    .from("subscriptions")
+    .insert({
+      user_id: input.userId,
+      email: input.email,
+      plan: input.plan,
+      status: "active",
+      source: "manual",
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      stripe_price_id: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+    })
+    .select("plan")
+    .single();
   if (error) throw new Error(error.message);
+  if (data?.plan !== input.plan) throw new Error("Não foi possível gravar o plano.");
 }
 
 async function listAssinantes(supabase: any, admin: any, callerId: string) {

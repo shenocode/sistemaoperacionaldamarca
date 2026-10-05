@@ -14,10 +14,13 @@ import {
   contentStatusStyles,
   type ContentStatus,
 } from "@/components/status-badge";
-import { setContentStatus } from "@/lib/api";
+import { archiveContent, restoreContent, setContentStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export const CONTENT_STATUSES: ContentStatus[] = [
+/** Workflow statuses persisted in content_items.status (not archived). */
+export type WorkflowContentStatus = Exclude<ContentStatus, "archived">;
+
+export const CONTENT_STATUSES: WorkflowContentStatus[] = [
   "draft",
   "waiting_material",
   "review",
@@ -69,6 +72,7 @@ export function ContentStatusLink({
 
 export function ContentStatusSelect({
   status,
+  archived = false,
   contentId,
   clientId,
   projectId,
@@ -76,7 +80,9 @@ export function ContentStatusSelect({
   disabled = false,
   className,
 }: {
-  status: ContentStatus;
+  status: WorkflowContentStatus;
+  /** When true, shows "Arquivado" and moves item out of active calendar blocks. */
+  archived?: boolean;
   contentId: string;
   clientId: string;
   projectId: string;
@@ -86,20 +92,45 @@ export function ContentStatusSelect({
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const displayStatus: ContentStatus = archived ? "archived" : status;
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["content", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["content", "detail", contentId] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  }
 
   const statusMutation = useMutation({
-    mutationFn: (next: ContentStatus) =>
-      setContentStatus({
-        contentId,
-        clientId,
-        projectId,
-        status: next,
-        title,
-      }),
-    onSuccess: (_row, next) => {
-      queryClient.invalidateQueries({ queryKey: ["content", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["content", "detail", contentId] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    mutationFn: async (next: ContentStatus) => {
+      if (next === "archived") {
+        if (archived) return;
+        await archiveContent({ contentId, projectId });
+        return "archived" as const;
+      }
+      if (archived) {
+        await restoreContent({ contentId, projectId });
+      }
+      if (next !== status) {
+        await setContentStatus({
+          contentId,
+          clientId,
+          projectId,
+          status: next,
+          title,
+        });
+      }
+      return next;
+    },
+    onSuccess: (next) => {
+      invalidate();
+      if (next === "archived") {
+        toast.success(t("project.calendar.archived"));
+        return;
+      }
+      if (archived && next === status) {
+        toast.success(t("project.calendar.restored"));
+        return;
+      }
       if (next === "approved") toast.success(t("project.detail.approvedToast"));
       else if (next === "changes") toast.success(t("project.detail.changesToast"));
       else if (next === "changes_done")
@@ -114,7 +145,7 @@ export function ContentStatusSelect({
   if (disabled) {
     return (
       <ContentStatusLink
-        status={status}
+        status={displayStatus}
         contentId={contentId}
         clientId={clientId}
         projectId={projectId}
@@ -126,18 +157,18 @@ export function ContentStatusSelect({
   return (
     <div className={cn("flex min-w-0 max-w-full items-stretch gap-1", className)}>
       <ContentStatusLink
-        status={status}
+        status={displayStatus}
         contentId={contentId}
         clientId={clientId}
         projectId={projectId}
         className="min-w-0 flex-1"
       />
       <Select
-        value={status}
+        value={displayStatus}
         disabled={statusMutation.isPending}
         onValueChange={(value) => {
           const next = value as ContentStatus;
-          if (next === status) return;
+          if (next === displayStatus) return;
           statusMutation.mutate(next);
         }}
       >
@@ -145,7 +176,7 @@ export function ContentStatusSelect({
           aria-label={t("project.content.columns.status")}
           className={cn(
             "min-h-8 h-auto w-8 shrink-0 justify-center self-stretch border px-0 shadow-sm focus:ring-1 [&>span]:sr-only",
-            contentStatusStyles[status],
+            contentStatusStyles[displayStatus],
           )}
         >
           <SelectValue />
@@ -156,6 +187,11 @@ export function ContentStatusSelect({
               {t(`project.content.status.${value}`)}
             </SelectItem>
           ))}
+          <SelectItem value="archived">
+            {archived
+              ? t("project.content.status.archived")
+              : t("project.calendar.archive")}
+          </SelectItem>
         </SelectContent>
       </Select>
     </div>

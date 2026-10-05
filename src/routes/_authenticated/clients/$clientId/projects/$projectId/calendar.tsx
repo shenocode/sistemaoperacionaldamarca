@@ -63,7 +63,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ContentStatusLink, ContentStatusSelect } from "@/components/content-status-select";
+import { ContentStatusLink, ContentStatusSelect, type WorkflowContentStatus } from "@/components/content-status-select";
 import { ContentFormatSelect } from "@/components/content-format-select";
 import { type ContentStatus } from "@/components/status-badge";
 import {
@@ -449,7 +449,7 @@ function MonthItemCell({
       />
       <div className={cn("flex flex-col gap-1", isMuted && "opacity-70 saturate-50")}>
         <ContentStatusLink
-          status={row.status as ContentStatus}
+          status={isContentArchived(row) ? "archived" : (row.status as WorkflowContentStatus)}
           contentId={row.id}
           clientId={clientId}
           projectId={projectId}
@@ -506,7 +506,8 @@ function MonthItemCell({
           />
           {renderDatetimeField(row, "w-full")}
           <ContentStatusSelect
-            status={row.status as ContentStatus}
+            status={row.status as WorkflowContentStatus}
+            archived={isContentArchived(row)}
             contentId={row.id}
             clientId={clientId}
             projectId={projectId}
@@ -1438,7 +1439,8 @@ function ProjectCalendarPage() {
                       {t("project.calendar.columns.status")}
                     </Label>
                     <ContentStatusSelect
-                      status={row.status as ContentStatus}
+                      status={row.status as WorkflowContentStatus}
+                      archived={isContentArchived(row)}
                       contentId={row.id}
                       clientId={clientId}
                       projectId={projectId}
@@ -1549,7 +1551,8 @@ function ProjectCalendarPage() {
                     </td>
                     <td className="px-2 py-1.5 align-middle">
                       <ContentStatusSelect
-                        status={row.status as ContentStatus}
+                        status={row.status as WorkflowContentStatus}
+                        archived={isContentArchived(row)}
                         contentId={row.id}
                         clientId={clientId}
                         projectId={projectId}
