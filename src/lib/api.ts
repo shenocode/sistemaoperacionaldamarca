@@ -406,6 +406,7 @@ export const CLIENT_LOGOS_BUCKET = "client-logos";
 export const GESTOR_LOGOS_BUCKET = "gestor-logos";
 export const PROPOSAL_COVERS_BUCKET = "proposal-covers";
 export const COMMENT_AUDIO_BUCKET = "comment-audio";
+export const LOCUCAO_AUDIO_BUCKET = "locucao-audio";
 
 export const CLIENT_LOGO_ACCEPT = ".jpg,.jpeg,.png,.gif,.webp,.svg,image/jpeg,image/png,image/gif,image/webp,image/svg+xml";
 export const GESTOR_LOGO_ACCEPT = CLIENT_LOGO_ACCEPT;
@@ -2900,6 +2901,10 @@ export async function deleteContent(input: {
   if (storagePaths.length > 0) {
     await supabase.storage.from(CONTENT_MEDIA_BUCKET).remove(storagePaths);
   }
+  const locucaoPath = current.locucao_audio_storage_path?.trim();
+  if (locucaoPath) {
+    await supabase.storage.from(LOCUCAO_AUDIO_BUCKET).remove([locucaoPath]);
+  }
 }
 
 export async function archiveContent(input: {
@@ -4718,6 +4723,89 @@ export async function uploadCommentAudio(input: {
   }
   const { data } = supabase.storage.from(COMMENT_AUDIO_BUCKET).getPublicUrl(storagePath);
   return { publicUrl: data.publicUrl, storagePath };
+}
+
+function locucaoAudioFileMeta(blob: Blob): { contentType: string; ext: string } {
+  const base = (blob.type || "audio/webm").split(";")[0]?.trim().toLowerCase() || "audio/webm";
+  if (base.includes("mp4") || base.includes("m4a") || base.includes("aac")) {
+    return { contentType: "audio/mp4", ext: "m4a" };
+  }
+  if (base.includes("ogg")) return { contentType: "audio/ogg", ext: "ogg" };
+  if (base.includes("mpeg") || base.includes("mp3")) return { contentType: "audio/mpeg", ext: "mp3" };
+  if (base.includes("wav")) return { contentType: "audio/wav", ext: "wav" };
+  return { contentType: "audio/webm", ext: "webm" };
+}
+
+function isMissingLocucaoAudioColumn(message: string) {
+  return /locucao_audio_/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
+
+const LOCUCAO_AUDIO_SCHEMA_ERROR =
+  "O áudio da locução ainda não pode ser salvo. Alguém com acesso ao Supabase precisa aplicar a migration da locução no banco.";
+
+/** Grava a locução do teleprompter e substitui o áudio anterior do ativo. */
+export async function saveLocucaoAudio(input: {
+  projectId: string;
+  contentId: string;
+  blob: Blob;
+}): Promise<ContentItem> {
+  const userId = await requireUserId();
+  const { data: current, error: readError } = await supabase
+    .from("content_items")
+    .select("locucao_audio_storage_path")
+    .eq("id", input.contentId)
+    .maybeSingle();
+  if (readError) {
+    if (isMissingLocucaoAudioColumn(readError.message)) {
+      throw new Error(LOCUCAO_AUDIO_SCHEMA_ERROR);
+    }
+    throw new Error(readError.message);
+  }
+
+  const { contentType, ext } = locucaoAudioFileMeta(input.blob);
+  const storagePath = `${input.projectId}/${input.contentId}/${userId}/${crypto.randomUUID()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(LOCUCAO_AUDIO_BUCKET)
+    .upload(storagePath, input.blob, {
+      cacheControl: "3600",
+      contentType,
+      upsert: false,
+    });
+  if (uploadError) {
+    if (/bucket not found/i.test(uploadError.message)) {
+      throw new Error(LOCUCAO_AUDIO_SCHEMA_ERROR);
+    }
+    if (/row-level security|violates row-level/i.test(uploadError.message)) {
+      throw new Error(
+        "Não foi possível enviar o áudio da locução por falta de permissão. Alguém com acesso ao Supabase precisa aplicar a migration da locução.",
+      );
+    }
+    throw new Error(uploadError.message);
+  }
+
+  const { data: publicData } = supabase.storage.from(LOCUCAO_AUDIO_BUCKET).getPublicUrl(storagePath);
+  const { data, error } = await supabase
+    .from("content_items")
+    .update({
+      locucao_audio_url: publicData.publicUrl,
+      locucao_audio_storage_path: storagePath,
+    })
+    .eq("id", input.contentId)
+    .select("*")
+    .single();
+  if (error) {
+    await supabase.storage.from(LOCUCAO_AUDIO_BUCKET).remove([storagePath]);
+    if (isMissingLocucaoAudioColumn(error.message)) {
+      throw new Error(LOCUCAO_AUDIO_SCHEMA_ERROR);
+    }
+    throw new Error(error.message);
+  }
+
+  const previousPath = current?.locucao_audio_storage_path?.trim();
+  if (previousPath && previousPath !== storagePath) {
+    await supabase.storage.from(LOCUCAO_AUDIO_BUCKET).remove([previousPath]);
+  }
+  return ensureData(data, null);
 }
 
 export async function addComment(input: {

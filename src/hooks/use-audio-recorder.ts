@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type AudioRecorderStatus = "idle" | "recording" | "recorded";
+export type AudioRecorderStatus = "idle" | "recording" | "paused" | "recorded";
 
 type UseAudioRecorderOptions = {
   maxMs?: number;
@@ -43,6 +43,9 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
+  const elapsedBaseRef = useRef(0);
+  const blobRef = useRef<Blob | null>(null);
+  const pendingFinishRef = useRef<((blob: Blob | null) => void) | null>(null);
   const tickRef = useRef<number | null>(null);
   const maxTimerRef = useRef<number | null>(null);
   const sessionRef = useRef(0);
@@ -92,6 +95,11 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
     discardRecorder();
     stopStream();
     chunksRef.current = [];
+    elapsedBaseRef.current = 0;
+    blobRef.current = null;
+    const pending = pendingFinishRef.current;
+    pendingFinishRef.current = null;
+    pending?.(null);
     revokePreview();
     setAudioBlob(null);
     setElapsedMs(0);
@@ -109,16 +117,115 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
     }
   }, []);
 
-  const start = useCallback(async () => {
-    if (startingRef.current) return;
+  const readElapsed = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    const running = recorder?.state === "recording";
+    const extra = running ? Date.now() - startedAtRef.current : 0;
+    return elapsedBaseRef.current + extra;
+  }, []);
+
+  const startTick = useCallback(
+    (session: number) => {
+      if (tickRef.current != null) {
+        window.clearInterval(tickRef.current);
+      }
+      tickRef.current = window.setInterval(() => {
+        if (session !== sessionRef.current) return;
+        const elapsed = readElapsed();
+        setElapsedMs(elapsed);
+        if (elapsed >= maxMs) finishRecording();
+      }, 200);
+    },
+    [finishRecording, maxMs, readElapsed],
+  );
+
+  const pause = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== "recording") return;
+    const elapsed = readElapsed();
+    try {
+      recorder.pause();
+    } catch {
+      return;
+    }
+    elapsedBaseRef.current = elapsed;
+    if (tickRef.current != null) {
+      window.clearInterval(tickRef.current);
+      tickRef.current = null;
+    }
+    setElapsedMs(elapsed);
+    setStatus("paused");
+  }, [readElapsed]);
+
+  const resume = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== "paused") return false;
+    try {
+      recorder.resume();
+    } catch {
+      return false;
+    }
+    startedAtRef.current = Date.now();
+    setStatus("recording");
+    startTick(sessionRef.current);
+    return true;
+  }, [startTick]);
+
+  const requestStream = useCallback(async (session: number) => {
+    const current = streamRef.current;
+    if (current?.getAudioTracks().some((track) => track.readyState === "live")) {
+      return current;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    });
+    if (session !== sessionRef.current) {
+      stream.getTracks().forEach((track) => track.stop());
+      return null;
+    }
+    stopStream();
+    streamRef.current = stream;
+    return stream;
+  }, [stopStream]);
+
+  const canRecord = useCallback(() => {
     if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
       setError("unsupported");
-      return;
+      return false;
     }
     if (!window.isSecureContext && window.location.hostname !== "localhost") {
       setError("insecure");
-      return;
+      return false;
     }
+    return true;
+  }, []);
+
+  const prime = useCallback(async () => {
+    if (!canRecord()) return false;
+    try {
+      const stream = await requestStream(sessionRef.current);
+      if (!stream) return false;
+      setError(null);
+      return true;
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setError("permission");
+      } else {
+        setError("failed");
+      }
+      return false;
+    }
+  }, [canRecord, requestStream]);
+
+  const start = useCallback(async () => {
+    if (mediaRecorderRef.current?.state === "recording") return true;
+    if (mediaRecorderRef.current?.state === "paused") return resume();
+    if (startingRef.current) return false;
+    if (!canRecord()) return false;
 
     startingRef.current = true;
     const session = sessionRef.current + 1;
@@ -126,32 +233,39 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
 
     clearTimers();
     discardRecorder();
-    stopStream();
     chunksRef.current = [];
+    elapsedBaseRef.current = 0;
+    blobRef.current = null;
     revokePreview();
     setAudioBlob(null);
     setElapsedMs(0);
     setError(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
-      if (session !== sessionRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
+      const stream = await requestStream(session);
+      if (!stream || session !== sessionRef.current) {
+        startingRef.current = false;
+        return false;
       }
 
-      streamRef.current = stream;
       const mimeType = pickMimeType();
       const recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
+
+      const settle = (blob: Blob | null, failed: "empty" | "failed" | null) => {
+        const pending = pendingFinishRef.current;
+        pendingFinishRef.current = null;
+        if (failed) {
+          setStatus("idle");
+          setAudioBlob(null);
+          blobRef.current = null;
+          setError(failed);
+        }
+        pending?.(blob);
+      };
 
       recorder.ondataavailable = (event) => {
         if (session !== sessionRef.current) return;
@@ -165,9 +279,8 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
         chunksRef.current = [];
         mediaRecorderRef.current = null;
         startingRef.current = false;
-        setAudioBlob(null);
-        setStatus("idle");
-        setError("failed");
+        detachRecorder(recorder);
+        settle(null, "failed");
       };
 
       recorder.onstop = () => {
@@ -181,17 +294,13 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
         startingRef.current = false;
         detachRecorder(recorder);
         if (parts.length === 0) {
-          setStatus("idle");
-          setAudioBlob(null);
-          setError("empty");
+          settle(null, "empty");
           return;
         }
         // Copy so the next MediaRecorder session cannot reuse this buffer.
         const blob = new Blob(parts, { type });
         if (blob.size === 0) {
-          setStatus("idle");
-          setAudioBlob(null);
-          setError("empty");
+          settle(null, "empty");
           return;
         }
         const detached = new Blob([blob], { type });
@@ -200,29 +309,24 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
           if (prev) URL.revokeObjectURL(prev);
           return url;
         });
+        blobRef.current = detached;
         setAudioBlob(detached);
         setStatus("recorded");
+        settle(detached, null);
       };
 
       // No timeslice: leftover ondataavailable events from a previous take
       // were being appended to the next recording (same first audio forever).
       recorder.start();
       startedAtRef.current = Date.now();
+      elapsedBaseRef.current = 0;
       setElapsedMs(0);
       setStatus("recording");
       startingRef.current = false;
-
-      tickRef.current = window.setInterval(() => {
-        if (session !== sessionRef.current) return;
-        setElapsedMs(Date.now() - startedAtRef.current);
-      }, 200);
-
-      maxTimerRef.current = window.setTimeout(() => {
-        if (session !== sessionRef.current) return;
-        finishRecording();
-      }, maxMs);
+      startTick(session);
+      return true;
     } catch (err) {
-      if (session !== sessionRef.current) return;
+      if (session !== sessionRef.current) return false;
       startingRef.current = false;
       stopStream();
       setStatus("idle");
@@ -232,8 +336,35 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
       } else {
         setError("failed");
       }
+      return false;
     }
-  }, [clearTimers, discardRecorder, finishRecording, maxMs, revokePreview, stopStream]);
+  }, [
+    canRecord,
+    clearTimers,
+    discardRecorder,
+    requestStream,
+    resume,
+    revokePreview,
+    startTick,
+    stopStream,
+  ]);
+
+  const finish = useCallback(() => {
+    return new Promise<Blob | null>((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        resolve(blobRef.current);
+        return;
+      }
+      pendingFinishRef.current = resolve;
+      try {
+        recorder.stop();
+      } catch {
+        pendingFinishRef.current = null;
+        resolve(blobRef.current);
+      }
+    });
+  }, []);
 
   useEffect(() => () => reset(), [reset]);
 
@@ -244,7 +375,11 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}) {
     previewUrl,
     error,
     supported: typeof MediaRecorder !== "undefined",
+    prime,
     start,
+    pause,
+    resume,
+    finish,
     stop: finishRecording,
     reset,
   };

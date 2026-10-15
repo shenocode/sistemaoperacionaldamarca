@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR, enUS, es } from "date-fns/locale";
 import {
   ChevronLeft,
+  Download,
   Eye,
   GripVertical,
   Plus,
@@ -92,6 +93,7 @@ import {
   isContentArchived,
   saveClientContentVersion,
   saveContentAsNewVersion,
+  saveLocucaoAudio,
   setContentStatus,
   updateContentFields,
   updateContentI18n,
@@ -1779,6 +1781,57 @@ function ContentDetailPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">{t("project.detail.locucaoHint")}</p>
+                  {content.locucao_audio_url?.trim() ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                      <div className="min-w-[12rem] flex-1 space-y-1">
+                        <p className="text-xs font-medium text-foreground">
+                          {t("project.detail.teleprompterSavedAudio")}
+                        </p>
+                        <audio
+                          controls
+                          preload="metadata"
+                          src={content.locucao_audio_url}
+                          className="h-9 w-full"
+                          aria-label={t("project.detail.teleprompterSavedAudio")}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const url = content.locucao_audio_url?.trim();
+                          if (!url) return;
+                          void (async () => {
+                            try {
+                              const res = await fetch(url);
+                              if (!res.ok) throw new Error("download");
+                              const blob = await res.blob();
+                              const ext = url.split("?")[0]?.split(".").pop() || "webm";
+                              const safeTitle =
+                                content.title
+                                  .replace(/[^\w\-]+/g, "-")
+                                  .replace(/-+/g, "-")
+                                  .slice(0, 60) || "locucao";
+                              const objectUrl = URL.createObjectURL(blob);
+                              const anchor = document.createElement("a");
+                              anchor.href = objectUrl;
+                              anchor.download = `${safeTitle}.${ext}`;
+                              document.body.appendChild(anchor);
+                              anchor.click();
+                              anchor.remove();
+                              URL.revokeObjectURL(objectUrl);
+                            } catch {
+                              toast.error(t("project.detail.teleprompterDownloadError"));
+                            }
+                          })();
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                        {t("project.detail.teleprompterDownload")}
+                      </Button>
+                    </div>
+                  ) : null}
                   <LocalizedTextarea
                     id="locucao"
                     field="locucao"
@@ -1794,6 +1847,10 @@ function ContentDetailPage() {
                     open={teleprompterOpen}
                     onOpenChange={setTeleprompterOpen}
                     text={teleprompterText}
+                    onSaveAudio={async (blob) => {
+                      const row = await saveLocucaoAudio({ projectId, contentId, blob });
+                      queryClient.setQueryData(["content", "detail", contentId], row);
+                    }}
                   />
                 </div>
               ) : null}

@@ -527,6 +527,8 @@ export type Database = {
           i18n: Json
           id: string
           locucao: string
+          locucao_audio_storage_path: string | null
+          locucao_audio_url: string | null
           material_type: string | null
           media_overlays: Json
           media_url: string | null
@@ -562,6 +564,8 @@ export type Database = {
           i18n?: Json
           id?: string
           locucao?: string
+          locucao_audio_storage_path?: string | null
+          locucao_audio_url?: string | null
           material_type?: string | null
           media_overlays?: Json
           media_url?: string | null
@@ -597,6 +601,8 @@ export type Database = {
           i18n?: Json
           id?: string
           locucao?: string
+          locucao_audio_storage_path?: string | null
+          locucao_audio_url?: string | null
           material_type?: string | null
           media_overlays?: Json
           media_url?: string | null

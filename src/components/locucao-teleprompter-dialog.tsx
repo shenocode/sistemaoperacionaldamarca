@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Maximize2, Minimize2, Pause, Play, Square } from "lucide-react";
+import { Maximize2, Minimize2, Pause, Play, Save, Square } from "lucide-react";
+import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { formatRecordingTime, useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { cn } from "@/lib/utils";
 
 const SPEED_MIN = 1;
@@ -83,12 +94,14 @@ type LocucaoTeleprompterDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   text: string;
+  onSaveAudio: (blob: Blob) => Promise<void>;
 };
 
 export function LocucaoTeleprompterDialog({
   open,
   onOpenChange,
   text,
+  onSaveAudio,
 }: LocucaoTeleprompterDialogProps) {
   const { t } = useTranslation();
   const trimmed = text.trim();
@@ -96,6 +109,18 @@ export function LocucaoTeleprompterDialog({
 
   const contentRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const openRef = useRef(open);
+  const playingRef = useRef(false);
+  openRef.current = open;
+
+  const recorder = useAudioRecorder({ maxMs: 30 * 60 * 1000 });
+  const {
+    finish: finishRecording,
+    pause: pauseRecording,
+    prime,
+    reset: resetRecording,
+    start: startRecording,
+  } = recorder;
 
   const [speed, setSpeed] = useState(() => readPrefs().speed);
   const [fontSize, setFontSize] = useState(() => readPrefs().fontSize);
@@ -103,6 +128,11 @@ export function LocucaoTeleprompterDialog({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [cssExpanded, setCssExpanded] = useState(false);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [unsaved, setUnsaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedNotice, setSavedNotice] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  playingRef.current = playing;
 
   const expanded = cssExpanded || nativeFullscreen;
 
@@ -128,6 +158,43 @@ export function LocucaoTeleprompterDialog({
     if (!open) return;
     resetPlayback();
   }, [open, text, resetPlayback]);
+
+  useEffect(() => {
+    if (open) return;
+    resetRecording();
+    setUnsaved(false);
+    setSavedNotice(false);
+    setConfirmClose(false);
+    setSaving(false);
+  }, [open, resetRecording]);
+
+  useEffect(() => {
+    if (recorder.status === "recording" || recorder.status === "paused") {
+      setUnsaved(true);
+      setSavedNotice(false);
+    }
+  }, [recorder.status]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!playing) {
+      pauseRecording();
+      return;
+    }
+    let cancelled = false;
+    void startRecording().then((ok) => {
+      if (!playingRef.current) {
+        pauseRecording();
+        return;
+      }
+      if (cancelled || !ok) return;
+      setUnsaved(true);
+      setSavedNotice(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, pauseRecording, playing, startRecording]);
 
   useEffect(() => {
     const onChange = () => {
@@ -188,7 +255,7 @@ export function LocucaoTeleprompterDialog({
   }, [resetPlayback]);
 
   const handlePlayPause = useCallback(() => {
-    if (!hasText) return;
+    if (!hasText || saving) return;
     if (countdown != null) {
       setCountdown(null);
       return;
@@ -200,11 +267,38 @@ export function LocucaoTeleprompterDialog({
     const el = scrollRef.current;
     const atStart = !el || el.scrollTop <= 2;
     if (atStart) {
-      setCountdown(COUNTDOWN_FROM);
+      void prime().finally(() => {
+        if (!openRef.current) return;
+        setCountdown(COUNTDOWN_FROM);
+      });
       return;
     }
     setPlaying(true);
-  }, [countdown, hasText, playing]);
+  }, [countdown, hasText, playing, prime, saving]);
+
+  const handleSave = useCallback(async () => {
+    if (saving) return false;
+    setPlaying(false);
+    setCountdown(null);
+    setSaving(true);
+    try {
+      const blob = await finishRecording();
+      if (!blob || blob.size === 0) {
+        toast.error(t("project.detail.teleprompterEmptyRecording"));
+        return false;
+      }
+      await onSaveAudio(blob);
+      setUnsaved(false);
+      setSavedNotice(true);
+      toast.success(t("project.detail.teleprompterSaved"));
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("project.detail.teleprompterSaveError"));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [finishRecording, onSaveAudio, saving, t]);
 
   const bumpFont = useCallback((delta: number) => {
     setFontSize((current) => clamp(current + delta, FONT_MIN, FONT_MAX));
@@ -234,13 +328,26 @@ export function LocucaoTeleprompterDialog({
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (!next) {
+        if (saving) return;
+        if (unsaved) {
+          setConfirmClose(true);
+          return;
+        }
         resetPlayback();
         exitExpanded();
       }
       onOpenChange(next);
     },
-    [exitExpanded, onOpenChange, resetPlayback],
+    [exitExpanded, onOpenChange, resetPlayback, saving, unsaved],
   );
+
+  const discardAndClose = useCallback(() => {
+    setConfirmClose(false);
+    setUnsaved(false);
+    resetPlayback();
+    exitExpanded();
+    onOpenChange(false);
+  }, [exitExpanded, onOpenChange, resetPlayback]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -359,22 +466,70 @@ export function LocucaoTeleprompterDialog({
 
           {countdown != null && countdown > 0 ? (
             <div
-              className="absolute inset-0 z-20 flex items-center justify-center bg-black/55"
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-black/70 px-6 text-center"
               aria-live="assertive"
             >
               <span className="text-7xl font-semibold tabular-nums tracking-tight text-white sm:text-8xl">
                 {countdown}
               </span>
+              <p className="max-w-sm text-lg font-medium text-white sm:text-xl">
+                {t("project.detail.teleprompterWait")}
+              </p>
             </div>
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
+        <div className="space-y-2 border-t border-neutral-800 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="min-w-0 flex-1 text-xs text-neutral-300">
+              {recorder.status === "recording" ? (
+                <span className="inline-flex items-center gap-2 font-medium text-white">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500"
+                    aria-hidden="true"
+                  />
+                  {t("project.detail.teleprompterRecording", {
+                    time: formatRecordingTime(recorder.elapsedMs),
+                  })}
+                </span>
+              ) : recorder.status === "paused" || (unsaved && recorder.status === "recorded") ? (
+                t("project.detail.teleprompterPausedRecording", {
+                  time: formatRecordingTime(recorder.elapsedMs),
+                })
+              ) : savedNotice ? (
+                t("project.detail.teleprompterSaved")
+              ) : (
+                t("project.detail.teleprompterWaitHint")
+              )}
+            </p>
+            <Button
+              type="button"
+              variant="mint"
+              size="sm"
+              disabled={!hasText || !unsaved || saving}
+              loading={saving}
+              loadingLabel={t("project.detail.teleprompterSaving")}
+              onClick={() => void handleSave()}
+            >
+              <Save className="h-4 w-4" aria-hidden="true" />
+              {t("project.detail.teleprompterSave")}
+            </Button>
+          </div>
+          {recorder.error ? (
+            <p className="text-xs text-red-300" role="alert">
+              {recorder.error === "permission"
+                ? t("project.detail.micPermissionDenied")
+                : recorder.error === "unsupported" || recorder.error === "insecure"
+                  ? t("project.detail.recordingUnsupported")
+                  : t("project.detail.recordingFailed")}
+            </p>
+          ) : null}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             size="icon"
             variant="mint"
-            disabled={!hasText}
+            disabled={!hasText || saving}
             aria-label={playLabel}
             title={playLabel}
             onClick={handlePlayPause}
@@ -389,7 +544,7 @@ export function LocucaoTeleprompterDialog({
             type="button"
             size="icon"
             variant="outline"
-            disabled={!hasText}
+            disabled={!hasText || saving}
             aria-label={t("project.detail.teleprompterStop")}
             title={t("project.detail.teleprompterStop")}
             onClick={handleStop}
@@ -466,7 +621,41 @@ export function LocucaoTeleprompterDialog({
             )}
           </Button>
         </div>
+        </div>
       </DialogContent>
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.detail.teleprompterUnsavedTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.detail.teleprompterUnsavedDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("project.detail.teleprompterKeepOpen")}</AlertDialogCancel>
+            <Button type="button" variant="outline" onClick={discardAndClose}>
+              {t("project.detail.teleprompterDiscardClose")}
+            </Button>
+            <Button
+              type="button"
+              variant="mint"
+              loading={saving}
+              loadingLabel={t("project.detail.teleprompterSaving")}
+              onClick={() => {
+                void handleSave().then((ok) => {
+                  if (!ok) return;
+                  setConfirmClose(false);
+                  resetPlayback();
+                  exitExpanded();
+                  onOpenChange(false);
+                });
+              }}
+            >
+              {t("project.detail.teleprompterSave")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
