@@ -4808,6 +4808,43 @@ export async function saveLocucaoAudio(input: {
   return ensureData(data, null);
 }
 
+/** Remove a locução gravada no teleprompter e o arquivo no armazenamento. */
+export async function deleteLocucaoAudio(contentId: string): Promise<ContentItem> {
+  const { data: current, error: readError } = await supabase
+    .from("content_items")
+    .select("locucao_audio_storage_path")
+    .eq("id", contentId)
+    .maybeSingle();
+  if (readError) {
+    if (isMissingLocucaoAudioColumn(readError.message)) {
+      throw new Error(LOCUCAO_AUDIO_SCHEMA_ERROR);
+    }
+    throw new Error(readError.message);
+  }
+
+  const { data, error } = await supabase
+    .from("content_items")
+    .update({
+      locucao_audio_url: null,
+      locucao_audio_storage_path: null,
+    })
+    .eq("id", contentId)
+    .select("*")
+    .single();
+  if (error) {
+    if (isMissingLocucaoAudioColumn(error.message)) {
+      throw new Error(LOCUCAO_AUDIO_SCHEMA_ERROR);
+    }
+    throw new Error(error.message);
+  }
+
+  const path = current?.locucao_audio_storage_path?.trim();
+  if (path) {
+    await supabase.storage.from(LOCUCAO_AUDIO_BUCKET).remove([path]);
+  }
+  return ensureData(data, null);
+}
+
 export async function addComment(input: {
   contentId: string;
   clientId: string;

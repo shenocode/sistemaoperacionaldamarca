@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   Download,
   Eye,
+  Trash2,
   GripVertical,
   Plus,
   Save,
@@ -73,6 +74,7 @@ import {
   contentFormatsForProject,
   defaultContentFormatForProject,
   deleteComment,
+  deleteLocucaoAudio,
   getClient,
   getContent,
   getGraphicArtsMaterialPreset,
@@ -357,6 +359,8 @@ function ContentDetailPage() {
   const [teleprompterText, setTeleprompterText] = useState("");
   const [newTheme, setNewTheme] = useState("");
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
+  const [deleteLocucaoOpen, setDeleteLocucaoOpen] = useState(false);
+  const [deletingLocucao, setDeletingLocucao] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [formBaseline, setFormBaseline] = useState<string | null>(null);
@@ -1830,6 +1834,18 @@ function ContentDetailPage() {
                         <Download className="mr-2 h-4 w-4" aria-hidden="true" />
                         {t("project.detail.teleprompterDownload")}
                       </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={t("project.detail.teleprompterDelete")}
+                        title={t("project.detail.teleprompterDelete")}
+                        disabled={deletingLocucao}
+                        onClick={() => setDeleteLocucaoOpen(true)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
                     </div>
                   ) : null}
                   <LocalizedTextarea
@@ -2588,6 +2604,49 @@ function ContentDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteLocucaoOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !deletingLocucao) setDeleteLocucaoOpen(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.detail.teleprompterDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.detail.teleprompterDeleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingLocucao}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletingLocucao}
+              onClick={(event) => {
+                event.preventDefault();
+                setDeletingLocucao(true);
+                void (async () => {
+                  try {
+                    const row = await deleteLocucaoAudio(contentId);
+                    queryClient.setQueryData(["content", "detail", contentId], row);
+                    setDeleteLocucaoOpen(false);
+                    toast.success(t("project.detail.teleprompterDeleted"));
+                  } catch (err) {
+                    toast.error(
+                      err instanceof Error ? err.message : t("project.detail.teleprompterDeleteError"),
+                    );
+                  } finally {
+                    setDeletingLocucao(false);
+                  }
+                })();
+              }}
+            >
+              {t("project.detail.teleprompterDelete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(deleteCommentId)}
