@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ContentMediaLibraryPicker } from "@/components/content-media-library-picker";
 import { cn } from "@/lib/utils";
+import type { LibraryAsset } from "@/lib/api";
 import {
   brandFontFamilyCss,
   brandFontNeedsFile,
@@ -34,10 +38,15 @@ import {
   imageAdjustmentsVignetteOpacity,
   MEDIA_IMAGE_FILTER_PRESETS,
   normalizeImageAdjustments,
+  normalizeLetterSpacing,
+  normalizeLineHeight,
+  normalizeTextShadow,
+  textLayerShadowCss,
   type MediaImageAdjustments,
   type MediaTextLayer,
   type MediaTextOverlay,
   type TextLayerAlign,
+  type TextLayerShadow,
 } from "@/lib/media-text-overlay";
 import type { BrandColor, BrandFonts } from "@/lib/api";
 
@@ -189,6 +198,9 @@ export function ArtTextOverlayView({
             const empty = !layer.text.trim();
             if (empty && !interactive) return null;
             const selected = selectedId === layer.id;
+            const fontPx = Math.max(10, layer.fontSize * box.height);
+            const lineHeight = normalizeLineHeight(layer.lineHeight);
+            const letterSpacing = normalizeLetterSpacing(layer.letterSpacing);
             return (
               <div
                 key={layer.id}
@@ -222,7 +234,7 @@ export function ArtTextOverlayView({
                 }
                 onClick={interactive ? () => onSelect?.(layer.id) : undefined}
                 className={cn(
-                  "absolute z-10 max-w-full select-none whitespace-pre-wrap break-words px-1 leading-tight",
+                  "absolute z-10 max-w-full select-none whitespace-pre-wrap break-words",
                   interactive && "cursor-grab active:cursor-grabbing",
                   selected && "ring-2 ring-sky-400 ring-offset-1 ring-offset-transparent",
                   empty && "rounded border border-dashed border-white/50 bg-black/25 px-2 py-1",
@@ -238,8 +250,10 @@ export function ArtTextOverlayView({
                   fontFamily: brandFontFamilyCss(layer.fontFamily),
                   fontWeight: layer.fontWeight,
                   fontStyle: layer.fontStyle === "italic" ? "italic" : "normal",
-                  fontSize: `${Math.max(10, layer.fontSize * box.height)}px`,
-                  textShadow: empty ? "none" : "0 1px 2px rgba(0,0,0,0.45)",
+                  fontSize: `${fontPx}px`,
+                  lineHeight,
+                  letterSpacing: `${letterSpacing}em`,
+                  textShadow: empty ? "none" : textLayerShadowCss(layer, fontPx),
                 }}
                 data-fonts-epoch={fontsEpoch}
               >
@@ -285,6 +299,106 @@ function AdjustmentSlider({
         value={[value]}
         onValueChange={([next]) => onChange(next ?? value)}
       />
+    </div>
+  );
+}
+
+function isReplaceableLibraryImage(asset: LibraryAsset) {
+  if (!asset.file_url?.trim()) return false;
+  if (asset.category === "images" || asset.category === "generated_arts") return true;
+  return Boolean(asset.mime_type?.startsWith("image/"));
+}
+
+function ImageReplacePanel({
+  clientId,
+  onReplaceImageFile,
+  onReplaced,
+}: {
+  clientId?: string;
+  onReplaceImageFile?: (file: File) => Promise<string>;
+  onReplaced: (url: string) => void;
+}) {
+  const { t } = useTranslation();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const canUpload = Boolean(onReplaceImageFile);
+  const canLibrary = Boolean(clientId);
+  if (!canUpload && !canLibrary) return null;
+
+  async function applyFile(file: File) {
+    if (!onReplaceImageFile) return;
+    setBusy(true);
+    try {
+      const url = await onReplaceImageFile(file);
+      if (!url.trim()) throw new Error(t("project.detail.artText.replaceImageError"));
+      onReplaced(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("project.detail.artText.replaceImageError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2 border-b pb-4">
+      <div className="space-y-1">
+        <p className="text-sm font-medium">{t("project.detail.artText.replaceImage")}</p>
+        <p className="text-xs text-muted-foreground">{t("project.detail.artText.replaceImageHint")}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {canUpload ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+          >
+            {busy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <ImagePlus className="mr-1 size-3.5" />}
+            {busy
+              ? t("project.detail.artText.replacingImage")
+              : t("project.detail.artText.replaceImageUpload")}
+          </Button>
+        ) : null}
+        {canLibrary ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => setLibraryOpen(true)}
+          >
+            {t("project.detail.artText.replaceImageLibrary")}
+          </Button>
+        ) : null}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) void applyFile(file);
+        }}
+      />
+      {clientId ? (
+        <ContentMediaLibraryPicker
+          clientId={clientId}
+          open={libraryOpen}
+          onOpenChange={setLibraryOpen}
+          onSelect={(asset) => {
+            if (!isReplaceableLibraryImage(asset) || !asset.file_url) {
+              toast.error(t("project.detail.artText.replaceImageError"));
+              return;
+            }
+            onReplaced(asset.file_url);
+            setLibraryOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -428,6 +542,88 @@ function ImageAdjustmentsPanel({
   );
 }
 
+function TextShadowControls({
+  shadow,
+  onChange,
+}: {
+  shadow: TextLayerShadow;
+  onChange: (next: TextLayerShadow) => void;
+}) {
+  const { t } = useTranslation();
+  const colorValue = /^#[0-9a-fA-F]{6}$/.test(shadow.color) ? shadow.color : "#000000";
+
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label>{t("project.detail.artText.shadow")}</Label>
+        <Switch
+          checked={shadow.enabled}
+          onCheckedChange={(enabled) => onChange({ ...shadow, enabled })}
+          aria-label={t("project.detail.artText.shadow")}
+        />
+      </div>
+      {shadow.enabled ? (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">{t("project.detail.artText.shadowColor")}</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                aria-label={t("project.detail.artText.shadowColor")}
+                className="h-8 w-10 cursor-pointer rounded border bg-transparent p-0.5"
+                value={colorValue}
+                onChange={(event) => onChange({ ...shadow, color: event.target.value })}
+              />
+              <Input
+                value={shadow.color}
+                onChange={(event) => onChange({ ...shadow, color: event.target.value })}
+                placeholder="#000000"
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <AdjustmentSlider
+            label={t("project.detail.artText.shadowTransparency")}
+            value={1 - shadow.opacity}
+            min={0}
+            max={0.95}
+            step={0.01}
+            formatValue={(value) => `${Math.round(value * 100)}%`}
+            onChange={(transparency) => onChange({ ...shadow, opacity: 1 - transparency })}
+          />
+          <AdjustmentSlider
+            label={t("project.detail.artText.shadowOffsetX")}
+            value={shadow.offsetX}
+            min={-0.3}
+            max={0.3}
+            step={0.01}
+            formatValue={(value) => `${Math.round(value * 100)}%`}
+            onChange={(offsetX) => onChange({ ...shadow, offsetX })}
+          />
+          <AdjustmentSlider
+            label={t("project.detail.artText.shadowOffsetY")}
+            value={shadow.offsetY}
+            min={-0.3}
+            max={0.3}
+            step={0.01}
+            formatValue={(value) => `${Math.round(value * 100)}%`}
+            onChange={(offsetY) => onChange({ ...shadow, offsetY })}
+          />
+          <AdjustmentSlider
+            label={t("project.detail.artText.shadowBlur")}
+            value={shadow.blur}
+            min={0}
+            max={0.4}
+            step={0.01}
+            formatValue={(value) => `${Math.round(value * 100)}%`}
+            onChange={(blur) => onChange({ ...shadow, blur })}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ArtTextEditorPanel({
   overlay,
   selectedId,
@@ -435,6 +631,8 @@ export function ArtTextEditorPanel({
   onChange,
   brandFonts,
   colors,
+  clientId,
+  onReplaceImageFile,
 }: {
   overlay: MediaTextOverlay;
   selectedId: string | null;
@@ -442,6 +640,9 @@ export function ArtTextEditorPanel({
   onChange: (overlay: MediaTextOverlay) => void;
   brandFonts: BrandFonts;
   colors: BrandColor[];
+  /** Lets the image tab swap the background without touching text layers. */
+  clientId?: string;
+  onReplaceImageFile?: (file: File) => Promise<string>;
 }) {
   const { t } = useTranslation();
   const selected = overlay.layers.find((layer) => layer.id === selectedId) ?? overlay.layers[0] ?? null;
@@ -720,6 +921,28 @@ export function ArtTextEditorPanel({
                     }
                   />
                 </div>
+                <AdjustmentSlider
+                  label={t("project.detail.artText.lineHeight")}
+                  value={normalizeLineHeight(selected.lineHeight)}
+                  min={0.8}
+                  max={2}
+                  step={0.05}
+                  formatValue={(value) => value.toFixed(2)}
+                  onChange={(lineHeight) => patchLayer(selected.id, { lineHeight })}
+                />
+                <AdjustmentSlider
+                  label={t("project.detail.artText.letterSpacing")}
+                  value={normalizeLetterSpacing(selected.letterSpacing)}
+                  min={-0.08}
+                  max={0.3}
+                  step={0.005}
+                  formatValue={(value) => `${value.toFixed(2)} em`}
+                  onChange={(letterSpacing) => patchLayer(selected.id, { letterSpacing })}
+                />
+                <TextShadowControls
+                  shadow={normalizeTextShadow(selected.shadow)}
+                  onChange={(shadow) => patchLayer(selected.id, { shadow })}
+                />
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <Label>{t("project.detail.artText.opacity")}</Label>
@@ -827,7 +1050,12 @@ export function ArtTextEditorPanel({
           </div>
         </TabsContent>
 
-        <TabsContent value="image" className="mt-0 min-h-0 flex-1 overflow-y-auto p-4">
+        <TabsContent value="image" className="mt-0 min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+          <ImageReplacePanel
+            clientId={clientId}
+            onReplaceImageFile={onReplaceImageFile}
+            onReplaced={(url) => onChange({ ...overlay, baseUrl: url })}
+          />
           <ImageAdjustmentsPanel
             adjustments={adjustments}
             onChange={(next) => onChange({ ...overlay, adjustments: next })}

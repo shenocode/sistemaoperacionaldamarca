@@ -1448,6 +1448,8 @@ function ContentDetailPage() {
                     ? {
                         brandFonts: brandKitFromClient(client ?? {}).brand_fonts,
                         colors: brandKitFromClient(client ?? {}).brand_colors,
+                        clientId,
+                        onReplaceImageFile: (file) => uploadContentMedia(projectId, file),
                         headerLeft: formatInstagramHandle(client?.instagram),
                         headerRight:
                           resolveBrandTagline(brandKitFromClient(client ?? {}).brand_fonts.notes) ||

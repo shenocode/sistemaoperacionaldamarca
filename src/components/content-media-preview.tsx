@@ -74,6 +74,10 @@ export type MediaTextEditorConfig = {
   /** Fallback copy for the headline layer when the overlay has no title text. */
   overlayText?: string;
   secondaryText?: string;
+  /** Biblioteca da marca, para trocar o fundo dentro do editor. */
+  clientId?: string;
+  /** Envia um arquivo novo e devolve a URL pública do fundo. */
+  onReplaceImageFile?: (file: File) => Promise<string>;
   onSave: (index: number, overlay: MediaTextOverlay) => Promise<void>;
 };
 
@@ -336,8 +340,8 @@ export function MediaLightbox({
       });
       return {
         ...withLayout,
-        fontFiles: fontFiles ?? withLayout.fontFiles,
-        fontFaces: fontFaces ?? withLayout.fontFaces,
+        fontFiles: { ...(withLayout.fontFiles ?? {}), ...(fontFiles ?? {}) },
+        fontFaces: { ...(withLayout.fontFaces ?? {}), ...(fontFaces ?? {}) },
       };
     });
     setDrafts(nextDrafts);
@@ -493,6 +497,8 @@ export function MediaLightbox({
                 onChange={updateDraft}
                 brandFonts={textEditor.brandFonts}
                 colors={textEditor.colors}
+                clientId={textEditor.clientId}
+                onReplaceImageFile={textEditor.onReplaceImageFile}
               />
               <div className="border-t p-4">
                 <Button type="button" className="w-full" disabled={saving} onClick={() => void handleSave()}>

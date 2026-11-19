@@ -80,7 +80,6 @@ import { cn } from "@/lib/utils";
 import {
   createDefaultImageAdjustments,
   createDefaultOverlay,
-  createTextLayer,
   ensureArtLayoutLayers,
   flattenOverlayToFile,
   formatInstagramHandle,
@@ -658,6 +657,21 @@ export function ContentDesignAssistant({
     return raw.replace(/[^\w.\-()+ ]+/g, "_").slice(0, 80);
   }, [title]);
 
+  /** Copia a imagem sem recortar, para as coordenadas do template continuarem válidas. */
+  async function reuseImageUrl(sourceUrl: string, label: string) {
+    try {
+      const res = await fetch(sourceUrl);
+      if (!res.ok) return sourceUrl;
+      const blob = await res.blob();
+      const type = blob.type.startsWith("image/") ? blob.type : "image/png";
+      const ext = type.includes("jpeg") ? "jpg" : type.includes("webp") ? "webp" : "png";
+      const file = new File([blob], `${label}-fundo.${ext}`, { type });
+      return uploadContentMedia(projectId, file);
+    } catch {
+      return sourceUrl;
+    }
+  }
+
   async function composeGeneratedArt(
     aiUrl: string,
     overlayTextValue: string,
@@ -669,15 +683,23 @@ export function ContentDesignAssistant({
     // Com foto: fundo = foto (sem tipografia do template/IA).
     // Textos do formulário viram só camadas editáveis (título, @, topo, apoio).
     // Com existingLayers: projeto aberto a partir do template (textos já extraídos).
+    // Nesse caso o fundo não é recortado de novo — senão os textos saem do lugar.
     const baseSource = photoUrl || aiUrl;
-    const normalizedBlob = await normalizeImageToDesignCanvas(baseSource, aspectRatio);
-    const normalizedFile = new File([normalizedBlob], `${label}-canvas.png`, { type: "image/png" });
-    const normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
+    const authoredLayers = existingLayers?.filter((layer) => layer.text.trim().length > 0) ?? [];
+    let normalizedUrl: string;
+    if (authoredLayers.length > 0) {
+      normalizedUrl = await reuseImageUrl(baseSource, label);
+    } else {
+      const normalizedBlob = await normalizeImageToDesignCanvas(baseSource, aspectRatio);
+      const normalizedFile = new File([normalizedBlob], `${label}-canvas.png`, { type: "image/png" });
+      normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
+    }
 
-    const overlay: MediaTextOverlay = existingLayers?.length
+    const overlay: MediaTextOverlay = authoredLayers.length
       ? {
           baseUrl: normalizedUrl,
-          layers: existingLayers,
+          layers: authoredLayers,
+          preserveLayers: true,
           adjustments: createDefaultImageAdjustments(),
         }
       : {
@@ -710,18 +732,8 @@ export function ContentDesignAssistant({
 
   function layersFromExtracted(raw: unknown): MediaTextLayer[] {
     const layout = parseDesignTemplateLayout({ layers: raw });
-    if (layout?.layers.length) {
-      return layout.layers.map((layer) =>
-        createTextLayer(layer.text, {
-          ...layer,
-          fontFamily:
-            layer.role === "headline"
-              ? kit.brand_fonts.primary || layer.fontFamily
-              : kit.brand_fonts.secondary || layer.fontFamily,
-        }),
-      );
-    }
-    return [];
+    if (!layout?.layers.length) return [];
+    return layout.layers.filter((layer) => layer.text.trim().length > 0);
   }
 
   function resolveLibraryTemplateProject(templateId: string): {
@@ -773,22 +785,8 @@ export function ContentDesignAssistant({
 
     if (libraryProject.layout && libraryProject.backgroundUrl) {
       setEditSourceTemplateId(libraryProject.templateId);
-      const normalizedBlob = await normalizeImageToDesignCanvas(
-        libraryProject.backgroundUrl,
-        aspectRatio,
-      );
-      const normalizedFile = new File([normalizedBlob], `${opts.label}-canvas.png`, {
-        type: "image/png",
-      });
-      const normalizedUrl = await uploadContentMedia(projectId, normalizedFile);
-      const overlay = overlayFromTemplateLayout(normalizedUrl, libraryProject.layout, {
-        overlayText: opts.overlayTextValue,
-        secondaryText: opts.secondaryTextValue,
-        headerLeft: brandHandle,
-        headerRight: brandTagline,
-        primaryFont: kit.brand_fonts.primary,
-        secondaryFont: kit.brand_fonts.secondary,
-      });
+      const normalizedUrl = await reuseImageUrl(libraryProject.backgroundUrl, opts.label);
+      const overlay = overlayFromTemplateLayout(normalizedUrl, libraryProject.layout);
       const file = await flattenOverlayToFile(overlay, `${opts.label}.png`);
       const url = await uploadContentMedia(projectId, file);
       return { url, overlay };
@@ -2265,6 +2263,8 @@ export function ContentDesignAssistant({
           : {
               brandFonts: kit.brand_fonts,
               colors: kit.brand_colors,
+              clientId,
+              onReplaceImageFile: (file) => uploadContentMedia(projectId, file),
               headerLeft: brandHandle,
               headerRight: brandTagline || undefined,
               overlayText:

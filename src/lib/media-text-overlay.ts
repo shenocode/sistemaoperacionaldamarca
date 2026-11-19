@@ -27,6 +27,30 @@ export type TextLayerAlign = "left" | "center" | "right";
 
 export type TextLayerRole = "handle" | "tagline" | "headline" | "support" | "custom";
 
+/** Drop shadow in font-size units (1 = the current font size). */
+export type TextLayerShadow = {
+  enabled: boolean;
+  color: string;
+  /** 0 = invisible, 1 = solid. */
+  opacity: number;
+  offsetX: number;
+  offsetY: number;
+  blur: number;
+};
+
+export const DEFAULT_LINE_HEIGHT = 1.15;
+export const DEFAULT_LETTER_SPACING = 0;
+
+/** Matches the shadow previously baked into every text layer. */
+export const DEFAULT_TEXT_SHADOW: TextLayerShadow = {
+  enabled: true,
+  color: "#000000",
+  opacity: 0.45,
+  offsetX: 0,
+  offsetY: 0.04,
+  blur: 0.08,
+};
+
 export type MediaTextLayer = {
   id: string;
   text: string;
@@ -36,9 +60,14 @@ export type MediaTextLayer = {
   fontStyle?: "normal" | "italic";
   /** Font size as a fraction of image height (e.g. 0.055). */
   fontSize: number;
+  /** Line height multiplier (default 1.15). */
+  lineHeight?: number;
+  /** Extra tracking in ems (default 0). */
+  letterSpacing?: number;
   color: string;
   /** Text opacity, 0–1 (default 1). */
   opacity: number;
+  shadow?: TextLayerShadow;
   /** Anchor X, 0–1. */
   x: number;
   /** Anchor Y, 0–1. */
@@ -55,6 +84,11 @@ export type MediaTextOverlay = {
   baseUrl: string;
   layers: MediaTextLayer[];
   adjustments?: MediaImageAdjustments;
+  /**
+   * Template project: keep only the layers that were saved.
+   * Skips the handle / tagline / headline / support scaffold.
+   */
+  preserveLayers?: boolean;
   /** Custom kit font family → public file URL (for FontFace load). */
   fontFiles?: Record<string, string>;
   /** Custom kit font family → weight/style faces. */
@@ -94,6 +128,42 @@ function asFontStyle(value: unknown): "normal" | "italic" {
 function asOpacity(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 1;
   return Math.min(1, Math.max(0, value));
+}
+
+function clampRange(value: unknown, fallback: number, min: number, max: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+export function normalizeLineHeight(value: unknown): number {
+  return clampRange(value, DEFAULT_LINE_HEIGHT, 0.8, 2.4);
+}
+
+export function normalizeLetterSpacing(value: unknown): number {
+  return clampRange(value, DEFAULT_LETTER_SPACING, -0.12, 0.5);
+}
+
+export function normalizeTextShadow(value: unknown): TextLayerShadow {
+  if (!value || typeof value !== "object") return { ...DEFAULT_TEXT_SHADOW };
+  const row = value as Record<string, unknown>;
+  return {
+    enabled: row.enabled !== false,
+    color: typeof row.color === "string" && row.color.trim() ? row.color.trim() : DEFAULT_TEXT_SHADOW.color,
+    opacity: asOpacity(typeof row.opacity === "number" ? row.opacity : DEFAULT_TEXT_SHADOW.opacity),
+    offsetX: clampRange(row.offsetX, DEFAULT_TEXT_SHADOW.offsetX, -0.4, 0.4),
+    offsetY: clampRange(row.offsetY, DEFAULT_TEXT_SHADOW.offsetY, -0.4, 0.4),
+    blur: clampRange(row.blur, DEFAULT_TEXT_SHADOW.blur, 0, 0.5),
+  };
+}
+
+/** CSS text-shadow that matches the canvas export for the same font size. */
+export function textLayerShadowCss(layer: Pick<MediaTextLayer, "shadow">, fontPx: number): string {
+  const shadow = normalizeTextShadow(layer.shadow);
+  if (!shadow.enabled) return "none";
+  const x = shadow.offsetX * fontPx;
+  const y = shadow.offsetY * fontPx;
+  const blur = shadow.blur * fontPx;
+  return `${x.toFixed(2)}px ${y.toFixed(2)}px ${blur.toFixed(2)}px ${colorWithOpacity(shadow.color, shadow.opacity)}`;
 }
 
 /** Extra swatches offered in the art text editor beyond the brand kit. */
@@ -204,8 +274,11 @@ export function createTextLayer(
     fontWeight: opts?.fontWeight ?? "700",
     fontStyle: opts?.fontStyle === "italic" ? "italic" : "normal",
     fontSize: opts?.fontSize ?? 0.055,
+    lineHeight: normalizeLineHeight(opts?.lineHeight),
+    letterSpacing: normalizeLetterSpacing(opts?.letterSpacing),
     color: opts?.color || DEFAULT_PRIMARY_COLOR,
     opacity: asOpacity(opts?.opacity ?? 1),
+    shadow: normalizeTextShadow(opts?.shadow),
     x: opts?.x ?? 0.5,
     y: opts?.y ?? 0.22,
     align: opts?.align ?? "center",
@@ -341,6 +414,14 @@ export function ensureArtLayoutLayers(
     ...(overlay.fontFiles ?? {}),
     ...(opts?.fontFiles ?? {}),
   };
+
+  if (overlay.preserveLayers) {
+    return {
+      ...overlay,
+      layers: overlay.layers.filter((layer) => layer.text.trim().length > 0),
+      fontFiles: Object.keys(mergedFontFiles).length > 0 ? mergedFontFiles : overlay.fontFiles,
+    };
+  }
 
   const scaffold = createDefaultOverlay({
     baseUrl: overlay.baseUrl,
@@ -524,8 +605,11 @@ function parseTextLayers(value: unknown): MediaTextLayer[] {
         fontWeight: asWeight(layer.fontWeight),
         fontStyle: asFontStyle(layer.fontStyle),
         fontSize: clamp01(typeof layer.fontSize === "number" ? layer.fontSize : 0.05) || 0.05,
+        lineHeight: normalizeLineHeight(layer.lineHeight),
+        letterSpacing: normalizeLetterSpacing(layer.letterSpacing),
         color: typeof layer.color === "string" && layer.color.trim() ? layer.color.trim() : "#FFFFFF",
         opacity: asOpacity(layer.opacity),
+        shadow: normalizeTextShadow(layer.shadow),
         x: clamp01(typeof layer.x === "number" ? layer.x : 0.5),
         y: clamp01(typeof layer.y === "number" ? layer.y : 0.5),
         align: asAlign(layer.align),
@@ -565,44 +649,19 @@ export function serializeDesignTemplateLayout(overlay: MediaTextOverlay): Design
   };
 }
 
-/** Monta overlay editável a partir do projeto do template + fundo limpo. */
+/**
+ * Monta overlay editável a partir do projeto do template + fundo limpo.
+ * Mantém texto, fonte e posição salvos. Camadas vazias (cabeçalho/rodapé
+ * que não fazem parte da arte) não entram no editor.
+ */
 export function overlayFromTemplateLayout(
   baseUrl: string,
   layout: DesignTemplateLayout,
-  opts?: {
-    overlayText?: string;
-    secondaryText?: string;
-    headerLeft?: string;
-    headerRight?: string;
-    primaryFont?: string;
-    secondaryFont?: string;
-  },
 ): MediaTextOverlay {
-  const primary = resolveBrandFont(opts?.primaryFont);
-  const secondary = resolveBrandFont(opts?.secondaryFont, primary);
-  const headline = (opts?.overlayText ?? "").trim();
-  const support = (opts?.secondaryText ?? "").trim();
-  const handle = formatInstagramHandle(opts?.headerLeft) || (opts?.headerLeft ?? "").trim();
-  const tagline = (opts?.headerRight ?? "").trim();
-
-  const layers = layout.layers.map((layer) => {
-    let text = layer.text;
-    let fontFamily = layer.fontFamily;
-    if (layer.role === "headline" && headline) text = headline;
-    if (layer.role === "support" && support) text = support;
-    if (layer.role === "handle" && handle) text = handle;
-    if (layer.role === "tagline" && tagline) text = tagline;
-    if (layer.role === "headline" || layer.role === "support") {
-      fontFamily = layer.role === "headline" ? primary : secondary;
-    } else if (layer.role === "handle" || layer.role === "tagline") {
-      fontFamily = secondary;
-    }
-    return { ...layer, text, fontFamily };
-  });
-
   return {
     baseUrl,
-    layers,
+    layers: layout.layers.filter((layer) => layer.text.trim().length > 0),
+    preserveLayers: true,
     adjustments: layout.adjustments ?? createDefaultImageAdjustments(),
     fontFiles: layout.fontFiles,
     fontFaces: layout.fontFaces,
@@ -615,6 +674,7 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
     baseUrl?: unknown;
     layers?: unknown;
     adjustments?: unknown;
+    preserveLayers?: unknown;
     fontFiles?: unknown;
     fontFaces?: unknown;
   };
@@ -624,6 +684,7 @@ export function parseMediaTextOverlay(value: unknown): MediaTextOverlay | null {
   return {
     baseUrl,
     layers,
+    preserveLayers: row.preserveLayers === true ? true : undefined,
     adjustments: parseImageAdjustments(row.adjustments),
     fontFiles: parseFontFiles(row.fontFiles),
     fontFaces: parseFontFaces(row.fontFaces),
@@ -700,13 +761,25 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
     ctx.font = `${layer.fontStyle === "italic" ? "italic " : ""}${layer.fontWeight} ${fontPx}px "${layer.fontFamily}", system-ui, sans-serif`;
     ctx.textAlign = layer.align;
     ctx.fillStyle = layer.color;
-    ctx.shadowColor = `rgba(0,0,0,${(0.45 * opacity).toFixed(3)})`;
-    ctx.shadowBlur = Math.max(2, fontPx * 0.08);
-    ctx.shadowOffsetY = Math.max(1, fontPx * 0.04);
+    const letterSpacing = normalizeLetterSpacing(layer.letterSpacing);
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+      `${letterSpacing * fontPx}px`;
+    const shadow = normalizeTextShadow(layer.shadow);
+    if (shadow.enabled) {
+      ctx.shadowColor = colorWithOpacity(shadow.color, shadow.opacity);
+      ctx.shadowOffsetX = shadow.offsetX * fontPx;
+      ctx.shadowOffsetY = shadow.offsetY * fontPx;
+      ctx.shadowBlur = shadow.blur * fontPx;
+    } else {
+      ctx.shadowColor = "transparent";
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.shadowBlur = 0;
+    }
 
     const maxWidth = layer.maxWidth * canvas.width;
     const lines = wrapLines(ctx, text, maxWidth);
-    const lineHeight = fontPx * 1.15;
+    const lineHeight = fontPx * normalizeLineHeight(layer.lineHeight);
     const blockHeight = lines.length * lineHeight;
     const startY = layer.y * canvas.height - blockHeight / 2 + lineHeight / 2;
     const x =
@@ -723,6 +796,10 @@ export async function flattenMediaTextOverlay(overlay: MediaTextOverlay): Promis
 
   ctx.globalAlpha = 1;
   ctx.shadowColor = "transparent";
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.shadowBlur = 0;
+  (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
 
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob((result) => resolve(result), "image/png");
