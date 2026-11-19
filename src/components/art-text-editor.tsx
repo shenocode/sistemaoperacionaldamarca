@@ -725,20 +725,41 @@ export function ArtTextEditorPanel({
 
   function applyFamily(family: string) {
     if (!selected) return;
+    const wantItalic = selected.fontStyle === "italic";
     const faces = facesForBrandFamily(brandFonts, family);
     if (faces.length > 0) {
       const preferred =
+        (wantItalic
+          ? faces.find((face) => face.weight === selected.fontWeight && face.style === "italic") ||
+            faces.find((face) => face.style === "italic")
+          : undefined) ||
         faces.find((face) => face.weight === "400" && face.style === "normal") ||
         faces.find((face) => face.style === "normal") ||
         faces[0];
       patchLayer(selected.id, {
         fontFamily: family,
         fontWeight: preferred.weight,
-        fontStyle: preferred.style,
+        fontStyle: wantItalic ? "italic" : preferred.style,
       });
       return;
     }
-    patchLayer(selected.id, { fontFamily: family, fontStyle: "normal" });
+    patchLayer(selected.id, {
+      fontFamily: family,
+      fontStyle: wantItalic ? "italic" : "normal",
+    });
+  }
+
+  function applyItalic(enabled: boolean) {
+    if (!selected) return;
+    const style = enabled ? "italic" : "normal";
+    const match =
+      selectedFaces.find((face) => face.weight === selected.fontWeight && face.style === style) ||
+      selectedFaces.find((face) => face.style === style);
+    if (match) {
+      patchLayer(selected.id, { fontWeight: match.weight, fontStyle: match.style });
+      return;
+    }
+    patchLayer(selected.id, { fontStyle: style });
   }
 
   function applyFace(faceKey: string) {
@@ -869,12 +890,7 @@ export function ArtTextEditorPanel({
                     ) : (
                       <Select
                         value={selected.fontWeight === "400" ? "400" : "700"}
-                        onValueChange={(value) =>
-                          patchLayer(selected.id, {
-                            fontWeight: value,
-                            fontStyle: "normal",
-                          })
-                        }
+                        onValueChange={(value) => patchLayer(selected.id, { fontWeight: value })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -908,6 +924,15 @@ export function ArtTextEditorPanel({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="art-text-italic">{t("project.detail.artText.italic")}</Label>
+                  <Switch
+                    id="art-text-italic"
+                    checked={selected.fontStyle === "italic"}
+                    onCheckedChange={applyItalic}
+                    aria-label={t("project.detail.artText.italic")}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("project.detail.artText.size")}</Label>

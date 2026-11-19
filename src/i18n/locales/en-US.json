@@ -1723,6 +1723,7 @@
         "variant": "Variant",
         "weightRegular": "Regular",
         "weightBold": "Bold",
+        "italic": "Italic",
         "align": "Alignment",
         "alignLeft": "Left",
         "alignCenter": "Center",
