@@ -1673,6 +1673,7 @@
         "downloadStarted": "Descarga iniciada.",
         "downloadError": "No se pudo descargar la imagen.",
         "savedToLibrary": "Arte guardada en la carpeta Artes generadas de la Biblioteca.",
+        "keptOnSave": "Al guardar el contenido, esta arte vuelve aquí para seguir editándola, aunque no la hayas aplicado al medio.",
         "librarySaveError": "Arte lista, pero no se pudo guardar en la Biblioteca.",
         "editText": "Editar texto"
       },

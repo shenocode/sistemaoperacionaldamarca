@@ -86,6 +86,7 @@ import {
   normalizeImageToDesignCanvas,
   overlayFromTemplateLayout,
   parseDesignTemplateLayout,
+  parseMediaTextOverlay,
   resolveBrandTagline,
   serializeDesignTemplateLayout,
   type MediaTextLayer,
@@ -127,6 +128,100 @@ type SlideDraft = {
 };
 
 type DesignApplyItem = { url: string; overlay?: MediaTextOverlay };
+
+const DESIGN_SESSION_KEY = "designSession";
+
+export type DesignSessionSlide = {
+  id: string;
+  overlayText: string;
+  secondaryText: string;
+  resultUrl: string | null;
+  overlay: MediaTextOverlay | null;
+  approved: boolean;
+};
+
+/** Rascunho do assistente, gravado no conteúdo junto com o salvamento da página. */
+export type DesignSession = {
+  v: 1;
+  overlayText: string;
+  secondaryText: string;
+  resultUrl: string | null;
+  resultOverlay: MediaTextOverlay | null;
+  slides: DesignSessionSlide[];
+};
+
+export type DesignAssistantBoot = {
+  contentId: string;
+  session: DesignSession | null;
+  applied: Array<{ url: string; overlay: MediaTextOverlay | null }>;
+};
+
+function parseSessionOverlay(value: unknown): MediaTextOverlay | null {
+  return parseMediaTextOverlay(value);
+}
+
+export function designSessionHasArt(session: DesignSession | null | undefined): boolean {
+  if (!session) return false;
+  if (session.resultUrl?.trim()) return true;
+  return session.slides.some((slide) => Boolean(slide.resultUrl?.trim()));
+}
+
+function publishableDesignSession(session: DesignSession | null): DesignSession | null {
+  if (!session || !designSessionHasArt(session)) return null;
+  return {
+    ...session,
+    slides: session.slides.filter(
+      (slide) =>
+        Boolean(slide.resultUrl?.trim()) ||
+        Boolean(slide.overlayText.trim()) ||
+        Boolean(slide.secondaryText.trim()),
+    ),
+  };
+}
+
+export function parseDesignSession(i18n: unknown): DesignSession | null {
+  if (!i18n || typeof i18n !== "object" || Array.isArray(i18n)) return null;
+  const raw = (i18n as Record<string, unknown>)[DESIGN_SESSION_KEY];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  const slides = Array.isArray(row.slides)
+    ? row.slides
+        .map((entry): DesignSessionSlide | null => {
+          if (!entry || typeof entry !== "object") return null;
+          const slide = entry as Record<string, unknown>;
+          const resultUrl = typeof slide.resultUrl === "string" ? slide.resultUrl.trim() : "";
+          return {
+            id: typeof slide.id === "string" && slide.id ? slide.id : crypto.randomUUID(),
+            overlayText: typeof slide.overlayText === "string" ? slide.overlayText : "",
+            secondaryText: typeof slide.secondaryText === "string" ? slide.secondaryText : "",
+            resultUrl: resultUrl || null,
+            overlay: parseSessionOverlay(slide.overlay),
+            approved: slide.approved === true,
+          };
+        })
+        .filter((slide): slide is DesignSessionSlide => slide != null)
+    : [];
+  const resultUrl = typeof row.resultUrl === "string" ? row.resultUrl.trim() : "";
+  const session: DesignSession = {
+    v: 1,
+    overlayText: typeof row.overlayText === "string" ? row.overlayText : "",
+    secondaryText: typeof row.secondaryText === "string" ? row.secondaryText : "",
+    resultUrl: resultUrl || null,
+    resultOverlay: parseSessionOverlay(row.resultOverlay),
+    slides,
+  };
+  return designSessionHasArt(session) ? session : null;
+}
+
+export function withDesignSession(i18n: Record<string, unknown>, session: DesignSession | null) {
+  const next = { ...i18n };
+  if (!session || !designSessionHasArt(session)) {
+    delete next[DESIGN_SESSION_KEY];
+    return next;
+  }
+  next[DESIGN_SESSION_KEY] = session;
+  return next;
+}
 
 function templateAspect(template: DesignTemplate): DesignAspectRatio {
   return parseDesignAspectRatio(template.aspect_ratio, defaultAspectForFormat(template.format));
@@ -484,6 +579,8 @@ export function ContentDesignAssistant({
   onRoteiroChange: _onRoteiroChange,
   onApply,
   onApplyAtIndex,
+  designBoot,
+  onSessionChange,
 }: {
   contentId: string;
   projectId: string;
@@ -497,6 +594,9 @@ export function ContentDesignAssistant({
   onApply: (items: DesignApplyItem[]) => void;
   /** Inclui/substitui um slide na mídia (mockup) pela posição. Retorna false se a ordem impedir. */
   onApplyAtIndex?: (index: number, item: DesignApplyItem) => boolean;
+  /** Sessão gravada no conteúdo, ou a mídia já aplicada, para retomar a edição. */
+  designBoot?: DesignAssistantBoot | null;
+  onSessionChange?: (session: DesignSession | null) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -566,6 +666,9 @@ export function ContentDesignAssistant({
     | { mode: "template"; url: string }
     | null
   >(null);
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const bootedFor = useRef<string | null>(null);
+  const bootedSnapshot = useRef("null");
   const [templateSectionOpen, setTemplateSectionOpen] = useState(!isCarousel);
   const templateFileInputRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
@@ -591,6 +694,95 @@ export function ContentDesignAssistant({
     if (isCarousel) return;
     setOverlayText((prev) => (prev.trim() ? prev : defaultOverlay));
   }, [isCarousel, defaultOverlay]);
+
+  useEffect(() => {
+    if (!designBoot || designBoot.contentId !== contentId) return;
+    if (bootedFor.current === contentId) return;
+    bootedFor.current = contentId;
+
+    const saved = designBoot.session && designSessionHasArt(designBoot.session) ? designBoot.session : null;
+    const applied = designBoot.applied.filter((item) => item.url.trim());
+    const fromApplied: DesignSession | null = saved
+      ? null
+      : applied.length === 0
+        ? null
+        : isCarousel
+          ? {
+              v: 1,
+              overlayText: "",
+              secondaryText: "",
+              resultUrl: null,
+              resultOverlay: null,
+              slides: applied.map((item) => ({
+                id: crypto.randomUUID(),
+                overlayText: "",
+                secondaryText: "",
+                resultUrl: item.url,
+                overlay: item.overlay,
+                approved: true,
+              })),
+            }
+          : {
+              v: 1,
+              overlayText: "",
+              secondaryText: "",
+              resultUrl: applied[0].url,
+              resultOverlay: applied[0].overlay,
+              slides: [],
+            };
+
+    const session = saved ?? fromApplied;
+    bootedSnapshot.current = JSON.stringify(publishableDesignSession(session));
+    if (session && designSessionHasArt(session)) {
+      setOpen(true);
+      setOverlayText(session.overlayText);
+      setSecondaryText(session.secondaryText);
+      setResultUrl(session.resultUrl);
+      setResultOverlay(session.resultOverlay);
+      setResultSavedToLibrary(Boolean(session.resultUrl));
+      if (session.slides.length > 0) {
+        setSlides(
+          session.slides.map((slide) => ({
+            ...createSlide(slide.overlayText, slide.secondaryText),
+            id: slide.id,
+            resultUrl: slide.resultUrl,
+            overlay: slide.overlay,
+            approved: slide.approved,
+            savedToLibrary: Boolean(slide.resultUrl),
+          })),
+        );
+      }
+    } else {
+      setResultUrl(null);
+      setResultOverlay(null);
+      setResultSavedToLibrary(false);
+      setSlides([createSlide()]);
+    }
+    setSessionEpoch((n) => n + 1);
+  }, [designBoot, contentId, isCarousel]);
+
+  useEffect(() => {
+    if (sessionEpoch === 0) return;
+    const next = publishableDesignSession({
+      v: 1,
+      overlayText,
+      secondaryText,
+      resultUrl,
+      resultOverlay,
+      slides: slides.map((slide) => ({
+        id: slide.id,
+        overlayText: slide.overlayText,
+        secondaryText: slide.secondaryText,
+        resultUrl: slide.resultUrl,
+        overlay: slide.overlay,
+        approved: slide.approved,
+      })),
+    });
+    const serialized = JSON.stringify(next);
+    if (serialized === bootedSnapshot.current) return;
+    bootedSnapshot.current = serialized;
+    onSessionChange?.(next);
+  }, [sessionEpoch, overlayText, secondaryText, resultUrl, resultOverlay, slides, onSessionChange]);
 
   function applySlides(next: SlideDraft[]) {
     setSlides(next);
@@ -1762,6 +1954,9 @@ export function ContentDesignAssistant({
                     {t("project.detail.designAssistant.savedToLibrary")}
                   </p>
                 ) : null}
+                <p className="text-xs text-muted-foreground">
+                  {t("project.detail.designAssistant.keptOnSave")}
+                </p>
               </div>
             ) : null}
           </>
@@ -1809,6 +2004,11 @@ export function ContentDesignAssistant({
                 />
               </div>
             </div>
+            {slides.some((slide) => slide.resultUrl) ? (
+              <p className="text-xs text-muted-foreground">
+                {t("project.detail.designAssistant.keptOnSave")}
+              </p>
+            ) : null}
 
             <Accordion
               type="single"

@@ -38,7 +38,13 @@ import {
   type PreviewMediaItem,
 } from "@/components/content-media-preview";
 import { ContentAiAssistant } from "@/components/content-ai-assistant";
-import { ContentDesignAssistant } from "@/components/content-design-assistant";
+import {
+  ContentDesignAssistant,
+  parseDesignSession,
+  withDesignSession,
+  type DesignAssistantBoot,
+  type DesignSession,
+} from "@/components/content-design-assistant";
 import { ContentMediaLibraryPicker } from "@/components/content-media-library-picker";
 import { InstagramFeedMockup } from "@/components/instagram-feed-mockup";
 import { YouTubeChannelMockup } from "@/components/youtube-notebook-mockup";
@@ -334,6 +340,7 @@ function ContentDetailPage() {
   const [hashtags, setHashtags] = useState("");
   const [theme, setTheme] = useState("");
   const [rowI18n, setRowI18n] = useState<RowI18n>({});
+  const [designBoot, setDesignBoot] = useState<DesignAssistantBoot | null>(null);
   const [formatType, setFormatType] = useState<ContentFormat>("static_feed");
   const posterPreset = getGraphicArtsMaterialPreset("poster");
   const [materialType, setMaterialType] = useState<GraphicArtsMaterialType>("poster");
@@ -530,7 +537,21 @@ function ContentDetailPage() {
       parseMediaOverlays((row as ContentItem).media_overlays),
     );
     const nextThumbnail = row.thumbnail_url?.trim() || "";
-    setRowI18n(healedI18n);
+    const parsedDesignSession = parseDesignSession(healedI18n);
+    const i18nForForm = withDesignSession(healedI18n, parsedDesignSession);
+    const appliedDesign = contentUsesDedicatedThumbnail(nextFormat)
+      ? nextThumbnail
+        ? [{ url: nextThumbnail, overlay: null }]
+        : []
+      : nextMedia.flatMap((item) =>
+          item.kind === "url" ? [{ url: item.url, overlay: item.overlay ?? null }] : [],
+        );
+    setRowI18n(i18nForForm);
+    setDesignBoot({
+      contentId: row.id,
+      session: parsedDesignSession,
+      applied: appliedDesign,
+    });
     setTitle(nextTitle);
     setCaption(nextCaption);
     setLocucao(nextLocucao);
@@ -577,7 +598,7 @@ function ContentDetailPage() {
         mediaItems: nextMedia,
         thumbnailUrl: nextThumbnail,
         thumbnailFileName: "",
-        rowI18n: healedI18n,
+        rowI18n: i18nForForm,
       }),
     );
     setIgnoreUnsavedChanges(false);
@@ -1659,6 +1680,19 @@ function ContentDetailPage() {
               title={title}
               caption={caption}
               roteiro={roteiro}
+              designBoot={designBoot}
+              onSessionChange={(session: DesignSession | null) => {
+                setRowI18n((prev) => {
+                  const next = withDesignSession(prev, session);
+                  if (
+                    JSON.stringify(prev.designSession ?? null) ===
+                    JSON.stringify(next.designSession ?? null)
+                  ) {
+                    return prev;
+                  }
+                  return next;
+                });
+              }}
               onApply={(items) => {
                 if (usesDedicatedThumbnail && items[0]) {
                   setThumbnailFromFile(null);

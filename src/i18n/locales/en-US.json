@@ -1673,6 +1673,7 @@
         "downloadStarted": "Download started.",
         "downloadError": "Could not download the image.",
         "savedToLibrary": "Artwork saved to the Generated arts folder in the Library.",
+        "keptOnSave": "Saving the content brings this artwork back here so you can keep editing, even if you did not apply it to the media.",
         "librarySaveError": "Artwork ready, but could not be saved to the Library.",
         "editText": "Edit text"
       },
