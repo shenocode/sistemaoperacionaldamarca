@@ -488,7 +488,7 @@ function ContentListPage() {
               ))}
             </div>
 
-            <div className="hidden overflow-x-auto overscroll-x-contain md:block">
+            <div className="hidden min-w-0 max-w-full overflow-x-auto overscroll-x-contain md:block">
               <table className="w-full min-w-[1020px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <tr>

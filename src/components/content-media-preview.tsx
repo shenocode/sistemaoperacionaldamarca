@@ -536,8 +536,10 @@ export function PhoneChrome({
   return (
     <div
       className={cn(
-        "mx-auto w-full overflow-x-clip",
-        size === "lg" ? "max-w-[min(100%,420px)]" : "max-w-[min(100%,320px)]",
+        "mx-auto w-full min-w-0 max-w-full overflow-x-clip",
+        size === "lg"
+          ? "max-w-[min(100%,300px)] lg:max-w-[min(100%,420px)]"
+          : "max-w-[min(100%,320px)]",
         className,
       )}
     >
@@ -830,7 +832,7 @@ export function ContentMediaPreview({
       return (
         <div
           className={cn(
-            "flex items-center justify-center bg-neutral-100 text-xs text-neutral-400",
+            "flex min-w-0 max-w-full items-center justify-center bg-neutral-100 text-xs text-neutral-400",
             aspectClass,
           )}
         >
@@ -841,8 +843,8 @@ export function ContentMediaPreview({
 
     if (format === "carousel") {
       return (
-        <div className={cn("relative bg-black", aspectClass)}>
-          <Carousel setApi={setApi} opts={{ loop: false }} className="h-full w-full">
+        <div className={cn("relative min-w-0 max-w-full bg-black", aspectClass)}>
+          <Carousel setApi={setApi} opts={{ loop: false }} className="h-full w-full min-w-0">
             <CarouselContent className="ml-0 h-full">
               {items.map((item, index) => (
                 <CarouselItem key={`${item.url}-${index}`} className="basis-full pl-0">
@@ -888,7 +890,7 @@ export function ContentMediaPreview({
     }
 
     return (
-      <div className={cn("relative bg-black", aspectClass)}>
+      <div className={cn("relative min-w-0 max-w-full bg-black", aspectClass)}>
         <MediaSlide
           item={items[0]}
           title={title}

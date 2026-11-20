@@ -1421,8 +1421,33 @@ function ContentDetailPage() {
     </Card>
   );
 
+  const feedMockup = (variant: "inline" | "sidebar") =>
+    showFeedMockup ? (
+      isVideosProject ? (
+        <YouTubeChannelMockup
+          items={feedItems}
+          clientId={clientId}
+          projectId={projectId}
+          username={client?.name}
+          avatarUrl={client?.logo_url}
+          size={variant === "inline" ? "default" : "lg"}
+          className="mx-auto w-full min-w-0 max-w-full"
+        />
+      ) : (
+        <InstagramFeedMockup
+          items={feedItems}
+          clientId={clientId}
+          projectId={projectId}
+          username={client?.name}
+          avatarUrl={client?.logo_url}
+          compact={variant === "inline"}
+          className="mx-auto min-w-0 w-full"
+        />
+      )
+    ) : null;
+
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <UnsavedChangesGuard isDirty={isDirty} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -1441,73 +1466,78 @@ function ContentDetailPage() {
         <StatusBadge status={displayStatus} asButton />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="rounded-xl">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          <Card className="min-w-0 rounded-xl">
             <CardHeader>
               <CardTitle className="text-base">{t("project.detail.preview")}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ContentMediaPreview
-                items={previewItems}
-                format={formatType}
-                title={title}
-                caption={caption}
-                hashtags={hashtags}
-                cta={cta}
-                username={client?.name ?? title}
-                avatarUrl={client?.logo_url}
-                thumbnailUrl={previewThumbnailUrl}
-                size="lg"
-                materialType={materialType}
-                widthCm={parseCmInput(widthCm)}
-                heightCm={parseCmInput(heightCm)}
-                textEditor={
-                  ART_TEXT_EDITOR_ENABLED &&
-                  isAdmin &&
-                  (formatType === "static_feed" || formatType === "carousel")
-                    ? {
-                        brandFonts: brandKitFromClient(client ?? {}).brand_fonts,
-                        colors: brandKitFromClient(client ?? {}).brand_colors,
-                        clientId,
-                        onReplaceImageFile: (file) => uploadContentMedia(projectId, file),
-                        headerLeft: formatInstagramHandle(client?.instagram),
-                        headerRight:
-                          resolveBrandTagline(brandKitFromClient(client ?? {}).brand_fonts.notes) ||
-                          undefined,
-                        overlayText: title,
-                        onSave: async (index, overlay) => {
-                          try {
-                            const file = await flattenOverlayToFile(
-                              overlay,
-                              `${title.trim() || "arte"}-texto.png`,
-                            );
-                            const url = await uploadContentMedia(projectId, file);
-                            setMediaItems((prev) =>
-                              prev.map((item, i) =>
-                                i === index
-                                  ? { id: item.id, kind: "url", url, overlay }
-                                  : item,
-                              ),
-                            );
-                            toast.success(t("project.detail.artText.saved"));
-                          } catch (err) {
-                            toast.error(
-                              err instanceof Error
-                                ? err.message
-                                : t("project.detail.artText.saveError"),
-                            );
-                            throw err;
-                          }
-                        },
-                      }
-                    : undefined
-                }
-              />
+            <CardContent className="min-w-0">
+              <div className="mx-auto w-full min-w-0 max-w-[min(100%,300px)] lg:max-w-[min(100%,420px)]">
+                <ContentMediaPreview
+                  items={previewItems}
+                  format={formatType}
+                  title={title}
+                  caption={caption}
+                  hashtags={hashtags}
+                  cta={cta}
+                  username={client?.name ?? title}
+                  avatarUrl={client?.logo_url}
+                  thumbnailUrl={previewThumbnailUrl}
+                  size="lg"
+                  materialType={materialType}
+                  widthCm={parseCmInput(widthCm)}
+                  heightCm={parseCmInput(heightCm)}
+                  textEditor={
+                    ART_TEXT_EDITOR_ENABLED &&
+                    isAdmin &&
+                    (formatType === "static_feed" || formatType === "carousel")
+                      ? {
+                          brandFonts: brandKitFromClient(client ?? {}).brand_fonts,
+                          colors: brandKitFromClient(client ?? {}).brand_colors,
+                          clientId,
+                          onReplaceImageFile: (file) => uploadContentMedia(projectId, file),
+                          headerLeft: formatInstagramHandle(client?.instagram),
+                          headerRight:
+                            resolveBrandTagline(
+                              brandKitFromClient(client ?? {}).brand_fonts.notes,
+                            ) || undefined,
+                          overlayText: title,
+                          onSave: async (index, overlay) => {
+                            try {
+                              const file = await flattenOverlayToFile(
+                                overlay,
+                                `${title.trim() || "arte"}-texto.png`,
+                              );
+                              const url = await uploadContentMedia(projectId, file);
+                              setMediaItems((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? { id: item.id, kind: "url", url, overlay }
+                                    : item,
+                                ),
+                              );
+                              toast.success(t("project.detail.artText.saved"));
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error
+                                  ? err.message
+                                  : t("project.detail.artText.saveError"),
+                              );
+                              throw err;
+                            }
+                          },
+                        }
+                      : undefined
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl">
+          <div className="min-w-0 lg:hidden">{feedMockup("inline")}</div>
+
+          <Card className="min-w-0 rounded-xl">
             <CardContent className="p-6">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {isPrintPiece ? (
@@ -2336,7 +2366,7 @@ function ContentDetailPage() {
           {renderSaveAndStatusCard("version-note")}
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {renderSaveAndStatusCard("version-note-top")}
 
           <Card className="h-fit rounded-xl">
@@ -2406,27 +2436,7 @@ function ContentDetailPage() {
             </CardContent>
           </Card>
 
-          {showFeedMockup ? (
-            isVideosProject ? (
-              <YouTubeChannelMockup
-                items={feedItems}
-                clientId={clientId}
-                projectId={projectId}
-                username={client?.name}
-                avatarUrl={client?.logo_url}
-                className="mx-auto w-full"
-              />
-            ) : (
-              <InstagramFeedMockup
-                items={feedItems}
-                clientId={clientId}
-                projectId={projectId}
-                username={client?.name}
-                avatarUrl={client?.logo_url}
-                className="mx-auto w-full"
-              />
-            )
-          ) : null}
+          <div className="hidden min-w-0 lg:block">{feedMockup("sidebar")}</div>
         </div>
       </div>
 

@@ -65,7 +65,7 @@ function ContactLeadsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <PageHeader title={t("leads.title")} description={t("leads.subtitle")} />
 
       <section className="space-y-3 rounded-md border bg-card/40 p-4">
@@ -121,7 +121,7 @@ function ContactLeadsPage() {
       ) : !leadsQuery.data?.length ? (
         <EmptyState title={t("leads.empty")} />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border">
           <table className="w-full min-w-[44rem] text-left text-sm">
             <thead className="border-b bg-muted/40 text-muted-foreground">
               <tr>

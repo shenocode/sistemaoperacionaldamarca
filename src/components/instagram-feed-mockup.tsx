@@ -40,6 +40,8 @@ type InstagramFeedMockupProps = {
   onReorder?: (nextListOrder: ContentItem[]) => void;
   /** When false, hides the “Prévia do feed” caption above the phone. */
   showLabel?: boolean;
+  /** Shorter phone so the editor form stays on screen under the preview. */
+  compact?: boolean;
 };
 
 /** Conteúdo "em produção" não entra na simulação do feed. */
@@ -213,6 +215,7 @@ export function InstagramFeedMockup({
   canReorder = false,
   onReorder,
   showLabel = true,
+  compact = false,
 }: InstagramFeedMockupProps) {
   const { t } = useTranslation();
   const handle = toInstagramHandle(username || "marca");
@@ -255,14 +258,21 @@ export function InstagramFeedMockup({
   };
 
   return (
-    <div className={cn("mx-auto w-full max-w-[min(100%,320px)]", className)}>
+    <div className={cn("mx-auto w-full min-w-0 max-w-[min(100%,320px)]", className)}>
       {showLabel ? (
         <p className="mb-2 text-center text-xs font-medium text-muted-foreground">
           {t("project.content.feedPreview")}
         </p>
       ) : null}
       <PhoneChrome>
-        <div className="flex h-[min(70vh,560px)] min-h-[420px] flex-col bg-white sm:h-[560px] sm:min-h-0">
+        <div
+          className={cn(
+            "flex flex-col bg-white",
+            compact
+              ? "h-[min(46dvh,420px)] min-h-[220px]"
+              : "h-[min(70vh,560px)] min-h-[420px] sm:h-[560px] sm:min-h-0",
+          )}
+        >
           <div className="flex items-center justify-center border-b border-neutral-200 px-3 pb-2 pt-1">
             <p className="truncate text-[13px] font-semibold text-neutral-900">{handle}</p>
           </div>

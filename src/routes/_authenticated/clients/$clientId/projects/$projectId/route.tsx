@@ -299,28 +299,34 @@ function ProjectLayout() {
         </p>
       ) : null}
 
-      <div
-        role="tablist"
-        className="-mx-4 mt-6 flex gap-1 overflow-x-auto overscroll-x-contain border-b px-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
-      >
-        {tabs.map((tab) => (
-          <Link
-            key={tab.id}
-            to={tab.to}
-            params={{ clientId, projectId }}
-            {...(tab.to === "/clients/$clientId/projects/$projectId/content"
-              ? { search: {} }
-              : {})}
-            role="tab"
-            className="shrink-0 border-b-2 -mb-px px-3 py-2 text-sm font-medium transition-colors sm:px-4"
-            inactiveProps={{
-              className: "border-transparent text-muted-foreground hover:text-foreground",
-            }}
-            activeProps={{ className: "border-primary text-primary" }}
-          >
-            {tab.label}
-          </Link>
-        ))}
+      <div className="relative mt-6 min-w-0">
+        <div
+          role="tablist"
+          className="-mx-4 flex gap-1 overflow-x-auto overscroll-x-contain border-b px-4 pr-10 [scrollbar-width:none] sm:-mx-6 sm:px-6 md:mx-0 md:px-0 md:pr-0 [&::-webkit-scrollbar]:hidden"
+        >
+          {tabs.map((tab) => (
+            <Link
+              key={tab.id}
+              to={tab.to}
+              params={{ clientId, projectId }}
+              {...(tab.to === "/clients/$clientId/projects/$projectId/content"
+                ? { search: {} }
+                : {})}
+              role="tab"
+              className="shrink-0 border-b-2 -mb-px px-3 py-2 text-sm font-medium transition-colors sm:px-4"
+              inactiveProps={{
+                className: "border-transparent text-muted-foreground hover:text-foreground",
+              }}
+              activeProps={{ className: "border-primary text-primary" }}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent lg:hidden"
+        />
       </div>
 
       <div className="mt-6 min-w-0">

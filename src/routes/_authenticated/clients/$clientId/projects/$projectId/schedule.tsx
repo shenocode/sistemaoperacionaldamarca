@@ -103,7 +103,7 @@ function ProjectSiteSchedulePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h2 className="text-base font-medium">{t("project.site.schedule.title")}</h2>
@@ -129,7 +129,7 @@ function ProjectSiteSchedulePage() {
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="bg-muted">

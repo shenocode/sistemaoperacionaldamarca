@@ -1485,7 +1485,7 @@ function ProjectCalendarPage() {
           ) : null}
         </div>
 
-        <div className="hidden overflow-x-auto overscroll-x-contain md:block">
+        <div className="hidden min-w-0 max-w-full overflow-x-auto overscroll-x-contain md:block">
           <table className="w-full min-w-[960px] table-fixed text-sm">
             <thead className="bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -1694,7 +1694,7 @@ function ProjectCalendarPage() {
                     : `${format(model.range.start, "LLLL yyyy", { locale })} – ${format(model.range.end, "LLLL yyyy", { locale })}`}
               </h3>
             ) : null}
-            <div className="overflow-x-auto">
+            <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
                 <thead>
                   <tr>
@@ -2013,7 +2013,7 @@ function ProjectCalendarPage() {
     contentQuery.isLoading || projectQuery.isLoading || (Boolean(contentQuery.data) && blocksQuery.isLoading);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div>
