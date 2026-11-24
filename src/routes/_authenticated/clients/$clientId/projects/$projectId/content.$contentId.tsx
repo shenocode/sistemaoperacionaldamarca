@@ -1466,6 +1466,8 @@ function ContentDetailPage() {
         <StatusBadge status={displayStatus} asButton />
       </div>
 
+      <div className="lg:hidden">{renderSaveAndStatusCard("version-note-mobile-top")}</div>
+
       <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card className="min-w-0 rounded-xl">
@@ -2367,7 +2369,7 @@ function ContentDetailPage() {
         </div>
 
         <div className="min-w-0 space-y-6">
-          {renderSaveAndStatusCard("version-note-top")}
+          <div className="hidden lg:block">{renderSaveAndStatusCard("version-note-top")}</div>
 
           <Card className="h-fit rounded-xl">
             <CardHeader>
